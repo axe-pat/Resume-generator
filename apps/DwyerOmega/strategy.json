@@ -1,0 +1,32 @@
+{
+  "company": "DwyerOmega",
+  "role_title": "Product Management Intern - Pressure & Force",
+  "company_type": "enterprise_saas",
+  "company_stage": "public_large",
+  "archetype": "generalist",
+  "archetype_reasoning": "The role centers on product discovery, VOC research, competitive analysis, and SKU/data governance across industrial hardware verticals — a broad product development support role rather than a specialized PM archetype.",
+  "top_signals": [
+    "Voice-of-customer (VOC) research synthesis into actionable product and market recommendations",
+    "Competitive research and market adjacency mapping (specifically water/wastewater opportunity identification)",
+    "Product data governance and cross-functional execution (PIM attribute cleanup, SKU onboarding, sales enablement content)"
+  ],
+  "hook_angle": "Open with the moment Akshat realized that incomplete or inconsistent product data upstream quietly kills conversion and enterprise trust downstream — drawing from his Hevo experience where auditability gaps were the actual blocker to enterprise deals, and connecting it to DwyerOmega's 300,000-SKU catalog where data quality directly determines digital channel performance.",
+  "story_recommendations": [
+    "hevo_batch_platform",
+    "intuit_billing"
+  ],
+  "story_reasoning": "hevo_batch_platform mirrors the core loop here — identifying a structural gap (auditability/data completeness) that blocks enterprise outcomes and fixing it through cross-functional alignment; intuit_billing reinforces the data governance and reconciliation framing that maps directly to PIM cleanup and SKU attribute work.",
+  "company_research_angle": "DwyerOmega's growth through acquisition (including the Omega Engineering merger) means its product catalog likely carries significant attribute inconsistency and data fragmentation across legacy product lines — a known tension in multi-brand industrial instrumentation companies that makes PIM governance and portfolio rationalization genuinely strategic, not just administrative.",
+  "tone": "direct_precise",
+  "tone_reasoning": "DwyerOmega is an engineering-driven industrial manufacturer that values analytical rigor, detail orientation, and clear recommendations — a direct, precise tone signals competence and respects the culture without over-indexing on startup energy or executive abstraction.",
+  "gaps": [
+    "No direct experience with physical product lines, hardware SKUs, or industrial instrumentation (pressure, force, HVAC) — Akshat's background is entirely software/data products",
+    "No stated experience with PIM tools (Akeneo), sales enablement platforms (Seismic), or project tools (Wrike) specifically mentioned in the JD",
+    "No manufacturing or channel distribution context in his background — the role involves supporting ecommerce and channel teams for physical products"
+  ],
+  "role_family": "pm",
+  "primary_framing_axis": "churn-renewal",
+  "secondary_framing_axis": "enterprise-trial",
+  "first_90_day_bet": "Map the attribute completeness gap across the Pressure & Force SKU catalog in Akeneo — identify which product series have the highest search-to-conversion drop-off in digital channels due to missing or inconsistent specs, prioritize the top 20% of SKUs by revenue impact, and produce a data remediation brief with a recommended attribute governance workflow that the channel and marketing teams can act on immediately.",
+  "positioning_narrative": "Akshat shows up here as the analytically rigorous, cross-functional PM who has repeatedly turned messy data and incomplete product information into enterprise-ready systems — most directly at Hevo, where he identified auditability gaps as the real blocker to enterprise deals, and at Intuit, where billing data reconciliation directly drove renewal outcomes. The strongest story thread running through his background is: find the data or process gap that silently kills downstream trust, structure it, and close it with cross-functional buy-in. The resume and cover letter should emphasize his VOC-to-insight synthesis, his comfort operating across engineering, marketing, and channel stakeholders, and his track record turning product data problems into measurable business outcomes — while de-emphasizing consumer marketplace and fintech framing that would feel misaligned with an industrial hardware context."
+}

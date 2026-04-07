@@ -1,0 +1,34 @@
+{
+  "company": "Applied Materials",
+  "role_title": "Technology Market Research Intern - Strategy and Operations",
+  "company_type": "enterprise_saas",
+  "company_stage": "public_large",
+  "archetype": "strategy_pm",
+  "archetype_reasoning": "The role sits in Strategy and Operations at a semiconductor capital equipment leader, signaling a need for structured market intelligence synthesis and strategic recommendations rather than product ownership or execution delivery.",
+  "top_signals": [
+    "technology market research and competitive intelligence synthesis",
+    "structured diagnosis translating market signals into strategic recommendations",
+    "cross-functional insight generation for executive or business-unit audiences"
+  ],
+  "hook_angle": "The moment Akshat reframed a Gojek supply shortage not as a headcount or ops problem but as a product extensibility gap — and then built the market and behavioral research to prove it — mirrors the core ask here: turn ambiguous technology market signals into a sharp strategic bet.",
+  "story_recommendations": [
+    "gojek_supply",
+    "hevo_batch_platform"
+  ],
+  "story_reasoning": "gojek_supply demonstrates structured research reframing an assumed operational problem into a product/market insight, and hevo_batch_platform shows customer-segment diagnosis (auditability as enterprise deal blocker) that drove a strategic pivot — both map to market research leading to a consequential strategic recommendation.",
+  "company_research_angle": "Applied Materials is navigating a strategic tension between its core CVD/etch equipment business and its newer services/subscription revenue layer (AGS), while simultaneously positioning for gate-all-around and backside power delivery adoption cycles — a letter that references this transition from one-time capital equipment to recurring intelligence-driven service relationships would signal genuine sector fluency.",
+  "tone": "strategic_executive",
+  "tone_reasoning": "Applied Materials is a large, formal public company and the role sits in a Strategy and Operations function; the letter needs to project analytical rigor and executive-facing credibility, not startup warmth or conversational informality.",
+  "gaps": [
+    "No direct semiconductor, materials science, or capital equipment industry background",
+    "No explicit market research or competitive intelligence deliverable listed in the portfolio",
+    "No demonstrated experience with financial modeling or market sizing methodologies common in S&O research roles"
+  ],
+  "role_family": "strategy-consulting",
+  "nonpm_subtype": "research-intelligence",
+  "bullet_balance": "diagnostic-heavy",
+  "primary_framing_axis": "market-diagnosis",
+  "secondary_framing_axis": "business-model-pivot",
+  "first_90_day_bet": "Map Applied Materials' addressable opportunity in the gate-all-around transition by segmenting foundry vs. IDM customer adoption timelines, identify which equipment categories face substitution risk from competitors like Lam and ASML, and deliver a structured competitive positioning brief to the Strategy team.",
+  "positioning_narrative": "Akshat is showing up here as a structured research thinker who converts ambiguous market problems into precise, decision-ready diagnostics — the same instinct that turned a Gojek ops complaint into an $110M platform insight and identified auditability as Hevo's enterprise deal blocker. The strongest thread across his background is not execution volume but diagnosis precision: spotting the hidden variable (WTP, latency, auditability, extensibility) that everyone else misread as something else, then building the evidence to reframe it. The resume and cover letter should foreground this diagnostic-first identity, lead with the market/segment reframing stories, and de-emphasize pure engineering execution or platform reliability bullets."
+}

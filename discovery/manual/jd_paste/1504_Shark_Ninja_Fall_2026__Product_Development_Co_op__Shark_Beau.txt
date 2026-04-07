@@ -1,0 +1,6 @@
+# Row ID: 1504
+# Company: Shark Ninja
+# Title: Fall 2026: Product Development Co-op, Shark Beauty (July to December)
+# Instructions: Paste the full job description below this line, then save.
+# Run: python discovery/auto/jd_fetch.py --rescore-pastes
+

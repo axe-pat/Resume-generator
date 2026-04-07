@@ -1,0 +1,35 @@
+{
+  "company": "ofi (Olam Food Ingredients)",
+  "role_title": "MBA Strategy Intern (Operations)",
+  "company_type": "enterprise_saas",
+  "company_stage": "public_large",
+  "archetype": "generalist",
+  "archetype_reasoning": "The role is a shopfloor operations and process improvement internship at a food ingredients manufacturer — it wants a business generalist who can collect data, analyze manufacturing workflows, and drive efficiency recommendations, not a product or strategy specialist.",
+  "top_signals": [
+    "Manufacturing process analysis and throughput/yield improvement",
+    "Data collection and KPI reporting (manhours per pound, OEE)",
+    "Root cause analysis of production bottlenecks and continuous improvement execution"
+  ],
+  "hook_angle": "The moment Akshat realized during his Hevo incident response work that operational bottlenecks — whether in software pipelines or physical production lines — share the same diagnostic logic: trace the constraint, measure the delay, fix the upstream cause before the downstream symptom.",
+  "story_recommendations": [
+    "intuit_incident",
+    "hevo_job_monitoring"
+  ],
+  "story_reasoning": "The Intuit incident command story demonstrates cross-functional root cause diagnosis and structured operational response at scale, while Hevo Job Monitoring shows data-driven identification of process failure points — both map to the role's ask for bottleneck analysis and corrective action.",
+  "company_research_angle": "ofi's Nuts business operates a downstream private label model out of Hughson, CA — a capital-intensive, margin-thin segment where yield loss and manhour inefficiency compound directly into unit economics; referencing the tension between private label price pressure and the need for operational precision would signal genuine business model understanding.",
+  "tone": "formal_enterprise",
+  "tone_reasoning": "ofi is a large, traditional agri-food ingredients company with a structured internship program reporting to a Business Head — a professional, direct tone is appropriate; startup warmth would feel mismatched.",
+  "gaps": [
+    "No direct manufacturing, supply chain, or food operations experience",
+    "No shopfloor or OEE/lean manufacturing background",
+    "No agriculture or food & beverage industry exposure",
+    "Role is on-site in Hughson, CA for 10–12 weeks — logistics and CPT eligibility should be confirmed against on-site requirement"
+  ],
+  "role_family": "ops-execution",
+  "nonpm_subtype": "ops-execution",
+  "bullet_balance": "action-heavy",
+  "primary_framing_axis": "operational-bottleneck-diagnosis",
+  "secondary_framing_axis": "cross-functional-incident-execution",
+  "first_90_day_bet": "Map the end-to-end nut processing line at Hughson against current manhours-per-pound data to isolate the top two or three yield loss points, then run a structured root cause session with production leads to surface whether losses are equipment-, workflow-, or scheduling-driven before recommending any process change.",
+  "positioning_narrative": "Akshat shows up here as an analytically rigorous operations thinker who has repeatedly diagnosed process failures — in software pipelines, billing systems, and incident response — by tracing constraints to their upstream source rather than patching symptoms. The strongest thread through his background for this role is structured root cause analysis under cross-functional pressure: the Intuit incident command and Hevo monitoring work both demonstrate his ability to collect operational data, coordinate across teams, and drive corrective action quickly. The resume and cover letter should foreground his data diagnosis and cross-functional execution credentials while de-emphasizing product strategy, pricing, and marketplace work, which are irrelevant to a shopfloor efficiency role."
+}

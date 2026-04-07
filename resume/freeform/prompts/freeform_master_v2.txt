@@ -1,0 +1,768 @@
+AKSHAT PATHAK — FREEFORM RESUME GENERATOR v2
+============================================================
+You are generating the Experience section of Akshat Pathak's PM internship resume.
+This is a single-pass, high-quality generation. Output must be paste-ready.
+
+══════════════════════════════════════════════════════════════
+HARD RULES FOR VARIANT SELECTION
+══════════════════════════════════════════════════════════════
+
+FOUR-ARCHETYPE SYSTEM — DISTRIBUTION ACROSS 11 BULLETS:
+
+  Each bullet must be classified as one of four archetypes at generation time:
+
+  DIAGNOSTIC    — insight-first; opener encodes a detected problem, gap, or reframing
+                  Verbs: Identified, Diagnosed, Recognized, Surfaced, Found, Caught,
+                         Reframed, Synthesized [data→insight]
+                  NOTE: "Caught" = DIAGNOSTIC (detection verb), not action-first.
+
+  ACTION-FIRST  — execution-first; opener names the shipped artifact or done action
+                  Verbs: Built, Shipped, Designed, Launched, Reshaped, Cut, Defined,
+                         Established, Created, Unblocked, Drove, Owned
+
+  CONTEXT-FIRST — scope/goal-first; opener states the goal or scale, mechanism follows
+                  Pattern: "Expanded [goal] by [method]..." / "Led [scope] from X to Y..."
+                  These are NOT wrong just because they lack a corrected assumption.
+                  Do NOT force to diagnostic. G-SUPPLY variants are Context-first.
+
+  IMPACT-FIRST  — outcome-first; opener leads with the dollar figure or metric
+                  Pattern: "Won $X...", "Generated $Y...", "Restored [X] for [N]..."
+
+  Target distribution (baseline, sums to ~11):
+
+    Archetype        Baseline   Technical PM   Strategy PM
+    ─────────────────────────────────────────────────────
+    Diagnostic         4–5          3–4            5–6
+    Action-first       2–3          3–4            2–3
+    Context-first      1–2          1–2              1
+    Impact-first         2            2              2
+    ─────────────────────────────────────────────────────
+    Non-diagnostic     ≥4           ≥5             ≥3   (hard floor)
+
+  PENALTIES (enforced at generation; scorer will also flag):
+    ACTION_COUNT_LOW: if total action+impact-first < 4, flag as structural error
+    MONOTONY:         if any company block has ≥3 consecutive diagnostic openers,
+                      this is a scorer -0.5 deduction — break the run with action/context
+
+PER-SECTION MONOTONY CONSTRAINT:
+  • No company block (Gojek, Hevo, Intuit, Optum) may have 3 or more consecutive
+    diagnostic openers in the same block.
+  • If a company has 2 diagnostic bullets, the 3rd bullet in that section must use
+    an action or impact-first opener.
+  • This prevents template feeling ("Identified… Surfaced… Identified…") and ensures
+    variety within company blocks.
+
+OWNERSHIP LANGUAGE:
+  • At least one strong ownership verb ("Led", "Owned", "Built", "Established",
+    "Unblocked", "Shipped", "Drove") should appear across all 11 bullets.
+  • "Led" specifically signals hierarchical/team leadership; best for cross-functional
+    platform or large-scale strategy stories. Acceptable on any company.
+
+══════════════════════════════════════════════════════════════
+JOB DESCRIPTION
+══════════════════════════════════════════════════════════════
+{{JOB_DESCRIPTION}}
+
+══════════════════════════════════════════════════════════════
+HOW THIS WORKS
+══════════════════════════════════════════════════════════════
+For each story slot below, you will find 4–5 variants labeled with framing axes
+(e.g. [pricing-strategy], [enterprise-trial], [developer-API]).
+
+Your job:
+1. Read the JD carefully and identify the 3 strongest signals (what the role values most).
+2. Read the POSITIONING STRATEGY section — it provides primary and secondary framing axes.
+3. Variant selection rule:
+   — primary_framing_axis is the main guide. Use it for most bullets.
+   — If secondary_framing_axis differs from primary: for up to 4 story slots where the
+     story naturally supports the secondary theme, pick the secondary-aligned variant
+     instead. Don't force it — if no variant fits secondary for that slot, use primary.
+     Spread secondary picks across company blocks where possible.
+   — If primary = secondary (or no secondary provided): use primary for all 11 bullets.
+4. For flexible slots (marked ★), let the secondary_framing_axis guide which story
+   option to pick (H-REGRESSION vs H-QUERY vs H-MONITORING-AI; I-PRIORITIZATION vs
+   I-ROADMAP vs I-STRATEGIC-NO vs I-RECONCILIATION).
+
+   H-FLEX DECISION RULES — apply in order, stop at first match:
+   a) JD emphasizes AI/ML product, AI infrastructure, GenAI platforms, or LLM tooling
+      → H-MONITORING-AI (real AI-powered monitoring product; ~40% MTTR reduction)
+   b) JD emphasizes analytics, data platform, BI, SQL-heavy tooling, or data workflows
+      → H-QUERY (query latency 50% reduction; framework across all Hevo 2.0 dashboards)
+   c) JD emphasizes execution velocity, release ops, or PLG → H-REGRESSION
+   d) Default → H-REGRESSION
+
+   I-FLEX DECISION RULES — apply in order, stop at first match:
+   a) JD mentions security, enterprise accounts, data integrity, compliance, audit,
+      or cross-team data consistency → I-RECONCILIATION (hard metrics: 3K/month,
+      50K accounts; insight: aggregate vs. siloed view exposes the real scope)
+   b) JD emphasizes PM judgment, prioritization trade-offs, or risk management →
+      I-STRATEGIC-NO ($1.2M overbilling prevented, 3-month deprioritization hold)
+   c) JD emphasizes cross-functional execution, delivery, or broad stakeholder PM →
+      I-PRIORITIZATION (customer-impact scoring framework, 20K+ issue backlog)
+   d) JD emphasizes strategy, consulting, or senior leadership positioning →
+      I-ROADMAP (BRDs, financial auditability vs feature density framing)
+
+   IMPORTANT: I-ROADMAP is the weakest signal match for most PM roles — only pick it
+   when the other three options clearly do NOT match the JD's emphasis.
+5. Within each company block, reorder the stories freely to lead with the most
+   JD-relevant story first.
+6. For Section 3 (experience bullets): output chosen variants verbatim — do NOT
+   reword or polish. Every number, metric, and factual claim exactly as written.
+   For Section 4 (skills): select tags, template, and community variant as instructed
+   in the SKILLS POOL — this section requires active selection and ordering.
+
+══════════════════════════════════════════════════════════════
+POSITIONING STRATEGY (generated from JD + intel — use to anchor framing)
+══════════════════════════════════════════════════════════════
+{{STRATEGY}}
+
+══════════════════════════════════════════════════════════════
+HARD CONSTRAINTS — READ BEFORE GENERATING
+══════════════════════════════════════════════════════════════
+STRUCTURE: Use exactly these company headers, verbatim:
+  GOJEK | Senior Software Engineer | Jan 2025 – Jul 2025 | Gurgaon, India
+  HEVO DATA | Software Engineer 2 | Nov 2023 – Jan 2025 | Bengaluru, India
+  INTUIT | Software Engineer 2 | Aug 2022 – Oct 2023 | Bengaluru, India
+  OPTUM | Software Engineer | Jul 2020 – Aug 2022 | Gurgaon, India
+
+BULLET COUNTS: Gojek=3, Hevo Data=3, Intuit=3, Optum=2. Total=11. No exceptions.
+
+BULLET LENGTH RULE (calibration guide — pipeline QC enforces the limit automatically):
+
+  TARGET MIX:
+    Most bullets (≥8 of 11) should be 2-liners: roughly 90–199 characters.
+    A few (≤3) may be 3-liners: roughly 200–299 characters.
+    No 4-liners (>299 chars). No one-liners (<90 chars).
+
+  Write to the right length from the start: aim for 130–185 chars per bullet.
+  Rich stories (G-PRICING, H-BATCHSHIFT, I-RECONCILIATION) naturally run longer —
+  that is fine. Do NOT manually count characters or trim bullets inline during
+  generation; the pipeline enforces limits automatically after output.
+
+ATTRIBUTION GUARD — THIS IS A HARD CONSTRAINT, NOT A GUIDELINE:
+  NEVER include '$110M', '$20M', '50M members', or any platform-level revenue or
+  scale figure unless it appears verbatim in the specific variant text you selected.
+  These figures also appear in the POSITIONING STRATEGY context block above — that
+  is background for framing only. Do NOT add them to a bullet if the variant you
+  chose does not already contain them. If a variant contains them, reproduce them
+  exactly as written. Output only what is in the variant text — nothing from strategy.
+
+══════════════════════════════════════════════════════════════
+STORY POOL — GOJEK (always 3 bullets; reorder freely)
+══════════════════════════════════════════════════════════════
+
+─── STORY G-SUPPLY: External Fleet Integration / Supply Platform ───────────────
+Core facts: 18% more supply, 1.5 min ETA reduction, Singapore & Bali expansion,
+            multi-partner external fleet platform, integration specs + onboarding workflow,
+            $110M+ annual platform revenue (scale context — the marketplace Akshat built on).
+NOTE: $110M+ is the platform's annual revenue scale. Use it as scale context in the
+      [ecosystem-GTM] variant below. Do NOT attribute it as an outcome Akshat produced
+      directly — it describes the marketplace Gojek operated, not the supply project result.
+
+[supply-diagnosis]  ← BEST for marketplace, platform, or supply-chain roles
+"Diagnosed peak-hour supply gaps as Gojek's marketplace growth constraint; designed integration requirements for an external fleet API that enabling 18% supply growth and cutting pickup ETAs by 1.5 minutes."
+
+[API-launch]  ← BEST for technical PM or developer-platform roles  [CONTEXT-FIRST]
+"Expanded Gojek's marketplace supply by onboarding commercial fleet operators; designed a standardized API contract and partner validation workflow for Singapore and Bali, enabling 18% supply growth and cutting pickup ETAs by 1.5 minutes."
+
+[problem-diagnosis]
+"Diagnosed supply shortages as a platform extensibility gap; defined integration requirements to onboard external fleet partners, enabling 18% supply growth and cutting pickup ETAs by 1.5 minutes."
+
+[ecosystem-GTM]  ← USE THIS when scale of platform context strengthens the story  [DIAGNOSTIC]
+"Surfaced peak-hour supply shortfalls on Gojek's $110M+ marketplace that driver recruitment couldn't fix; designed a standardized API contract and partner validation workflow for commercial operators, growing supply 18% across Singapore and Bali and cutting ETAs by 1.5 minutes."
+
+[partner-taxonomy]  ← USE THIS when cross-partner coordination or supply ecosystem specificity is valued
+"Defined API specs and onboarding workflows for metro, bus, and private fleet partners on Gojek's platform; scaled to Singapore and Bali, grew supply 18% and reduced pickup ETAs by 1.5 minutes."
+
+[platform-led]  ← Led/ownership focus — best for product ownership or platform PM roles  [CONTEXT-FIRST]
+"Led Gojek's fleet integration platform from product definition to launch; designed a standardized API contract and partner validation workflow for commercial operators across Singapore and Bali, enabling 18% supply growth and cutting pickup ETAs by 1.5 minutes."
+
+─── STORY G-PRICING: Cost-Tiered Ride Tier / WTP Research ─────────────────────
+Core facts: 9% conversion lift, $3.2M incremental revenue, 20+ customer interviews,
+            funnel analysis, A/B pricing experiments, willingness-to-pay validation.
+NOTE: Use Diagnostic opener — scorer consistently flags Impact-first on this story as
+      WRONG_ARCHETYPE because the research insight (price sensitivity gap) is the real
+      primary differentiator, not the revenue outcome.
+
+[pricing-strategy]  ← BEST for monetization/pricing PM roles
+"Identified price sensitivity as an underexplored conversion gap; validated willingness-to-pay through funnel analysis and 20+ customer interviews, confirmed via A/B pricing experiments, and launched a cost-tiered ride tier generating $3.2M in incremental revenue."
+
+[elasticity-analysis]
+"Identified price-sensitive rider segments through pricing elasticity analysis and A/B experiments; launched a cost-tiered allocation model capturing this demand and generating $3.2M in incremental revenue at a 9% conversion lift."
+
+[funnel-synthesis]  ← DIAGNOSTIC ("Synthesized [data→insight]") — use for research/strategy roles
+"Synthesized funnel analytics, pricing elasticity data, and 20+ customer interviews to surface a discrete price-sensitive segment; launched a cost-tiered ride tier that lifted conversion 9% and generated $3.2M in incremental revenue."
+
+[WTP-research]
+"Validated willingness-to-pay for a lower-cost ride tier through funnel analysis and 20+ customer interviews; confirmed via A/B pricing experiments and launched a cost-tiered model lifting conversion 9% and generating $3.2M."
+
+[revenue-lift]  ← RESULTS-FIRST — monetization/growth PM roles only
+⚠ NOTE: scorer may flag WRONG_ARCHETYPE if JD values research insight over revenue output.
+   Use only when role explicitly signals revenue or business outcome as primary.
+"Generated $3.2M in incremental revenue and a 9% conversion lift; validated willingness-to-pay through funnel analysis and 20+ customer interviews, confirmed via A/B pricing experiments, and launched a cost-tiered ride tier."
+
+─── STORY G-LATENCY: Fare Quote Latency & Conversion ──────────────────────────
+CRITICAL: This story is about FARE-QUOTE LATENCY (a 3.8s p95 tail hiding behind a 1.3s
+average, causing 40% booking drop-offs for high-intent users). It is NOT about supply,
+fleet integration, or API contracts. Do NOT generate content about fleet partners,
+onboarding, or "standardized API contracts" in this slot — those belong to G-SUPPLY.
+Every G-LATENCY variant must contain fare-quote/latency/estimation/drop-off language.
+
+Core facts: 70% latency reduction, ~28K additional monthly rides, user behavior
+            analysis, competitive benchmarking, strategic roadmap to cross-functional
+            leads.
+
+[strategic-exec]  ← BEST for strategy/executive-presentation roles
+"Linked 40% higher abandonment in Singapore and 2-3x higher peak-hour drop-offs to competitive app-switching triggered by quote delays; drove a cross-functional roadmap to cut quote times 70% and enable ~28K additional monthly rides."
+
+[revenue-case]  ← DIAGNOSTIC — revenue/rides framing
+"Diagnosed a fare-quote latency bottleneck where a 3.8s p95 tail hid behind a 1.3s average, collapsing bookings 40% for high-intent users; drove estimation redesign to recover the demand, cutting quote times 70% and enabling ~28K monthly rides."
+
+[throughput-engineering]
+"Cut fare-quote latency 70% by pre-caching pricing for the 12 highest-demand corridors, trading ±4% fare variance for sub-second response; enabled ~28K additional monthly rides."
+
+[cross-functional-drive]  ← ★ DEFAULT for mixed/general PM roles
+"Identified a fare-quote latency bottleneck where a 1.3s average masked a 3.8s p95 tail triggering 40% drop-offs for high-intent users; drove Product and Marketplace alignment to modernize estimation workflows, cutting quote times 70% and enabling ~28K additional monthly rides."
+
+[profiling-analysis]
+"Profiled fare-quote API performance under peak load and diagnosed a latency bottleneck: a 3.8s p95 tail hiding behind a healthy 1.3s average; redesigned the estimation stack, cutting quote latency 70% and enabling ~28K additional monthly rides."
+
+══════════════════════════════════════════════════════════════
+STORY POOL — HEVO DATA (3 bullets: H-BATCHSHIFT + H-MONITORING + ★ H-FLEX)
+══════════════════════════════════════════════════════════════
+
+ORDERING RULE — HARD CONSTRAINT (violations cause 7.0 ATTRIBUTION_MISMATCH):
+  • H3 (bullet 3) = H-FLEX ★ ALWAYS. No exceptions.
+  • H1 and H2 = H-BATCHSHIFT and H-MONITORING (in any order).
+  • NEVER put H-BATCHSHIFT or H-MONITORING in slot H3.
+  • NEVER put H-FLEX in slot H1 or H2.
+  Reason: H-BATCHSHIFT's [reliability-outcome] variant cites "8 enterprise customers"
+  and "120K+ pipelines" together — when placed as H3 the scorer flags ATTRIBUTION_MISMATCH
+  and caps the bullet at 7.0. H-FLEX is the only story safe to anchor as the final bullet.
+
+─── STORY H-BATCHSHIFT: Hevo 2.0 Platform Strategy ────────────────────────────
+Core facts: Batch-first transactional model, traded speed for correctness/auditability,
+            stability improved 45% across 120K pipelines, 8 enterprise customers
+            onboarded within 90 days.
+
+[business-model-pivot]  ← BEST for monetization/enterprise strategy roles
+"Identified that Fortune 500 data teams required correctness over streaming speed; drove Hevo 2.0's shift to a batch-first transactional model, improving platform stability 45% and enabling onboarding of 8 enterprise customers within 90 days."
+
+[enterprise-trial]  ← BEST when JD emphasizes segment shift or enterprise sales
+"Identified trust and auditability gaps as primary deal blockers for Fortune 500 data teams; shifted product priorities from low-latency streaming to correctness guarantees, enabling onboarding of 8 enterprise customers within 90 days."
+
+[strategic-bet]
+"Drove Hevo 2.0's shift to a batch-first transactional model, trading streaming speed for verifiable correctness and clear failure boundaries; improved platform stability 45% and enabled onboarding of 8 enterprise customers within 90 days."
+
+[segment-shift]
+"Drove Hevo 2.0's transition from latency-optimized streaming to batch-first execution; traded speed for verifiable correctness, improving stability 45% across 120K pipelines and enabling onboarding of 8 enterprise customers."
+
+[reliability-outcome]
+"Prioritized batch-first execution and production observability for correctness guarantees; improved platform reliability 45% across 120K+ data pipelines and enabled onboarding of 8 enterprise customers within 90 days."
+
+─── STORY H-MONITORING: Job Monitoring / Pipeline Observability ────────────────
+Core facts: Job Monitoring shaped as first-class product surface, reduced time to
+            identify pipeline failures ~40%, enterprise trial conversion, audit-ready
+            visibility for data platform owners. It had previously been treated as an
+            internal debugging afterthought buried in the roadmap — not customer-facing.
+CONSTRAINT: Do NOT use contrast phrasing ("not X but Y", "rather than X", "X instead
+            of Y") in any H-MONITORING variant. The section contrast cap is reserved
+            for H-BATCHSHIFT. All variants below use Type 1 (earned detail) only.
+            The "debugging afterthought" framing IS available (see [debugging-reframe])
+            but must be expressed WITHOUT contrast — describe what it WAS, then what
+            Akshat turned it INTO, without "rather than" or "not X but Y".
+
+[trial-conversion]
+"Reshaped Job Monitoring from a debugging afterthought into a first-class observability surface; reduced pipeline failure identification time 40% across 120K+ pipelines, making it the primary artifact enterprise evaluators relied on during trial-to-close."
+
+[debugging-reframe]  ← USE THIS when JD emphasizes product ownership or roadmap judgment
+"Recognized that Job Monitoring was treated as an internal debugging afterthought; reshaped it as an audit-ready product surface, reducing pipeline failure identification time 40% and making it the primary evidence artifact evaluators needed during trial-to-close."
+
+[feature-ownership]
+"Identified that data platform owners needed audit-ready pipeline visibility to close enterprise contracts; shaped Job Monitoring into a production-grade observability surface, reducing time to identify failures 40% and making it the primary evaluation artifact at trial-to-close."
+
+[customer-trust]
+"Translated enterprise teams' audit and accountability requirements into a first-class pipeline monitoring surface; reduced investigation time 40% and made it the primary evidence artifact for enterprise trial-to-close."
+
+[reliability-product]
+"Drove observability features that cut pipeline failure identification and recovery time 40% across 120K+ enterprise pipelines; made the monitoring surface the primary touchpoint in enterprise evaluation-to-close cycles."
+
+─── STORY H-FLEX ★ (pick ONE of three based on JD signal) ─────────────────────
+
+  ── Option H-REGRESSION: Automated Testing & Release Velocity ──────────────
+  Core facts: Automated regression framework, scaled across 4 engineering teams,
+              eliminated manual QA bottlenecks, reduced release cycle from 14 days
+              to 4 days, enabled 3x faster enterprise bug fix delivery.
+  Best for: execution-heavy, operational excellence, or PLG roles
+
+  [execution-velocity]
+  "Cut release cycles from 14 to 4 days by scaling an automated regression suite across 4 engineering teams; eliminated manual QA sign-off by catching integration regressions and schema-contract failures pre-QA, shipping enterprise fixes 3x faster."
+
+  [platform-quality]
+  "Cut release cycle from 14 to 4 days by scaling an automated regression suite across 4 engineering teams; defined the testing strategy to catch integration regressions and schema failures pre-QA and removed the manual sign-off gate."
+
+  ── Option H-QUERY: Data Exploration & Pipeline Visibility ──────────────────
+  Core facts: Reusable query and filtering framework adopted across ALL Hevo 2.0
+              dashboards; MongoDB index redesign cut query latency 50%; on-call
+              engineers could filter by Error Type and Source across 10,000+
+              pipeline environments; improved incident response for data platform
+              owners managing 120K+ pipelines.
+  Best for: analytics, data platform, BI-focused, or SQL-heavy roles
+
+  [analytics-tools]
+  "Shipped a reusable query and filtering framework adopted across all Hevo 2.0 dashboards, cutting query latency 50% via MongoDB index redesign; enabled on-call engineers to filter by Error Type and Source across 10,000+ pipeline environments."
+
+  [product-discovery]
+  "Identified that engineers managing 10,000+ pipelines lacked fast, reliable triage tooling; built a filtering framework adopted across all Hevo 2.0 dashboards, cutting query latency 50% and making it the default pipeline investigation entry point."
+
+  ── Option H-MONITORING-AI: AI-Powered Monitoring Platform ──────────────────
+  Core facts: AI-assisted monitoring and recovery platform for enterprise data
+              pipelines; integrated anomaly detection for proactive failure
+              identification; GenAI-based incident summarization reduced cognitive
+              load for on-call engineers; ~40% MTTR reduction across 120K+
+              enterprise pipelines. Primary observability surface post-Hevo-2.0-launch.
+  Best for: AI/ML-heavy, AI infrastructure, GenAI strategy, or AI product roles
+  Note: USE THIS instead of H-GENAI for AI JDs — concrete mechanism + metric
+        (40% MTTR). H-GENAI is retired (7.0 ceiling, no concrete business outcome).
+
+  [AI-monitoring-product]  ← BEST for AI product or AI infrastructure roles
+  "Shipped an AI-powered monitoring surface to replace manual alert triage; used a GenAI synthesizer and a 20+ failure taxonomy to consolidate alert storms into single incident cards, cutting triage time from 45 to under 5 minutes across 120K+ pipelines."
+
+  [AI-reliability-product]  ← for AI + observability or reliability-heavy roles
+  "Shipped an AI monitoring surface as the primary observability layer for 120K+ enterprise pipelines; a GenAI synthesizer trained on a 20+ failure taxonomy replaced alert storms with structured incident cards, cutting MTTR 40%."
+
+══════════════════════════════════════════════════════════════
+STORY POOL — INTUIT (3 bullets: I-BILLING + I-INCIDENT + ★ I-FLEX)
+══════════════════════════════════════════════════════════════
+
+─── STORY I-BILLING: Billing Accuracy / Churn / Renewals ───────────────────────
+Core facts: 80K+ businesses / 50K+ SMB customers, reconciliation framework,
+            billing accuracy as churn driver, leadership presentation,
+            financial auditability vs feature density trade-off.
+NOTE: "10% renewal lift" is platform-level — NEVER claim direct attribution.
+      Use concrete isolable outcomes: businesses unblocked, framework designed,
+      roadmap pivot driven. The renewal lift is context, not Akshat's outcome.
+      Avoid "built the business case" / "built the financial case" — GENERIC_MECHANISM.
+      Instead: name the artifact (reconciliation framework, revenue impact analysis).
+
+[churn-renewal]  ← BEST for monetization/retention roles
+"Identified billing accuracy as the primary churn driver for 50K+ SMBs; designed a cross-system reconciliation framework and drove a roadmap pivot from feature delivery to auditability, restoring accurate billing for 80K+ businesses."
+
+[trust-reliability]
+"Restored accurate billing for 80K+ Intuit businesses; diagnosed silent SMB cancellations as a billing accuracy failure, designed a cross-system reconciliation framework to resolve data mismatches, and eliminated the billing-driven churn category."
+
+[exec-presentation]  ← DIAGNOSTIC opener — best for leadership/strategy-facing roles
+"Diagnosed that SMB cancellations traced to billing accuracy failures, not product gaps; designed a cross-system reconciliation framework and presented the financial impact to senior leadership, securing a roadmap pivot from feature velocity to auditability."
+REWRITE GUARD: Keep the phrase "not product gaps" in comma form. Do NOT rewrite it as
+"rather than product gaps" or introduce a second contrast construction if the section
+already contains another "not X but Y" diagnostic line.
+
+[roadmap-pivot]
+"Identified billing errors as the root of silent SMB cancellations, surfaced through a first-ever cross-org billing and subscription data join; reframed billing accuracy as a revenue protection play, refocusing engineering toward accuracy over feature delivery."
+
+[financial-case]
+"Surfaced billing inaccuracies as a churn risk for 80K+ businesses; designed a cross-system reconciliation framework to eliminate root-cause data mismatches and presented the business impact case to senior leadership, securing a roadmap pivot."
+
+─── STORY I-INCIDENT: Cross-Functional Incident Response ───────────────────────
+Core facts: 1,500+ businesses/SMBs affected, high-risk billing incident, faulty
+            script migrated companies out of system cutting off paid subscriptions,
+            coordinated Engineering/QA/Support in parallel streams, QA tested patches
+            on the fly reducing cycle time from days to hours, legacy offer handling
+            required refund decisions, customer communications restored confidence.
+
+[financial-risk]  ← BEST for monetization/financial roles
+"Caught a live billing failure affecting 1,500+ SMBs before it escalated; took cross-functional command, coordinating Engineering, Product, and Support on remediation, refund decisions, and customer communications to contain impact."
+
+[crisis-management]
+"Caught a billing failure impacting 1,500+ businesses before it spread further; coordinated Engineering, QA, and Support in parallel, with engineers coding fixes while QA validated patches in real time, cutting resolution time from days to hours."
+
+[churn-defense]
+"Recognized a live billing failure affecting 1,500+ businesses as a churn and revenue risk; aligned Engineering, Finance, and Support on remediation and refund decisions, coordinating customer communications to contain the incident within hours."
+
+[stakeholder-coord]
+"Surfaced a billing failure affecting 1,500+ SMBs and coordinated response across Product, Support, and Engineering; aligned teams on remediation sequencing, refund decisions, and customer communications to limit financial exposure."
+
+─── STORY I-FLEX ★ (pick ONE of four based on JD signal) ───────────────────────
+
+  ── Option I-PRIORITIZATION: Customer-Impact Framework ──────────────────────
+  Core facts: 20K+ issue backlog, 8 cross-functional teams, feature delivery vs
+              technical debt, customer-impact scoring, roadmap alignment.
+  Best for: cross-functional execution, prioritization, or broad PM roles
+  Note: prefer I-STRATEGIC-NO over I-PRIORITIZATION when JD emphasizes PM judgment,
+        trade-offs, or risk-aware decision-making.
+
+  [monetization-roadmap]  ← BEST when role is monetization-specific
+  "Owned the monetization services roadmap by synthesizing customer and stakeholder input into prioritized PRDs; introduced a scoring framework to align 8 cross-functional teams on business impact vs. technical-debt trade-offs."
+
+  [framework-design]
+  "Introduced a customer-impact-driven prioritization framework to manage a 20K+ issue backlog, aligning 8 cross-functional teams on feature delivery vs. technical-debt trade-offs and focusing engineering on highest-risk customer issues."
+
+  [cross-functional-align]
+  "Introduced a customer-impact triage model across 8 product teams; cleared a 20K+ issue backlog by focusing engineering effort on highest-risk customer issues, accelerating resolution time."
+
+  ── Option I-ROADMAP: Feature Roadmap Ownership & BRD Authoring ─────────────
+  Core facts: Owned feature roadmap for monetization services, synthesized customer
+              and stakeholder input into PRDs and user stories, BRD authoring,
+              financial auditability roadmap pivot for 80K+ businesses.
+  Best for: product-ownership emphasis, consulting-adjacent, or strategy-heavy roles
+
+  [roadmap-ownership]
+  "Owned the monetization services roadmap by synthesizing customer feedback, stakeholder priorities, and market signals into structured PRDs and impact analyses; aligned 8 cross-functional teams on sequencing and trade-offs."
+
+  [BRD-authoring]
+  "Authored Business Requirements Documents and impact analyses for senior leadership to justify a roadmap pivot toward financial auditability over feature density, impacting 80K+ businesses."
+
+  ── Option I-RECONCILIATION: Cross-Team Influence & Data Consistency ─────────
+  Core facts: Distributed billing architecture across 12+ engineering teams, manual
+              "Rulebook" of fixes executed by Support, 50,000 affected accounts
+              revealed by aggregating siloed data (each team saw only ~50 errors),
+              OOS reconciliation framework adopted without authority,
+              3,000+ auto-resolved discrepancies per month, eliminated manual Rulebook.
+  Best for: influence-without-authority, platform/infrastructure PM, or data-integrity roles
+
+  [hidden-aggregate]  ← BEST for analytical rigor or data-driven decision roles
+  "Diagnosed that 50,000+ billing accounts had accumulated invisible errors, with each of 12 engineering teams seeing only ~50 in isolation; aligned Engineering leads on the full aggregate scale and shipped a reconciliation layer auto-resolving 3,000+ discrepancies per month."
+
+  [influence-without-authority]
+  "Unified 12 engineering teams' siloed incident data to reveal 50,000+ affected accounts invisible to any single team; shipped a reconciliation layer auto-resolving 3,000+ discrepancies monthly without direct authority."
+
+  ── Option I-STRATEGIC-NO: Deprioritization & Billing Risk Avoidance ────────
+  Core facts: Deprioritized new subscription tier launch for 3 months, legacy
+              billing engine had 15% data mismatch, projected $1.2M in potential
+              overbilling disputes, explicit trade-off: new revenue feature vs.
+              systemic accuracy fix, redirected engineering capacity.
+  Best for: prioritization judgment, risk-aware PM, monetization safety roles
+
+  [strategic-tradeoff]  ← BEST for roles emphasizing PM judgment and trade-offs
+  "Recognized systematic overbilling as a higher-priority threat than near-term revenue; deprioritized a subscription tier launch to fix a 15% data mismatch in the legacy billing engine, preventing a projected $1.2M in billing disputes."
+
+  [risk-diagnosis]
+  "Identified a 15% data mismatch in the legacy billing engine as untracked overbilling risk accumulating below incident thresholds; deprioritized a subscription tier launch to resolve the systemic failure, preventing a projected $1.2M in disputes."
+
+  [capacity-decision]
+  "Halted a subscription tier launch to fix a 15% data mismatch in the legacy billing engine; diagnosed it as systemic overbilling risk accumulating below incident thresholds and redirected 3 months of engineering capacity, preventing a projected $1.2M in disputes."
+
+══════════════════════════════════════════════════════════════
+STORY POOL — OPTUM (2 bullets: O-PROVIDER + O-AFFORDABILITY)
+══════════════════════════════════════════════════════════════
+
+─── STORY O-PROVIDER: Provider Integration & Care Network ──────────────────────
+Core facts (ATTRIBUTION NOTE — read before picking a variant):
+  ATTRIBUTABLE to Akshat: schema mismatch diagnosis between legacy XML and Optum REST
+    APIs; designed custom transformation layer; reduced onboarding time 6 mo → 10 wks.
+  SCALE CONTEXT (use in appropriate variants, not as sole personal outcomes):
+    50M members — Optum care network scale; $20M+ incremental annual revenue — revenue
+    enabled by the integration program. The [platform-scale] variant uses both.
+    Do NOT lead with these as if Akshat produced them alone — frame as scale/context.
+
+[schema-mechanism]  ← BEST for technical PM, integration, or API-heavy roles
+"Unblocked a stalled provider integration by diagnosing a schema mismatch between legacy XML and Optum's REST APIs; designed a custom transformation layer that cut onboarding time from 6 months to 10 weeks."
+
+[integration-diagnosis]  ← BEST for roles emphasizing problem diagnosis
+"Diagnosed a provider onboarding engagement stalled on a schema contract mismatch between legacy XML and REST APIs; designed a custom transformation layer to resolve it, cutting onboarding time from 6 months to 10 weeks."
+
+[cross-functional-exec]  ← BEST for roles emphasizing stakeholder alignment
+"Aligned Provider Relations, Engineering, and Clinical teams to integrate a new provider into Optum's care network; diagnosed a schema mismatch between legacy XML and REST APIs and delivered a custom transformation layer, cutting onboarding from 6 months to 10 weeks."
+
+[platform-scale]  ← USE THIS when scale and revenue context strengthens the story
+"Onboarded a new provider into Optum's 50M-member care network, enabling $20M+ in incremental annual revenue; designed the end-to-end integration architecture including Kafka topics, consumers, and microservices, cutting go-live from 6 months to 10 weeks."
+
+[GTM-execution]
+"Defined integration requirements and drove go-live for a new provider partnership; designed the data integration architecture including Kafka event pipelines, REST consumers, and microservices, cutting onboarding from 6 months to 10 weeks."
+
+─── STORY O-AFFORDABILITY: AI Affordability Solution (Hackathon → Pilot) ───────
+Core facts: ML-based affordability solution, predictive risk scoring to identify members
+            at risk of high out-of-pocket costs, recommended lower-cost care pathways,
+            won Optum's global hackathon, piloted as an early affordability initiative.
+
+[hackathon-impact]  ← BEST: Impact-first — hackathon win is a self-credentialing result
+"Won Optum's global hackathon by designing an ML-based affordability solution that identified at-risk members through predictive risk scoring and recommended lower-cost care pathways; piloted as Optum's first member-facing affordability initiative."
+
+[ML-product-design]
+"Prototyped an ML-based affordability engine; defined feature inputs, evaluation metrics, and deployment workflow, aligning clinical stakeholders and securing pilot approval as part of Optum's global innovation program."
+
+[innovation-to-pilot]
+"Converted an Optum hackathon win into a live affordability pilot; built a predictive risk model identifying members at high out-of-pocket cost risk and recommending lower-cost care pathways as Optum's first member-facing AI affordability initiative."
+
+[responsible-AI]
+"Prototyped an ML-based affordability engine with clinical stakeholders; defined feature inputs, evaluation metrics, and responsible AI deployment criteria, advancing it to pilot as Optum's first member-facing affordability initiative."
+
+[business-case-AI]
+"Secured pilot approval for an AI-based affordability initiative, identifying that post-claim outreach missed the intervention window; built a predictive pre-appointment risk model with a tiered playbook from in-app cost prompts to social worker referrals, piloted as Optum's first member-facing AI affordability tool."
+
+[tiered-intervention]  ← NEW — AI product design / ML-heavy roles
+"Reframed Optum's affordability outreach from reactive to predictive; designed a risk model on prescription fill rate, ER frequency, and deductible utilization with a three-tier intervention playbook, piloted as Optum's first AI affordability tool."
+
+══════════════════════════════════════════════════════════════
+PROFESSIONAL SUMMARY POOL — for SECTION 0
+══════════════════════════════════════════════════════════════
+
+PURPOSE: A 1–2 line positioning statement at the top of the resume, between the
+header and education. JD-tailored. Addresses the SE→PM narrative directly.
+Start from one base variant below. You may add a small JD-aware qualifier only
+under the controlled injection rules below. Do NOT otherwise paraphrase, merge,
+or polish. Base variants are pre-written to be 10/10.
+
+SELECTION RULES — apply in order, stop at first match:
+a) JD emphasizes AI/ML product, GenAI, LLM, or AI infrastructure
+   → [PM-ai]  (L'Oréal GenAI line — use only when AI is a primary signal)
+b) JD emphasizes marketplace, supply, consumer platform, or ride/delivery
+   → [PM-growth]
+c) JD emphasizes fintech, billing, monetization, SMB financial systems, or payments
+   → [PM-fintech]
+d) JD emphasizes enterprise SaaS, reliability, data pipelines, or technical PM
+   → [PM-standout]
+e) Default (mixed signals or general PM)
+   → [PM-default]
+
+SUMMARY INJECTION RULES — PM track only, apply after selecting the base variant:
+1. You may adapt the chosen base variant with up to ONE short JD-aware qualifier.
+2. Derive that qualifier from the top JD signals and/or positioning strategy.
+3. Compress JD language into summary-safe phrases, not raw jargon. Good examples:
+   "analytics-led enterprise workflows", "cross-functional product execution",
+   "AI-enabled internal tooling", "requirements-driven platform decisions".
+4. Maximum payload: 2 compressed JD terms total. Keep the qualifier under ~8 words.
+5. PRIORITY ORDER FOR INSERTION:
+   a) Zone 1 (preferred): inject into the opening identity frame.
+      Example pattern: "Five years shaping product decisions for [qualifier]: ..."
+      or "Five years shaping product decisions in [qualifier], ..."
+   b) Zone 3 (fallback only): inject into the USC Marshall transition line if
+      Zone 1 becomes awkward or too long.
+      Example pattern: "... owning them for [qualifier]."
+6. NEVER inject into Zone 2, the proof chain with company facts/metrics. Do not
+   replace nouns like "customer discovery", "product roadmap", or any factual
+   evidence phrase inside the body of the summary.
+7. If no clean qualifier exists, output the base variant unchanged.
+
+CRITICAL:
+- Keep all metrics, companies, and factual claims from the base variant verbatim.
+- Do NOT invent experience, tools, or domain claims not supported by the resume.
+- Do NOT stuff keywords or list more than 2 JD terms.
+- Do NOT rewrite the entire summary; adapt minimally.
+
+[PM-default]  ← default for mixed signals or general PM roles
+"Five years shaping product decisions through the systems behind them, from generating $3.2M in incremental revenue at Gojek through customer discovery to shifting the product roadmap for 80K+ businesses at Intuit. Now at USC Marshall to move from pressure-testing product decisions to owning them."
+
+[PM-standout]  ← BEST for enterprise SaaS, reliability, data pipelines, or technical PM roles
+"Five years shaping product decisions: diagnosing reliability tradeoffs for 120K+ pipelines at Hevo and protecting financial trust for 80K+ Intuit businesses. Now at USC Marshall to move from validating product direction to defining it."
+
+[PM-ai]  ← BEST for AI/ML, GenAI, LLM, or AI infrastructure roles
+"Five years architecting the product decisions behind production AI: data pipelines for 120K+ enterprise environments at Hevo, predictive risk models at Optum, and GenAI workflow strategy for L'Oréal. Now at USC Marshall to move from building the AI engine to leading AI product strategy."
+
+[PM-growth]  ← BEST for marketplace, supply, consumer platform, or ride/delivery roles
+"Five years finding the revenue ceilings hidden in marketplace data, from a $3.2M ride tier launch at Gojek through customer discovery to an 18% supply expansion via fleet API platforms. Now at USC Marshall to move from identifying growth bottlenecks to owning marketplace product strategy."
+
+[PM-fintech]  ← BEST for fintech, billing, monetization, or SMB/payments roles
+"Five years shaping monetization roadmaps where financial accuracy is the product: resolved $1.2M in overbilling risk for 80K+ Intuit businesses by prioritizing data consistency over feature density. Now at USC Marshall to move from pressure-testing financial tradeoffs to owning fintech product strategy."
+
+══════════════════════════════════════════════════════════════
+PRE-GENERATION CHECKLIST (verify silently before writing Section 3)
+══════════════════════════════════════════════════════════════
+□ Exactly 3 JD signals identified
+□ Primary and secondary framing axes noted from positioning strategy
+□ Professional summary variant selected from PROFESSIONAL SUMMARY POOL
+□ For each of the 11 slots: one variant chosen, framing axis noted
+□ Flexible slots (H-FLEX, I-FLEX) resolved — secondary axis used to pick story option
+□ Story ordering within each company block decided (lead with primary-axis story)
+□ If primary_framing_axis is workflow-discovery-to-product or research-to-proposal:
+  lead with discovery-to-product bullets; avoid a section that reads like generic
+  enterprise reliability work with weak product-surface translation
+□ ACTION-FIRST COUNT: tally opener types across all 11 selected variants
+  — Minimum 4 action or impact-first bullets required
+  — If below 4: swap the weakest diagnostic bullet to an action/impact variant
+  — Check per-section monotony: no company block has ≥3 consecutive diagnostic openers
+□ All metrics output verbatim — no paraphrasing of numbers
+□ All 4 company headers exact
+
+══════════════════════════════════════════════════════════════
+OUTPUT FORMAT — produce exactly four sections
+══════════════════════════════════════════════════════════════
+
+SECTION 1 — TOP 3 JD SIGNALS
+[Signal 1: label — one-sentence explanation]
+[Signal 2: label — one-sentence explanation]
+[Signal 3: label — one-sentence explanation]
+
+---
+
+SECTION 2 — SELECTION NOTES
+Note which professional summary variant was chosen and why (1 sentence).
+For each story slot (G1, G2, G3, H1, H2, H3, I1, I2, I3, O1, O2):
+- Which variant/story chosen and why (1 sentence each)
+- Opener type: ACTION / DIAGNOSTIC / IMPACT-FIRST  ← label each slot explicitly
+Also note: story ordering decisions within each company block.
+
+ACTION-FIRST TALLY (mandatory — compute before writing Section 3):
+  Count action + impact-first labels above. Must be ≥ 4.
+  If total < 4: name which diagnostic slot(s) to swap, and to which action/impact variant.
+  Show your count: e.g. "Action/Impact-first total: 5 ✓" or "Total: 3 — swapping G2 to [platform-led]"
+  Also verify per-section monotony: flag any company block where all bullets are DIAGNOSTIC.
+
+---
+
+SECTION 0 — PROFESSIONAL SUMMARY (paste-ready, base variant with optional controlled qualifier)
+
+[chosen summary variant, with optional Zone 1 or Zone 3 qualifier only]
+
+---
+
+SECTION 3 — FULL EXPERIENCE SECTION (paste-ready, no markdown bold)
+
+GOJEK | Senior Software Engineer | Jan 2025 – Jul 2025 | Gurgaon, India
+• [bullet]
+• [bullet]
+• [bullet]
+
+HEVO DATA | Software Engineer 2 | Nov 2023 – Jan 2025 | Bengaluru, India
+• [bullet]
+• [bullet]
+• [bullet]
+
+INTUIT | Software Engineer 2 | Aug 2022 – Oct 2023 | Bengaluru, India
+• [bullet]
+• [bullet]
+• [bullet]
+
+OPTUM | Software Engineer | Jul 2020 – Aug 2022 | Gurgaon, India
+• [bullet]
+• [bullet]
+
+══════════════════════════════════════════════════════════════
+SKILLS POOL — for SECTION 4
+══════════════════════════════════════════════════════════════
+
+─── SKILLS SELECTION RULES ──────────────────────────────────────────────────────
+
+ENTITY MATCHING (mandatory):
+  Read the JD for explicit skill, domain, or tool names. Where a JD term maps
+  onto a tag in the Product Focus pool or a tool in the tools list, prefer the
+  tag or tool that most closely mirrors the JD's exact phrasing.
+  Example: JD says "B2B SaaS PM" → prefer "Enterprise SaaS Platforms" first.
+  Example: JD says "pricing experiments" → surface "Experimentation-Driven Growth."
+
+  For the Tools line: if the JD explicitly names a tool that exists in the pool
+  (SQL, Tableau, Figma, Jira, Python, etc.), move it to the front of its group.
+
+SIGNAL-WEIGHTED TAG ORDERING (mandatory — overrides generic "JD relevance"):
+  Read the primary_framing_axis from the POSITIONING STRATEGY and apply:
+
+  pricing / monetization axis:
+    Lead tags: Pricing & Monetization · Pricing & Packaging Strategy ·
+               Experimentation-Driven Growth · SMB & Fintech Strategy
+    Tools front: SQL, Tableau, Mixpanel, Google Analytics
+
+  enterprise / trust / reliability axis:
+    Lead tags: Enterprise SaaS Platforms · Customer Trust & Reliability ·
+               Infrastructure & System Reliability · Data Workflows
+    Tools front: SQL, Jira, Confluence
+
+  technical-PM / developer-API / platform axis:
+    Lead tags: Platform Strategy · Developer Experience ·
+               AI-Enabled Software Platforms · Automation & Observability
+    Tools front: SQL, Python, AWS, Docker
+
+  marketplace / GTM / ecosystem axis:
+    Lead tags: Marketplace Strategy · Ecosystem Strategy ·
+               Seller & Partner Enablement · Experimentation-Driven Growth
+    Tools front: SQL, Tableau, Google Analytics, Mixpanel
+
+  analytics / data-platform axis:
+    Lead tags: Analytics & Customer Discovery · Data Workflows ·
+               Automation & Observability · Enterprise SaaS Platforms
+    Tools front: SQL, Tableau, Google Analytics
+
+  If the primary_framing_axis does not match any category above, apply
+  entity matching as the primary ordering rule and JD relevance as tiebreaker.
+
+JD NAME-DROP FOR SKILLS ROW AND TOOLS (optional but high-value for ATS):
+  If the JD explicitly calls out a capability (e.g. "A/B testing," "SQL,"
+  "roadmap ownership," "stakeholder management") and it appears in the
+  analytics template or tools pool, foreground it — reorder the template
+  line to lead with the JD-named capability.
+
+─── PRODUCT FOCUS TAG POOL ─────────────────────────────────────────────────────
+Pick 4–5 tags. Apply SIGNAL-WEIGHTED ordering above; entity-match to JD phrasing.
+
+Marketplace Strategy · Enterprise SaaS Platforms · Pricing & Monetization ·
+Pricing & Packaging Strategy · Customer Trust & Reliability · Analytics &
+Customer Discovery · AI-Enabled Software Platforms · AI Systems & Processing ·
+Platform Strategy · Data Workflows · Ecosystem Strategy · Seller & Partner
+Enablement · Digital Banking & Fintech Platforms · Infrastructure & System
+Reliability · Developer Experience · Experimentation-Driven Growth ·
+Roadmap Execution · SMB & Fintech Strategy · Automation & Observability
+
+─── ANALYTICS / SKILLS ROW TEMPLATES ───────────────────────────────────────────
+Pick 1 template (or 2 for AI-heavy JDs). Label drives the row header.
+
+[analytics-standard]  ← default for most PM roles
+"Analytics & Discovery: Funnel Analysis, A/B Testing, Customer Interviews, Experiment Design"
+
+[analytics-research]  ← when JD emphasizes research-to-roadmap or requirements definition
+"Analytics & Discovery: Research-to-Roadmap, Funnel Analysis, A/B Testing, Customer Interviews, Experiment Design"
+
+[analytics-kpi]  ← when JD emphasizes data analysis, metrics, or KPI ownership
+"Analytics & Discovery: Funnel Analysis, A/B Testing, Hypothesis-Driven Experiment Design, Interviews, KPI Definition"
+
+[execution-discovery]  ← for ops/execution-heavy or infrastructure PM roles
+"Execution & Discovery: Roadmap Ownership, Requirements Definition, Backlog Prioritization, Stakeholder Alignment"
+
+[ai-automation]  ← use AS SECOND ROW when JD is AI/ML-heavy (pair with any analytics template)
+"AI & Automation: LLM & GenAI Workflow Experimentation, Model Capability Tradeoff Evaluation, Rapid Prototyping"
+
+[analytics-data]  ← for data platform, BI, or SQL-heavy roles
+"Analytics & Product Insights: SQL-based adoption analysis, Tableau dashboards, Funnel instrumentation, A/B testing, KPI tracking"
+
+─── TOOLS ───────────────────────────────────────────────────────────────────────
+Reorder items within each group by JD relevance. Keep the semicolons between groups.
+Do not add or remove tools. Output as a single "Tools: ..." line.
+
+Full list: SQL, Tableau, Mixpanel, Google Analytics, Excel, Figma; Java, Python; AWS, Docker; Jira, Confluence; Agile, Git
+
+For security/reliability JDs: append "incident analysis & monitoring workflows" after Git.
+For AI/ML JDs: append "AI-assisted development & workflow automation" after Git.
+
+─── STRATEGY PROJECT (always include; pick one variant) ─────────────────────────
+Row 5 of 6. Always included — this line appears in 42 of 49 historical resumes.
+For AI JDs: use [loreal-consulting] AND skip [ai-automation] row (L'Oréal covers AI signal).
+For non-AI JDs: use [cloud-startup] (default) or [loreal-consulting] if strategy/consulting.
+
+SELECTION RULE — apply in order, stop at first match:
+a) JD emphasizes AI, GenAI, LLM, or strategy consulting → [loreal-consulting]
+b) JD emphasizes marketplace, platform, early-stage, or product strategy → [cloud-startup]
+c) Default → [cloud-startup]
+
+[loreal-consulting]  ← for AI, GenAI, or strategy-consulting JDs
+"Strategy Project: Advised L'Oréal on resolving creative supply-chain bottlenecks; mapped GenAI use cases across 2 business units and presented 3 workflow recommendations for executive review."
+
+[cloud-startup]  ← default for marketplace, platform, or general PM roles
+"Strategy Project: Partnered with a cloud startup founder on platform positioning and early adoption strategy; contributed to a Series A growth trajectory leading to acquisition."
+
+─── COMMUNITY (pick one) ────────────────────────────────────────────────────────
+
+[community-full]  ← default
+"Community: Supported mobile-school education for 400+ underserved children; led a 5-member volunteer team that raised $20K for an anti–human trafficking nonprofit."
+
+[community-short]  ← when space is tight or JD is concise/minimalist
+"Community: Supported education for 400 underserved children; led a $20K fundraiser for an anti–human trafficking nonprofit."
+
+─── INTERESTS (fixed — always use exactly this) ─────────────────────────────────
+"Interests: Fitness & strength training, DJing house music, behavioral psychology, astrophysics, trekking the Himalayas"
+
+══════════════════════════════════════════════════════════════
+SECTION 4 — SKILLS & INTERESTS (paste-ready)
+══════════════════════════════════════════════════════════════
+Output format — use ● bullets, no markdown:
+
+ROW COUNT RULE: Maximum 6 rows total (excluding the SKILLS & INTERESTS header).
+  Non-AI JDs:  Product Focus · Analytics · Strategy Project · Tools · Community · Interests  (6 rows)
+  AI JDs:      Product Focus · Analytics · Strategy Project · Tools · Community · Interests  (6 rows)
+               NOTE: For AI JDs, use [loreal-consulting] for Strategy Project and
+               OMIT [ai-automation] row — the L'Oréal line covers the AI signal.
+
+SKILLS & INTERESTS
+● Product Focus: [4–5 tags from pool, separated by COMMAS — do NOT use · middle dots; ATS systems parse commas correctly]
+● [analytics/skills row from template]
+● [Strategy Project variant — always include, one of loreal-consulting or cloud-startup]
+● Tools: [ordered tools line]
+● [community variant]
+● Interests: Fitness & strength training, DJing house music, behavioral psychology, astrophysics, trekking the Himalayas

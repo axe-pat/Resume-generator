@@ -1,0 +1,214 @@
+RESUME COMPILER — STEP 4: NARRATIVE ARC CHECK
+=============================================
+Version 1.0 | Spec ref: Section 7
+
+You are reviewing a set of resume bullets that the compiler has already selected
+via deterministic rules. Your job is NOT to re-score stories or re-apply
+compiler logic. Your only job is to check whether the 3 selected stories for
+each company block form a coherent narrative arc — and if not, to propose a
+minimal fix.
+
+Read the selected stories below, then produce a structured review in the format
+specified at the end of this prompt.
+
+──────────────────────────────────────────────────────────────────────────────
+WHAT A GOOD NARRATIVE ARC LOOKS LIKE
+──────────────────────────────────────────────────────────────────────────────
+A good arc means: the three bullets inside a company block read as a coherent
+chapter of work. Each story connects to or builds on the others. A reader can
+construct a single sentence about your role at that company.
+
+  GOOD (Hevo Data canonical arc):
+  • "Identified the enterprise gap and made the strategic pivot"
+  • "Drove the core technical bet that made the pivot possible"
+  • "Built the surface that proved reliability to customers"
+  → These build on each other. There is a clear connective thread.
+
+  BAD (three independent stories):
+  • "Strategic pivot to enterprise"
+  • "Query engine performance improvement"
+  • "Release velocity framework"
+  → These are three unrelated initiatives. No connective thread. A reader
+    cannot construct a narrative about what you did at Hevo.
+
+A block does NOT need to tell a linear story. Parallel efforts that share a
+theme (e.g. "three things that proved enterprise readiness") are coherent.
+Three completely unrelated initiatives are incoherent.
+
+──────────────────────────────────────────────────────────────────────────────
+INPUT — COMPILER-SELECTED STORIES AND BULLETS
+──────────────────────────────────────────────────────────────────────────────
+[PASTE THE CONTENTS OF company_bullets FROM THE compiler.py JSON OUTPUT HERE]
+
+Example format (replace with actual output):
+
+GOJEK
+  Story: gojek_external_fleet
+  Bullet: "Led design and launch of External Fleet platform..."
+  Framing: impact
+
+  Story: gojek_pricing_tier
+  Bullet: "Introduced cost-tiered pricing across 3 service categories..."
+  Framing: impact
+
+  Story: gojek_quote_latency
+  Bullet: "Diagnosed and resolved 40% quote latency spike..."
+  Framing: mechanism
+
+HEVO DATA
+  Story: hevo_enterprise_shift
+  Bullet: "Diagnosed batch-vs-streaming tradeoff and led pivot to batch-first..."
+  Framing: problem
+
+  Story: hevo_monitoring
+  Bullet: "Built pipeline health monitoring surface..."
+  Framing: impact
+
+  Story: hevo_query_engine
+  Bullet: "Reduced query execution time 60% via lazy evaluation..."
+  Framing: impact
+
+INTUIT
+  Story: intuit_billing
+  Bullet: "Drove QuickBooks Payroll billing overhaul..."
+  Framing: impact
+
+  Story: intuit_prioritization
+  Bullet: "Built the prioritization framework adopted across 4 teams..."
+  Framing: ownership
+
+  Story: intuit_incident
+  Bullet: "Led post-mortem and redesign after Tier-1 payroll incident..."
+  Framing: impact
+
+OPTUM
+  Story: optum_ai_affordability
+  Bullet: "Launched AI-powered affordability recommendation engine..."
+  Framing: impact
+
+──────────────────────────────────────────────────────────────────────────────
+YOUR TASK
+──────────────────────────────────────────────────────────────────────────────
+For each company block (Gojek, Hevo Data, Intuit, Optum), do the following:
+
+1. ASSESS: Does this block form a coherent narrative arc?
+   - "coherent" = the three stories connect in theme, trajectory, or outcome
+   - "incoherent" = three isolated initiatives with no connective thread
+
+2. DIAGNOSE (only if incoherent): Which story breaks the arc? Name the story_id.
+
+3. PROPOSE (only if incoherent): Name one substitute story_id from the same
+   company's pool that would improve arc coherence. Choose from the available
+   stories listed below.
+
+4. EXPLAIN: One sentence on why the arc works or why the substitute improves it.
+
+Available story pool (all experience-section stories by company):
+  Gojek:     gojek_external_fleet, gojek_pricing_tier, gojek_quote_latency
+  Hevo Data: hevo_enterprise_shift, hevo_monitoring, hevo_query_engine,
+             hevo_regression, hevo_genai
+  Intuit:    intuit_billing, intuit_prioritization, intuit_incident,
+             intuit_roadmap
+  Optum:     optum_ai_affordability, optum_provider, optum_backend
+
+Rules:
+- Only substitute a story from the SAME company's pool. Never reassign to a
+  different company.
+- Do not force an arc that isn't real. If the company's pool genuinely has no
+  connective stories, accept the weaker arc and say so.
+- Do not re-run scoring rules or question why the compiler chose these stories.
+  Work with what was selected.
+- Optum always has 1 bullet. There is no arc to assess for a single bullet.
+  Mark Optum as "N/A — single bullet block."
+
+PROTECTED STORIES — these story_ids must NEVER be flagged as "breaking story"
+and must NEVER be proposed for removal, regardless of narrative arc reasoning:
+
+  intuit_incident
+    WHY: Cross-functional incident leadership (crisis response, coordination
+    under pressure, direct customer impact) is an intentionally distinct PM
+    competency from billing accuracy and prioritization framework work. These
+    three stories do NOT need to form a thematic arc — they each demonstrate
+    a different core PM skill (business impact / process ownership / execution
+    under pressure). This variety is a feature, not a weakness. The incident
+    story is the most-used Intuit bullet in handcrafted resumes (20× usage)
+    and must be preserved unless the JD has zero operational or execution
+    signals. Accept any Intuit block containing intuit_incident as "coherent"
+    unless the other two stories are also clearly misaligned with each other.
+
+  gojek_external_fleet, gojek_pricing_tier, gojek_quote_latency
+    WHY: Gojek only has three stories in the pool — there is no substitute.
+    Never flag Gojek as "incoherent" when all three stories are already
+    selected; accept the arc as is.
+
+IMPORTANT: If your arc reasoning would lead you to propose removing a protected
+story, override that reasoning. Instead, mark the block as "coherent" and note
+in the Explanation that the variety is intentional.
+
+──────────────────────────────────────────────────────────────────────────────
+REQUIRED OUTPUT FORMAT
+──────────────────────────────────────────────────────────────────────────────
+Output in this exact structure. Keep each field concise.
+
+GOJEK ARC REVIEW
+  Verdict: coherent | incoherent
+  Breaking story: <story_id or "none">
+  Proposed substitute: <story_id or "none">
+  Explanation: <one sentence>
+
+HEVO DATA ARC REVIEW
+  Verdict: coherent | incoherent
+  Breaking story: <story_id or "none">
+  Proposed substitute: <story_id or "none">
+  Explanation: <one sentence>
+
+INTUIT ARC REVIEW
+  Verdict: coherent | incoherent
+  Breaking story: <story_id or "none">
+  Proposed substitute: <story_id or "none">
+  Explanation: <one sentence>
+
+OPTUM ARC REVIEW
+  Verdict: N/A — single bullet block
+  Breaking story: none
+  Proposed substitute: none
+  Explanation: N/A
+
+OVERALL NOTES
+  <Any cross-block observations — e.g. "Gojek and Hevo arcs are strong;
+   Intuit arc is weak but no better option exists in pool." 1–3 sentences.>
+
+ACTION REQUIRED
+  <One of: "Proceed to Step 5 — no changes needed" |
+           "Run compiler again with substitution: replace <story_id> with
+            <story_id> in <company> block, then re-run Step 3 for that
+            story." >
+
+──────────────────────────────────────────────────────────────────────────────
+MACHINE-READABLE DECISION  (pipeline.py reads this — do not omit)
+──────────────────────────────────────────────────────────────────────────────
+After the human-readable review above, output this JSON block on its own line.
+No markdown fences. No extra text before or after the JSON on that line.
+
+If no substitutions are needed:
+{"action": "proceed", "overrides": []}
+
+If one or more substitutions are needed:
+{"action": "rerun", "overrides": [{"company": "<exact company name>", "remove": "<story_id>", "add": "<story_id>"}]}
+
+Rules for the JSON:
+- "company" must be exactly one of: Gojek | Hevo Data | Intuit | Optum
+- "remove" and "add" must be valid story_ids from the pool listed above
+- Only include overrides for blocks where verdict is "incoherent"
+- Maximum one override per company block
+
+──────────────────────────────────────────────────────────────────────────────
+AFTER COMPLETING THIS REVIEW
+──────────────────────────────────────────────────────────────────────────────
+When run manually: paste the full output of this review into the
+narrative_arc_notes field of the run output JSON. Then proceed to Step 5
+(quality gates and assembly), or re-run compiler.py with --override if a
+substitution was flagged.
+
+When run via pipeline.py: the pipeline reads the MACHINE-READABLE DECISION
+JSON automatically. No manual action needed.

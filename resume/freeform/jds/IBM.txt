@@ -1,0 +1,43 @@
+About the job
+Introduction
+
+A career in IBM Software means you’ll be part of a team that transforms our customer’s challenges into solutions.
+
+Seeking new possibilities and always staying curious, we are a team dedicated to creating the world’s leading AI-powered, cloud-native software solutions for our customers. Our renowned legacy creates endless global opportunities for our IBMers, so the door is always open for those who want to grow their career.
+
+We are seeking a skilled back-end developer to join our IBM Software team. As part of our team, you will be responsible for developing and maintaining high-quality software products, working with a variety of technologies and programming languages.
+
+IBM’s product and technology landscape includes Research, Software, and Infrastructure. Entering this domain positions you at the heart of IBM, where growth and innovation thrive.
+
+Your Role And Responsibilities
+
+We’re looking for Product Manager Interns to help build AIenabled and datadriven software products across our teams in Austin, San Jose, and Lowell. As an intern, you will work closely with engineering, design, and data science partners to support product strategy, define user needs, and deliver features that provide real value. This role offers hands on exposure to the product lifecycle while developing skills in research, experimentation, prioritization, and stakeholder collaboration.
+
+What You’ll Do
+
+ Support product strategy, roadmap planning, and prioritization.
+ Translate technical concepts—such as APIs, ML models, and data flows—into clear user stories.
+ Collaborate with cross functional teams to build and refine features.
+ Use analytics and user feedback to assess product performance.
+ Apply responsible and ethical AI practices.
+ Participate in Agile ceremonies, research activities, and design reviews.
+ Communicate updates and findings to stakeholders.
+
+Preferred Education
+
+Bachelor's Degree
+
+Required Technical And Professional Expertise
+
+ To be eligible, candidates must be currently enrolled in a Bachelor’s, Master’s, MBA, or PhD program, with an expected graduation date between December 2026 and May 2029.
+ Understanding of product management principles and usercentered thinking.
+ Familiarity with AI/ML concepts or data workflows through coursework or projects.
+ Experience with Agile practices and collaborative work environments.
+ Ability to analyze data and communicate insights clearly.
+ Strong communication, organization, and problemsolving skills.
+
+Preferred Technical And Professional Experience
+
+ Exposure to product analytics or data visualization tools.
+ Coursework or projects related to AI, data, or software engineering.
+ Familiarity with responsible AI or ethics frameworks.

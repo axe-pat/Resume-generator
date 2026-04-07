@@ -1,0 +1,27 @@
+# blocklist.txt — Companies to permanently skip during promotion
+#
+# One entry per line. Case-insensitive. Supports fnmatch wildcards:
+#   *        matches anything  (e.g. "tik*" matches "TikTok", "Tiktok Inc")
+#   ?        matches any single character
+#   [seq]    matches any character in seq
+#
+# Lines starting with # are comments. Blank lines are ignored.
+#
+# To skip a company: add its name exactly as it appears in jobs.xlsx,
+# or use a wildcard to catch variants.
+#
+# To unskip: delete or comment out the line, then run:
+#   python jobs.py sort          # reformat xlsx (no data change)
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# Examples
+# ─────────────────────────────────────────────────────────────────────────────
+
+TikTok
+Nvidia
+IBM
+
+# ByteDance          # parent company, if you want to block all their brands
+# tik*               # catches TikTok, Tiktok Inc, etc.
+# *staffing*         # skip all staffing/recruiting agencies
+# *consulting*       # skip consulting firms

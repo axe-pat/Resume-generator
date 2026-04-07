@@ -1,0 +1,35 @@
+{
+  "_instructions": "Fill this template before every compiler run. Pass the completed file to compiler.py as the first argument. Tag mix must sum to exactly 100. role_archetype and role_context_fit are produced by Step 1 (AI prompt). Remove all _comment fields before passing to compiler.",
+
+  "company": "",
+  "role_title": "",
+  "jd_url": "",
+
+  "_comment_role_archetype": "Pick exactly one: Growth PM | Technical PM | Enterprise SaaS PM | Strategy PM | AI/ML PM | Consumer PM",
+  "role_archetype": "",
+
+  "_comment_role_context_fit": "Pick exactly one: smb_saas | enterprise_large | startup | any",
+  "role_context_fit": "",
+
+  "_comment_tag_mix": "Integers that sum to exactly 100. Set unused tags to 0. Output of Step 1 (AI).",
+  "tag_mix": {
+    "GROWTH":     0,
+    "ENTERPRISE": 0,
+    "STRATEGY":   0,
+    "DATA":       0,
+    "AI_ML":      0,
+    "TECHNICAL":  0,
+    "OPS":        0,
+    "GENERAL":    0
+  },
+
+  "hard_gate_checks": {
+    "_comment": "Y = passes gate, N = fails gate (do not apply to this role)",
+    "mba_required": "",
+    "work_auth_ok": "",
+    "location_ok": ""
+  },
+
+  "_comment_notes": "Free-text. Any JD signals not captured by tags — e.g. 'marketplace PM', 'fintech focus', 'AI-first team'. Used only for human reference; not read by compiler.",
+  "notes": ""
+}

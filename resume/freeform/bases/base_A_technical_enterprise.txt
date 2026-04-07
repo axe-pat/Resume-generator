@@ -1,0 +1,71 @@
+ARCHETYPE: Technical PM / Enterprise SaaS PM
+TARGET ROLES: IBM, Databricks, Snowflake, Palantir, Stripe, Figma (platform/infra-adjacent)
+SIGNAL EMPHASIS: Technical depth, cross-functional execution, enterprise reliability, data platform ownership
+
+NOTE: Every bullet is verbatim from Bullet Bank. Do not modify text when using this base.
+      The freeform swap prompt may reframe only — never alter metrics or company names.
+
+─────────────────────────────────────────
+GOJEK  |  Software Engineer, Product  |  Jan – Jul 2025
+─────────────────────────────────────────
+
+• Led end-to-end scoping and launch of a developer-facing external-fleet API platform; defined technical requirements, aligned Engineering and Operations on integration specs, and drove rollout across Singapore and Bali, increasing active supply by 18% and reducing pickup ETAs by 1.5 minutes.
+# source: Gojek > Supply Model & External Fleet Platform > variant 4 [4×] | framing: mechanism
+
+• Improved system throughput during demand surges by introducing a cost-tiered allocation model; analyzed large-scale rider behavior and pricing elasticity to validate capacity trade-offs through A/B experiments and competitive benchmarking, lifting conversion 9% and adding $3.2M in revenue.
+# source: Gojek > Cost-Tiered Pricing & Conversion Revenue > variant 6 [2×] | framing: mechanism/data
+
+• Conducted deep software performance profiling and bottleneck analysis to redesign pricing and estimation workflows; reduced quote latency by 70% and mitigated pre-payment drop-offs to enable ~28K additional monthly rides.
+# source: Gojek > Quote Latency & Conversion Optimization > variant 5 [4×] | framing: mechanism
+
+─────────────────────────────────────────
+HEVO DATA  |  Software Engineer II  |  Nov 2023 – Jan 2025
+─────────────────────────────────────────
+
+• Drove the core strategic bet behind Hevo 2.0 by moving to a batch-first, transactional execution model, trading off speed for clear failure boundaries and verifiable correctness required to pass enterprise trials and meet strict SLA expectations.
+# source: Hevo > Hevo 2.0: Batch-First Architecture & Enterprise Shift > variant 1 [12×] | framing: mechanism/strategy
+
+• Architected a centralized Monitoring & Recovery platform enabling performance telemetry and failure visibility for distributed ML data pipelines; reduced MTTR ~40%.
+# source: Hevo > Monitoring & Recovery Platform > variant 4 [3×] | framing: mechanism/technical
+
+• Enhanced customer data-exploration workflows by designing a reusable query and filtering engine adopted across dashboards, reducing query latency by 50% and standardizing investigation and reporting experiences.
+# source: Hevo > Query Engine & Data Exploration > variant 1 [12×] | framing: mechanism
+
+─────────────────────────────────────────
+INTUIT  |  Software Engineer II  |  Aug 2022 – Oct 2023
+─────────────────────────────────────────
+
+• Restored billing accuracy and customer trust for 80K+ businesses by designing a scalable cross-system reconciliation framework to resolve persistent data mismatches across billing services, contributing to a 10% lift in renewals.
+# source: Intuit > Billing Accuracy & Customer Trust > variant 2 [11×] | framing: mechanism/impact
+
+• Introduced a customer-impact prioritization framework to manage a 20K+ issue backlog; aligned Product and Engineering on trade-offs between growth features and technical debt across 8 teams.
+# source: Intuit > Customer-Impact Prioritization Framework > variant 1 [12×] | framing: ownership
+
+• Led cross-functional incident response for a production issue impacting 1,500+ businesses, coordinating Engineering, Product, and Support on remediation, customer communications, and system recovery to contain impact and restore customer trust.
+# source: Intuit > Cross-Functional Incident Response > variant 2 [14×] | framing: ownership/impact
+
+─────────────────────────────────────────
+OPTUM  |  Software Engineer  |  Jul 2020 – Aug 2022
+─────────────────────────────────────────
+
+• Enabled 50M new member onboardings and $20M+ in incremental annual revenue by integrating a new provider via scalable APIs to expand Optum's care network.
+# source: Optum > Provider Integration & Care Network Expansion > variant 2 [8×] | framing: impact/technical
+
+• Designed and prototyped an ML-based affordability engine, defining feature inputs, evaluation metrics, and deployment workflow; aligned clinical stakeholders and secured pilot approval as part of Optum's global innovation initiative.
+# source: Optum > AI Affordability Solution > variant 3 [4×] | framing: mechanism/technical
+
+─────────────────────────────────────────
+ARCHETYPE NOTES
+─────────────────────────────────────────
+Gojek leads with mechanism throughout: API platform technical ownership, pricing elasticity analysis, and
+performance profiling. These signal "I can own technical requirements and work credibly with engineers."
+
+Hevo uses the architectural/strategy variant (batch-first tradeoffs) rather than the impact variant, the
+technical monitoring platform variant rather than the churn-reduction framing, and query engine as a
+data infra ownership signal.
+
+Intuit leads with the reconciliation framework (technical execution) rather than the churn-framing of the
+billing story. Keeps the prioritization framework and incident response as PM execution signals.
+
+Optum: API-integration framing on provider bullet (not just revenue), and ML mechanism variant on AI
+bullet to show model evaluation and deployment thinking — not just hackathon impact.

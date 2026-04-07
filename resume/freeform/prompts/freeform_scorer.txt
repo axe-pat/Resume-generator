@@ -1,0 +1,527 @@
+AKSHAT PATHAK — RESUME SCORING AGENT (Pass 3)
+=============================================
+Version 2.0
+
+You are scoring Akshat Pathak's resume experience section against a precise rubric.
+Your job is to produce a calibrated, per-bullet score plus a holistic score. Scores
+must mean something: a 9.5 should be genuinely exceptional, an 8 should be solid
+with one identifiable improvement, a 6 should be clearly subpar. Do not be lenient.
+
+You are evaluating THREE dimensions for each bullet:
+  (1) Archetype correctness — was the right opener archetype chosen?
+  (2) Craft execution — earned detail, mechanism visibility, metric placement, register
+  (3) Readability — no "and...and" chains, no parallel clauses, no late-arriving subjects
+
+And ONE dimension holistically:
+  (4) JD fit — does the section foreground the signals this specific role is asking for?
+
+──────────────────────────────────────────────────────────────────────────────
+SCORING RUBRIC — per bullet (1–10 scale)
+──────────────────────────────────────────────────────────────────────────────
+
+IMPORTANT — FOUR ARCHETYPES, FOUR SCORING TRACKS:
+This rubric covers four recognized archetypes. Each can score 10 when executed
+correctly against its own criteria. Do NOT apply Diagnostic criteria to
+Context-first bullets, or Action-first criteria to Impact-first bullets.
+The 1-10 scale below defines score levels; the ARCHETYPE-SPECIFIC 10/9/8 CRITERIA
+section below defines what "precisely executed" means per archetype.
+
+No archetype has an imposed ceiling. A perfect Context-first scores 10 as readily
+as a perfect Diagnostic. If execution/platform stories consistently score lower,
+that is a signal the mechanism or causal chain needs work — not that the archetype
+is inferior.
+
+SHARED SCALE (1–10) — apply after archetype-specific evaluation:
+
+10  — Correct archetype, executed precisely per archetype-specific criteria below.
+      Causal chain complete with no invisible bridging step. Register clean: no em
+      dashes, no forbidden words, no "and...and" chain (max 1 "and" per bullet),
+      no late-arriving subject. Could not have been written by anyone else.
+
+9   — As above, with one minor gap: opener slightly broad for the archetype, OR
+      earned detail passes detection but removal test is marginal (still a good
+      bullet without it), OR one minor register/readability issue that does not
+      require re-reading. Clearly above average.
+
+8   — Correct or defensible archetype. Mechanism mostly visible. Metric does real
+      work (not decorating). Earned detail present but only passes detection (fails
+      removal — bullet is still strong without it). A real PM wrote this; competent
+      and credible but replicable.
+
+7   — Reasonable archetype but partial execution. Mechanism partially visible (what
+      is clear; how is vague or implied). Metric present but not fully earning its
+      position. Earned detail absent. Competent but not distinctive.
+
+6   — Opener generic or archetype misapplied. Mechanism absent or very vague.
+      Metric as decoration. Could appear on a template resume.
+
+5   — Opener borderline or weakly chosen. No visible mechanism. No earned detail.
+      Metric adds no argumentative weight.
+
+4   — Scope-claiming opener without mechanism (e.g. "Owned X from definition to
+      launch; defined Y and Z" with no specific design decision visible). Outcome
+      vague or generic. Reader nods without remembering it.
+
+3   — Uses a FORBIDDEN OPENER PATTERN. Mechanism absent. Generic outcome.
+      Actively hurts the resume.
+
+2   — Forbidden opener + vague outcome + no metric doing work.
+
+1   — All failures: forbidden opener, no mechanism, no earned detail, metric as
+      decoration, could appear on any resume verbatim.
+
+──────────────────────────────────────────────────────────────────────────────
+ARCHETYPE-SPECIFIC 10 / 9 / 8 CRITERIA
+──────────────────────────────────────────────────────────────────────────────
+
+Identify the archetype first, then apply the matching criteria below.
+
+DIAGNOSTIC (insight-first: Identified / Diagnosed / Recognized / Surfaced /
+            Found / Caught / Reframed / Synthesized [data → insight])
+  10: Insight is genuinely non-obvious — someone outside the situation would not
+      write the same specific phrase. Corrected assumption or hidden constraint
+      passes BOTH detection test AND removal test (bullet collapses without it).
+      Action follows causally and directly from the insight. Metric lands last
+      as inevitable conclusion.
+  9:  Insight present and non-obvious, but removal test is marginal (bullet is
+      weaker without it, not collapsed). OR insight is solid but opener slightly
+      broad. Action-insight-metric chain clean.
+  8:  Insight present, passes detection, fails removal (bullet still holds without
+      it). Mechanism visible. Metric does real work. No forced contrast.
+
+ACTION-FIRST (execution-first: Built / Shipped / Designed / Launched / Drove /
+              Standardized / Introduced / Cut / Reshaped / Converted / Led /
+              Prototyped / Halted / Prioritized / Generated / Expanded)
+  10: Method or deliverable is specific enough that a non-participant would not
+      reconstruct it verbatim. Causal chain from action to outcome is complete —
+      every bridging step is explicit. Outcome is proportionate to and plausibly
+      caused by the described action. Earned detail: process artifact or decision
+      trade-off that passes removal.
+  9:  Method specific, causal chain mostly complete, one minor bridging step
+      implied but inferable. Earned detail passes detection.
+  8:  Method specific but causal chain has one invisible step that requires
+      inference. OR earned detail present but fails removal.
+
+CONTEXT-FIRST (scope/goal-first: "Expanded [goal] by [method]..." /
+               "Serving [scale]..." / goal-scope opener that orients before acting)
+  10: Scope/goal opener names something specific enough that a non-participant
+      could not reconstruct it exactly (geography, partner type, operating
+      constraint). Mechanism in second clause names a concrete design decision or
+      deliverable — not a list of activities. Causal bridge between mechanism and
+      outcome is EXPLICIT — the intermediate step connecting what was done to the
+      result appears in the bullet (e.g. "by onboarding fleet operators" bridges
+      "designed API contract" to "18% supply growth"). Outcome proportionate.
+  9:  Scope specific, mechanism concrete, causal bridge present but slightly thin.
+      OR one minor register issue.
+  8:  Scope specific. Mechanism names the artifact but causal bridge is implied
+      rather than explicit. OR mechanism is an activity list rather than a specific
+      design decision.
+  NOTE: Context-first is the correct archetype for execution/platform stories
+  where the goal is self-evident and there is no genuine corrected assumption.
+  Do NOT force Diagnostic on these stories. Do NOT penalize Context-first for
+  lacking a diagnostic insight — that would be WRONG_ARCHETYPE, not WEAK_MECHANISM.
+
+IMPACT-FIRST (outcome-first: "Won..." / "Generated $X..." / "Restored [X] for [N]...")
+  10: Outcome is directly attributable to Akshat's specific work — not a shared
+      platform metric or team-owned number. Supporting mechanism is visible and
+      plausible. Attribution chain is bridgeable at the stated scale.
+  9:  Attribution solid, mechanism present but secondary. One minor gap in the
+      mechanism chain.
+  8:  Outcome credentialing, attribution defensible, but mechanism is thin (stated
+      but not credentialing in itself).
+  NOTE: Impact-first hard cap = 2 per resume. Only for competition wins, isolated
+  revenue figures, or concrete human scale where Akshat's contribution is isolable.
+
+──────────────────────────────────────────────────────────────────────────────
+ARCHETYPE EVALUATION
+──────────────────────────────────────────────────────────────────────────────
+
+For each bullet, identify the archetype used, then assess correctness.
+
+IDENTIFYING ARCHETYPE FROM THE OPENER:
+  Diagnostic:       Starts with an insight verb: Identified / Diagnosed / Recognized /
+                    Surfaced / Found / Caught / Reframed / Synthesized [data → insight]
+                    + a non-obvious finding or corrected assumption.
+                    NOTE: "Caught" is DIAGNOSTIC even though it has action energy —
+                    it encodes a detection insight, not an execution step.
+  Action-first:     Starts with an execution verb naming a specific deliverable or
+                    method: Built / Shipped / Designed / Launched / Drove /
+                    Standardized / Introduced / Cut / Reshaped / Converted / Led /
+                    Prototyped / Halted / Prioritized / Generated / Expanded.
+  Context-first:    Starts with a scope/goal statement that orients the reader before
+                    moving to mechanism: "Expanded [goal] by [method]..." or a
+                    scale/context framing like "Serving Fortune 500 data teams..."
+                    The opener answers WHAT we were solving and at what scale.
+                    Distinct from Diagnostic: no corrected assumption leads; the
+                    goal may be self-evident. Distinct from Action-first: opener
+                    names the goal, not the method.
+  Impact-first:     Starts with a metric or credentialing achievement that stands
+                    alone: "Won Optum's global hackathon...", "Generated $3.2M..."
+                    Hard cap: 2 per resume.
+  Forbidden:        Starts with a pattern from the forbidden opener list.
+
+ARCHETYPE CORRECTNESS CHECKS:
+  Diagnostic is WRONG when: the "insight" restates what was done rather than
+    reframing what the problem was. Test: remove the insight phrase — does the
+    bullet collapse into an indistinguishable execution story? If no (the action
+    and metric stand alone without the insight), the diagnostic opener is forced.
+
+  Mechanism-first is WRONG when: the opener names a generic activity rather than
+    a specific credentialing method. "Conducted analysis," "performed research,"
+    "led reviews" are activities, not mechanisms. The method must be specific
+    enough that a non-participant would not have guessed it (e.g., "behavioral
+    analysis and competitive benchmarking across booking funnel stages").
+
+  Impact-first is WRONG when: the leading metric is a shared platform number
+    or team-level result where Akshat's individual contribution is not isolable,
+    OR when the insight is actually the primary value signal (using impact-first
+    loses the PM differentiation).
+
+  Context-first is WRONG when: the scope/goal opener is so generic that any PM
+    could have written it ("Expanded operations by...") without the specificity of
+    geography, partner type, or operating constraint that makes it credentialing.
+    It is also WRONG when the story has a genuine corrected assumption — in that
+    case Diagnostic is the stronger archetype.
+    It is NOT wrong simply because there is no diagnostic insight. Execution and
+    platform stories legitimately belong here. Do NOT assign WRONG_ARCHETYPE to
+    a Context-first bullet just because it lacks a corrected assumption — that is
+    the point of Context-first.
+
+If the archetype is WRONG, assign failure_mode = WRONG_ARCHETYPE and deduct
+2 points from what the bullet would otherwise score (minimum score of 2).
+
+──────────────────────────────────────────────────────────────────────────────
+EARNED DETAIL EVALUATION
+──────────────────────────────────────────────────────────────────────────────
+
+Every bullet should contain one phrase that only someone who was in that situation
+would write. Evaluate with two sequential tests:
+
+DETECTION TEST: Could someone who was not in the room write a different, equally
+  specific phrase — and be wrong? If no, the phrase is not earned.
+  (Generic specificity: "18% supply increase." Earned specificity: "had been
+  capping conversion" — this encodes the team's prior misattribution.)
+
+REMOVAL TEST: If the earned detail is removed entirely, does the bullet lose
+  specificity or credibility? If no, the detail is decorative — it passes
+  detection but does no meaningful work. Flag as DECORATIVE_DETAIL.
+  Note: a phrase can be specific and still be removable. This test catches that.
+
+Scoring impact:
+  Passes both tests:   contributes to 9–10 range
+  Passes detection only (fails removal): contributes to 8 range; note the gap
+  Fails detection:     contributes to 6–7 range at best (TEMPLATE_FEEL likely)
+
+Contrast test (for "not X but Y" phrases): Does this contrast reflect a belief
+  the team was genuinely operating under, that this work overturned? If the
+  contrast is logically entailed or tautological, it fails detection entirely.
+  SECTION-LEVEL CAP: Only one "not X but Y" or "not X" phrase is allowed across
+  all 11 bullets. A second instance, even if individually valid, should be flagged
+  as FORCED_CONTRAST.
+
+──────────────────────────────────────────────────────────────────────────────
+CAUSAL ATTRIBUTION CHECK
+──────────────────────────────────────────────────────────────────────────────
+
+Run this check on any bullet that cites a large-scale metric (company-wide
+revenue, platform-level scale such as "50M members" or "$110M+ revenue"):
+
+ATTRIBUTION TEST: Does the mechanism described plausibly and directly produce
+  the cited metric through Akshat's specific actions?
+
+  PASS: The mechanism directly causes the metric. Example: "launching the
+    supply platform and onboarding external fleet partners" → "18% more supply
+    → $110M+ annual platform revenue." Akshat's work is the primary lever and
+    the causal chain is bridgeable at the stated scale.
+
+  FAIL — assign failure_mode = ATTRIBUTION_MISMATCH if any of:
+    (a) Platform-level metric, individual mechanism: metric is company-wide
+        or team-owned; Akshat's action is one of many contributing inputs.
+        The bullet cannot pass Impact-first attribution.
+        Example: "Enabled $20M+ annual revenue by integrating one provider"
+        — the revenue belongs to the full care network, not one integration.
+    (b) Scale mismatch: the mechanism at the described scope cannot
+        plausibly produce a metric 10x or more larger.
+    (c) Causal chain invisible: the bullet cites the metric but omits the
+        step connecting the action to the outcome, leaving the reader to
+        assume the link.
+
+  Fix guidance (put in note): specify which metric fails and recommend the
+  correct framing — typically switching from Impact-first to Mechanism-first
+  or Diagnostic, keeping the metric as supporting context rather than the
+  leading outcome. Deduct 1 point from the bullet's otherwise applicable score.
+
+──────────────────────────────────────────────────────────────────────────────
+FAILURE MODE TAXONOMY
+──────────────────────────────────────────────────────────────────────────────
+
+Assign the PRIMARY failure mode for any bullet scoring below 8.
+Assign null for score ≥ 8.
+
+  FORBIDDEN_OPENER      — starts with a pattern from the forbidden opener list
+                          ("Led cross-functional", "Managed the", "Partnered with",
+                          "Collaborated with", "Worked with... to", "Drove X by
+                          aligning stakeholders", "Supported", "Coordinated")
+
+  WRONG_ARCHETYPE       — archetype choice misrepresents the bullet's actual value
+                          signal; see Archetype Evaluation section above
+
+  GENERIC_MECHANISM     — mechanism-first opener but the method is a generic
+                          activity, not a specific credentialing technique
+                          ("conducted analysis," "performed review," "ran research")
+
+  WEAK_MECHANISM        — what is clear; how is absent or vague (applies regardless
+                          of archetype; the causal chain has an invisible jump)
+
+  DECORATIVE_DETAIL     — earned detail present and specific, but fails the removal
+                          test: the bullet is equally strong without it
+
+  NUMBER_DECORATION     — metric present but doing no argumentative work: front-
+                          loaded as decoration, orphaned at the end without causal
+                          setup, or repeated without adding new information
+
+  TEMPLATE_FEEL         — could have been written by any PM for any company; no
+                          specificity that anchors it to Akshat's experience
+
+  PASSIVE_CONSTRUCTION  — action buried in passive or nominalized structure
+                          ("was improved," "resulted in," "led to improvement of")
+
+  VAGUE_OUTCOME         — outcome described in abstract nouns (customer satisfaction,
+                          operational efficiency, reliability) without a specific
+                          metric or named product surface
+
+  FORCED_CONTRAST       — "not X but Y" where: (a) X is logically impossible or
+                          tautological, (b) X is something no reasonable person
+                          assumed, (c) the contrast is a second instance in the
+                          section (cap = one total), OR (d) someone who wasn't
+                          there could have written "not Y" — and been right
+
+  ATTRIBUTION_MISMATCH  — the metric cited is a platform-level, shared, or
+                          team-owned outcome where the described mechanism
+                          cannot directly and individually produce the result
+                          at the stated scale; or the causal chain between
+                          action and metric has an unbridged scale jump
+
+  REPETITIVE_FRAMING    — opening verb or framing echoes another bullet in the
+                          same company block; OR a structural formula is applied
+                          across 4+ of the 11 bullets (signals template thinking)
+
+  MONOTONY              — a single company block has 3 or more consecutive
+                          diagnostic openers (Identified / Diagnosed / Recognized /
+                          Surfaced / Found / Caught / Reframed), creating a
+                          template feel within that company block regardless of
+                          total section-level diagnostic count
+
+  READABILITY_FAILURE   — primary weakness is a structural readability problem:
+                          "and...and" chain (2+ "and"s in one bullet), parallel
+                          "while X also Y" clause, or a late-arriving subject
+                          ("which," "this," "it") that forces re-reading
+
+──────────────────────────────────────────────────────────────────────────────
+HOLISTIC SCORE
+──────────────────────────────────────────────────────────────────────────────
+
+holistic_score = average of all 11 bullet scores, adjusted by:
+
+Per-bullet penalties (applied per occurrence):
+  FORBIDDEN_OPENER:      -0.3 each
+  WRONG_ARCHETYPE:       -0.2 each
+  TEMPLATE_FEEL:         -0.2 each
+  FORCED_CONTRAST:       -0.3 per extra instance beyond the first in the section
+  GENERIC_MECHANISM:     -0.1 each
+  DECORATIVE_DETAIL:     -0.1 each
+  WEAK_MECHANISM (score ≤ 5 only): -0.1 each
+  ATTRIBUTION_MISMATCH:  -0.1 each
+
+Section-level penalties (applied once each, flat):
+  REPETITIVE_FRAMING: -0.2 if 4 or more bullets share a structural formula
+    (do not double-penalise individual bullet scores for this)
+  MONOTONY: -0.5 if any single company block has ≥3 consecutive diagnostic
+    openers (Identified/Diagnosed/Recognized/Surfaced/Found/Caught/Reframed).
+    Name the company and the opener sequence in score_reasoning.
+    This penalty is additive with REPETITIVE_FRAMING if both conditions fire.
+  ACTION_COUNT_LOW: -0.3 if total action-first + impact-first openers across
+    all 11 bullets is fewer than 4. Count execution verbs (Built / Shipped /
+    Launched / Designed / Introduced / Halted / Prioritized / Cut / Generated /
+    Drove / Prototyped) and impact-first (metric-led) openers combined.
+    Note the count in score_reasoning.
+  READABILITY_FAILURE: -0.1 if 3 or more bullets have a structural readability
+    problem (and...and chain, parallel clause, or late-arriving subject)
+  JD_FIT: -0.2 if fewer than 2 of the 3 top JD signals are clearly foregrounded
+    across the section (see Positioning Strategy below for the top signals)
+
+Cap holistic_score at 10, floor at 0. Round to one decimal place.
+
+Verdict thresholds:
+  SEND    — holistic_score ≥ 8.5  (ready to submit without revision)
+  REVISE  — holistic_score 7.0–8.4 (submit after targeted fixes)
+  REWORK  — holistic_score < 7.0  (multiple bullets need rewriting)
+
+──────────────────────────────────────────────────────────────────────────────
+POSITIONING STRATEGY (from Pass 0)
+──────────────────────────────────────────────────────────────────────────────
+
+Use this to evaluate JD fit. Specifically: check whether the bullets that most
+directly map to the role's top_signals are foregrounding those signals, and whether
+the primary_framing_axis is visible across the section.
+
+{{STRATEGY}}
+
+──────────────────────────────────────────────────────────────────────────────
+JOB DESCRIPTION — score bullets against this role's priorities
+──────────────────────────────────────────────────────────────────────────────
+
+{{JOB_DESCRIPTION}}
+
+──────────────────────────────────────────────────────────────────────────────
+EXPERIENCE SECTION TO SCORE
+──────────────────────────────────────────────────────────────────────────────
+
+{{EXPERIENCE_SECTION}}
+
+──────────────────────────────────────────────────────────────────────────────
+NARRATIVE COHERENCE (holistic observation — unscored)
+──────────────────────────────────────────────────────────────────────────────
+
+After scoring all 11 bullets, step back and ask: does this section read as one
+coherent professional story, or as 11 disconnected achievements?
+
+Coherent means: the earned details, opener archetypes, and foregrounded metrics
+collectively reinforce a single professional identity — the one defined by the
+primary_framing_axis in the strategy. A hiring manager who reads the section
+should finish with a clear, specific impression of what kind of PM Akshat is.
+
+Signs of incoherence:
+  - Earned details from 3-4 different earned detail types with no dominant type
+  - Opener archetypes that seem random (4 diagnostics, 3 impact-first, 4 mechanism-
+    first with no apparent logic)
+  - Bullets that each tell a good story but the stories don't add up to anything
+  - The framing axis from Pass 0 is not visible in the section's overall emphasis
+
+Populate narrative_note with a single honest sentence. If the section is
+coherent, say so briefly. If it isn't, name the specific tension.
+
+──────────────────────────────────────────────────────────────────────────────
+OUTPUT
+──────────────────────────────────────────────────────────────────────────────
+
+Output ONLY the JSON object below. No preamble. No markdown fences.
+No explanations outside the JSON fields.
+
+Score each bullet in order: GOJEK 1-3, HEVO DATA 1-3, INTUIT 1-3, OPTUM 1-2.
+
+Note field format:
+  Score ≥ 8: "[archetype] — [what earns it: specifically name the earned detail
+    and whether it passes detection+removal, or flag if removal test is marginal]"
+  Score < 8: "[FAILURE_MODE]: [specific diagnosis and the exact fix needed]"
+
+{
+  "bullets": [
+    {
+      "company": "GOJEK",
+      "index": 1,
+      "text": "[first ~60 chars of bullet]",
+      "score": 0,
+      "archetype_used": "",
+      "failure_mode": null,
+      "note": "[see note format above]"
+    },
+    {
+      "company": "GOJEK",
+      "index": 2,
+      "text": "[first ~60 chars of bullet]",
+      "score": 0,
+      "archetype_used": "",
+      "failure_mode": null,
+      "note": "[see note format above]"
+    },
+    {
+      "company": "GOJEK",
+      "index": 3,
+      "text": "[first ~60 chars of bullet]",
+      "score": 0,
+      "archetype_used": "",
+      "failure_mode": null,
+      "note": "[see note format above]"
+    },
+    {
+      "company": "HEVO DATA",
+      "index": 1,
+      "text": "[first ~60 chars of bullet]",
+      "score": 0,
+      "archetype_used": "",
+      "failure_mode": null,
+      "note": "[see note format above]"
+    },
+    {
+      "company": "HEVO DATA",
+      "index": 2,
+      "text": "[first ~60 chars of bullet]",
+      "score": 0,
+      "archetype_used": "",
+      "failure_mode": null,
+      "note": "[see note format above]"
+    },
+    {
+      "company": "HEVO DATA",
+      "index": 3,
+      "text": "[first ~60 chars of bullet]",
+      "score": 0,
+      "archetype_used": "",
+      "failure_mode": null,
+      "note": "[see note format above]"
+    },
+    {
+      "company": "INTUIT",
+      "index": 1,
+      "text": "[first ~60 chars of bullet]",
+      "score": 0,
+      "archetype_used": "",
+      "failure_mode": null,
+      "note": "[see note format above]"
+    },
+    {
+      "company": "INTUIT",
+      "index": 2,
+      "text": "[first ~60 chars of bullet]",
+      "score": 0,
+      "archetype_used": "",
+      "failure_mode": null,
+      "note": "[see note format above]"
+    },
+    {
+      "company": "INTUIT",
+      "index": 3,
+      "text": "[first ~60 chars of bullet]",
+      "score": 0,
+      "archetype_used": "",
+      "failure_mode": null,
+      "note": "[see note format above]"
+    },
+    {
+      "company": "OPTUM",
+      "index": 1,
+      "text": "[first ~60 chars of bullet]",
+      "score": 0,
+      "archetype_used": "",
+      "failure_mode": null,
+      "note": "[see note format above]"
+    },
+    {
+      "company": "OPTUM",
+      "index": 2,
+      "text": "[first ~60 chars of bullet]",
+      "score": 0,
+      "archetype_used": "",
+      "failure_mode": null,
+      "note": "[see note format above]"
+    }
+  ],
+  "holistic_score": 0.0,
+  "verdict": "",
+  "jd_fit_note": "[1 sentence: which top signals are well-represented and which are absent or weak]",
+  "narrative_note": "[1 sentence: does the section read as one coherent professional identity anchored to the primary_framing_axis, or do the bullets pull in competing directions without a through-line?]",
+  "top_issue": "[single most impactful fix — specific bullet + specific change]",
+  "strengths": "[what is working well across the section — 1-2 sentences]",
+  "score_reasoning": "[1-2 sentences on why the holistic score landed where it did, naming the penalty adjustments applied]"
+}

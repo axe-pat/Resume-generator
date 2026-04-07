@@ -1,0 +1,76 @@
+ARCHETYPE: Strategy PM / AI-First PM / Generalist Big Tech
+TARGET ROLES: Google, Meta, OpenAI, Anthropic, Microsoft, Amazon, Apple, generalist PM programs
+SIGNAL EMPHASIS: Strategic framing, first-principles thinking, AI/ML depth, cross-org influence, ambiguity navigation
+
+NOTE: Every bullet is verbatim from Bullet Bank. Do not modify text when using this base.
+      The freeform swap prompt may reframe only — never alter metrics or company names.
+
+─────────────────────────────────────────
+GOJEK  |  Software Engineer, Product  |  Jan – Jul 2025
+─────────────────────────────────────────
+
+• Drove $110M+ in annual revenue by designing and launching a multi-partner supply model; identified peak-hour supply gaps as a growth constraint and prioritized partner onboarding to unlock 18% more supply across Singapore and Bali.
+# source: Gojek > Supply Model & External Fleet Platform > variant 2 [8×] | framing: impact/strategy
+
+• Increased booking conversion 9% and generated $3.2M in incremental revenue by launching a discount ride tier for price-sensitive riders; combined funnel analysis with 20+ customer interviews to validate willingness-to-pay and ran A/B pricing experiments.
+# source: Gojek > Cost-Tiered Pricing & Conversion Revenue > variant 4 [3×] | framing: impact/research
+
+• Conducted user behavior analysis and competitive benchmarking to identify fare-quote latency as a key conversion bottleneck; presented a strategic roadmap to cross-functional leads to modernize estimation flows, reducing drop-offs and enabling ~28K additional monthly rides.
+# source: Gojek > Quote Latency & Conversion Optimization > variant 6 [3×] | framing: strategy/problem
+
+─────────────────────────────────────────
+HEVO DATA  |  Software Engineer II  |  Nov 2023 – Jan 2025
+─────────────────────────────────────────
+
+• Drove the core strategic bet behind Hevo 2.0 by moving to a batch-first, transactional execution model, trading off speed for clear failure boundaries and verifiable correctness required to pass enterprise trials and meet strict SLA expectations.
+# source: Hevo > Hevo 2.0: Batch-First Architecture & Enterprise Shift > variant 1 [12×] | framing: strategy/mechanism
+
+• Improved enterprise trial conversion and sales confidence by shaping Job Monitoring as a first-class product surface, reducing time to identify pipeline failures by ~40% and giving data platform owners audit-ready visibility during evaluations.
+# source: Hevo > Monitoring & Recovery Platform > variant 1 [11×] (also appears in Enterprise Shift as variant 2) | framing: impact/strategy
+
+• Evaluated compute trade-offs and system architecture requirements for downstream enterprise LLM workloads, optimizing data pipeline delivery to accelerate GenAI model inference, deployment, and model serving workflows.
+# source: Hevo > Enterprise LLM/GenAI Workload Optimization > variant 1 [2×] | framing: mechanism/technical
+
+─────────────────────────────────────────
+INTUIT  |  Software Engineer II  |  Aug 2022 – Oct 2023
+─────────────────────────────────────────
+
+• Restored billing accuracy for 80K+ businesses by designing a scalable reconciliation framework; presented impact analysis to senior leadership to justify prioritizing financial auditability and customer trust over new feature density.
+# source: Intuit > Billing Accuracy & Customer Trust > variant 3 [2×] | framing: strategy/ownership
+
+• Introduced a customer-impact-driven prioritization framework to manage a 20K+ issue backlog, aligning 8 cross-functional teams on feature delivery vs technical-debt trade-offs and focusing engineering capacity on highest-risk customer issues.
+# source: Intuit > Customer-Impact Prioritization Framework > variant 2 [8×] | framing: ownership/strategy
+
+• Led cross-functional incident response for a production issue impacting 1,500+ businesses, coordinating Engineering, Product, and Support on remediation, customer communications, and system recovery to contain impact and restore customer trust.
+# source: Intuit > Cross-Functional Incident Response > variant 2 [14×] | framing: ownership
+
+─────────────────────────────────────────
+OPTUM  |  Software Engineer  |  Jul 2020 – Aug 2022
+─────────────────────────────────────────
+
+• Enabled $20M+ in incremental annual revenue by integrating a new provider into Optum's care network, supporting onboarding of 50M members and expanding access to in-network care.
+# source: Optum > Provider Integration & Care Network Expansion > variant 1 [16×] | framing: impact
+
+• Designed and prototyped an ML-based affordability engine by defining feature inputs, model evaluation metrics, and deployment workflow; aligned clinical stakeholders to ensure responsible and interpretable AI outputs.
+# source: Optum > AI Affordability Solution > variant 6 [1×] | framing: mechanism/responsible AI
+
+─────────────────────────────────────────
+ARCHETYPE NOTES
+─────────────────────────────────────────
+Gojek leads with the $110M revenue + strategic framing on fleet (growth constraint identification),
+research-backed pricing discovery (interviews + A/B), and strategy/roadmap framing on latency
+(competitive benchmarking, cross-functional roadmap presentation). All three signal first-principles
+thinking and comfort operating at the strategic layer.
+
+Hevo: batch-first architecture story frames the Hevo 2.0 decision as a deliberate strategic bet
+(tradeoff reasoning). Monitoring uses the enterprise trial conversion framing — directly tied to
+revenue/GTM outcomes. LLM/GenAI variant is the distinguishing signal for AI-first companies:
+shows you understand the data infrastructure side of ML product development.
+
+Intuit: leadership presentation framing on billing (impact analysis to justify roadmap pivot) elevates
+this from a tech fix to a strategic prioritization story. Prioritization framework uses the detailed
+8-team alignment version. Both signal that you can influence without authority at scale.
+
+Optum: standard provider integration on O1. Responsible AI variant on O2 (not just hackathon win) —
+this resonates with AI-first companies who care about governance, interpretability, and responsible
+deployment. Underused [1×] but highly differentiated for this archetype.

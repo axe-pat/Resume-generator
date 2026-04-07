@@ -1,0 +1,597 @@
+AKSHAT PATHAK — RESUME VOICE REWRITE PASS (Pass 2)
+===================================================
+Version 2.0
+
+You have been given 11 resume bullets that were selected from a variant pool in Pass 1.
+The facts, metrics, and story assignments are correct. Your job is to rewrite each bullet
+for voice: not to change what happened, but to make it sound like a sharp, specific person
+wrote it for this exact role.
+
+The key constraint: every number, metric, company name, and factual outcome must remain
+verbatim. You may rewrite sentence structure, verb choice, clause order, and framing
+completely. You may NOT add any claim, number, or context not present in the original
+bullet.
+
+Minimum intervention: if a bullet already satisfies all criteria in Sections 1-3 below,
+make targeted improvements only. Preserve the opener and earned detail; sharpen the one
+weakest element. A strong bullet over-rewritten is worse than a strong bullet left
+mostly intact.
+
+VARIANT BOUNDARY RULE — ABSOLUTE:
+  You are rewriting the selected 11 bullets for voice only.
+  Do NOT replace a selected bullet with a different story-bank variant, a
+  calibration example, or a "better" sibling bullet from the same story slot.
+  Do NOT import wording, metrics, trade-offs, or contrasts from examples elsewhere
+  in this prompt unless they are already present in the specific Pass 1 input bullet.
+  Keep each bullet anchored to its own selected Pass 1 facts and framing.
+  If a rewrite changes any number, metric, customer count, account count, revenue
+  figure, time period, geography, or named artifact from the Pass 1 bullet, the
+  rewrite is invalid. Keep those exact.
+
+STRUCTURAL HARD CONSTRAINTS:
+  - Preserve the exact bullet count and company-level distribution from Pass 1.
+    If Pass 1 has 3 / 3 / 3 / 2 bullets across the four company blocks, output
+    exactly 3 / 3 / 3 / 2 bullets. Never add a duplicate or split one bullet into two.
+  - Do not create near-duplicate bullets within the same company block. If two bullets
+    would communicate the same decision, mechanism, or result, keep the stronger one
+    distinct and rewrite the other around a different value signal already present in
+    the Pass 1 input.
+
+──────────────────────────────────────────────────────────────────────────────
+SECTION 1: OPENER ARCHETYPE
+──────────────────────────────────────────────────────────────────────────────
+
+Choose one of four archetypes for each bullet. No archetype has an imposed ceiling —
+a perfect Context-first scores 10 as readily as a perfect Diagnostic. The archetype
+determines sentence structure and where the value signal sits. Run the DECISION CHAIN
+below in order and stop at the first match.
+
+─── ARCHETYPE 1: DIAGNOSTIC (default) ─────────────────────────────────────
+
+Structure:
+  [Insight verb], [non-obvious insight]; [mechanism connecting insight to action],
+  [metric as conclusion].
+
+Allowed insight verbs: Identified / Diagnosed / Recognized / Surfaced / Found /
+  Caught / Reframed / Synthesized [data→insight]
+
+  NOTE: "Caught" = DIAGNOSTIC. It encodes a detection insight, not execution.
+  Do NOT count "Caught" as action-first in your tally.
+
+Use when:
+  (a) You fully own the insight, AND
+  (b) The insight is the primary source of differentiation — it reframes what the
+      problem actually was, not just what you did about it.
+
+Signal test: "If you removed the insight phrase, would this bullet be indistinguishable
+from a standard execution bullet any PM could have written?" If yes, use Diagnostic.
+
+─── ARCHETYPE 2: ACTION-FIRST ──────────────────────────────────────────────
+
+Structure:
+  [Execution verb + artifact or decision]; [context or mechanism]; [metric].
+
+Allowed execution verbs: Built / Shipped / Designed / Launched / Reshaped / Cut /
+  Defined / Established / Created / Unblocked / Drove / Owned / Led [execution sense]
+
+Use when:
+  (a) The primary value signal is the artifact, decision, or execution — not the
+      insight that preceded it, AND
+  (b) The story is fundamentally about what was done and delivered.
+
+Guard: Do NOT use action-first with a generic analytical opener (e.g., "Conducted
+  behavioral analysis..."). If the action is an analytical process, it must name
+  the specific technique (e.g., "Designed a behavioral funnel model..."). A generic
+  analytical opener with no specificity is a GENERIC_MECHANISM failure.
+
+Guard: Preserve contrast-phrase discipline. If a selected bullet already contains a
+valid contrast construction (for example, "not on features but on auditability"),
+do NOT rewrite another bullet in the same section to add "rather than", "instead of",
+or a second "not X but Y" unless explicitly required by the source variant. For the
+I-BILLING [exec-presentation] line, preserve "not product gaps" in comma form.
+
+─── ARCHETYPE 3: CONTEXT-FIRST ─────────────────────────────────────────────
+
+Structure:
+  [Goal or scope that establishes scale/operating context]; [mechanism]; [metric].
+
+  Pattern A (goal-first): "Expanded [goal] by [method]..."
+  Pattern B (scope-first): "Led [scope/platform] from [state] to [state]..."
+
+Use when:
+  (a) The scale of the operating environment or the end-to-end ownership is the
+      primary credentialing signal, AND
+  (b) The goal or scope upfront is the necessary causal frame — removing it would
+      make the mechanism seem unmotivated.
+
+Context-first is NOT wrong just because it lacks a corrected assumption.
+Do NOT force a Context-first bullet to Diagnostic. The G-SUPPLY variants
+("Expanded Gojek's marketplace supply by...") are correctly Context-first.
+
+─── ARCHETYPE 4: IMPACT-FIRST ─────────────────────────────────────────────
+
+Structure:
+  [Metric or achievement]; [how you achieved it or what it enabled].
+
+Use when:
+  (a) The outcome is itself a credentialing signal (a competitive win, a first-in-company
+      milestone, a major launch), AND
+  (b) The outcome can stand alone without requiring explanation of why it matters, AND
+  (c) The how is secondary to the what, AND
+  (d) The outcome is directly attributable to Akshat's work — not a shared platform
+      metric or team-level number where the individual contribution is not isolable.
+
+Hard cap: exactly 2 impact-first bullets across the 11-bullet section.
+
+─── DECISION CHAIN (run in order, stop at first match) ─────────────────────
+
+  1. Do you fully own the insight AND is the insight the primary differentiator?
+     Yes → DIAGNOSTIC (subject to Diagnostic Saturation Rule below)
+  2. Is the goal, scope, or end-to-end operating context the primary credentialing signal?
+     Yes → CONTEXT-FIRST
+  3. Is the outcome itself the clearest signal of value and can it stand alone?
+     Yes → IMPACT-FIRST (hard cap 2 total)
+  4. Default: the artifact, decision, or execution is the primary value signal.
+     → ACTION-FIRST
+
+─── DIAGNOSTIC SATURATION RULE ────────────────────────────────────────────
+
+  Before choosing Diagnostic for any bullet, count how many bullets in the
+  11-bullet section already use a Diagnostic opener (Identified / Diagnosed /
+  Recognized / Surfaced / Found / Caught / Reframed).
+
+  If that count is already ≥ 3:
+    — Only choose Diagnostic if the insight is genuinely non-obvious AND the
+      bullet collapses into a generic execution story without it.
+    — If the Pass 1 input already names a specific, credentialing analytical
+      method (e.g., "behavioral funnel analysis", "per-endpoint monitoring"),
+      prefer Mechanism-first to add opener variety.
+    — CRITICAL — DO NOT GENERATE GENERIC MECHANISM-FIRST: Do NOT produce a
+      mechanism-first opener by paraphrasing the action into "Conducted
+      behavioral analysis...", "Performed analysis...", "Conducted [X] research..."
+      or similar. These produce a GENERIC_MECHANISM failure and are forbidden.
+      If no specific credentialing method is present in the Pass 1 input, prefer
+      action-first (reframe the execution verb) rather than inventing a mechanism.
+    — When in doubt at saturation ≥ 3: prefer action-first over Mechanism-first.
+
+  Why this matters: 4+ Diagnostic openers across the section triggers a
+  REPETITIVE_FRAMING penalty (-0.2 holistic). The individual bullet loss from
+  switching to Mechanism-first (0 to -0.5 pts) is smaller than the section
+  penalty you avoid. The H-MONITORING bullet is typically the best candidate
+  for switching since its variants work well as Mechanism-first.
+
+─── MISCLASSIFICATION CHECK ────────────────────────────────────────────────
+
+Before finalizing each archetype choice, verify:
+
+  Impact-first on a bullet where the insight is the real value: wrong archetype.
+    Loses the PM differentiation that only Akshat can provide.
+
+  Diagnostic on a bullet where there is no genuinely non-obvious insight: forced.
+    Produces an insight-sounding opener that encodes nothing real. Use
+    Action-first or Context-first instead.
+
+  Context-first where scale is not the credentialing signal: filler.
+    Adds padding without earning the opener.
+
+  Action-first with a generic mechanism opener ("Conducted behavioral analysis..."):
+    GENERIC_MECHANISM failure. Name the specific artifact or technique, or switch
+    to Diagnostic if the insight is real.
+
+  Context-first being forced to Diagnostic: wrong. A bullet opening with
+    "Expanded [goal] by [method]..." is validly Context-first even without a
+    corrected assumption. Do NOT assign WRONG_ARCHETYPE to Context-first bullets.
+
+──────────────────────────────────────────────────────────────────────────────
+SECTION 2: EARNED DETAIL
+──────────────────────────────────────────────────────────────────────────────
+
+Every bullet should contain one phrase that only someone who was actually in that
+situation would write. This is the earned detail. It is the element that makes the
+bullet impossible to copy onto another person's resume.
+
+Four types of earned detail. Each bullet uses exactly one.
+
+─── TYPE 1: HIDDEN CONSTRAINT OR MISLEADING SIGNAL ────────────────────────
+
+A non-obvious obstacle or signal that was not visible from the outside.
+
+Examples from Akshat's experience:
+  "too small to flag in ticket queues" (G-LATENCY: the latency spikes were not
+    noise — they were below the alert threshold but compounding into real
+    conversion loss; a non-participant would say "latency spikes," not name
+    the threshold failure)
+  "had been capping conversion" (G-SUPPLY: supply looked like an ops headcount
+    problem; the real ceiling was product-architectural; the specific phrase
+    encodes what the team had been misattributing)
+
+─── TYPE 2: DECISION TRADE-OFF ────────────────────────────────────────────
+
+An option explicitly rejected or a cost explicitly accepted.
+
+Examples:
+  "traded off speed for verifiable correctness" (H-BATCHSHIFT: they could have
+    kept streaming-first; the batch pivot was a deliberate product choice with
+    a known cost)
+  "first-class product surface, not a debugging view" (H-MONITORING: the
+    alternative product treatment was actively considered and rejected)
+
+─── TYPE 3: PROCESS ARTIFACT ──────────────────────────────────────────────
+
+A specific step, method, or operational detail that only the person who did
+the work would name.
+
+Examples:
+  "20+ customer interviews and A/B pricing experiments" (G-PRICING: not just
+    "research" — specific methods named in the right order)
+  "refund decisions" as a distinct parallel workstream (I-INCIDENT: a
+    non-participant would write "incident response"; naming refund decisions
+    as a separate track shows business judgment under crisis)
+  "per-endpoint monitoring" (G-LATENCY: the specific instrumentation
+    architecture, not just "monitoring")
+
+─── TYPE 4: CORRECTED ASSUMPTION (CONTRAST) ────────────────────────────────
+
+A belief the team was genuinely operating under before this work, now overturned.
+
+Examples:
+  "excluded segment, not lost demand" (G-PRICING: riders were assumed permanently
+    churned before the analysis — the contrast reflects a real wrong assumption
+    the team held)
+  "not on features but on auditability" (H-BATCHSHIFT: teams were actually running
+    feature gap analyses before this finding; auditability was the actual blocker)
+
+Contrast test: "Could someone who was not there have written 'not [Y]' instead —
+  and been wrong?" If no, the contrast is tautological and must not appear.
+
+  *** CONTRAST CAP — TWO RULES, BOTH ABSOLUTE:
+
+  Rule 1 — NO-INVENT: You may NEVER introduce a contrast phrase ("not X but Y",
+    "rather than X", "X instead of Y", or any variant) unless that exact phrase
+    is already present verbatim in the Pass 1 input bullet. If the input bullet
+    has no contrast phrasing, do not add any. This applies to every bullet, even
+    those that appear to earn it.
+
+  Rule 2 — ONE ONLY: Even when the Pass 1 input DOES contain a contrast phrase,
+    at most ONE may survive in the entire 11-bullet section. If two or more input
+    bullets already contain contrast phrases, keep the strongest and rewrite all
+    others to use a different earned detail type (Type 1, 2, or 3).
+
+  Rule 3 — NO CONTRAST MIGRATION: Do NOT move a contrast phrase from one bullet
+    to another, and do NOT strengthen a weak implied contrast into an explicit
+    "not X but Y" construction. The one surviving contrast must already belong
+    to that bullet's Pass 1 input.
+
+  Rule 4 — NO SOFT SUBSTITUTES: "rather than", "instead of", "vs.", and similar
+    contrast substitutes count as contrast phrases too. If a bullet is not the
+    one chosen contrast holder, remove the contrast entirely rather than softening it.
+
+  Checklist before submitting: Scan all 11 output bullets. If more than one
+    contains "not … but", "rather than", or "instead of" — fix it now. ***
+
+─── APPLYING EARNED DETAIL ─────────────────────────────────────────────────
+
+DETECTION TEST: Before writing an earned detail, ask: "Could someone who was not in
+  the room write a different, equally specific phrase — and be wrong?" If no, the
+  phrase is not earned.
+
+REMOVAL TEST: After writing an earned detail, ask: "If I removed this phrase entirely,
+  does the bullet lose specificity or credibility?" If no, the detail is decorative —
+  it passes detection but does no meaningful work. Replace it.
+  (A detail can be specific and still be removable — this test catches that failure.)
+
+NO-INVENT MANDATE: Every earned detail must come directly from the Pass 1 bullet
+  text. Never add a constraint, friction, trade-off, or method not present in
+  the input. If the Pass 1 bullet contains no earned detail, use the plainest
+  accurate language rather than manufacturing specificity.
+
+SINGULARITY CONSTRAINT: Each bullet uses exactly one primary earned detail. If a
+  Pass 1 bullet contains two potential earned details, pick the stronger one and
+  subordinate or drop the other. Do not surface both at equal weight.
+
+CLAIM LINKAGE: The earned detail must directly support the core claim of the bullet.
+  A process artifact unconnected to the outcome, or a constraint that does not
+  explain the metric, is noise — remove it.
+
+FRAMING AXIS GUIDANCE: When a bullet contains multiple potential earned detail types,
+  select the type that reinforces the primary framing axis from the positioning
+  strategy:
+
+    analytical / rigor axis:        prefer TYPE 1 or TYPE 3
+    business-case / revenue axis:   prefer TYPE 2 or TYPE 4
+    enterprise / trust axis:        prefer TYPE 4 or TYPE 1
+    execution / scope axis:         prefer TYPE 3 or TYPE 2
+
+──────────────────────────────────────────────────────────────────────────────
+SECTION 3: REGISTER AND FORBIDDEN PATTERNS
+──────────────────────────────────────────────────────────────────────────────
+
+REGISTER:
+  Implied subject (no "I"), active verb, no personal pronouns. Resume register, not
+  narrative essay. Each bullet is 2-3 lines when printed — never a one-liner, never
+  a paragraph. No em dashes anywhere — em dashes are an AI signal and are forbidden.
+
+BULLET LENGTH RULE (calibration guide — pipeline QC enforces limits automatically):
+
+  TARGET MIX:
+    Most bullets (≥8 of 11) should be 2-liners: roughly 90–199 characters.
+    A few (≤3) may be 3-liners: roughly 200–299 characters.
+    No 4-liners (>299 chars). No one-liners (<90 chars).
+
+  Write to the right length from the start: aim for 130–185 chars per bullet.
+  Do NOT manually count characters or trim bullets inline — the pipeline enforces
+  length limits automatically after you output the section.
+
+READABILITY PRINCIPLE:
+  A bullet must be parsed in one linear pass with no backtracking. If a reader has
+  to reread to resolve ambiguity, hold more than 3-4 ideas in memory simultaneously,
+  or search for the subject of a clause — the bullet has failed regardless of its
+  content quality. When in doubt: read the bullet in 3 seconds. If the core
+  achievement is not clear without effort, restructure.
+
+ANTI-PATTERNS:
+
+  "And... And..." chain:
+    Each "and" adds a memory load. Max 1 "and" per bullet, ideally zero.
+    BAD:  "...building the case, aligning Engineering and Marketplace, cutting
+          latency by 70% and enabling ~28K additional monthly rides."
+    FIX:  Drop or absorb one compound into the structure. Pick what matters most.
+
+  "While X, also Y" parallel clauses:
+    Parallel clauses split reader attention. Pick one spine; sequence the rest.
+    BAD:  "Improved onboarding while coordinating with cross-functional teams
+          to deliver the roadmap."
+    FIX:  One clear action → one clear outcome. The second action becomes context
+          or a subordinate clause, not a parallel branch.
+
+  Late-arriving subject ("which," "this," "it"):
+    Lazy connectors force the reader to scan back to resolve the referent.
+    BAD:  "Led migration of a legacy system used by 200K users which improved
+          latency by 30%."
+    FIX:  Restructure so the subject of each clause is immediately clear.
+    Note: Sentences can be clipped using semicolons and colons as clean separators —
+    but "which," "this," and "it" as connectors are a readability tax; remove them.
+
+  Buried impact:
+    Impact should feel like the inevitable conclusion of the bullet's argument,
+    not an appendage tacked on at the end.
+    BAD:  "Built internal tooling for the data team... resulting in 40% faster runs."
+    FIX:  If impact is the conclusion, make the causal chain lead cleanly to it.
+
+FORBIDDEN OPENER PATTERNS (never start a bullet with these):
+  "Led cross-functional [anything]..."
+  "Led the [anything]..."
+  "Managed [team / program / project / initiative]..."
+  "Partnered with [team] to..."
+  "Collaborated with [team] to..."
+  "Supported [initiative / team]..."
+  "Worked with [team / stakeholders] to..."
+  "Drove [X] by aligning stakeholders..."
+  "Coordinated [team] to [outcome]..."
+  "Conducted behavioral analysis..."     ← GENERIC_MECHANISM — use action-first instead
+  "Performed behavioral analysis..."     ← GENERIC_MECHANISM — use action-first instead
+  "Conducted [any] analysis to..."       ← GENERIC_MECHANISM — only allowed if the
+                                            analysis type is specific and credentialing
+                                            (e.g., "Conducted funnel attribution analysis
+                                            across 12 fare-quote endpoints") AND the
+                                            method was named in the Pass 1 input
+
+FORBIDDEN WORDS (anywhere in bullet):
+  leveraged, utilized, spearheaded, synergies, holistic, streamlined (as filler),
+  actionable, successfully, effectively, various, multiple, em dash (—)
+
+  "stakeholders" as a vague noun: name the actual teams instead
+    (Engineering, Product, Marketplace, Support, Clinical, etc.)
+
+ATTRIBUTION GUARD — HARD CONSTRAINT:
+  NEVER add '$110M', '$20M', '50M members', or any platform-level revenue or scale
+  figure that is not present verbatim in the Pass 1 input bullet you are rewriting.
+  These figures also appear in the strategy notes above as framing context — that is
+  NOT permission to insert them. If the Pass 1 input bullet does not contain them,
+  your rewrite must not either. Source ONLY from the Pass 1 input — nothing from strategy.
+
+FORBIDDEN STRUCTURE:
+  Do NOT place a metric at the very start of a bullet as decoration.
+    BAD:  "45% stability improvement across 120K pipelines by improving..."
+    GOOD: "...improving pipeline stability 45% across 120K pipelines."
+
+CROSS-FUNCTIONAL ALIGNMENT PATTERN:
+  "Drove cross-functional alignment" and similar phrasings are vague filler.
+  Replace with: the specific teams aligned + the specific decision they aligned on.
+    BAD:  "drove cross-functional alignment to modernize estimation workflows"
+    GOOD: "aligned Product and Marketplace on estimation workflow redesign"
+
+──────────────────────────────────────────────────────────────────────────────
+SECTION 4: CALIBRATION EXAMPLES
+──────────────────────────────────────────────────────────────────────────────
+
+Three examples demonstrating three of the four archetypes. Study the ARCHETYPE CHOICE line
+to understand why each archetype was selected — not just how the bullet was rewritten.
+
+─── EXAMPLE 1: H-BATCHSHIFT — DIAGNOSTIC ───────────────────────────────────
+
+ARCHETYPE CHOICE: Diagnostic. Akshat fully owns the architectural pivot decision.
+  The insight ("not on features but on auditability") is the primary differentiator:
+  teams were genuinely running feature gap analyses before this finding; without the
+  insight, this bullet collapses into an execution story any PM could tell. This uses
+  the one allowed contrast phrase for the entire section.
+
+BEFORE (Pass 1):
+"Drove the core strategic transition to Hevo 2.0 by shifting from latency-optimized
+streaming to a batch-first, transactional execution model; traded off speed for
+verifiable correctness to improve stability by 45% across 120K pipelines and enable
+onboarding of 8 enterprise customers."
+
+AFTER (Pass 2):
+"Identified that Fortune 500 data teams were failing Hevo's enterprise trials not on
+features but on auditability; led the pivot from streaming-first to batch-first
+transactional execution, improving pipeline stability 45% across 120K pipelines and
+onboarding 8 enterprise customers within 90 days."
+
+WHY: Diagnostic opener names the actual insight. "Not on features but on auditability"
+  is a Type 4 corrected assumption — the real wrong belief was that feature gaps were
+  blocking enterprise deals. Mechanism visible (pivot follows directly from finding).
+  Metric lands as conclusion. This is the one contrast phrase for the section; no
+  other bullet may use "not X but Y."
+
+─── EXAMPLE 2: G-LATENCY — ACTION-FIRST ────────────────────────────────────
+
+ARCHETYPE CHOICE: Action-first. The insight (latency as bottleneck) is not sharply
+  counterintuitive on its own — it was surfaced through analysis, but "behavioral
+  analysis" is too generic to be a credentialing mechanism opener. Mechanism-first with
+  "Conducted behavioral analysis..." is explicitly FORBIDDEN (GENERIC_MECHANISM). The
+  correct fallback: lead with the most concrete execution action (quantifying revenue
+  impact and building the business case), with the finding as the mechanism clause.
+
+BEFORE (Pass 1):
+"Enabled ~28K additional monthly rides by identifying fare-quote latency as a
+conversion bottleneck through behavioral analysis; quantified the revenue impact,
+built the business case, and drove cross-functional alignment to modernize estimation
+workflows, cutting quote times by 70%."
+
+AFTER (Pass 2):
+"Quantified fare-quote latency as the primary driver of pre-payment drop-offs in the
+booking funnel; built the revenue case and aligned Product and Marketplace on estimation
+workflow redesign, cutting quote times by 70% and enabling ~28K additional monthly rides."
+
+WHY: Action-first opener leads with the concrete analytical artifact (revenue
+  quantification). "Drove cross-functional alignment" replaced with named teams
+  (Product and Marketplace) and the specific decision they aligned on (workflow
+  redesign). Earned detail: "pre-payment drop-offs in the booking funnel" names the
+  specific failure mode — a non-participant would say "conversion drop-offs," not name
+  the pre-payment stage. Metrics land at conclusion. No contrast phrase (one already
+  used in Example 1). NEVER write "Conducted behavioral analysis..." — that produces
+  a GENERIC_MECHANISM opener and is in the forbidden list.
+
+─── EXAMPLE 3: O-AFFORDABILITY — IMPACT-FIRST ──────────────────────────────
+
+ARCHETYPE CHOICE: Impact-first. The hackathon win and clinical pilot advancement are
+  inherently credentialing signals that stand alone. The mechanism (designing the
+  affordability engine) is secondary to the signal of having won a competitive
+  initiative and advanced it to production. Diagnostic would force an insight opener
+  onto a bullet where the outcome is the value.
+
+BEFORE (Pass 1):
+"Designed an AI-driven affordability solution to identify members at risk of high
+out-of-pocket costs and recommend lower-cost care pathways; won Optum's global
+hackathon and was piloted as an early affordability initiative."
+
+AFTER (Pass 2):
+"Won Optum's global hackathon and advanced to clinical pilot by designing an AI-driven
+affordability engine that identified members at risk of out-of-pocket cost spikes and
+recommended lower-cost care pathways; one of Optum's first member-facing AI initiatives
+in the affordability space."
+
+WHY: Impact-first because the win and clinical pilot are self-credentialing outcomes.
+  Mechanism still visible (designed the engine, specified what it identifies and
+  recommends). Earned detail is Type 1 hidden constraint: "first member-facing AI
+  initiatives in the affordability space" is a scarcity signal — this was not routine
+  product work; it was a genuine first within the organization. No contrast phrase.
+
+──────────────────────────────────────────────────────────────────────────────
+JD CONTEXT
+──────────────────────────────────────────────────────────────────────────────
+
+Use the JD for four purposes only:
+
+  (a) Tone and verb calibration: match energy level of the role (analytical vs.
+      execution-oriented vs. strategy-focused vs. data-driven)
+
+  (b) Metric foregrounding: when a bullet contains multiple outcomes, place the
+      metric most relevant to the JD's top signals in the most prominent position.
+      For Diagnostic and Mechanism-first bullets, that is typically last (as the
+      conclusion of an argument). For Impact-first bullets, it is first (as the
+      credentialing hook). When the JD emphasizes a specific outcome type, let
+      that outcome close the bullet.
+
+  (c) Archetype selection tie-breaking: when the decision chain is genuinely
+      ambiguous, favor the archetype that aligns with the JD's top signal
+      (e.g., a strategy-heavy JD favors Diagnostic; an execution-heavy JD
+      favors Mechanism-first or Impact-first).
+
+  (d) Vocabulary alignment (ATS): where the JD uses industry terms that
+      accurately describe what a bullet is about, prefer those terms over
+      synonyms. Examples of valid substitutions:
+        "billing reconciliation" ↔ "financial data integrity"
+        "supply expansion" ↔ "supply-side platform growth"
+        "product-level trade-off" ↔ "roadmap prioritization"
+      This is not inventing facts — it is choosing equivalent vocabulary
+      that matches the JD's language. The no-invent mandate still applies in
+      full: do not add any claim, metric, or contextual detail not present
+      in the Pass 1 bullet. Only substitute equivalent vocabulary.
+
+Do NOT add claims, context, or framing from the JD that are not present in the
+Pass 1 bullet. The JD cannot be a source of new facts.
+
+ROLE-SHAPE GUIDANCE:
+  For workflow-discovery, research-to-proposal, prototype, or executive-recommendation
+  PM roles, prefer language that shows Akshat observing a workflow breakdown,
+  translating it into a product surface / proposal / prioritization decision, and
+  making the recommendation legible to others. In these roles, a generic
+  "enterprise reliability improvement" rewrite is weaker than a rewrite that preserves
+  the discovery-to-product chain already present in the Pass 1 bullet.
+
+{{JOB_DESCRIPTION}}
+
+──────────────────────────────────────────────────────────────────────────────
+POSITIONING STRATEGY
+──────────────────────────────────────────────────────────────────────────────
+
+{{STRATEGY}}
+
+──────────────────────────────────────────────────────────────────────────────
+PASS 1 EXPERIENCE SECTION — rewrite these 11 bullets
+──────────────────────────────────────────────────────────────────────────────
+
+{{EXPERIENCE_SECTION}}
+
+──────────────────────────────────────────────────────────────────────────────
+PRE-REWRITE CHECKLIST (apply while writing — do NOT output checklist results)
+──────────────────────────────────────────────────────────────────────────────
+
+Per bullet (for all 11):
+  [ ] Which archetype am I using — and does it pass the decision chain?
+  [ ] Does the opener match the archetype structure (insight verb / analytical
+      method / metric)?
+  [ ] Is the mechanism visible: does the reader see both what and how?
+  [ ] Is the causal chain explicit — insight/method → action → metric, with no
+      invisible jumps between what was found and what was done?
+  [ ] Does the metric land in the most prominent position for this archetype
+      (last for Diagnostic/Mechanism-first; first for Impact-first)?
+  [ ] Is there exactly one earned detail, and does it pass both the detection test
+      AND the removal test?
+  [ ] Is the earned detail directly linked to the core claim of the bullet?
+  [ ] Are all metrics verbatim from the Pass 1 input?
+  [ ] Is the register clean: no "I", no em dashes, no forbidden words?
+
+Holistic constraints (enforce while writing — do not report results):
+  — Exact same number of bullets as Pass 1, with the same per-company counts.
+  — Use "not X but Y" or "rather than" in at most 1 bullet total across all 11.
+  — No opening verb used 3+ times (vary: Diagnosed / Recognized / Surfaced / Caught).
+  — No "cross-functional," "stakeholders," or "alignment" — use named teams and decisions.
+  — No em dashes anywhere. At most 1 "and" per bullet. At most 1 colon per bullet.
+  — No same-company near-duplicates: each bullet in a company block must earn a
+    distinct reason to exist (different mechanism, decision, or value signal).
+  — No bullet ending with a 1-4 word trailing phrase (orphan last line).
+  — Every bullet must pass the 3-second test: core achievement clear without effort,
+    Akshat's action distinct from the result, impact as inevitable conclusion.
+  — Section identity: "What kind of PM is this?" must have a sharp, specific answer
+    anchored to the primary framing axis — not "capable PM" or multi-directional.
+
+──────────────────────────────────────────────────────────────────────────────
+OUTPUT FORMAT
+──────────────────────────────────────────────────────────────────────────────
+
+Produce exactly two sections:
+
+REWRITTEN EXPERIENCE SECTION
+──────────────────────────────────────────────────────────────────────────────
+[Same structure as input: 4 company headers, 11 bullets, same format.
+Company headers must be verbatim. Bullet symbol: •]
+
+REWRITES LOG
+──────────────────────────────────────────────────────────────────────────────
+For each bullet (use company + index, e.g. "GOJEK #1"):
+  ORIGINAL: [Pass 1 text]
+  REWRITTEN: [Pass 2 text]
+  CHANGE: [one sentence: what was changed and why]

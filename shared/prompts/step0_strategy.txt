@@ -1,0 +1,226 @@
+AKSHAT PATHAK — APPLICATION STRATEGY GENERATOR (Step 0)
+=========================================================
+Version 1.0
+
+You are analyzing a job description to generate a positioning strategy for
+Akshat Pathak's application. This strategy artifact will drive BOTH the resume
+tailoring and the cover letter generation that follow. Your job is purely
+analytical — produce a precise JSON object, nothing else.
+
+──────────────────────────────────────────────────────────────────────────────
+CANDIDATE CONTEXT
+──────────────────────────────────────────────────────────────────────────────
+Akshat Pathak: Technical Product Manager candidate. 5 years SWE at Gojek,
+Hevo Data, Intuit, Optum. MBA at USC Marshall (Dean's Merit Scholar, CGPA 9.29,
+University Rank 1 on InterviewBit). F-1 visa, CPT-eligible. Target: PM / TPM /
+Growth PM internship, Summer 2026.
+
+Core edge: engineering intuition + product strategy. Reads a codebase AND
+writes a business case for the same feature. Most comfortable in: data
+infrastructure, marketplace dynamics, pricing, enterprise GTM, AI/ML product.
+
+USC work: AI creative automation consulting for L'Oréal; product/safety design
+for Grab shuttle verticals.
+
+Story portfolio (maps to resume slots):
+  hevo_batch_platform  — Pivoted Hevo to batch-first transactional model; identified auditability as enterprise deal blocker. 45% stability lift, 8 enterprise customers in 90 days. [H-BATCHSHIFT]
+  hevo_job_monitoring  — Shaped Job Monitoring as first-class audit surface; ~40% MTTR reduction, drove enterprise trial-to-close. [H-MONITORING]
+  gojek_supply         — Reframed supply shortage as product extensibility problem. 18% supply added, 1.5 min ETA drop, $110M+ platform revenue. [G-SUPPLY]
+  gojek_pricing        — WTP research → discount tier launch. 9% conversion lift, $3.2M incremental revenue. [G-PRICING]
+  gojek_latency        — Identified fare-quote latency as conversion killer. 70% latency reduction, ~28K monthly rides recovered. [G-LATENCY]
+  intuit_billing       — Reconciliation framework for 80K+ businesses. Billing accuracy as churn driver. 10% renewal lift. [I-BILLING]
+  intuit_incident      — Cross-functional incident command. 1,500+ businesses affected. Confirmed in manager LOR. [I-INCIDENT]
+  optum_provider       — Provider API integration. 50M members, $20M+ incremental annual revenue. [O-PROVIDER]
+  optum_affordability  — ML affordability engine 0-to-1. Won global hackathon, piloted. [O-AFFORDABILITY]
+
+──────────────────────────────────────────────────────────────────────────────
+WHAT TO EXTRACT
+──────────────────────────────────────────────────────────────────────────────
+
+PART A — ROLE SIGNALS (used by CL generation, same as former Step 1)
+
+1. COMPANY PROFILE
+   company: company name
+   role_title: exact role title from JD
+   company_type: one of: big_tech | enterprise_saas | smb_saas | consumer |
+                 fintech | marketplace | ai_first | healthcare | startup
+   company_stage: one of: public_large | public_growth | late_stage_private |
+                  early_stage | unicorn
+
+2. ROLE ARCHETYPE — what kind of PM does this role actually want?
+   archetype: one of: technical_pm | growth_pm | enterprise_pm |
+              strategy_pm | ai_pm | consumer_pm | platform_pm | generalist
+   archetype_reasoning: one sentence
+
+3. TOP HIRING SIGNALS — the 3 most emphasized capabilities. Be specific:
+   not "PM skills" but "willingness-to-pay research" or "ML model deployment."
+   top_signals: ["signal 1", "signal 2", "signal 3"]
+
+4. HOOK ANGLE — the single strongest opening scene for the cover letter.
+   Describe the moment or observation, not the hook text itself.
+   hook_angle: one sentence describing the scene/angle
+
+5. STORY RECOMMENDATIONS — which 1–2 stories from the portfolio fit best?
+   story_recommendations: ["primary_story_id", "optional_secondary_id"]
+   story_reasoning: one sentence
+
+6. COMPANY RESEARCH ANGLE — what specific company knowledge should the letter
+   reference to go below the surface? Name an architectural decision, recent
+   move, customer segment nuance, or business model tension. If unknown, say so.
+   company_research_angle: one sentence
+
+7. TONE
+   tone: one of: direct_precise | warm_startup | formal_enterprise |
+         strategic_executive | technical_builder | conversational_growth
+   tone_reasoning: one sentence
+
+8. GAPS — anything in the JD Akshat's background doesn't easily cover?
+   gaps: [] or ["gap 1", "gap 2"]
+
+PART B — POSITIONING STRATEGY (new — used to drive both resume and CL)
+
+9. ROLE FAMILY — which resume track does this role require?
+   Determines which master prompt (PM vs non-PM) drives bullet selection.
+   role_family: one of:
+     "pm"                  — Product Manager, Technical PM, Growth PM, APM
+     "strategy-consulting" — Management Consulting, Corporate Strategy, BD/Strategy
+   "ops-execution"       — S&O, PgM, RevOps, GTM, Biz Ops, Technical PgM, Operations
+
+   TITLE PRIORITY RULE:
+   If the exact role title contains "Product Manager", "Product Management",
+   "Product Intern", "Product Management Intern", "APM", or "PM Intern",
+   default to "pm" unless the JD is overwhelmingly a non-product role in practice
+   (for example: program management, revenue operations, business operations,
+   or pure strategy with no product team ownership). Coordination-heavy PM intern
+   roles are still "pm" if they sit on the Product team and support product work.
+
+   TPM TITLES: If the title contains "Technical Product Manager", "Technical PM",
+   "Technical Program Manager", "TPM" (when used in product context), or
+   "Product-focused Technical PM", default to "pm". These titles span the
+   PM/technical boundary. Only route to "ops-execution" if the JD is
+   overwhelmingly pure program management, release ops, or logistics
+   (no product team involvement, no product roadmap input, no customer-facing decisions).
+
+   PROGRAM TITLES WITH PRODUCT SIGNALS: Do NOT force "Technical Program Manager"
+   or "Program Manager" internship titles into "ops-execution" when the JD centers
+   product requirements, user stories, backlog grooming, user research,
+   competitive analysis, roadmap input, or product/engineering/security
+   coordination in service of product decisions.
+
+   Treat "Product Development" titles as PM-adjacent when the JD centers product
+   roadmap input, consumer research, competitive analysis, SKU ownership,
+   product launches, or product definition work. Do NOT force these to
+   "ops-execution" just because the role is coordination-heavy.
+
+9B. NON-PM SUBTYPE — for non-PM roles only, which flavor of non-PM role is this?
+   Use this only when role_family != "pm". If role_family = "pm", set to "".
+   nonpm_subtype: one of:
+     "strategy-bizops"              — business planning, internal strategy, corp strategy,
+                                      bizops, S&O roles centered on recommendations and
+                                      operating-model choices
+     "research-intelligence"        — market research, competitive intelligence, insights,
+                                      analyst, diligence, trend/segment synthesis
+     "client-facing-implementation" — implementation, customer strategy, solutions, client
+                                      success, professional services, rollout/adoption work
+     "ops-execution"                — program management, delivery, operations, governance,
+                                      execution-heavy roles
+
+   Distinguish carefully:
+   - Choose "strategy-bizops" when the job asks for recommendations, planning,
+     business cases, executive synthesis, or internal operating choices.
+   - Choose "research-intelligence" when the primary deliverable is diagnosis,
+     market/competitive synthesis, trend spotting, or insight generation.
+   - Choose "client-facing-implementation" when the work centers on translating
+     needs for external/internal clients, implementation sequencing, adoption,
+     rollout, or service delivery.
+   - Choose "ops-execution" when the core ask is throughput, governance,
+     cross-functional delivery, PMO/PgM, milestones, or execution rigor.
+
+9C. BULLET BALANCE — what should the non-PM resume feel like?
+   Use this only when role_family != "pm". If role_family = "pm", set to "".
+   bullet_balance: one of:
+     "diagnostic-heavy" — research, strategy, intelligence, insight-led roles
+     "balanced"         — mixed strategy + execution / client-facing implementation
+     "action-heavy"     — operations, program, delivery, execution-heavy roles
+
+   Calibration:
+   - diagnostic-heavy: the strongest bullets should lead with diagnosis, synthesis,
+     corrected assumptions, or insight generation.
+   - balanced: mix insight-led and action-led bullets evenly; no consulting filler.
+   - action-heavy: lead with delivery ownership, operating cadence, governance,
+     implementation, or measurable execution outcomes.
+
+10. RESUME FRAMING AXES — which variant framing themes should drive bullet selection?
+    primary_framing_axis: the dominant theme for most bullets. Pick the label
+      from the variant pool that best mirrors the role's primary signal. Examples:
+      "enterprise-trial", "pricing-strategy", "platform-economics",
+      "business-model-pivot", "ML-product-design", "developer-API", "churn-renewal".
+    secondary_framing_axis: a secondary theme to add variety. Set this ONLY if
+      the JD clearly signals two genuinely distinct capabilities (e.g., technical
+      platform depth AND enterprise GTM, or data analytics AND monetization).
+      If the role points in one direction, set secondary = primary exactly.
+      Same label format as primary.
+
+11. FIRST 90-DAY BET — one concrete, specific thing Akshat would do or dig
+    into in the first 90 days of this role. Not generic ("learn the product").
+    Specific to this company's known tensions, product decisions, or
+    customer dynamics. Used in the CL close paragraph.
+    first_90_day_bet: one sentence, concrete and specific
+
+12. POSITIONING NARRATIVE — a 2–3 sentence brief that drives both the resume
+    tailoring and the CL generation. Should name: (a) which version of Akshat
+    is showing up, (b) the strongest story thread running through his background
+    that maps to this role, and (c) what the resume and CL should emphasize or
+    de-emphasize.
+    positioning_narrative: 2–3 sentences
+
+SPECIAL FRAMING NOTE — WORKFLOW-DISCOVERY / PRODUCT-PROPOSAL ROLES:
+If the primary_framing_axis points to workflow discovery, research-to-proposal,
+prototype translation, or executive-facing recommendation work:
+- Prioritize variants where Akshat discovers a hidden workflow problem,
+  translates it into a product surface, or reframes what should be built first.
+- Prefer bullets with user/workflow observation, structured diagnosis,
+  requirements clarity, or product-surface translation over generic
+  enterprise-reliability execution bullets.
+- Avoid overusing bullets whose main signal is generic platform hardening unless
+  they clearly show discovery leading to a product or roadmap decision.
+
+──────────────────────────────────────────────────────────────────────────────
+JOB DESCRIPTION
+──────────────────────────────────────────────────────────────────────────────
+{{JOB_DESCRIPTION}}
+
+──────────────────────────────────────────────────────────────────────────────
+ADDITIONAL INTEL (coffee chat notes, product observations, company research)
+──────────────────────────────────────────────────────────────────────────────
+{{INTEL}}
+
+──────────────────────────────────────────────────────────────────────────────
+REQUIRED OUTPUT
+──────────────────────────────────────────────────────────────────────────────
+Output ONLY the JSON object below. No preamble. No markdown fences.
+No explanations outside the JSON fields.
+
+{
+  "company": "",
+  "role_title": "",
+  "company_type": "",
+  "company_stage": "",
+  "archetype": "",
+  "archetype_reasoning": "",
+  "top_signals": ["", "", ""],
+  "hook_angle": "",
+  "story_recommendations": ["", ""],
+  "story_reasoning": "",
+  "company_research_angle": "",
+  "tone": "",
+  "tone_reasoning": "",
+  "gaps": [],
+  "role_family": "",
+  "nonpm_subtype": "",
+  "bullet_balance": "",
+  "primary_framing_axis": "",
+  "secondary_framing_axis": "",
+  "first_90_day_bet": "",
+  "positioning_narrative": ""
+}

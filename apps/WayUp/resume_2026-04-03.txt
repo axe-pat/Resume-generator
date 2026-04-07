@@ -1,0 +1,450 @@
+FREEFORM RESUME RUN — 2026-04-03
+JD: /Users/akshat/Desktop/Claude Projects/ResumeGenerator v1/apps/WayUp/jd.txt
+Model: claude-sonnet-4-6
+========================================================================
+
+STRATEGY SUMMARY
+────────────────────────────────────────────────────────────────────────
+  company                        Halliburton, Landmark Software & Services
+  role_title                     Product Manager - Data Platform Intern
+  primary_framing_axis           pricing-strategy
+  secondary_framing_axis         business-model-pivot
+  archetype                      strategy_pm
+  tone                           strategic_executive
+  top_signals                    Pricing strategy and revenue growth research with an executive-facing recommendation deliverable | Cross-functional collaboration across Marketing, R&D, and Business Development to synthesize a complex project | Communication fluency to translate vague business questions into structured, actionable product proposals for stakeholders and leadership
+
+  Positioning narrative:
+  Akshat shows up here as the PM who turns a pricing ambiguity into a structured, data-backed recommendation — the version of him that ran WTP research at Gojek to design a discount tier that moved $3.2M in incremental revenue, and then at Hevo identified that auditability (not features) was the real enterprise deal blocker and restructured the product positioning around it. The strongest thread through his background is the ability to diagnose a business model tension, synthesize cross-functional signal, and deliver a credible executive recommendation — exactly what the DS365.ai pricing project requires. The resume and cover letter should foreground the Gojek pricing story and the Hevo batch platform pivot as the primary evidence, and de-emphasize deep technical infrastructure work in favor of his commercial and strategic framing instincts.
+
+SECTION 1 — TOP 3 JD SIGNALS
+Signal 1: Pricing strategy recommendation — The core deliverable is a structured, executive-facing research recommendation on pricing strategy and revenue growth for DS365.ai products, directly mirroring Akshat's WTP research and discount-tier launch at Gojek.
+
+Signal 2: Cross-functional synthesis across Marketing, R&D, and Business Development — The role requires working across multiple functions to complete a complex ambiguous project in a constrained timeframe, which aligns with Akshat's pattern of diagnosing business model tensions and synthesizing signal across orgs.
+
+Signal 3: Communication fluency from ambiguity to executive recommendation — The JD explicitly values the ability to translate vague business questions into structured proposals for stakeholders and executive leadership, foregrounding Akshat's pattern of delivering credible roadmap pivots and impact analyses to senior leaders.
+
+---
+
+SECTION 2 — VARIANT SELECTION NOTES
+**Professional Summary:** Selected [PM-default] — the role is a general strategy/pricing PM internship without a dominant AI, marketplace, fintech, or enterprise-SaaS primary signal; Zone 1 injection adds "pricing strategy and cross-functional product decisions" to anchor the summary to the JD's core deliverable.
+
+Wait — re-evaluating: primary_framing_axis = pricing-strategy. [PM-fintech] leads with monetization/financial accuracy, but [PM-default] is the cleanest base for a pricing-strategy pitch. [PM-growth] leads with the $3.2M Gojek story directly, which mirrors the core deliverable. I'll use [PM-growth] with a Zone 1 qualifier to foreground pricing strategy.
+
+**Story slot decisions:**
+
+**G1 — G-PRICING [pricing-strategy]**
+Best fit for the JD's #1 signal; diagnostic opener surfaces the WTP insight before the revenue outcome; leads the Gojek block as instructed by story priority.
+Opener type: DIAGNOSTIC
+
+**G2 — G-SUPPLY [ecosystem-GTM]**
+Secondary framing axis is business-model-pivot; this variant uses the $110M+ marketplace scale context naturally and shows cross-functional platform execution; goes second as it complements the pricing story with supply-side strategic scope.
+Opener type: DIAGNOSTIC
+
+**G3 — G-LATENCY [cross-functional-drive]**
+Action/impact variety needed here — G1 and G2 are both diagnostic, so G3 must break the run. [cross-functional-drive] opens with "Identified" (DIAGNOSTIC) — need to pivot. Will use [strategic-exec] instead which opens with "Linked" (DIAGNOSTIC again). Best non-diagnostic option: [throughput-engineering] — ACTION-FIRST, breaks the consecutive diagnostic run.
+Opener type: ACTION-FIRST ✓
+
+**H1 — H-BATCHSHIFT [business-model-pivot]**
+Primary framing axis = pricing-strategy; secondary = business-model-pivot. This is the story most aligned to secondary axis and the positioning narrative calls it out explicitly as a priority story. Leads the Hevo block.
+Opener type: DIAGNOSTIC
+
+**H2 — H-MONITORING [debugging-reframe]**
+JD emphasizes roadmap judgment and product ownership ("A nice-to-have: experience in owning a product"); this variant shows product ownership and roadmap prioritization directly. Second in the Hevo block.
+Opener type: DIAGNOSTIC
+
+**H3 — H-FLEX ★ [H-QUERY: product-discovery]**
+H-FLEX decision rule: JD emphasizes "data platform" (DS365.ai is a data platform suite), analytics, and data workflows → H-QUERY. Within H-QUERY, [product-discovery] opens diagnostic then shows shipped artifact. Goes in slot H3 as required.
+Opener type: DIAGNOSTIC → need to check monotony. H1=DIAGNOSTIC, H2=DIAGNOSTIC, H3=DIAGNOSTIC — three consecutive diagnostics in Hevo block. MONOTONY VIOLATION. Must swap H3 to action-first variant.
+
+Swap H3 to H-QUERY [analytics-tools]: "Shipped a reusable query and filtering framework..." — ACTION-FIRST. ✓ Breaks the run.
+Opener type: ACTION-FIRST ✓
+
+**I1 — I-BILLING [exec-presentation]**
+JD emphasizes communication fluency from ambiguity to executive recommendation; this variant explicitly names the leadership presentation and roadmap pivot secured — highest signal match. Leads Intuit block.
+Opener type: DIAGNOSTIC
+
+**I2 — I-INCIDENT [financial-risk]**
+"Caught" = DIAGNOSTIC (detection verb per the rules). Cross-functional coordination mirrors JD's "work alongside personnel from varying functions." Second in Intuit block.
+Opener type: DIAGNOSTIC
+
+**I3 — I-FLEX ★**
+I-FLEX decision rule: JD mentions data platform (DS365.ai), and cross-team data consistency is relevant, but the stronger JD signal is PM judgment, prioritization trade-offs, and delivering credible recommendations → I-STRATEGIC-NO [strategic-tradeoff]. Also prevents three consecutive diagnostics (I1=DIAG, I2=DIAG, I3 must not be diagnostic if it would make three in a row). I-STRATEGIC-NO [strategic-tradeoff] opens with "Recognized" — DIAGNOSTIC. Three consecutive diagnostics in Intuit block — MONOTONY VIOLATION.
+
+Must swap I3 to action-first. Options: I-PRIORITIZATION [monetization-roadmap] opens with "Owned" — ACTION-FIRST ✓. Switch I-FLEX to I-PRIORITIZATION [monetization-roadmap].
+Opener type: ACTION-FIRST ✓
+
+**O1 — O-PROVIDER [integration-diagnosis]**
+JD emphasizes problem diagnosis and executive-facing deliverables; [integration-diagnosis] shows the diagnostic skill most cleanly. But O1 and O2 are the only two Optum bullets — if both are diagnostic, that's a two-bullet block, no three-consecutive rule triggered. Check overall tally first.
+Opener type: DIAGNOSTIC
+
+**O2 — O-AFFORDABILITY [hackathon-impact]**
+Impact-first opener; provides strong variety in the Optum block and meets the impact-first distribution target. The hackathon win is a self-credentialing result.
+Opener type: IMPACT-FIRST ✓
+
+**Story ordering summary:**
+- Gojek: G-PRICING → G-SUPPLY → G-LATENCY (pricing story leads per priority)
+- Hevo: H-BATCHSHIFT → H-MONITORING → H-FLEX/H-QUERY (batchshift leads per priority story)
+- Intuit: I-BILLING → I-INCIDENT → I-FLEX (billing leads; exec presentation angle)
+- Optum: O-PROVIDER → O-AFFORDABILITY (provider diagnosis first, impact-first closes)
+
+**ACTION-FIRST TALLY:**
+
+| Slot | Story | Opener Type |
+|------|-------|-------------|
+| G1 | G-PRICING [pricing-strategy] | DIAGNOSTIC |
+| G2 | G-SUPPLY [ecosystem-GTM] | DIAGNOSTIC |
+| G3 | G-LATENCY [throughput-engineering] | ACTION-FIRST |
+| H1 | H-BATCHSHIFT [business-model-pivot] | DIAGNOSTIC |
+| H2 | H-MONITORING [debugging-reframe] | DIAGNOSTIC |
+| H3 | H-QUERY [analytics-tools] | ACTION-FIRST |
+| I1 | I-BILLING [exec-presentation] | DIAGNOSTIC |
+| I2 | I-INCIDENT [financial-risk] | DIAGNOSTIC |
+| I3 | I-PRIORITIZATION [monetization-roadmap] | ACTION-FIRST |
+| O1 | O-PROVIDER [integration-diagnosis] | DIAGNOSTIC |
+| O2 | O-AFFORDABILITY [hackathon-impact] | IMPACT-FIRST |
+
+Action + Impact-first count: G3 (ACTION) + H3 (ACTION) + I3 (ACTION) + O2 (IMPACT) = **4 ✓**
+Meets the minimum floor of 4.
+
+Per-section monotony check:
+- Gojek: DIAG, DIAG, ACTION — ✓ (run broken at G3)
+- Hevo: DIAG, DIAG, ACTION — ✓ (run broken at H3)
+- Intuit: DIAG, DIAG, ACTION — ✓ (run broken at I3)
+- Optum: DIAG, IMPACT — ✓ (two bullets only, no three-consecutive possible)
+
+All monotony constraints satisfied. ✓
+
+**Archetype distribution:**
+- Diagnostic: 7 (G1, G2, H1, H2, I1, I2, O1) — within Strategy PM range of 5–6... slightly over. But hard floor for non-diagnostic is ≥3 (met: 4). No structural penalty triggered.
+- Action-first: 3 (G3, H3, I3)
+- Context-first: 0
+- Impact-first: 1 (O2)
+- Non-diagnostic total: 4 ✓ (meets hard floor of ≥3)
+
+ACTION_COUNT_LOW check: action + impact-first = 4 ✓ No flag.
+
+---
+
+SECTION 0 — PROFESSIONAL SUMMARY (paste-ready)
+------------------------------------------------------------------------
+Five years finding the revenue ceilings hidden in marketplace data, from a $3.2M ride tier launch at Gojek through customer discovery to an 18% supply expansion via fleet API platforms. Now at USC Marshall to move from identifying growth bottlenecks to owning marketplace product strategy. *(Note: [PM-growth] selected as base, the $3.2M Gojek pricing story is the lead credential the JD is hiring for, and this variant foregrounds it cleanly. No Zone 1 injection applied; the base variant already leads with the pricing/revenue signal that mirrors the DS365.ai pricing deliverable without requiring additional qualifier.)*
+
+SECTION 3 — FULL EXPERIENCE SECTION (paste-ready)
+------------------------------------------------------------------------
+GOJEK | Senior Software Engineer | Jan 2025 – Jul 2025 | Gurgaon, India
+• Identified price sensitivity as an underexplored conversion gap; validated willingness-to-pay through funnel analysis and 20+ customer interviews, confirmed via A/B pricing experiments, and launched a cost-tiered ride tier generating $3.2M in incremental revenue.
+• Surfaced peak-hour supply shortfalls on Gojek's marketplace that driver recruitment couldn't resolve; defined requirements and onboarding workflows for a multi-partner fleet integration platform, growing supply 18% across Singapore and Bali and cutting ETAs by 1.5 minutes.
+• Pre-cached pricing for the 12 highest-demand corridors, accepting ±4% fare variance to cut quote latency 70% and deliver sub-second responses; enabled ~28K additional monthly rides.
+
+HEVO DATA | Software Engineer 2 | Nov 2023 – Jan 2025 | Bengaluru, India
+• Identified that Fortune 500 data teams were failing Hevo's enterprise trials not on features but on auditability; led the pivot from streaming-first to batch-first transactional execution, improving pipeline stability 45% across 120K pipelines and onboarding 8 enterprise customers within 90 days.
+• Recognized Job Monitoring was treated as an internal debugging afterthought; reshaped it into an audit-ready product surface that served as the primary evidence artifact evaluators needed at trial-to-close, cutting pipeline failure identification time by 40%.
+• Built a reusable query and filtering framework across all Hevo 2.0 dashboards; redesigned MongoDB indexes to cut query latency 50%, letting on-call engineers filter by Error Type and Source across 10,000+ pipeline environments.
+
+INTUIT | Software Engineer 2 | Aug 2022 – Oct 2023 | Bengaluru, India
+• Diagnosed that SMB cancellations traced to billing accuracy failures rather than product gaps; designed a cross-system reconciliation framework and presented the financial impact to senior leadership, securing a roadmap pivot from feature velocity to auditability.
+• Caught a live billing failure affecting 1,500+ SMBs before it escalated; coordinated Engineering, Product, and Support on remediation sequencing, refund decisions, and customer communications to contain impact.
+• Owned the monetization services roadmap by synthesizing customer and Engineering input into prioritized PRDs; introduced a scoring framework to align 8 teams on business impact versus technical-debt trade-offs.
+
+OPTUM | Software Engineer | Jul 2020 – Aug 2022 | Gurgaon, India
+• Diagnosed a provider onboarding engagement stalled on a schema contract mismatch between legacy XML and REST APIs; designed a custom transformation layer to resolve it, cutting onboarding time from 6 months to 10 weeks.
+• Won Optum's global hackathon by designing an ML-based affordability solution that identified at-risk members through predictive risk scoring and recommended lower-cost care pathways; piloted as Optum's first member-facing affordability initiative.
+
+SECTION 3 (PASS 1 — PRE-REWRITE)
+------------------------------------------------------------------------
+GOJEK | Senior Software Engineer | Jan 2025 – Jul 2025 | Gurgaon, India
+• Identified price sensitivity as an underexplored conversion gap; validated willingness-to-pay through funnel analysis and 20+ customer interviews, confirmed via A/B pricing experiments, and launched a cost-tiered ride tier generating $3.2M in incremental revenue.
+• Surfaced peak-hour supply shortfalls on Gojek's $110M+ marketplace that driver recruitment couldn't fix; built a multi-partner fleet integration platform by defining requirements and onboarding workflows for commercial operators, growing supply 18% across Singapore and Bali and cutting ETAs by 1.5 minutes.
+• Cut fare-quote latency 70% by pre-caching pricing for the 12 highest-demand corridors, trading ±4% fare variance for sub-second response; enabled ~28K additional monthly rides.
+
+HEVO DATA | Software Engineer 2 | Nov 2023 – Jan 2025 | Bengaluru, India
+• Identified that Fortune 500 data teams required correctness over streaming speed; drove Hevo 2.0's shift to a batch-first transactional model, improving platform stability 45% and enabling onboarding of 8 enterprise customers within 90 days.
+• Recognized that Job Monitoring was treated as an internal debugging afterthought; reshaped it as an audit-ready product surface, reducing pipeline failure identification time 40% and making it the primary evidence artifact evaluators needed during trial-to-close.
+• Shipped a reusable query and filtering framework adopted across all Hevo 2.0 dashboards, cutting query latency 50% via MongoDB index redesign; enabled on-call engineers to filter by Error Type and Source across 10,000+ pipeline environments.
+
+INTUIT | Software Engineer 2 | Aug 2022 – Oct 2023 | Bengaluru, India
+• Diagnosed that SMB cancellations traced to billing accuracy failures, not product gaps; designed a cross-system reconciliation framework and presented the financial impact to senior leadership, securing a roadmap pivot from feature velocity to auditability.
+• Caught a live billing failure affecting 1,500+ SMBs before it escalated; took cross-functional command, coordinating Engineering, Product, and Support on remediation, refund decisions, and customer communications to contain impact.
+• Owned the monetization services roadmap by synthesizing customer and stakeholder input into prioritized PRDs; introduced a scoring framework to align 8 cross-functional teams on business impact vs. technical-debt trade-offs.
+
+OPTUM | Software Engineer | Jul 2020 – Aug 2022 | Gurgaon, India
+• Diagnosed a provider onboarding engagement stalled on a schema contract mismatch between legacy XML and REST APIs; designed a custom transformation layer to resolve it, cutting onboarding time from 6 months to 10 weeks.
+• Won Optum's global hackathon by designing an ML-based affordability solution that identified at-risk members through predictive risk scoring and recommended lower-cost care pathways; piloted as Optum's first member-facing affordability initiative.
+
+---
+
+SECTION 4 — SKILLS & INTERESTS (paste-ready)
+------------------------------------------------------------------------
+SKILLS & INTERESTS
+● Product Focus: Pricing & Monetization, Pricing & Packaging Strategy, Experimentation-Driven Growth, Analytics & Customer Discovery, Enterprise SaaS Platforms
+● Analytics & Discovery: Research-to-Roadmap, Funnel Analysis, A/B Testing, Customer Interviews, Experiment Design
+● Strategy Project: Partnered with a cloud startup founder on platform positioning and early adoption strategy; contributed to a Series A growth trajectory leading to acquisition.
+● Tools: SQL, Tableau, Mixpanel, Google Analytics, Excel, Figma; Java, Python; AWS, Docker; Jira, Confluence; Agile, Git
+● Community: Supported mobile-school education for 400+ underserved children; led a 5-member volunteer team that raised $20K for an anti–human trafficking nonprofit.
+● Interests: Fitness & strength training, DJing house music, behavioral psychology, astrophysics, trekking the Himalayas
+
+────────────────────────────────────────────────────────────────────────
+QUALITY CHECKS
+────────────────────────────────────────────────────────────────────────
+  [✓] QC-01 Company headers: All 4 headers present
+  [✓] QC-02 Bullet counts: Total=11 | {'GOJEK': 3, 'HEVO DATA': 3, 'INTUIT': 3, 'OPTUM': 2}
+  [✓] QC-03 intuit_incident protected: Found
+  [✓] QC-04 Forbidden words: Clean
+  [✓] QC-05 Verb diversity: All verbs ≤2 uses, no consecutive repeats
+  [✓] QC-06 Section 3 extracted: 2965 chars
+  [✓] QC-07 Skills section: 7 rows
+  [✓] QC-08 Long bullets: All bullets ≤3 estimated lines
+  [⚠] QC-09 Orphan lines: 3 bullet(s) have orphan last line: ['last line “10,000+ pipeline environments.” (3 word(s))', 'last line “contain impact.” (2 word(s))', 'last line “technical-debt trade-offs.” (2 word(s))']
+  [✓] QC-10 Forbidden opener patterns: Clean
+  [✓] QC-11 No em dashes: Clean
+  [✗] QC-12 Contrast phrase cap (max 1 per section): 2 contrast phrase(s) ('not…but': 1, 'rather than': 1) — only 1 total allowed
+  [⚠] QC-13 Bullet length range: 10 bullets ≥200 chars (7 over the ≤3 guideline) — auto-trim will run
+
+────────────────────────────────────────────────────────────────────────
+RESUME SCORE (Pass 3)
+────────────────────────────────────────────────────────────────────────
+  Holistic score: 8.1/10  |  Verdict: REVISE
+  Strengths:  The Gojek block is the section's strongest sequence: three consecutive bullets that each encode a specific corrected assumption or design trade-off (price sensitivity gap, recruitment-not-architecture supply problem, ±4% fare variance tolerance) with complete causal chains and metrics that do argumentative work. The Hevo auditability pivot (Hevo 1) is the section's best diagnostic bullet and directly mirrors the DS365.ai pricing research deliverable the JD is testing for.
+  Top issue:  INTUIT bullet 3: the 'Owned the monetization services roadmap' forbidden opener buries the section's strongest cross-functional synthesis story (the scoring framework aligning 8 teams) — reopen with 'Introduced a business-impact-vs-technical-debt scoring framework...' to surface the specific mechanism and unlock the JD's cross-functional collaboration signal.
+  JD fit:     Pricing strategy and revenue growth (top JD signal 1) is strongly foregrounded via Gojek 1 and the $3.2M outcome; cross-functional synthesis (signal 2) is present but thin — Intuit 3's scoring framework story is the best evidence but is undermined by the forbidden opener; communication fluency translating vague questions into executive recommendations (signal 3) appears in Intuit 1's roadmap pivot story but is not explicitly surfaced as the primary outcome in any bullet.
+  Narrative:  The section reads as a coherent pricing-and-auditability PM identity — the Gojek pricing story and the Hevo auditability pivot are clearly the primary signals — but Hevo 3 and Intuit 3 read as infrastructure/process bullets that dilute the commercial framing axis and pull toward a technical contributor identity.
+
+   9.0  GOJEK      #1 (Diagnostic)
+       Diagnostic — 'underexplored conversion gap' passes detection (encodes the team's prior inattention to pricing as a lever, not just a feature gap) and passes removal (without it, the bullet collapses into a generic A/B test story). The method chain — funnel analysis → 20+ customer interviews → A/B experiments → tiered launch — is complete and plausibly earns $3.2M. One marginal gap: 'cost-tiered ride tier' is slightly redundant phrasing ('tiered tier'), and the semicolon creates a two-clause read that slows the opener fractionally; neither requires re-reading but together prevent a clean 10.
+   9.0  GOJEK      #2 (Diagnostic)
+       Diagnostic — 'that driver recruitment couldn't resolve' passes detection (encodes the team's prior assumption that supply was a recruitment problem, not a fleet architecture problem) and passes removal (without it the bullet reads as a routine platform build, losing the corrected assumption). Causal chain is explicit: supply shortfall → fleet integration platform → 18% supply growth → ETA reduction. Minor gap: 'defined requirements and onboarding workflows' describes a deliverable type rather than a specific design decision (e.g., what the onboarding workflow resolved that prior integrations hadn't), which leaves the mechanism one step short of a 10.
+   9.0  GOJEK      #3 (Action-first)
+       Action-first — 'accepting ±4% fare variance' is the earned detail: it encodes a specific engineering trade-off that only someone who made that decision would write, passes detection (a non-participant would not reconstruct the exact variance tolerance), and passes removal test (the bullet is weaker without it — the tension between latency and pricing accuracy collapses). Causal chain: pre-caching the 12 corridors → sub-second quote latency → 28K additional monthly rides. One minor gap: the bridging step between latency reduction and ride volume (why sub-second = more completed rides) is implied rather than stated, preventing a 10.
+   9.0  HEVO DATA  #1 (Diagnostic)
+       Diagnostic — 'not on features but on auditability' passes detection (encodes a genuine corrected assumption about what enterprise trial failure means) and passes removal (the bullet collapses into a platform rebuild story without it). Causal chain is complete: misdiagnosed trial failure → pivot to batch-first execution → 45% stability improvement → 8 enterprise customers in 90 days. One concern: this is the second 'not X but Y' construction in the section (Intuit bullet 1 also uses 'rather than'). Per the section-level cap, this is the second instance and should be flagged as FORCED_CONTRAST — however, this bullet's contrast is the stronger and earlier one in order, and the Intuit instance is 'rather than' not a strict 'not X but Y'; applying judgment, this bullet scores 9 rather than 10 due to the section-level contrast cap creating ambient pressure, and because 'led the pivot' is an activity verb buried mid-bullet rather than a specific deliverable name.
+   8.0  HEVO DATA  #2 (Diagnostic)
+       Diagnostic — 'internal debugging afterthought' passes detection (non-participant could not reconstruct this specific framing of the product's prior positioning). Removal test: marginal — 'reshaped it into an audit-ready product surface that served as the primary evidence artifact evaluators needed at trial-to-close' does meaningful work anchoring the causal chain, but the insight phrase is needed to make the transformation legible. Mechanism is present but thin: 'reshaped' is the only mechanism verb and it doesn't name what was actually changed (UI surface? data schema? export format?). The 40% failure identification time reduction does real work. Scores 8 because the mechanism step ('how it was reshaped') has one invisible bridging step — what specifically changed in the product surface to serve as trial evidence.
+   7.0  HEVO DATA  #3 (Action-first) [WEAK_MECHANISM]
+       WEAK_MECHANISM: 'reusable query and filtering framework' names a deliverable type but not a specific design decision — any infrastructure PM could have written this. The MongoDB index redesign is the earned detail (passes detection: specific enough that a non-participant couldn't reconstruct it) but fails removal (the bullet's outcome is the same without knowing the index strategy). More critically, the causal chain from 'reusable framework' to '50% query latency cut' to 'filter by Error Type and Source across 10,000+ pipelines' is not internally connected — the mechanism is split between two separate deliverables (framework + index redesign) without a bridging step explaining how these combine. The 10,000+ pipeline environment is specific but orphaned. Fix: collapse to one mechanism with explicit causal bridge, e.g., 'Redesigned MongoDB compound indexes and built a reusable filter layer across all Hevo 2.0 dashboards, cutting query latency 50% and letting on-call engineers isolate failures by Error Type or Source across 10,000+ pipelines without writing ad hoc queries.'
+   8.0  INTUIT     #1 (Diagnostic)
+       Diagnostic — 'rather than product gaps' encodes a corrected assumption and passes detection. However, this is the section's second 'not X but Y' construction (Hevo Data 1 uses 'not on features but on auditability'), triggering the FORCED_CONTRAST section-level cap. Per the rubric, the second instance should be penalized. Additionally, 'cross-system reconciliation framework' passes detection but fails the removal test marginally — the outcome (roadmap pivot to auditability) is achievable without specifying the framework. The 'presented the financial impact to senior leadership, securing a roadmap pivot' phrase is the bullet's strongest earned element (executive presentation → roadmap outcome) but the mechanism between the reconciliation framework and the financial impact presentation has an invisible step. Score: 8 accounting for FORCED_CONTRAST flag on this instance; the diagnostic insight and executive outcome are strong, but the contrast is the section's second and the mechanism has a gap.
+   8.0  INTUIT     #2 (Diagnostic)
+       Diagnostic — 'Caught' is correctly classified as Diagnostic per the rubric (detection insight, not execution step). '1,500+ SMBs before it escalated' passes detection (specific scale and timing encode that this was caught early, a non-participant couldn't reconstruct '1,500+' independently). 'coordinated Engineering, Product, and Support on remediation sequencing, refund decisions, and customer communications' names three specific deliverables in a list — passes detection collectively. Removal test: the 'before it escalated' phrase passes removal (bullet still holds as an incident response story without it), making it decorative. Scores 8: the incident story is credible and specific, but the mechanism (how it was caught — what signal, what monitoring, what action) is absent, leaving the causal chain incomplete. Fix: add what surfaced the failure (e.g., 'flagged by an anomalous refund rate spike in billing reconciliation logs') to complete the diagnostic chain.
+   5.0  INTUIT     #3 (Forbidden) [FORBIDDEN_OPENER]
+       FORBIDDEN_OPENER: 'Owned the monetization services roadmap' uses a scope-claiming opener that the rubric explicitly flags as a 4-range bullet ('Owned X from definition to launch; defined Y and Z with no specific design decision visible'). Additionally, 'synthesizing customer and Engineering input into prioritized PRDs' is a GENERIC_MECHANISM — any PM could write this. 'Introduced a scoring framework to align 8 teams on business impact versus technical-debt trade-offs' is the only specific earned detail (passes detection: the scoring framework with a business-impact/technical-debt axis is specific), but the opener prevents it from scoring higher. Fix: reopen with the scoring framework as the action-first verb — e.g., 'Introduced a business-impact-vs-technical-debt scoring framework across 8 teams on Intuit's monetization roadmap, replacing ad hoc PRD reviews with a structured prioritization process that...' then anchor to a measurable outcome.
+   8.0  OPTUM      #1 (Diagnostic)
+       Diagnostic — 'schema contract mismatch between legacy XML and REST APIs' passes detection (specific enough that a non-participant would not reconstruct this exact framing of the stall cause). Removal test: passes — without the schema mismatch diagnosis, the bullet collapses into a generic integration story. Causal chain is complete: schema mismatch diagnosis → custom transformation layer → 6 months to 10 weeks. Scores 8 rather than 9 because 'designed a custom transformation layer' is the mechanism but it doesn't name what the transformation layer specifically resolved (e.g., field mapping? type coercion? schema versioning?) — one bridging step is implied. The outcome (6 months to 10 weeks) is proportionate and does real work.
+   8.0  OPTUM      #2 (Impact-first)
+       Impact-first — 'Won Optum's global hackathon' is correctly used as Impact-first: competition win, isolable to Akshat, not a shared platform metric. Attribution is solid (hackathon wins are individual-attributable). 'predictive risk scoring and recommended lower-cost care pathways' names a specific mechanism pair. 'Piloted as Optum's first member-facing affordability initiative' is the earned detail: passes detection (specific institutional first that couldn't be fabricated) and passes removal marginally (bullet is weaker without the 'first' credential but still holds as a hackathon win). Scores 8 rather than 9 because the mechanism chain from 'ML-based affordability solution' to 'pilot' omits the bridging step (what made it pilot-ready vs. a demo), and 'identified at-risk members through predictive risk scoring' is a description of what it does rather than how it was built.
+
+────────────────────────────────────────────────────────────────────────
+REWRITES LOG (Pass 2)
+────────────────────────────────────────────────────────────────────────
+GOJEK #1
+ORIGINAL: Identified price sensitivity as an underexplored conversion gap; validated willingness-to-pay through funnel analysis and 20+ customer interviews, confirmed via A/B pricing experiments, and launched a cost-tiered ride tier generating $3.2M in incremental revenue.
+REWRITTEN: Identified price sensitivity as an underexplored conversion gap; validated willingness-to-pay through funnel analysis and 20+ customer interviews, confirmed via A/B pricing experiments, and launched a cost-tiered ride tier generating $3.2M in incremental revenue.
+CHANGE: No change made — this bullet is the highest-priority story for this role, already satisfies all archetype, earned detail, and register criteria, and any rewrite would risk diluting the precisely calibrated pricing-research chain that mirrors the JD's core deliverable.
+
+GOJEK #2
+ORIGINAL: Surfaced peak-hour supply shortfalls on Gojek's $110M+ marketplace that driver recruitment couldn't fix; built a multi-partner fleet integration platform by defining requirements and onboarding workflows for commercial operators, growing supply 18% across Singapore and Bali and cutting ETAs by 1.5 minutes.
+REWRITTEN: Surfaced peak-hour supply shortfalls on Gojek's marketplace that driver recruitment couldn't resolve; defined requirements and onboarding workflows for a multi-partner fleet integration platform, growing supply 18% across Singapore and Bali and cutting ETAs by 1.5 minutes.
+CHANGE: Removed "$110M+" per the attribution guard (platform-level revenue figure used as filler framing, not present as a core claim in this bullet's argument); replaced "couldn't fix" with "couldn't resolve" for register precision; restructured mechanism clause to lead with the specific PM artifacts (requirements and onboarding workflows) to satisfy action-first archetype more cleanly, removing the buried "built... by" construction.
+
+GOJEK #3
+ORIGINAL: Cut fare-quote latency 70% by pre-caching pricing for the 12 highest-demand corridors, trading ±4% fare variance for sub-second response; enabled ~28K additional monthly rides.
+REWRITTEN: Pre-cached pricing for the 12 highest-demand corridors, accepting ±4% fare variance to cut quote latency 70% and deliver sub-second responses; enabled ~28K additional monthly rides.
+CHANGE: Reordered from impact-first metric opener to action-first structure per the forbidden-structure rule against leading with a metric as decoration; "accepting ±4% fare variance" surfaces the trade-off as the earned detail more naturally when the execution decision leads, and the impact lands as conclusion.
+
+HEVO DATA #1
+ORIGINAL: Identified that Fortune 500 data teams required correctness over streaming speed; drove Hevo 2.0's shift to a batch-first transactional model, improving platform stability 45% and enabling onboarding of 8 enterprise customers within 90 days.
+REWRITTEN: Identified that Fortune 500 data teams were failing Hevo's enterprise trials not on features but on auditability; led the pivot from streaming-first to batch-first transactional execution, improving pipeline stability 45% across 120K pipelines and onboarding 8 enterprise customers within 90 days.
+CHANGE: Aligned with the calibration example for H-BATCHSHIFT exactly, restoring the "not on features but on auditability" contrast phrase (this is the one permitted contrast in the section) and the "120K pipelines" metric present in the Pass 1 pool; sharpened mechanism language from "shift" to "pivot from streaming-first to batch-first transactional execution" for specificity.
+
+HEVO DATA #2
+ORIGINAL: Recognized that Job Monitoring was treated as an internal debugging afterthought; reshaped it as an audit-ready product surface, reducing pipeline failure identification time 40% and making it the primary evidence artifact evaluators needed during trial-to-close.
+REWRITTEN: Recognized Job Monitoring was treated as an internal debugging afterthought; reshaped it into an audit-ready product surface that served as the primary evidence artifact evaluators needed at trial-to-close, cutting pipeline failure identification time by 40%.
+CHANGE: Resequenced so the earned detail ("primary evidence artifact evaluators needed at trial-to-close") sits in causal position before the metric, making the impact feel like an inevitable conclusion of the product decision rather than a list appendage; minor register tightening ("reshaped it as" to "reshaped it into," "reducing" to "cutting" for verb energy).
+
+HEVO DATA #3
+ORIGINAL: Shipped a reusable query and filtering framework adopted across all Hevo 2.0 dashboards, cutting query latency 50% via MongoDB index redesign; enabled on-call engineers to filter by Error Type and Source across 10,000+ pipeline environments.
+REWRITTEN: Built a reusable query and filtering framework across all Hevo 2.0 dashboards; redesigned MongoDB indexes to cut query latency 50%, letting on-call engineers filter by Error Type and Source across 10,000+ pipeline environments.
+CHANGE: Replaced "Shipped" with "Built" to avoid opener repetition and use a cleaner action verb; restructured to eliminate the "adopted across" participial hanging off the artifact and instead let "redesigned MongoDB indexes" carry the mechanism visibly before the metric, so the causal chain (framework → index redesign → latency cut → engineer capability) reads in one linear pass.
+
+INTUIT #1
+ORIGINAL: Diagnosed that SMB cancellations traced to billing accuracy failures, not product gaps; designed a cross-system reconciliation framework and presented the financial impact to senior leadership, securing a roadmap pivot from feature velocity to auditability.
+REWRITTEN: Diagnosed that SMB cancellations traced to billing accuracy failures rather than product gaps; designed a cross-system reconciliation framework and presented the financial impact to senior leadership, securing a roadmap pivot from feature velocity to auditability.
+CHANGE: Replaced "not product gaps" with "rather than product gaps" — the contrast phrase in HEVO #1 uses "not X but Y" as the one permitted instance; this bullet's contrast is reworded to "rather than" to avoid a second identical contrast construction, while preserving the corrected-assumption earned detail and all factual content verbatim.
+
+INTUIT #2
+ORIGINAL: Caught a live billing failure affecting 1,500+ SMBs before it escalated; took cross-functional command, coordinating Engineering, Product, and Support on remediation, refund decisions, and customer communications to contain impact.
+REWRITTEN: Caught a live billing failure affecting 1,500+ SMBs before it escalated; coordinated Engineering, Product, and Support on remediation sequencing, refund decisions, and customer communications to contain impact.
+CHANGE: Removed "took cross-functional command" — this is a vague authority signal that precedes the actual description of what cross-functional command meant; the named teams and actions (remediation sequencing, refund decisions, communications) carry the credentialing weight and read more cleanly as the direct continuation of the Caught opener; added "sequencing" to "remediation" to preserve process-artifact specificity.
+
+INTUIT #3
+ORIGINAL: Owned the monetization services roadmap by synthesizing customer and stakeholder input into prioritized PRDs; introduced a scoring framework to align 8 cross-functional teams on business impact vs. technical-debt trade-offs.
+REWRITTEN: Owned the monetization services roadmap by synthesizing customer and Engineering input into prioritized PRDs; introduced a scoring framework to align 8 teams on business impact versus technical-debt trade-offs.
+CHANGE: Replaced vague "stakeholder input" with "Engineering input" per the forbidden-word rule against "stakeholders" as a vague noun; removed "cross-functional" from the team count phrase (rule: use named teams or drop the modifier); replaced "vs." with "versus" for register consistency.
+
+OPTUM #1
+ORIGINAL: Diagnosed a provider onboarding engagement stalled on a schema contract mismatch between legacy XML and REST APIs; designed a custom transformation layer to resolve it, cutting onboarding time from 6 months to 10 weeks.
+REWRITTEN: Diagnosed a provider onboarding engagement stalled on a schema contract mismatch between legacy XML and REST APIs; designed a custom transformation layer to resolve it, cutting onboarding time from 6 months to 10 weeks.
+CHANGE: No change made — bullet already satisfies all criteria: Diagnostic archetype with a genuine non-obvious insight (schema contract mismatch as the stall cause), mechanism visible, metric lands as conclusion, earned detail (specific mismatch type named) passes both detection and removal tests, register clean.
+
+OPTUM #2
+ORIGINAL: Won Optum's global hackathon by designing an ML-based affordability solution that identified at-risk members through predictive risk scoring and recommended lower-cost care pathways; piloted as Optum's first member-facing affordability initiative.
+REWRITTEN: Won Optum's global hackathon by designing an ML-based affordability solution that identified at-risk members through predictive risk scoring and recommended lower-cost care pathways; piloted as Optum's first member-facing affordability initiative.
+CHANGE: No change made — bullet is correctly structured as Impact-first with the win as the self-credentialing hook, mechanism visible (ML solution, predictive risk scoring, care pathway recommendation), and the scarcity signal ("first member-facing affordability initiative") functioning as a clean Type 1 earned detail; all criteria satisfied without intervention.
+
+────────────────────────────────────────────────────────────────────────
+RAW MODEL OUTPUT (Pass 1)
+────────────────────────────────────────────────────────────────────────
+I'll work through the pre-generation checklist silently, then output all four sections.
+
+---
+
+SECTION 1 — TOP 3 JD SIGNALS
+
+Signal 1: Pricing strategy recommendation — The core deliverable is a structured, executive-facing research recommendation on pricing strategy and revenue growth for DS365.ai products, directly mirroring Akshat's WTP research and discount-tier launch at Gojek.
+
+Signal 2: Cross-functional synthesis across Marketing, R&D, and Business Development — The role requires working across multiple functions to complete a complex ambiguous project in a constrained timeframe, which aligns with Akshat's pattern of diagnosing business model tensions and synthesizing signal across orgs.
+
+Signal 3: Communication fluency from ambiguity to executive recommendation — The JD explicitly values the ability to translate vague business questions into structured proposals for stakeholders and executive leadership, foregrounding Akshat's pattern of delivering credible roadmap pivots and impact analyses to senior leaders.
+
+---
+
+SECTION 2 — SELECTION NOTES
+
+**Professional Summary:** Selected [PM-default] — the role is a general strategy/pricing PM internship without a dominant AI, marketplace, fintech, or enterprise-SaaS primary signal; Zone 1 injection adds "pricing strategy and cross-functional product decisions" to anchor the summary to the JD's core deliverable.
+
+Wait — re-evaluating: primary_framing_axis = pricing-strategy. [PM-fintech] leads with monetization/financial accuracy, but [PM-default] is the cleanest base for a pricing-strategy pitch. [PM-growth] leads with the $3.2M Gojek story directly, which mirrors the core deliverable. I'll use [PM-growth] with a Zone 1 qualifier to foreground pricing strategy.
+
+**Story slot decisions:**
+
+**G1 — G-PRICING [pricing-strategy]**
+Best fit for the JD's #1 signal; diagnostic opener surfaces the WTP insight before the revenue outcome; leads the Gojek block as instructed by story priority.
+Opener type: DIAGNOSTIC
+
+**G2 — G-SUPPLY [ecosystem-GTM]**
+Secondary framing axis is business-model-pivot; this variant uses the $110M+ marketplace scale context naturally and shows cross-functional platform execution; goes second as it complements the pricing story with supply-side strategic scope.
+Opener type: DIAGNOSTIC
+
+**G3 — G-LATENCY [cross-functional-drive]**
+Action/impact variety needed here — G1 and G2 are both diagnostic, so G3 must break the run. [cross-functional-drive] opens with "Identified" (DIAGNOSTIC) — need to pivot. Will use [strategic-exec] instead which opens with "Linked" (DIAGNOSTIC again). Best non-diagnostic option: [throughput-engineering] — ACTION-FIRST, breaks the consecutive diagnostic run.
+Opener type: ACTION-FIRST ✓
+
+**H1 — H-BATCHSHIFT [business-model-pivot]**
+Primary framing axis = pricing-strategy; secondary = business-model-pivot. This is the story most aligned to secondary axis and the positioning narrative calls it out explicitly as a priority story. Leads the Hevo block.
+Opener type: DIAGNOSTIC
+
+**H2 — H-MONITORING [debugging-reframe]**
+JD emphasizes roadmap judgment and product ownership ("A nice-to-have: experience in owning a product"); this variant shows product ownership and roadmap prioritization directly. Second in the Hevo block.
+Opener type: DIAGNOSTIC
+
+**H3 — H-FLEX ★ [H-QUERY: product-discovery]**
+H-FLEX decision rule: JD emphasizes "data platform" (DS365.ai is a data platform suite), analytics, and data workflows → H-QUERY. Within H-QUERY, [product-discovery] opens diagnostic then shows shipped artifact. Goes in slot H3 as required.
+Opener type: DIAGNOSTIC → need to check monotony. H1=DIAGNOSTIC, H2=DIAGNOSTIC, H3=DIAGNOSTIC — three consecutive diagnostics in Hevo block. MONOTONY VIOLATION. Must swap H3 to action-first variant.
+
+Swap H3 to H-QUERY [analytics-tools]: "Shipped a reusable query and filtering framework..." — ACTION-FIRST. ✓ Breaks the run.
+Opener type: ACTION-FIRST ✓
+
+**I1 — I-BILLING [exec-presentation]**
+JD emphasizes communication fluency from ambiguity to executive recommendation; this variant explicitly names the leadership presentation and roadmap pivot secured — highest signal match. Leads Intuit block.
+Opener type: DIAGNOSTIC
+
+**I2 — I-INCIDENT [financial-risk]**
+"Caught" = DIAGNOSTIC (detection verb per the rules). Cross-functional coordination mirrors JD's "work alongside personnel from varying functions." Second in Intuit block.
+Opener type: DIAGNOSTIC
+
+**I3 — I-FLEX ★**
+I-FLEX decision rule: JD mentions data platform (DS365.ai), and cross-team data consistency is relevant, but the stronger JD signal is PM judgment, prioritization trade-offs, and delivering credible recommendations → I-STRATEGIC-NO [strategic-tradeoff]. Also prevents three consecutive diagnostics (I1=DIAG, I2=DIAG, I3 must not be diagnostic if it would make three in a row). I-STRATEGIC-NO [strategic-tradeoff] opens with "Recognized" — DIAGNOSTIC. Three consecutive diagnostics in Intuit block — MONOTONY VIOLATION.
+
+Must swap I3 to action-first. Options: I-PRIORITIZATION [monetization-roadmap] opens with "Owned" — ACTION-FIRST ✓. Switch I-FLEX to I-PRIORITIZATION [monetization-roadmap].
+Opener type: ACTION-FIRST ✓
+
+**O1 — O-PROVIDER [integration-diagnosis]**
+JD emphasizes problem diagnosis and executive-facing deliverables; [integration-diagnosis] shows the diagnostic skill most cleanly. But O1 and O2 are the only two Optum bullets — if both are diagnostic, that's a two-bullet block, no three-consecutive rule triggered. Check overall tally first.
+Opener type: DIAGNOSTIC
+
+**O2 — O-AFFORDABILITY [hackathon-impact]**
+Impact-first opener; provides strong variety in the Optum block and meets the impact-first distribution target. The hackathon win is a self-credentialing result.
+Opener type: IMPACT-FIRST ✓
+
+**Story ordering summary:**
+- Gojek: G-PRICING → G-SUPPLY → G-LATENCY (pricing story leads per priority)
+- Hevo: H-BATCHSHIFT → H-MONITORING → H-FLEX/H-QUERY (batchshift leads per priority story)
+- Intuit: I-BILLING → I-INCIDENT → I-FLEX (billing leads; exec presentation angle)
+- Optum: O-PROVIDER → O-AFFORDABILITY (provider diagnosis first, impact-first closes)
+
+**ACTION-FIRST TALLY:**
+
+| Slot | Story | Opener Type |
+|------|-------|-------------|
+| G1 | G-PRICING [pricing-strategy] | DIAGNOSTIC |
+| G2 | G-SUPPLY [ecosystem-GTM] | DIAGNOSTIC |
+| G3 | G-LATENCY [throughput-engineering] | ACTION-FIRST |
+| H1 | H-BATCHSHIFT [business-model-pivot] | DIAGNOSTIC |
+| H2 | H-MONITORING [debugging-reframe] | DIAGNOSTIC |
+| H3 | H-QUERY [analytics-tools] | ACTION-FIRST |
+| I1 | I-BILLING [exec-presentation] | DIAGNOSTIC |
+| I2 | I-INCIDENT [financial-risk] | DIAGNOSTIC |
+| I3 | I-PRIORITIZATION [monetization-roadmap] | ACTION-FIRST |
+| O1 | O-PROVIDER [integration-diagnosis] | DIAGNOSTIC |
+| O2 | O-AFFORDABILITY [hackathon-impact] | IMPACT-FIRST |
+
+Action + Impact-first count: G3 (ACTION) + H3 (ACTION) + I3 (ACTION) + O2 (IMPACT) = **4 ✓**
+Meets the minimum floor of 4.
+
+Per-section monotony check:
+- Gojek: DIAG, DIAG, ACTION — ✓ (run broken at G3)
+- Hevo: DIAG, DIAG, ACTION — ✓ (run broken at H3)
+- Intuit: DIAG, DIAG, ACTION — ✓ (run broken at I3)
+- Optum: DIAG, IMPACT — ✓ (two bullets only, no three-consecutive possible)
+
+All monotony constraints satisfied. ✓
+
+**Archetype distribution:**
+- Diagnostic: 7 (G1, G2, H1, H2, I1, I2, O1) — within Strategy PM range of 5–6... slightly over. But hard floor for non-diagnostic is ≥3 (met: 4). No structural penalty triggered.
+- Action-first: 3 (G3, H3, I3)
+- Context-first: 0
+- Impact-first: 1 (O2)
+- Non-diagnostic total: 4 ✓ (meets hard floor of ≥3)
+
+ACTION_COUNT_LOW check: action + impact-first = 4 ✓ No flag.
+
+---
+
+SECTION 0 — PROFESSIONAL SUMMARY
+
+Five years finding the revenue ceilings hidden in marketplace data, from a $3.2M ride tier launch at Gojek through customer discovery to an 18% supply expansion via fleet API platforms. Now at USC Marshall to move from identifying growth bottlenecks to owning marketplace product strategy.
+
+*(Note: [PM-growth] selected as base — the $3.2M Gojek pricing story is the lead credential the JD is hiring for, and this variant foregrounds it cleanly. No Zone 1 injection applied; the base variant already leads with the pricing/revenue signal that mirrors the DS365.ai pricing deliverable without requiring additional qualifier.)*
+
+---
+
+SECTION 3 — FULL EXPERIENCE SECTION
+
+GOJEK | Senior Software Engineer | Jan 2025 – Jul 2025 | Gurgaon, India
+• Identified price sensitivity as an underexplored conversion gap; validated willingness-to-pay through funnel analysis and 20+ customer interviews, confirmed via A/B pricing experiments, and launched a cost-tiered ride tier generating $3.2M in incremental revenue.
+• Surfaced peak-hour supply shortfalls on Gojek's $110M+ marketplace that driver recruitment couldn't fix; built a multi-partner fleet integration platform by defining requirements and onboarding workflows for commercial operators, growing supply 18% across Singapore and Bali and cutting ETAs by 1.5 minutes.
+• Cut fare-quote latency 70% by pre-caching pricing for the 12 highest-demand corridors, trading ±4% fare variance for sub-second response; enabled ~28K additional monthly rides.
+
+HEVO DATA | Software Engineer 2 | Nov 2023 – Jan 2025 | Bengaluru, India
+• Identified that Fortune 500 data teams required correctness over streaming speed; drove Hevo 2.0's shift to a batch-first transactional model, improving platform stability 45% and enabling onboarding of 8 enterprise customers within 90 days.
+• Recognized that Job Monitoring was treated as an internal debugging afterthought; reshaped it as an audit-ready product surface, reducing pipeline failure identification time 40% and making it the primary evidence artifact evaluators needed during trial-to-close.
+• Shipped a reusable query and filtering framework adopted across all Hevo 2.0 dashboards, cutting query latency 50% via MongoDB index redesign; enabled on-call engineers to filter by Error Type and Source across 10,000+ pipeline environments.
+
+INTUIT | Software Engineer 2 | Aug 2022 – Oct 2023 | Bengaluru, India
+• Diagnosed that SMB cancellations traced to billing accuracy failures, not product gaps; designed a cross-system reconciliation framework and presented the financial impact to senior leadership, securing a roadmap pivot from feature velocity to auditability.
+• Caught a live billing failure affecting 1,500+ SMBs before it escalated; took cross-functional command, coordinating Engineering, Product, and Support on remediation, refund decisions, and customer communications to contain impact.
+• Owned the monetization services roadmap by synthesizing customer and stakeholder input into prioritized PRDs; introduced a scoring framework to align 8 cross-functional teams on business impact vs. technical-debt trade-offs.
+
+OPTUM | Software Engineer | Jul 2020 – Aug 2022 | Gurgaon, India
+• Diagnosed a provider onboarding engagement stalled on a schema contract mismatch between legacy XML and REST APIs; designed a custom transformation layer to resolve it, cutting onboarding time from 6 months to 10 weeks.
+• Won Optum's global hackathon by designing an ML-based affordability solution that identified at-risk members through predictive risk scoring and recommended lower-cost care pathways; piloted as Optum's first member-facing affordability initiative.
+
+---
+
+SECTION 4 — SKILLS & INTERESTS
+
+SKILLS & INTERESTS
+● Product Focus: Pricing & Monetization, Pricing & Packaging Strategy, Experimentation-Driven Growth, Analytics & Customer Discovery, Enterprise SaaS Platforms
+● Analytics & Discovery: Research-to-Roadmap, Funnel Analysis, A/B Testing, Customer Interviews, Experiment Design
+● Strategy Project: Partnered with a cloud startup founder on platform positioning and early adoption strategy; contributed to a Series A growth trajectory leading to acquisition.
+● Tools: SQL, Tableau, Mixpanel, Google Analytics, Excel, Figma; Java, Python; AWS, Docker; Jira, Confluence; Agile, Git
+● Community: Supported mobile-school education for 400+ underserved children; led a 5-member volunteer team that raised $20K for an anti–human trafficking nonprofit.
+● Interests: Fitness & strength training, DJing house music, behavioral psychology, astrophysics, trekking the Himalayas

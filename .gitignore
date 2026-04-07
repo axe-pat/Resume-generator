@@ -1,0 +1,70 @@
+# OS / editor noise
+.DS_Store
+.Rhistory
+.idea/
+.vscode/
+
+# Secrets / local config
+.env
+.env.*
+
+# Python caches / environments
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+venv/
+.venv/
+
+# Node dependencies
+node_modules/
+
+# Logs and runtime lock files
+logs/
+*.log
+*.lock
+
+# Excel / Office temp files
+~$*
+
+# Local job tracker and backups
+discovery/jobs.xlsx
+discovery/jobs_backup*.xlsx
+discovery/~$jobs.xlsx
+
+# Generated discovery logs and bundled vendor packages
+discovery/auto/logs/
+discovery/auto/*.dist-info/
+discovery/auto/async_timeout/
+discovery/auto/redis/
+
+# Generated resume and cover-letter runs
+resume/compiler/runs/
+resume/freeform/runs/
+cover_letters/runs/
+
+# Generated application outputs and archives
+apps/*
+!apps/README.md
+inactive_apps/
+resume_archive/
+
+# Personal profile assets and binary source material
+profile/handcrafted_resumes/
+profile/repos/
+*.pdf
+*.docx
+*.zip
+
+# Keep text/json/source assets versioned even inside ignored app directories
+!apps/*/
+!apps/*/jd.txt
+!apps/*/intel.txt
+!apps/*/strategy.json
+!apps/*/*.txt
+!apps/*/*.json

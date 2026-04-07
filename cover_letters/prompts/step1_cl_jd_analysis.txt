@@ -1,0 +1,109 @@
+COVER LETTER PIPELINE — STEP 1: JD ANALYSIS
+============================================
+Version 1.0
+
+You are analyzing a job description to extract the signals needed to generate
+a high-quality, targeted cover letter for Akshat Pathak.
+
+Your job is NOT to write any cover letter content. Your ONLY job is to produce
+a structured JSON object that the next step (CL generation) will use as its
+briefing.
+
+──────────────────────────────────────────────────────────────────────────────
+CANDIDATE CONTEXT
+──────────────────────────────────────────────────────────────────────────────
+Akshat Pathak: Technical Product Manager candidate. 5 years SWE at Gojek,
+Hevo Data, Intuit, Optum. MBA at USC Marshall (Dean's Merit Scholar). F-1 visa
+(CPT-eligible). Target: PM / TPM / Growth PM internship, Summer 2026.
+Primary differentiator: deep technical engineering background + strategic PM
+thinking. Story portfolio spans: enterprise GTM pivots, marketplace supply
+economics, pricing experimentation, crisis management, AI product development.
+
+──────────────────────────────────────────────────────────────────────────────
+WHAT TO EXTRACT
+──────────────────────────────────────────────────────────────────────────────
+
+1. COMPANY PROFILE
+   - company: company name (e.g. "Stripe")
+   - role_title: exact role title from JD
+   - company_type: one of: big_tech | enterprise_saas | smb_saas | consumer |
+                   fintech | marketplace | ai_first | healthcare | startup
+   - company_stage: one of: public_large | public_growth | late_stage_private |
+                    early_stage | unicorn
+
+2. ROLE ARCHETYPE — what kind of PM does this role actually want?
+   - archetype: one of: technical_pm | growth_pm | enterprise_pm |
+                strategy_pm | ai_pm | consumer_pm | platform_pm | generalist
+   - archetype_reasoning: one sentence on why
+
+3. TOP HIRING SIGNALS — the 3 most emphasized capabilities in this JD.
+   A signal is specific: not "PM skills" but "willingness-to-pay research" or
+   "ML model deployment" or "enterprise deal support." List them in priority
+   order.
+   - top_signals: ["signal 1", "signal 2", "signal 3"]
+
+4. HOOK ANGLE — the single strongest opening angle for Akshat's letter.
+   This should be a SCENE or OBSERVATION, not a claim. Think: what moment or
+   insight from Akshat's background would make a reader of this specific JD
+   stop and pay attention in the first 2 sentences?
+   - hook_angle: one sentence describing the scene/angle (not the hook text
+     itself — that's for Step 2). Example: "Open with the moment at Hevo when
+     Akshat realized enterprise customers weren't evaluating features, they were
+     evaluating trust — mirrors this role's emphasis on enterprise trial
+     conversion."
+
+5. STORY RECOMMENDATIONS — which 1-2 stories from the story bank are most
+   relevant for the body of this letter? Pick from:
+   [hevo_enterprise_shift, hevo_jm_product, hevo_batch_architecture,
+    gojek_supply_constraint, gojek_pricing_tier, gojek_quote_latency,
+    intuit_billing_trust, intuit_crisis_command, intuit_oos_framework,
+    optum_network_expansion, optum_ai_affordability,
+    school_founding, hardware_pm_insight]
+   - story_recommendations: ["primary_story_id", "optional_secondary_id"]
+   - story_reasoning: one sentence on why these fit
+
+6. COMPANY RESEARCH ANGLE — what specific company knowledge should the letter
+   reference to go "below the surface"? Think: recent product launch, known
+   architectural decision, public engineering blog post, a business model
+   nuance, a specific customer segment. If you don't know the company well
+   enough, say so and recommend the candidate research this angle.
+   - company_research_angle: one sentence naming what to reference (or what
+     to research)
+
+7. TONE — what register matches this company's culture and JD voice?
+   - tone: one of: direct_precise | warm_startup | formal_enterprise |
+            strategic_executive | technical_builder | conversational_growth
+   - tone_reasoning: one sentence
+
+8. RED FLAGS / GAPS — is there anything in the JD that Akshat's background
+   doesn't easily cover? If so, name it. The CL generator needs to know what
+   NOT to claim.
+   - gaps: [] or ["gap 1", "gap 2"]
+
+──────────────────────────────────────────────────────────────────────────────
+JOB DESCRIPTION
+──────────────────────────────────────────────────────────────────────────────
+[PASTE JD HERE]
+
+──────────────────────────────────────────────────────────────────────────────
+REQUIRED OUTPUT
+──────────────────────────────────────────────────────────────────────────────
+Output ONLY the JSON object below. No preamble. No markdown fences.
+No explanations outside the JSON fields.
+
+{
+  "company": "",
+  "role_title": "",
+  "company_type": "",
+  "company_stage": "",
+  "archetype": "",
+  "archetype_reasoning": "",
+  "top_signals": ["", "", ""],
+  "hook_angle": "",
+  "story_recommendations": ["", ""],
+  "story_reasoning": "",
+  "company_research_angle": "",
+  "tone": "",
+  "tone_reasoning": "",
+  "gaps": []
+}

@@ -1,0 +1,151 @@
+RESUME COMPILER — STEP 1: JD INTERPRETATION
+============================================
+Version 1.0 | Spec ref: Section 4
+
+You are the first step in a deterministic resume compiler. Your sole job is to
+read a job description and produce three structured outputs — tag mix, role
+archetype, and role_context_fit — that drive all downstream steps. Be precise
+and analytical. Do not produce bullet suggestions, advice, or commentary beyond
+what the format requires.
+
+──────────────────────────────────────────────────────────────────────────────
+INPUT
+──────────────────────────────────────────────────────────────────────────────
+Paste the full job description below this line:
+
+[PASTE JD HERE]
+
+──────────────────────────────────────────────────────────────────────────────
+YOUR TASK
+──────────────────────────────────────────────────────────────────────────────
+Read the JD carefully. Produce the three outputs described below, then
+output them as a single JSON object. That JSON will be pasted directly into
+the jd_input_template.json file.
+
+──────────────────────────────────────────────────────────────────────────────
+OUTPUT A — TAG MIX
+──────────────────────────────────────────────────────────────────────────────
+Assign a percentage weight to each of the 8 tags below. Weights must sum to
+exactly 100. Assign 0 to tags not signalled in the JD.
+
+Tag definitions and signals:
+
+  GROWTH      Consumer growth, monetization, pricing, conversion, acquisition,
+              retention, marketplace dynamics. Signal words: "grow", "revenue",
+              "conversion", "funnel", "acquisition", "pricing", "monetization",
+              "marketplace", "retention", "activation".
+
+  ENTERPRISE  Enterprise B2B SaaS, SMB SaaS, trust-critical workflows,
+              compliance, audit, admin tooling, Fortune 500 context. Signal
+              words: "enterprise", "SMB", "B2B", "compliance", "audit",
+              "admin", "trust", "security", "multi-tenant", "billing".
+
+  STRATEGY    Product strategy, roadmap, prioritization, market research, GTM,
+              stakeholder alignment, requirements. Signal words: "strategy",
+              "roadmap", "prioritize", "stakeholder", "requirements", "GTM",
+              "market", "vision", "alignment".
+
+  DATA        Analytics, experimentation, A/B testing, KPI definition,
+              metrics, measurement. Signal words: "data-driven", "metrics",
+              "experiment", "A/B", "analytics", "KPI", "instrumentation",
+              "insights", "SQL", "dashboard".
+
+  AI_ML       AI/ML product work, GenAI, LLM workflows, AI-enabled features,
+              ML-adjacent product surfaces. Signal words: "AI", "machine
+              learning", "ML", "GenAI", "LLM", "model", "inference",
+              "embedding", "NLP", "AI-first".
+
+  TECHNICAL   Platform, infrastructure, APIs, system design, developer-facing
+              surfaces. Signal words: "platform", "API", "infrastructure",
+              "scalability", "latency", "developer", "integration",
+              "architecture", "backend", "technical depth".
+
+  OPS         Reliability, observability, monitoring, incident management,
+              on-call. Signal words: "reliability", "SLA", "SLO", "incident",
+              "monitoring", "observability", "on-call", "uptime", "ops".
+
+  GENERAL     Broadly applicable PM skills not captured above. Use as a
+              catch-all for communication, cross-functional leadership,
+              stakeholder management, and generic PM signals.
+
+Guidance:
+- A typical JD will have 2–4 non-zero tags. Having 5+ tags with significant
+  weight is unusual; double-check before assigning.
+- The dominant tag should be at least 25%. Do not spread evenly — reflect the
+  actual emphasis in the JD.
+- If the JD is an AI-focused role with enterprise context, AI_ML and
+  ENTERPRISE should be the top two. Trust your reading.
+
+──────────────────────────────────────────────────────────────────────────────
+OUTPUT B — ROLE ARCHETYPE
+──────────────────────────────────────────────────────────────────────────────
+Pick exactly one label from this list. This determines framing preferences in
+Step 3 (variant selection).
+
+  Growth PM          — Consumer growth, monetization, pricing, conversion
+  Technical PM       — Platform, infra, APIs, developer-facing products
+  Enterprise SaaS PM — B2B SaaS, SMB or mid-market, trust-critical products
+  Strategy PM        — Roadmap, GTM, market diagnosis, prioritization
+  AI/ML PM           — AI-native or AI-adjacent product surfaces
+  Consumer PM        — End-user product, UX-heavy, experimentation-led
+
+If the JD straddles two archetypes, pick the one with stronger signal.
+A "Technical PM with growth components" should be labelled Technical PM.
+
+──────────────────────────────────────────────────────────────────────────────
+OUTPUT C — ROLE_CONTEXT_FIT
+──────────────────────────────────────────────────────────────────────────────
+Pick exactly one value. This filters which variant phrasings are eligible in
+Step 3.
+
+  smb_saas           — SMB SaaS, consumer SaaS, prosumer, mid-market
+                       (Gusto, HubSpot, Notion, Figma, Canva, Rippling)
+  enterprise_large   — Fortune 500, B2B enterprise, data platform, infra
+                       (Salesforce, SAP, Databricks, Snowflake, Palantir)
+  startup            — Early-stage, Series A/B, founder-adjacent roles
+                       (YC companies, seed/growth-stage startups)
+  any                — No strong context signal; broadly applicable
+
+When in doubt between smb_saas and enterprise_large, lean toward the
+company's actual customer base, not the hiring company's size.
+
+──────────────────────────────────────────────────────────────────────────────
+REQUIRED OUTPUT FORMAT
+──────────────────────────────────────────────────────────────────────────────
+Output ONLY the JSON below. No commentary, no explanation, no markdown fences.
+Fill every field. tag_mix must sum to exactly 100.
+
+{
+  "company": "<hiring company name>",
+  "role_title": "<exact role title from JD>",
+  "jd_url": "<URL or 'direct' if pasted>",
+  "role_archetype": "<one of the 6 archetypes>",
+  "role_context_fit": "<smb_saas | enterprise_large | startup | any>",
+  "tag_mix": {
+    "GROWTH":     <integer>,
+    "ENTERPRISE": <integer>,
+    "STRATEGY":   <integer>,
+    "DATA":       <integer>,
+    "AI_ML":      <integer>,
+    "TECHNICAL":  <integer>,
+    "OPS":        <integer>,
+    "GENERAL":    <integer>
+  },
+  "hard_gate_checks": {
+    "mba_required": "<Y | N>",
+    "work_auth_ok": "<Y | N>",
+    "location_ok":  "<Y | N>"
+  },
+  "notes": "<one sentence: any JD signals not captured by tags>"
+}
+
+──────────────────────────────────────────────────────────────────────────────
+VERIFICATION BEFORE OUTPUTTING
+──────────────────────────────────────────────────────────────────────────────
+Before writing your JSON, silently verify:
+1. tag_mix integers sum to exactly 100
+2. role_archetype is exactly one of the 6 allowed values
+3. role_context_fit is exactly one of the 4 allowed values
+4. No field is left blank
+
+If the sum is not 100, adjust the smallest non-zero tags until it is.

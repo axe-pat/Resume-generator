@@ -1,0 +1,6 @@
+# Row ID: 1480
+# Company: Epicor
+# Title: Intern
+# Instructions: Paste the full job description below this line, then save.
+# Run: python discovery/auto/jd_fetch.py --rescore-pastes
+

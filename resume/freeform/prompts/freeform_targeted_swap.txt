@@ -1,0 +1,194 @@
+AKSHAT PATHAK — TARGETED BULLET FIX (Pass 2 Retry)
+===================================================
+Version 2.0
+
+You are fixing specific underperforming bullets in Akshat Pathak's resume experience
+section. Pass 3 (the scorer) has already run and identified which bullets fell below
+threshold. Your job is to fix exactly those bullets — and only those bullets.
+
+Do NOT touch bullets that scored 8.0 or above. The goal is surgical improvement,
+not a full rewrite.
+
+──────────────────────────────────────────────────────────────────────────────
+INPUTS
+──────────────────────────────────────────────────────────────────────────────
+
+{{EXPERIENCE_SECTION}}
+
+──────────────────────────────────────────────────────────────────────────────
+SCORER OUTPUT — bullets to fix
+──────────────────────────────────────────────────────────────────────────────
+
+The following bullets scored below 8.0. For each, the failure_mode and note
+from Pass 3 are provided. Use these to target your fix precisely.
+
+{{SCORER_BULLETS}}
+
+──────────────────────────────────────────────────────────────────────────────
+POSITIONING STRATEGY (from Pass 0)
+──────────────────────────────────────────────────────────────────────────────
+
+{{STRATEGY}}
+
+──────────────────────────────────────────────────────────────────────────────
+JOB DESCRIPTION
+──────────────────────────────────────────────────────────────────────────────
+
+{{JOB_DESCRIPTION}}
+
+──────────────────────────────────────────────────────────────────────────────
+FAILURE MODE → FIX MAPPING
+──────────────────────────────────────────────────────────────────────────────
+
+Read the failure_mode for each flagged bullet and apply the corresponding fix.
+The scorer's note tells you the specific diagnosis — use it.
+
+FORBIDDEN_OPENER
+  Rewrite the opener using the archetype decision chain below. The rest of the
+  bullet may stay mostly intact; the opener is the primary fix.
+
+WRONG_ARCHETYPE
+  Re-run the archetype decision chain for this bullet and select the correct
+  archetype. The insight/mechanism/outcome hasn't changed — just the framing
+  of what leads.
+
+GENERIC_MECHANISM
+  The opener names an activity, not a method. Make it specific: instead of
+  "Conducted analysis," name the actual technique (behavioral analysis,
+  competitive benchmarking, performance profiling, A/B pricing experiments).
+  The specific method must come from the Pass 1 bullet — do not invent.
+
+WEAK_MECHANISM
+  The causal chain has an invisible jump. Make the link between what was found
+  and what was done explicit: insight/method → action → metric with no gaps.
+
+DECORATIVE_DETAIL
+  The earned detail is specific but removable. Replace it with a detail that
+  the bullet would genuinely lose specificity or credibility without. Pull from
+  the same story's Pass 1 bullet — do not invent new facts.
+
+NUMBER_DECORATION
+  The metric is floating. Move it to earn its position: for Diagnostic and
+  Mechanism-first bullets, the metric should be the conclusion of the argument.
+  For Impact-first, the metric should be the credentialing hook that leads.
+
+TEMPLATE_FEEL
+  The bullet lacks any phrase that anchors it to Akshat's specific experience.
+  Add an earned detail from the Pass 1 source bullet (hidden constraint,
+  decision trade-off, process artifact, or corrected assumption). Check that
+  the detail passes both the detection test and the removal test.
+
+PASSIVE_CONSTRUCTION
+  Identify the passive or nominalized verb and replace with an active verb.
+  "Was improved" → "improved." "Led to improvement of" → "improved."
+
+VAGUE_OUTCOME
+  The outcome is described in abstract nouns. Replace with a specific metric or
+  a named product surface from the Pass 1 bullet.
+
+ATTRIBUTION_MISMATCH
+  The cited metric is a platform-level or shared outcome that cannot be
+  directly attributed to this bullet's mechanism at the stated scale.
+  Switch from Impact-first to Mechanism-first or Diagnostic: keep the
+  revenue/scale figure as supporting context in the bullet's conclusion,
+  not as the leading claim. Re-run the archetype decision chain; the
+  mechanism or insight is likely the real value signal here.
+
+READABILITY_FAILURE
+  Fix the specific structural problem named in the scorer's note:
+  - "and...and" chain: compress to max 1 "and" per bullet
+  - "while X also Y" parallel clause: pick one spine, sequence the rest
+  - Late-arriving subject: restructure so each clause's subject is immediate
+
+BULLET_TOO_LONG
+  The bullet is currently a 3-liner (≥200 chars) and must be trimmed to a 2-liner
+  (target 140–195 chars; hard max 199). Trim by:
+  (a) Cutting the least-essential phrase — usually the last clause if it only restates
+      the outcome at lower specificity, OR a parenthetical/elaboration that is already
+      implied by the mechanism.
+  (b) Compressing redundant transitions ("in order to", "to enable", "so that") into
+      single-word bridges (";", "enabling", "cutting").
+  (c) Never cut: the mechanism verb, the concrete artifact named, and the primary
+      metric. These are load-bearing. Everything else is negotiable.
+  (d) The trimmed bullet must still pass the archetype decision chain. The core
+      achieved result must survive — only elaboration and redundant phrasing is cut.
+  (e) After trimming, verify the bullet is still ≥90 chars (must not become a one-liner).
+
+──────────────────────────────────────────────────────────────────────────────
+ARCHETYPE DECISION CHAIN (apply when fixing FORBIDDEN_OPENER or WRONG_ARCHETYPE)
+──────────────────────────────────────────────────────────────────────────────
+
+1. Do you fully own the insight AND is the insight the primary differentiator?
+   Yes → DIAGNOSTIC: [Insight verb] + [non-obvious insight]; [mechanism]; [metric]
+   Insight verbs: Identified / Diagnosed / Recognized / Surfaced / Found / Caught / Reframed
+
+2. Is the scale or analytical process the primary credentialing signal?
+   Yes → CONTEXT/MECHANISM-FIRST:
+     Context-first: [Scale or scope]; [what you found or produced]; [metric]
+     Mechanism-first: [Specific analytical method]; [what it revealed or produced]; [metric]
+     Guard: mechanism must name a specific technique, not a generic activity
+
+3. Is the outcome a self-credentialing signal, directly attributable to Akshat?
+   Yes → IMPACT-FIRST: [Metric or achievement]; [how you achieved it]
+
+──────────────────────────────────────────────────────────────────────────────
+HARD CONSTRAINTS — ALL APPLY EVEN FOR TARGETED FIXES
+──────────────────────────────────────────────────────────────────────────────
+
+Verbatim metrics: every number, metric, and company name must remain exactly as
+  in the original bullet. Do not paraphrase, round, or estimate any figure.
+
+No-invent mandate: earned details must come from the Pass 1 bullet text. Do not
+  add constraints, frictions, trade-offs, or methods not present in the input.
+
+Contrast cap: the entire 11-bullet section is allowed only ONE "not X but Y" or
+  "not X" contrast phrase. If one already exists in the unfixed bullets, your
+  fixed bullets cannot introduce another.
+
+No em dashes: use semicolons, colons, or restructured clauses instead of (—).
+
+Forbidden words (anywhere in bullet): leveraged, utilized, spearheaded, synergies,
+  holistic, streamlined (as filler), actionable, successfully, effectively, various,
+  multiple.
+
+Forbidden openers: "Led cross-functional", "Led the", "Managed", "Partnered with",
+  "Collaborated with", "Supported", "Worked with", "Drove X by aligning stakeholders",
+  "Coordinated".
+
+Stakeholders: name actual teams (Engineering, Product, Marketplace, Support, Clinical)
+  not "cross-functional teams" or "stakeholders."
+
+Max 1 "and" per bullet: ideally zero.
+
+──────────────────────────────────────────────────────────────────────────────
+PRE-OUTPUT CHECK
+──────────────────────────────────────────────────────────────────────────────
+
+Before writing the output, verify for each fixed bullet:
+  [ ] Does it pass the archetype decision chain?
+  [ ] Does it have exactly one earned detail that passes detection + removal tests?
+  [ ] Is the causal chain explicit with no invisible jumps?
+  [ ] Is the metric in the correct position for this archetype?
+  [ ] Are all metrics verbatim from the original?
+  [ ] No em dashes, no forbidden words, no forbidden openers?
+  [ ] Max 1 "and"?
+  [ ] Does the 3-second test pass: is the core achievement clear without effort?
+
+──────────────────────────────────────────────────────────────────────────────
+OUTPUT FORMAT
+──────────────────────────────────────────────────────────────────────────────
+
+Produce exactly two sections IN THIS ORDER (REVISED first, FIX LOG second):
+
+REVISED EXPERIENCE SECTION
+──────────────────────────────────────────────────────────────────────────────
+[Complete 11-bullet section with fixes applied. All unchanged bullets reproduced
+verbatim. Company headers verbatim. Bullet symbol: •]
+
+FIX LOG
+──────────────────────────────────────────────────────────────────────────────
+For each fixed bullet (company + index, e.g. "GOJEK #2"):
+  ORIGINAL:  [original bullet text]
+  FIXED:     [new bullet text]
+  FAILURE:   [failure_mode from scorer]
+  FIX:       [one sentence: what specifically changed and why it addresses the failure]

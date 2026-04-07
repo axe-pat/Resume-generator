@@ -1,0 +1,34 @@
+{
+  "company": "Alo Yoga",
+  "role_title": "Digital MBA Intern",
+  "company_type": "consumer",
+  "company_stage": "late_stage_private",
+  "archetype": "strategy_pm",
+  "archetype_reasoning": "The role is a rotating strategy assignment across international development, growth marketing, or customer service — each requiring structured diagnosis, business case development, and executive-facing recommendations rather than product ownership or engineering coordination.",
+  "top_signals": [
+    "data-driven market and competitive research leading to executive recommendations",
+    "GTM strategy design including pricing and channel optimization",
+    "cross-functional execution and impact measurement on strategic initiatives"
+  ],
+  "hook_angle": "The moment Akshat realized at Gojek that a pricing and WTP gap — invisible in aggregate metrics but visible in cohort-level conversion data — was leaving millions in revenue on the table, and that the fix required a structured research framework, not just engineering work.",
+  "story_recommendations": [
+    "gojek_pricing",
+    "intuit_billing"
+  ],
+  "story_reasoning": "gojek_pricing maps directly to the GTM/pricing/WTP work Alo signals across international development and growth marketing tracks; intuit_billing shows structured diagnosis of a churn-driving operational problem and a framework that produced measurable renewal lift — mirroring the customer service and strategic recommendations track.",
+  "company_research_angle": "Alo's international expansion is still predominantly DTC-digital with limited localized pricing or channel differentiation — the tension between its premium U.S. positioning and the need for market-entry pricing elasticity in markets like APAC and Europe is an underexplored strategic surface worth naming specifically.",
+  "tone": "strategic_executive",
+  "tone_reasoning": "The role centers on presenting to senior leadership and building business cases — the letter should feel confident, structured, and insight-led rather than warm-startup or technical-builder.",
+  "gaps": [
+    "no direct consumer brand or DTC e-commerce experience",
+    "no explicit digital marketing or paid channel analytics background",
+    "no retail or omnichannel operations exposure"
+  ],
+  "role_family": "strategy-consulting",
+  "nonpm_subtype": "strategy-bizops",
+  "bullet_balance": "balanced",
+  "primary_framing_axis": "pricing-strategy",
+  "secondary_framing_axis": "churn-renewal",
+  "first_90_day_bet": "Map Alo's international market entry pricing against local WTP signals and competitor positioning in 2–3 target markets (e.g., UK, Japan, Australia) to identify whether the current price-to-brand-perception gap is a conversion constraint or a positioning asset — and build a tiered pricing framework for leadership review.",
+  "positioning_narrative": "Akshat shows up here as the analytically rigorous MBA strategist who has repeatedly converted raw data into structured frameworks that moved revenue — not a generalist intern but someone who has run WTP research, built pricing tiers, and diagnosed churn drivers in complex, multi-sided businesses. The strongest thread through his background is the pattern of identifying a metric that looked like an operational problem but was actually a strategic pricing or positioning gap, then building a business case that changed what leadership decided to build or price. The resume and cover letter should emphasize the Gojek pricing and Intuit billing stories as anchors, surface his cross-functional collaboration and executive communication credentials, and de-emphasize deep engineering or infrastructure work that would read as too technical for this strategy-facing role."
+}

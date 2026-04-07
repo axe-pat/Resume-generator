@@ -1,0 +1,73 @@
+ARCHETYPE: SMB SaaS PM / Growth PM / Consumer PM
+TARGET ROLES: Gusto, HubSpot, GoFundMe, Notion, Intercom, Atlassian, Brex, Rippling
+SIGNAL EMPHASIS: User empathy, conversion/retention metrics, experimentation, cross-functional speed, growth loops
+
+NOTE: Every bullet is verbatim from Bullet Bank. Do not modify text when using this base.
+      The freeform swap prompt may reframe only — never alter metrics or company names.
+
+─────────────────────────────────────────
+GOJEK  |  Software Engineer, Product  |  Jan – Jul 2025
+─────────────────────────────────────────
+
+• Solved peak-hour supply shortages by prioritizing partner integration requirements and launching an external-fleet integration platform, enabling expansion across metro, bus, and private fleets in Singapore and Bali, increasing active supply by 18% and reducing pickup ETAs by 1.5 minutes.
+# source: Gojek > Supply Model & External Fleet Platform > variant 1 [8×] | framing: problem
+
+• Improved peak-demand system throughput by launching a lower-cost ride tier for price-sensitive users, validating pricing through funnel analysis, interviews, and experiments, lifting conversion 9% and generating $3.2M in incremental revenue.
+# source: Gojek > Cost-Tiered Pricing & Conversion Revenue > variant 1 [9×] | framing: impact
+
+• Improved fare-estimate scalability under peak load by redesigning pricing and estimation workflows, reducing quote latency by 70% and enabling ~28K additional monthly rides.
+# source: Gojek > Quote Latency & Conversion Optimization > variant 1 [11×] | framing: impact
+
+─────────────────────────────────────────
+HEVO DATA  |  Software Engineer II  |  Nov 2023 – Jan 2025
+─────────────────────────────────────────
+
+• Enabled a shift from SMB to enterprise by identifying trust and auditability gaps as primary deal blockers for Fortune 500 data teams, shifting product priorities from low-latency streaming to correctness and reliability and unlocking onboarding of 8 enterprise customers within 90 days.
+# source: Hevo > Hevo 2.0: Batch-First Architecture & Enterprise Shift > variant 9 [2×] | framing: problem/strategy
+
+• Reduced customer churn by identifying failure visibility as a key commercial risk; partnered with Design and Customer Success leads to launch a recovery platform that improved trial conversion by ~40%.
+# source: Hevo > Monitoring & Recovery Platform > variant 7 [2×] | framing: problem/impact
+
+• Accelerated release velocity by scaling an automated regression framework adopted by 40+ engineers, eliminating manual QA bottlenecks and enabling safer product iteration.
+# source: Hevo > Automated Regression & Release Velocity > variant 1 [11×] | framing: impact
+
+─────────────────────────────────────────
+INTUIT  |  Software Engineer II  |  Aug 2022 – Oct 2023
+─────────────────────────────────────────
+
+• Improved renewal rates by 10% for 50K+ SMB customers by identifying billing accuracy as a primary churn driver and shifting roadmap priorities from feature delivery to customer trust initiatives.
+# source: Intuit > Billing Accuracy & Customer Trust > variant 1 [15×] | framing: impact
+
+• Introduced a customer-impact prioritization framework to manage a 20K+ issue backlog; aligned Product and Engineering on trade-offs between growth features and technical debt across 8 teams.
+# source: Intuit > Customer-Impact Prioritization Framework > variant 1 [12×] | framing: ownership
+
+• Led cross-functional response to a high-risk billing incident affecting 1,500+ SMBs; coordinated remediation, refunds, and customer communication to limit financial exposure and restore confidence.
+# source: Intuit > Cross-Functional Incident Response > variant 1 [20×] | framing: ownership
+
+─────────────────────────────────────────
+OPTUM  |  Software Engineer  |  Jul 2020 – Aug 2022
+─────────────────────────────────────────
+
+• Enabled $20M+ in incremental annual revenue by integrating a new provider into Optum's care network, supporting onboarding of 50M members and expanding access to in-network care.
+# source: Optum > Provider Integration & Care Network Expansion > variant 1 [16×] | framing: impact
+
+• Designed an AI-driven affordability solution to identify members at risk of high out-of-pocket costs and recommend lower-cost care pathways; won Optum's global hackathon and was piloted as an early affordability initiative.
+# source: Optum > AI Affordability Solution (Hackathon → Pilot) > variant 1 [13×] | framing: impact
+
+─────────────────────────────────────────
+ARCHETYPE NOTES
+─────────────────────────────────────────
+Gojek leads with problem-framing on the fleet story (user pain → solution), impact framing on pricing
+(funnel analysis + experiments + conversion lift), and impact on latency (rides enabled). All three
+communicate growth PM instincts: find the constraint, validate, ship, measure.
+
+Hevo tells the SMB-to-enterprise transition story — useful for companies that are themselves scaling
+upmarket. Churn-reduction framing on monitoring and release velocity on regression both speak to
+growth/retention rather than technical architecture.
+
+Intuit leads with the churn-driver framing on billing (50K SMB customers, 10% renewal lift) rather
+than the reconciliation framework. This resonates more for SMB SaaS roles where churn is existential.
+Incident response uses the most accessible framing: refunds, communication, customer confidence.
+
+Optum: standard high-usage variants on both bullets. Hackathon/impact framing on AI bullet is more
+approachable for non-ML-specialist audiences.
