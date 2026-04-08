@@ -26,11 +26,9 @@ import argparse
 import hashlib
 import html
 import json
-import os
 import re
 import shutil
 import sys
-import tempfile
 import time
 from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta
@@ -62,9 +60,6 @@ DEFAULT_LIMIT_PER_SEARCH: int | None = None
 DEFAULT_PAGES: int | None = None
 SOURCE_TAG = "linkedin_live_jobs_v1"
 SEARCH_RESULTS_MIN_POOL_BEFORE_FALLBACK = 2
-CHROME_APP_PATH = Path("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome")
-CHROME_PROFILE_ROOT = Path.home() / "Library/Application Support/Google/Chrome"
-TEMP_DEBUG_PROFILE_ROOT = Path(tempfile.gettempdir()) / "codex-chrome-debug-profile"
 DEFAULT_SEARCHES = [
     ("Product Manager Intern", "r86400"),
     ("Product Manager Intern", "r604800"),
@@ -76,6 +71,28 @@ TIME_LABELS = {
     "r86400": "past_24h",
     "r604800": "past_week",
 }
+PROJECT_ROOT = JOBS_XLSX.parent.parent
+APPS_DIR = PROJECT_ROOT / "apps"
+RUN_EXPORTS_DIR = APPS_DIR / "runs"
+REVIEW_CACHE_SHEET_NAME = "ReviewCache"
+TERMINAL_CACHE_DECISIONS = {"reject", "deprioritize"}
+REVIEW_CACHE_COLUMNS = [
+    "cache_key",
+    "url_hash",
+    "tc_hash",
+    "url",
+    "company",
+    "role_title",
+    "source",
+    "decision",
+    "category",
+    "fit_score",
+    "fit_rationale",
+    "notes",
+    "search_term",
+    "time_window",
+    "date_reviewed",
+]
 
 
 @dataclass
@@ -146,20 +163,238 @@ def _write_run_artifact(name: str, payload: dict) -> Path:
     return path
 
 
-def _prepare_debug_profile_copy(profile_dir: str = "Default") -> Path:
-    source_profile = CHROME_PROFILE_ROOT / profile_dir
-    if not source_profile.exists():
-        raise FileNotFoundError(f"Chrome profile not found: {source_profile}")
+def _dir_slug(text: str) -> str:
+    slug = re.sub(r"[^A-Za-z0-9._ -]+", "", (text or "").strip())
+    slug = re.sub(r"\s+", "_", slug).strip("._ ")
+    return slug or "item"
 
-    shutil.rmtree(TEMP_DEBUG_PROFILE_ROOT, ignore_errors=True)
-    TEMP_DEBUG_PROFILE_ROOT.mkdir(parents=True, exist_ok=True)
 
-    local_state = CHROME_PROFILE_ROOT / "Local State"
-    if local_state.exists():
-        shutil.copy2(local_state, TEMP_DEBUG_PROFILE_ROOT / "Local State")
+def _notes_search(notes: str) -> str:
+    match = re.search(r"search=(.*?)(?: window=| insight=|$)", notes)
+    return match.group(1).strip() if match else ""
 
-    shutil.copytree(source_profile, TEMP_DEBUG_PROFILE_ROOT / profile_dir, dirs_exist_ok=True)
-    return TEMP_DEBUG_PROFILE_ROOT
+
+def _notes_window(notes: str) -> str:
+    match = re.search(r"window=([^ ]+)", notes)
+    return match.group(1).strip() if match else ""
+
+
+def _cache_key(url_hash_value: str, tc_hash_value: str) -> str:
+    return (url_hash_value or "").strip() or (tc_hash_value or "").strip()
+
+
+def _job_cache_key(job: dict) -> str:
+    return _cache_key(str(job.get("url_hash") or ""), str(job.get("tc_hash") or ""))
+
+
+def _load_review_cache() -> pd.DataFrame:
+    if not JOBS_XLSX.exists():
+        return pd.DataFrame(columns=REVIEW_CACHE_COLUMNS)
+    try:
+        df = pd.read_excel(JOBS_XLSX, sheet_name=REVIEW_CACHE_SHEET_NAME, dtype=str)
+    except Exception:
+        return pd.DataFrame(columns=REVIEW_CACHE_COLUMNS)
+    for col in REVIEW_CACHE_COLUMNS:
+        if col not in df.columns:
+            df[col] = ""
+    return df[REVIEW_CACHE_COLUMNS].fillna("")
+
+
+def _write_review_cache(rows: list[dict]) -> None:
+    if not rows or not JOBS_XLSX.exists():
+        return
+
+    from openpyxl import load_workbook
+
+    existing = _load_review_cache()
+    merged: dict[str, dict] = {}
+
+    for _, row in existing.iterrows():
+        normalized = {col: str(row.get(col, "") or "") for col in REVIEW_CACHE_COLUMNS}
+        key = normalized.get("cache_key") or _cache_key(normalized.get("url_hash", ""), normalized.get("tc_hash", ""))
+        if key:
+            normalized["cache_key"] = key
+            merged[key] = normalized
+
+    for row in rows:
+        normalized = {col: str(row.get(col, "") or "") for col in REVIEW_CACHE_COLUMNS}
+        key = normalized.get("cache_key") or _cache_key(normalized.get("url_hash", ""), normalized.get("tc_hash", ""))
+        if key:
+            normalized["cache_key"] = key
+            merged[key] = normalized
+
+    wb = load_workbook(JOBS_XLSX)
+    if REVIEW_CACHE_SHEET_NAME in wb.sheetnames:
+        del wb[REVIEW_CACHE_SHEET_NAME]
+    ws = wb.create_sheet(REVIEW_CACHE_SHEET_NAME)
+    ws.append(REVIEW_CACHE_COLUMNS)
+    for row in merged.values():
+        ws.append([row.get(col, "") for col in REVIEW_CACHE_COLUMNS])
+    wb.save(JOBS_XLSX)
+
+
+def _terminal_cache_rows(scored_jobs: list[dict]) -> list[dict]:
+    rows: list[dict] = []
+    reviewed_on = datetime.now().strftime("%Y-%m-%d")
+    for job in scored_jobs:
+        decision = str(job.get("decision") or "").strip()
+        if decision.lower() not in TERMINAL_CACHE_DECISIONS:
+            continue
+        notes = str(job.get("notes") or "")
+        row = {
+            "cache_key": _job_cache_key(job),
+            "url_hash": str(job.get("url_hash") or ""),
+            "tc_hash": str(job.get("tc_hash") or ""),
+            "url": str(job.get("url") or ""),
+            "company": str(job.get("company") or ""),
+            "role_title": str(job.get("role_title") or ""),
+            "source": str(job.get("source") or ""),
+            "decision": decision,
+            "category": str(job.get("category") or ""),
+            "fit_score": str(job.get("fit_score") or ""),
+            "fit_rationale": str(job.get("fit_rationale") or ""),
+            "notes": notes,
+            "search_term": _notes_search(notes),
+            "time_window": _notes_window(notes),
+            "date_reviewed": reviewed_on,
+        }
+        if row["cache_key"]:
+            rows.append(row)
+    return rows
+
+
+def _split_existing_jobs(jobs: list[dict], df_existing: pd.DataFrame) -> tuple[list[dict], list[dict]]:
+    existing_url_hashes = {
+        str(value).strip()
+        for value in df_existing.get("url_hash", pd.Series(dtype=str)).fillna("").tolist()
+        if str(value).strip()
+    }
+    existing_tc_hashes = {
+        title_company_hash(str(row.get("role_title") or ""), str(row.get("company") or ""))
+        for _, row in df_existing.iterrows()
+    }
+
+    unseen: list[dict] = []
+    existing_hits: list[dict] = []
+    for job in jobs:
+        if job["url_hash"] in existing_url_hashes or job["tc_hash"] in existing_tc_hashes:
+            existing_hits.append(job)
+            continue
+        unseen.append(job)
+    return unseen, existing_hits
+
+
+def _split_cached_review_jobs(jobs: list[dict], cache_df: pd.DataFrame) -> tuple[list[dict], list[dict]]:
+    cache_by_url: dict[str, dict] = {}
+    cache_by_tc: dict[str, dict] = {}
+
+    for _, row in cache_df.iterrows():
+        cached = {col: str(row.get(col, "") or "") for col in REVIEW_CACHE_COLUMNS}
+        decision = cached.get("decision", "").strip().lower()
+        if decision not in TERMINAL_CACHE_DECISIONS:
+            continue
+        if cached.get("url_hash"):
+            cache_by_url[cached["url_hash"]] = cached
+        if cached.get("tc_hash"):
+            cache_by_tc[cached["tc_hash"]] = cached
+
+    to_score: list[dict] = []
+    cache_hits: list[dict] = []
+    for job in jobs:
+        cached = cache_by_url.get(str(job.get("url_hash") or "")) or cache_by_tc.get(str(job.get("tc_hash") or ""))
+        if not cached:
+            to_score.append(job)
+            continue
+        reused = dict(job)
+        reused["fit_score"] = cached.get("fit_score") or None
+        reused["fit_rationale"] = cached.get("fit_rationale") or None
+        reused["decision"] = cached.get("decision") or None
+        reused["category"] = cached.get("category") or None
+        reused["status"] = "cached_skip"
+        reused["notes"] = f"{job.get('notes', '')} cache=review_cache".strip()
+        cache_hits.append(reused)
+    return to_score, cache_hits
+
+
+def _export_run_bundle(
+    *,
+    run_label: str,
+    searches: list[tuple[str, str]],
+    reviewed_jobs: list[dict],
+    fresh_after_dedup: list[dict],
+    markdown_report: Path,
+    html_report: Path,
+    extracted_count: int,
+    existing_skip_count: int,
+    cache_hits_count: int,
+) -> Path:
+    stamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
+    export_dir = RUN_EXPORTS_DIR / f"{stamp}_{_slug(run_label)}"
+    accepted_dir = export_dir / "accepted"
+    accepted_dir.mkdir(parents=True, exist_ok=True)
+
+    report_md = export_dir / "report.md"
+    report_html = export_dir / "report.html"
+    shutil.copy2(markdown_report, report_md)
+    shutil.copy2(html_report, report_html)
+
+    for job in fresh_after_dedup:
+        company_dir = accepted_dir / _dir_slug(str(job.get("company") or "Unknown"))
+        role_dir = company_dir / _dir_slug(str(job.get("role_title") or "Role"))
+        role_dir.mkdir(parents=True, exist_ok=True)
+        (role_dir / "jd.txt").write_text(str(job.get("jd_text") or "").strip(), encoding="utf-8")
+        notes = str(job.get("notes") or "").strip()
+        if notes:
+            (role_dir / "intel.txt").write_text(notes, encoding="utf-8")
+        metadata = {
+            "company": job.get("company"),
+            "role_title": job.get("role_title"),
+            "fit_score": job.get("fit_score"),
+            "decision": job.get("decision"),
+            "url": job.get("url"),
+            "source": job.get("source"),
+            "status": job.get("status"),
+            "date_found": job.get("date_found"),
+            "date_posted": job.get("date_posted"),
+            "notes": notes,
+            "search_term": _notes_search(notes),
+            "time_window": _notes_window(notes),
+            "job_id": job.get("id"),
+        }
+        (role_dir / "metadata.json").write_text(json.dumps(metadata, indent=2), encoding="utf-8")
+
+    manifest = {
+        "run_label": run_label,
+        "created_at": datetime.now().isoformat(timespec="seconds"),
+        "searches": [{"search_term": term, "time_filter": window} for term, window in searches],
+        "counts": {
+            "extracted": extracted_count,
+            "reviewed": len(reviewed_jobs),
+            "existing_skipped": existing_skip_count,
+            "review_cache_skipped": cache_hits_count,
+            "accepted_unique": len(fresh_after_dedup),
+        },
+        "reports": {
+            "markdown": str(report_md),
+            "html": str(report_html),
+        },
+        "accepted_jobs": [
+            {
+                "company": job.get("company"),
+                "role_title": job.get("role_title"),
+                "fit_score": job.get("fit_score"),
+                "url": job.get("url"),
+                "bundle_dir": str(
+                    accepted_dir
+                    / _dir_slug(str(job.get("company") or "Unknown"))
+                    / _dir_slug(str(job.get("role_title") or "Role"))
+                ),
+            }
+            for job in fresh_after_dedup
+        ],
+    }
+    (export_dir / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    return export_dir
 
 
 def _open_linkedin_browser_session(playwright, debug_port: int):
@@ -173,25 +408,10 @@ def _open_linkedin_browser_session(playwright, debug_port: int):
                 "cleanup": lambda: None,
             }
     except PlaywrightError:
-        pass
-
-    if not CHROME_APP_PATH.exists():
         raise RuntimeError(
-            f"Chrome app not found at {CHROME_APP_PATH} and CDP attach failed."
+            f"Could not attach to Chrome debug session at {endpoint}. "
+            "Launch your normal signed-in Chrome with --remote-debugging-port=9222 and keep it open."
         )
-
-    debug_root = _prepare_debug_profile_copy("Default")
-    context = playwright.chromium.launch_persistent_context(
-        user_data_dir=str(debug_root),
-        executable_path=str(CHROME_APP_PATH),
-        headless=False,
-        args=["--no-first-run", "--no-default-browser-check"],
-    )
-    return {
-        "mode": "persistent",
-        "context": context,
-        "cleanup": context.close,
-    }
 
 
 def _slug(text: str) -> str:
@@ -304,13 +524,19 @@ def _extract_about_job_text(page: Page) -> str:
 def _safe_goto(page: Page, url: str, timeout_ms: int = 30000) -> bool:
     def _looks_loaded() -> bool:
         try:
-            if "linkedin.com/jobs" not in page.url:
+            current_url = page.url.lower()
+            if "linkedin.com/authwall" in current_url or "linkedin.com/login" in current_url:
+                return False
+            if "linkedin.com/jobs" not in current_url:
                 return False
             page.wait_for_timeout(1200)
             if page.locator("[data-job-id]").count() > 0:
                 return True
             body_text = page.locator("body").inner_text(timeout=1500)
-            return "results" in body_text.lower() or "jobs" in body_text.lower()
+            body_text = body_text.lower()
+            if "join linkedin" in body_text or "agree & join" in body_text or "already on linkedin? sign in" in body_text:
+                return False
+            return "results" in body_text or "jobs" in body_text
         except PlaywrightError:
             return False
 
@@ -357,8 +583,11 @@ def _render_report_markdown(
     scored_jobs: list[dict],
     accepted_for_write: list[dict],
     fresh_after_dedup: list[dict],
+    extracted_count: int,
+    scored_count: int,
+    existing_skip_count: int,
+    cache_hits_count: int,
 ) -> str:
-    captured = len(scored_jobs)
     decisions: dict[str, int] = {}
     for job in scored_jobs:
         key = str(job.get("decision") or "Unknown")
@@ -375,7 +604,10 @@ def _render_report_markdown(
         "",
         "## Summary",
         f"- Searches: {', '.join(f'{term} ({TIME_LABELS.get(window, window)})' for term, window in searches)}",
-        f"- Jobs extracted: {captured}",
+        f"- Jobs extracted: {extracted_count}",
+        f"- Jobs scored this run: {scored_count}",
+        f"- Jobs skipped as existing rows: {existing_skip_count}",
+        f"- Jobs skipped from review cache: {cache_hits_count}",
         f"- Jobs accepted for write gate: {len(accepted_for_write)}",
         f"- Jobs written after dedup: {len(fresh_after_dedup)}",
         f"- Decisions: {', '.join(f'{k}={v}' for k, v in sorted(decisions.items())) or 'none'}",
@@ -421,8 +653,11 @@ def _render_report_html(
     scored_jobs: list[dict],
     accepted_for_write: list[dict],
     fresh_after_dedup: list[dict],
+    extracted_count: int,
+    scored_count: int,
+    existing_skip_count: int,
+    cache_hits_count: int,
 ) -> str:
-    captured = len(scored_jobs)
     decisions: dict[str, int] = {}
     for job in scored_jobs:
         key = str(job.get("decision") or "Unknown")
@@ -459,7 +694,10 @@ def _render_report_html(
 
     summary_items = [
         f"Searches: {', '.join(f'{term} ({TIME_LABELS.get(window, window)})' for term, window in searches)}",
-        f"Jobs extracted: {captured}",
+        f"Jobs extracted: {extracted_count}",
+        f"Jobs scored this run: {scored_count}",
+        f"Jobs skipped as existing rows: {existing_skip_count}",
+        f"Jobs skipped from review cache: {cache_hits_count}",
         f"Jobs accepted for write gate: {len(accepted_for_write)}",
         f"Jobs written after dedup: {len(fresh_after_dedup)}",
         f"Decisions: {', '.join(f'{k}={v}' for k, v in sorted(decisions.items())) or 'none'}",
@@ -531,6 +769,10 @@ def _write_batch_report(
     scored_jobs: list[dict],
     accepted_for_write: list[dict],
     fresh_after_dedup: list[dict],
+    extracted_count: int,
+    scored_count: int,
+    existing_skip_count: int,
+    cache_hits_count: int,
 ) -> tuple[Path, Path]:
     stamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
     base = f"linkedin_live_report_{stamp}_{_slug(run_label)}"
@@ -542,6 +784,10 @@ def _write_batch_report(
         scored_jobs=scored_jobs,
         accepted_for_write=accepted_for_write,
         fresh_after_dedup=fresh_after_dedup,
+        extracted_count=extracted_count,
+        scored_count=scored_count,
+        existing_skip_count=existing_skip_count,
+        cache_hits_count=cache_hits_count,
     )
     md_path.write_text(md, encoding="utf-8")
     html_path.write_text(
@@ -551,6 +797,10 @@ def _write_batch_report(
             scored_jobs=scored_jobs,
             accepted_for_write=accepted_for_write,
             fresh_after_dedup=fresh_after_dedup,
+            extracted_count=extracted_count,
+            scored_count=scored_count,
+            existing_skip_count=existing_skip_count,
+            cache_hits_count=cache_hits_count,
         ),
         encoding="utf-8",
     )
@@ -561,9 +811,12 @@ def _looks_logged_in(page: Page) -> bool:
     if page.is_closed():
         return False
     try:
+        current_url = page.url.lower()
+        if "linkedin.com/authwall" in current_url or "linkedin.com/login" in current_url:
+            return False
         checks = [
-            ("feed", "linkedin.com/feed" in page.url),
-            ("jobs", "linkedin.com/jobs" in page.url),
+            ("feed", "linkedin.com/feed" in current_url),
+            ("jobs", "linkedin.com/jobs" in current_url),
             ("me icon", page.locator('[data-control-name="nav.settings"]').count() > 0),
             ("global nav", page.locator("nav.global-nav").count() > 0),
         ]
@@ -746,7 +999,6 @@ def scrape_search(
                     "Open your logged-in LinkedIn jobs page in the debug-enabled Chrome window first."
                 )
             page.wait_for_timeout(1500)
-            page_size: int | None = None
             page_signatures: set[tuple[str, ...]] = set()
             start = 0
             page_index = 0
@@ -772,15 +1024,15 @@ def scrape_search(
                 if signature in page_signatures:
                     break
                 page_signatures.add(signature)
-                if page_size is None:
-                    page_size = max(len(initial_visible), 1)
 
+                page_seen_urls: set[str] = set()
                 stagnant_scrolls = 0
                 for _ in range(20):
                     before_count = len(seen_urls)
                     visible = _extract_visible_cards(page)
                     for summary in visible:
                         job_url = summary["url"]
+                        page_seen_urls.add(job_url)
                         if job_url in seen_urls:
                             continue
                         if extract_only:
@@ -816,7 +1068,8 @@ def scrape_search(
                         break
                     _scroll_results_list(page)
 
-                if len(initial_visible) < page_size:
+                page_size = max(len(page_seen_urls), 1)
+                if page_size <= len(initial_visible):
                     break
                 start += page_size
                 page_index += 1
@@ -1075,30 +1328,48 @@ def run_live_discovery(
             scored_jobs=jobs,
             accepted_for_write=[],
             fresh_after_dedup=[],
+            extracted_count=len(jobs),
+            scored_count=0,
+            existing_skip_count=0,
+            cache_hits_count=0,
         )
         print(f"Extract-only count complete: {len(jobs)} jobs")
         print(f"Batch report (Markdown): {md_report}")
         print(f"Batch report (HTML): {html_report}")
         return len(jobs)
 
-    scored = score_batch(jobs, model=model, verbose=not quiet, max_workers=max_workers)
-    accepted_for_write, dropped_before_write = filter_jobs_for_write(scored)
     df_existing = load_jobs()
+    jobs_unseen, existing_hits = _split_existing_jobs(jobs, df_existing)
+    review_cache = _load_review_cache()
+    jobs_to_score, cache_hits = _split_cached_review_jobs(jobs_unseen, review_cache)
+
+    if not quiet:
+        print(f"Skipped as existing rows before scoring: {len(existing_hits)}")
+        print(f"Skipped from review cache before scoring: {len(cache_hits)}")
+
+    scored_new = score_batch(jobs_to_score, model=model, verbose=not quiet, max_workers=max_workers) if jobs_to_score else []
+    reviewed_jobs = [*scored_new, *cache_hits]
+    accepted_for_write, dropped_before_write = filter_jobs_for_write(reviewed_jobs)
     merged_df, fresh = append_new_jobs(df_existing, accepted_for_write)
+    cache_rows = _terminal_cache_rows(scored_new)
 
     score_artifact = _write_run_artifact(
         "linkedin_live_scored",
         {
             "captured": len(scraped_cards),
-            "scored": len(scored),
+            "scored": len(scored_new),
+            "reviewed": len(reviewed_jobs),
+            "existing_skipped": len(existing_hits),
+            "cache_skipped": len(cache_hits),
             "accepted_for_write": len(accepted_for_write),
             "dropped_before_write": len(dropped_before_write),
             "new_after_dedup": len(fresh),
-            "jobs": scored,
+            "jobs": reviewed_jobs,
         },
     )
     if not quiet:
         print(f"Scored artifact: {score_artifact}")
+        print(f"Scored fresh this run: {len(scored_new)}")
         print(f"Accepted for write after gating: {len(accepted_for_write)}")
         print(f"Dropped before write: {len(dropped_before_write)}")
         print(f"New jobs after dedup: {len(fresh)}")
@@ -1106,9 +1377,13 @@ def run_live_discovery(
     md_report, html_report = _write_batch_report(
         run_label=run_label,
         searches=searches,
-        scored_jobs=scored,
+        scored_jobs=reviewed_jobs,
         accepted_for_write=accepted_for_write,
         fresh_after_dedup=fresh,
+        extracted_count=len(scraped_cards),
+        scored_count=len(scored_new),
+        existing_skip_count=len(existing_hits),
+        cache_hits_count=len(cache_hits),
     )
     if not quiet:
         print(f"Batch report (Markdown): {md_report}")
@@ -1122,6 +1397,26 @@ def run_live_discovery(
             print(f"Appended {len(fresh)} LinkedIn-live jobs to {JOBS_XLSX}")
     else:
         print("All captured jobs were duplicates of existing rows.")
+
+    if not dry_run and cache_rows:
+        _write_review_cache(cache_rows)
+        if not quiet:
+            print(f"Updated review cache with {len(cache_rows)} terminal decisions in {JOBS_XLSX} [{REVIEW_CACHE_SHEET_NAME}]")
+
+    if not dry_run:
+        run_bundle = _export_run_bundle(
+            run_label=run_label,
+            searches=searches,
+            reviewed_jobs=reviewed_jobs,
+            fresh_after_dedup=fresh,
+            markdown_report=md_report,
+            html_report=html_report,
+            extracted_count=len(scraped_cards),
+            existing_skip_count=len(existing_hits),
+            cache_hits_count=len(cache_hits),
+        )
+        if not quiet:
+            print(f"Run bundle: {run_bundle}")
 
     return len(fresh)
 

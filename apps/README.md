@@ -19,6 +19,24 @@ apps/
     └── cl_YYYY-MM-DD.json      CL audit trail (step analysis + QC data)
 ```
 
+The discovery layer also writes dated run bundles under `apps/runs/`. These are read-only exports for review and content planning, not direct `run_app.py` targets.
+
+```
+apps/
+├── <Company>/
+└── runs/
+    └── <timestamp>_<label>/
+        ├── report.md
+        ├── report.html
+        ├── manifest.json
+        └── accepted/
+            └── <Company>/
+                └── <Role>/
+                    ├── jd.txt
+                    ├── intel.txt
+                    └── metadata.json
+```
+
 ---
 
 ## Creating an app directory

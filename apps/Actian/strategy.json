@@ -1,0 +1,34 @@
+{
+  "company": "Actian",
+  "role_title": "RevOps AI Analyst Intern",
+  "company_type": "enterprise_saas",
+  "company_stage": "late_stage_private",
+  "archetype": "technical_pm",
+  "archetype_reasoning": "The role asks for a junior product owner who conducts discovery interviews, translates user feedback into technical requirements, manages a pilot lifecycle, and builds a strategic roadmap — core TPM/PM work sitting at the intersection of data architecture and business stakeholder needs.",
+  "top_signals": [
+    "Discovery interviewing and translating qualitative pain points into technical requirements for an AI product",
+    "Data integrity validation and root-cause analysis on AI-generated outputs using SQL and semantic modeling",
+    "Pilot lifecycle management with adoption metric tracking to quantify ROI and present to executive leadership"
+  ],
+  "hook_angle": "The moment at Hevo when Akshat realized that enterprise customers were not blocked by raw pipeline performance but by the absence of a trustworthy audit surface — and that the fix was a product framing change, not an engineering one — maps directly to Actian's core bet: that non-technical users are blocked not by lack of data but by lack of a reliable, hallucination-free conversational interface they can trust.",
+  "story_recommendations": [
+    "hevo_job_monitoring",
+    "hevo_batch_platform"
+  ],
+  "story_reasoning": "hevo_job_monitoring is the strongest fit because it centers on identifying an enterprise audit pain point, building a first-class monitoring surface, and directly driving trial-to-close — mirroring this role's demand for discovery, semantic accuracy, and stakeholder-visible pilot outcomes; hevo_batch_platform reinforces the narrative of reframing a product's reliability model to unlock enterprise deals.",
+  "company_research_angle": "Actian's AI Analyst is built on a proprietary Semantic Layer that sits atop its HarmonDB and DataConnect stack — the key business model tension is whether the Semantic Layer can maintain 'one version of the truth' across heterogeneous on-prem and cloud sources without becoming a steward-bottleneck itself, which is exactly the problem the RevOps pilot is stress-testing; referencing this architectural tradeoff would signal genuine product depth.",
+  "tone": "technical_builder",
+  "tone_reasoning": "The role blends hands-on SQL validation, semantic model documentation, and prompt engineering with stakeholder-facing discovery work — a technical builder tone signals that Akshat can own both the data architecture side and the requirements translation side without needing to choose one identity.",
+  "gaps": [
+    "No direct Salesforce (SFDC) architecture or RevOps lifecycle experience explicitly stated in background",
+    "No explicit prompt engineering or LLM evaluation project in portfolio, though AI consulting at L'Oréal and Optum ML hackathon provide adjacent signal",
+    "No explicit BI tool experience (Tableau, Power BI, Looker) called out in candidate context"
+  ],
+  "role_family": "pm",
+  "nonpm_subtype": "",
+  "bullet_balance": "",
+  "primary_framing_axis": "workflow-discovery",
+  "secondary_framing_axis": "enterprise-trial",
+  "first_90_day_bet": "Map every query failure in the Steward Inbox back to a specific gap in the Semantic Layer's metrics definitions glossary — not just as a data quality fix but as a signal of which business logic is under-specified — and use that pattern to prioritize which three stakeholder workflows the AI Analyst should own with full confidence before the pilot scales.",
+  "positioning_narrative": "Akshat shows up here as the engineer-turned-PM who has already solved the exact problem Actian is trying to solve internally: at Hevo, he discovered that enterprise customers were not failing on pipeline throughput but on the absence of a trustworthy audit surface, and he reframed the product roadmap accordingly to drive trial-to-close. The strongest story thread through his background is the pattern of identifying hidden workflow failures — auditability gaps, latency blind spots, reconciliation breakdowns — and translating them into product surfaces that unblock adoption at scale, which maps precisely to this role's demand for discovery-to-requirements translation and pilot validation. The resume and cover letter should emphasize his discovery methodology and semantic clarity work at Hevo, downplay generic SWE execution, and foreground the AI/ML product dimension via Optum and the L'Oréal consulting project to close the gap on the GenAI credibility signal the JD requires."
+}

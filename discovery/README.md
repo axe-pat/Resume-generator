@@ -108,6 +108,36 @@ Pre-reqs:
 - Keep LinkedIn logged in in that Chrome profile
 - Ensure Playwright is installed in the Python env that runs the script
 
+Recommended live-session flow:
+
+```bash
+# 1. Point the launcher at an explicitly approved signed-in Chrome profile
+export LINKEDIN_CHROME_USER_DATA_DIR="/absolute/path/to/your/signed-in/chrome-data"
+
+# 2. Launch that exact profile on port 9222
+./discovery/scripts/launch_linkedin_browser.sh
+
+# 3. Verify that LinkedIn is really signed in and not on authwall/login
+./discovery/scripts/check_linkedin_live.sh
+
+# 4. Run a focused extract-only probe before the full batch
+python discovery/auto/linkedin_live.py \
+  --search "Product Manager Intern" --time r86400 \
+  --extract-only
+```
+
+What the live runner now does automatically:
+- Skips scoring jobs already present in `jobs.xlsx`
+- Skips rescoring jobs previously marked `Reject` or `Deprioritize` in the hidden `ReviewCache` sheet inside `jobs.xlsx`
+- Writes batch reports to `discovery/auto/logs/`
+- Exports a dated run bundle to `apps/runs/<timestamp>_<window>/` with:
+  - `report.md`
+  - `report.html`
+  - `manifest.json`
+  - `accepted/<Company>/<Role>/jd.txt`
+  - `accepted/<Company>/<Role>/intel.txt`
+  - `accepted/<Company>/<Role>/metadata.json`
+
 ### JD fetch / retry
 
 For xlsx rows with no JD text (typically screenshot-sourced jobs that couldn't be found within the original 168h window):

@@ -1,0 +1,142 @@
+{
+  "run_date": "2026-04-07",
+  "jd_file": "/sessions/beautiful-pensive-allen/mnt/ResumeGenerator v1/apps/Actian/jd.txt",
+  "model": "claude-sonnet-4-6",
+  "step1_analysis": {
+    "company": "Actian",
+    "role_title": "RevOps AI Analyst Intern",
+    "company_type": "enterprise_saas",
+    "company_stage": "late_stage_private",
+    "archetype": "technical_pm",
+    "archetype_reasoning": "The role asks for a junior product owner who conducts discovery interviews, translates user feedback into technical requirements, manages a pilot lifecycle, and builds a strategic roadmap — core TPM/PM work sitting at the intersection of data architecture and business stakeholder needs.",
+    "top_signals": [
+      "Discovery interviewing and translating qualitative pain points into technical requirements for an AI product",
+      "Data integrity validation and root-cause analysis on AI-generated outputs using SQL and semantic modeling",
+      "Pilot lifecycle management with adoption metric tracking to quantify ROI and present to executive leadership"
+    ],
+    "hook_angle": "The moment at Hevo when Akshat realized that enterprise customers were not blocked by raw pipeline performance but by the absence of a trustworthy audit surface — and that the fix was a product framing change, not an engineering one — maps directly to Actian's core bet: that non-technical users are blocked not by lack of data but by lack of a reliable, hallucination-free conversational interface they can trust.",
+    "story_recommendations": [
+      "hevo_job_monitoring",
+      "hevo_batch_platform"
+    ],
+    "story_reasoning": "hevo_job_monitoring is the strongest fit because it centers on identifying an enterprise audit pain point, building a first-class monitoring surface, and directly driving trial-to-close — mirroring this role's demand for discovery, semantic accuracy, and stakeholder-visible pilot outcomes; hevo_batch_platform reinforces the narrative of reframing a product's reliability model to unlock enterprise deals.",
+    "company_research_angle": "Actian's AI Analyst is built on a proprietary Semantic Layer that sits atop its HarmonDB and DataConnect stack — the key business model tension is whether the Semantic Layer can maintain 'one version of the truth' across heterogeneous on-prem and cloud sources without becoming a steward-bottleneck itself, which is exactly the problem the RevOps pilot is stress-testing; referencing this architectural tradeoff would signal genuine product depth.",
+    "tone": "technical_builder",
+    "tone_reasoning": "The role blends hands-on SQL validation, semantic model documentation, and prompt engineering with stakeholder-facing discovery work — a technical builder tone signals that Akshat can own both the data architecture side and the requirements translation side without needing to choose one identity.",
+    "gaps": [
+      "No direct Salesforce (SFDC) architecture or RevOps lifecycle experience explicitly stated in background",
+      "No explicit prompt engineering or LLM evaluation project in portfolio, though AI consulting at L'Oréal and Optum ML hackathon provide adjacent signal",
+      "No explicit BI tool experience (Tableau, Power BI, Looker) called out in candidate context"
+    ],
+    "role_family": "pm",
+    "nonpm_subtype": "",
+    "bullet_balance": "",
+    "primary_framing_axis": "workflow-discovery",
+    "secondary_framing_axis": "enterprise-trial",
+    "first_90_day_bet": "Map every query failure in the Steward Inbox back to a specific gap in the Semantic Layer's metrics definitions glossary — not just as a data quality fix but as a signal of which business logic is under-specified — and use that pattern to prioritize which three stakeholder workflows the AI Analyst should own with full confidence before the pilot scales.",
+    "positioning_narrative": "Akshat shows up here as the engineer-turned-PM who has already solved the exact problem Actian is trying to solve internally: at Hevo, he discovered that enterprise customers were not failing on pipeline throughput but on the absence of a trustworthy audit surface, and he reframed the product roadmap accordingly to drive trial-to-close. The strongest story thread through his background is the pattern of identifying hidden workflow failures — auditability gaps, latency blind spots, reconciliation breakdowns — and translating them into product surfaces that unblock adoption at scale, which maps precisely to this role's demand for discovery-to-requirements translation and pilot validation. The resume and cover letter should emphasize his discovery methodology and semantic clarity work at Hevo, downplay generic SWE execution, and foreground the AI/ML product dimension via Optum and the L'Oréal consulting project to close the gap on the GenAI credibility signal the JD requires."
+  },
+  "cover_letter": "Dear Actian Product Team,\n\nDuring an enterprise trial at Hevo, a data engineering lead from a Fortune 500 company told me the pipeline was fast. Then he said they couldn't sign. The failure logs were opaque. If something broke in production, his team would find out from a downstream analyst, not from the system. Speed wasn't the problem. Accountability was. That conversation reoriented everything I thought I knew about what enterprise customers were actually buying.\n\nThe fix wasn't in the architecture. It was in how the product represented itself to the people who had to stake their credibility on it. Job Monitoring had existed at Hevo as a debugging tool, buried in a developer view. I recognized it as the feature that enterprise evaluators needed to feel safe: a first-class audit surface showing data platform owners exactly when pipelines failed, why, and what recovered. I reframed it as a product surface, shaped the requirements around auditability rather than throughput, and worked with engineering to make failure visible, labeled, and recoverable. MTTR dropped roughly 40%. Within 90 days, eight enterprise customers who had previously passed on us signed. Our best sales demo wasn't a features slide. It was a monitoring dashboard. The feature that closes enterprise deals isn't always on the roadmap. Sometimes it's already built, waiting to be treated like a product.\n\n\n\nWhat draws me to this role is a specific architectural tension in how the AI Analyst maintains \"one version of the truth\" when the underlying metrics definitions are themselves contested between Sales and Product. The Steward Inbox is where that tension becomes visible: every query failure is either a prompt precision issue or a signal that the Semantic Layer's business logic is under-specified for a real workflow. Getting that diagnosis right is what separates a pilot that scales from one that stalls at the showcase.\n\nIn the first 90 days, I'd map every Steward Inbox failure back to a gap in the Metrics Definitions Glossary, not just to fix the query, but to surface which business logic is under-specified before the pilot gets presented as a model for the rest of the organization. The question I'd want answered by day 90 is the same one that unlocked the Hevo story: what does the system look like to the person who has to stake their credibility on it?\n\nSincerely,\nAkshat Pathak\nakshatpathakrocks@gmail.com",
+  "research_flags": [
+    "Research note: The Step 1 analysis correctly identifies the Semantic Layer / HarmonDB tension as the right specificity anchor. The paragraph below uses that framing directly. If Akshat has any additional intel on how the Steward Inbox currently categorizes query failures, or which RevOps metrics definitions are most contested between Sales and Product, that detail would sharpen the final sentence considerably."
+  ],
+  "rule_checks": [
+    {
+      "name": "RQC-01 No forbidden phrases",
+      "status": "PASS",
+      "detail": "Clean"
+    },
+    {
+      "name": "RQC-02 Hook doesn't open with self-claim",
+      "status": "PASS",
+      "detail": "OK"
+    },
+    {
+      "name": "RQC-03 Word count (320–420)",
+      "status": "PASS",
+      "detail": "393 words"
+    },
+    {
+      "name": "RQC-04 Paragraph count (3–4)",
+      "status": "PASS",
+      "detail": "4 substantive paragraphs"
+    },
+    {
+      "name": "RQC-05 No approximated numbers",
+      "status": "PASS",
+      "detail": "Clean"
+    },
+    {
+      "name": "RQC-06 Ends with signature",
+      "status": "PASS",
+      "detail": "Signature found"
+    },
+    {
+      "name": "RQC-07 Em dash count (0 per letter)",
+      "status": "PASS",
+      "detail": "0 em dash(es) — clean"
+    },
+    {
+      "name": "RQC-08 No markdown artifacts",
+      "status": "PASS",
+      "detail": "Clean"
+    }
+  ],
+  "ai_qc": {
+    "overall_score": 9.2,
+    "tier": "1_exceptional",
+    "principles": {
+      "P1_hook_is_scene": {
+        "status": "PASS",
+        "note": "Opens inside a specific conversation with a named stakeholder type during an enterprise trial. The scene is concrete, the dialogue is quoted, and the tension is established before the candidate is introduced. Textbook execution."
+      },
+      "P2_one_story": {
+        "status": "PASS",
+        "note": "Single story told with full diagnostic depth: observation (failure logs opaque), insight (accountability over speed), action (reframed Job Monitoring as audit surface), scale (40% MTTR reduction, 8 enterprise closes in 90 days). No parallel listing. The structure holds cleanly."
+      },
+      "P3_company_research": {
+        "status": "PASS",
+        "note": "References a specific architectural tension inside the AI Analyst product — the conflict between Sales and Product metrics definitions — and names the Steward Inbox as the diagnostic surface where that tension becomes observable. Also names the Semantic Layer and the Metrics Definitions Glossary. This cannot be reverse-engineered from the homepage. It reflects genuine product familiarity."
+      },
+      "P4_quotable_line": {
+        "status": "PASS",
+        "candidate_line": "The feature that closes enterprise deals isn't always on the roadmap. Sometimes it's already built, waiting to be treated like a product."
+      },
+      "P5_close_echoes_opening": {
+        "status": "PASS",
+        "note": "The close loops back to the opening's core tension — what the system looks like to the person staking their credibility on it — using nearly the same language. The register is consistent. It does not deflate into courtesy. The mirroring is intentional and earned."
+      }
+    },
+    "presend_questions": {
+      "Q1_generic_risk": {
+        "answer": "NO",
+        "note": "The Fortune 500 trial conversation, the Job Monitoring reframe, the specific Actian product architecture references, and the closing callback are all singularly attributable to this candidate and this company. No generic PM could replicate this without knowing both the candidate's work history and the product in depth."
+      },
+      "Q2_below_surface": {
+        "answer": "YES",
+        "note": "The company paragraph identifies a genuine internal tension — contested metrics definitions between Sales and Product — and correctly maps the Steward Inbox as the place where under-specification becomes visible. This is product-level analysis, not marketing echo. It would require hands-on product exploration or user research to surface."
+      },
+      "Q3_memorable_sentence": {
+        "answer": "YES",
+        "quote": "The feature that closes enterprise deals isn't always on the roadmap. Sometimes it's already built, waiting to be treated like a product."
+      },
+      "Q4_understands_work": {
+        "answer": "YES",
+        "note": "The candidate demonstrates PM craft at multiple levels: reframing an existing feature rather than building new, shaping requirements around a stakeholder's credibility exposure, and diagnosing root cause through failure taxonomy. The 90-day plan is operational and diagnostic, not aspirational."
+      },
+      "Q5_schedule_call": {
+        "answer": "YES",
+        "blocker": ""
+      }
+    },
+    "strengths": [
+      "The story in paragraph two is one of the cleanest observation-insight-action-scale structures a cover letter can produce. The specificity of the outcome (8 enterprise closes, 40% MTTR, 90 days) is paired with a clear causal mechanism, not just a result claim.",
+      "The company paragraph demonstrates product intuition rather than product familiarity. Naming the Steward Inbox as a diagnostic surface for Semantic Layer under-specification shows the candidate has already begun doing the job before being hired."
+    ],
+    "improvements": [
+      "The transition between paragraph two and the company paragraph is the one structural seam that shows. The white space gap between the story close and 'What draws me to this role' is slightly abrupt — a single bridging sentence connecting the Hevo insight to why Actian's specific problem is the natural next problem would make the letter feel continuous rather than assembled from two strong halves.",
+      "The 90-day plan in the final paragraph is the right move, but 'map every Steward Inbox failure back to a gap in the Metrics Definitions Glossary' risks reading as a single tactic rather than a diagnostic method. One clause clarifying what that mapping would surface or decide — not just fix — would sharpen the close without losing its economy."
+    ],
+    "verdict": "SEND"
+  }
+}

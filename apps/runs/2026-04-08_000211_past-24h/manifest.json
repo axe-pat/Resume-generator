@@ -1,0 +1,26 @@
+{
+  "run_label": "past_24h",
+  "created_at": "2026-04-08T00:02:11",
+  "searches": [
+    {
+      "search_term": "Product Manager Intern",
+      "time_filter": "r86400"
+    },
+    {
+      "search_term": "MBA Intern",
+      "time_filter": "r86400"
+    }
+  ],
+  "counts": {
+    "extracted": 18,
+    "reviewed": 13,
+    "existing_skipped": 5,
+    "review_cache_skipped": 0,
+    "accepted_unique": 0
+  },
+  "reports": {
+    "markdown": "/Users/akshat/Desktop/Claude Projects/ResumeGenerator v1/apps/runs/2026-04-08_000211_past-24h/report.md",
+    "html": "/Users/akshat/Desktop/Claude Projects/ResumeGenerator v1/apps/runs/2026-04-08_000211_past-24h/report.html"
+  },
+  "accepted_jobs": []
+}
