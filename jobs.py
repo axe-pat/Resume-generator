@@ -423,6 +423,20 @@ def _today() -> str:
     return datetime.now().strftime("%Y-%m-%d")
 
 
+def _intel_text(notes: str, url: str = "", fit_score: str = "") -> str:
+    parts = []
+    url = str(url or "").strip()
+    score = str(fit_score or "").strip()
+    notes = str(notes or "").strip()
+    if url:
+        parts.append(f"job_link={url}")
+    if score and score.lower() != "nan":
+        parts.append(f"fit_score={score}")
+    if notes:
+        parts.append(notes)
+    return "\n".join(parts).strip()
+
+
 def _resolve_generate_target(df: pd.DataFrame, company_name: str) -> dict:
     """
     Resolve a requested company name into a generate target dict.
@@ -435,6 +449,17 @@ def _resolve_generate_target(df: pd.DataFrame, company_name: str) -> dict:
 
     slug = _dir_slug(company_name)
     app_dir = APPS_DIR / slug
+    _mask = df["company"].str.lower() == company_name.lower()
+    _row = df[_mask].iloc[0] if _mask.any() else None
+
+    stored_folder_path = Path(str(_row.get("folder_path", "")).strip()) if _row is not None and str(_row.get("folder_path", "")).strip() else None
+    if stored_folder_path:
+        if stored_folder_path.exists():
+            app_dir = stored_folder_path
+        else:
+            candidate = APPS_DIR / stored_folder_path.name
+            if candidate.exists():
+                app_dir = candidate
 
     if not app_dir.exists():
         matches = [
@@ -444,7 +469,6 @@ def _resolve_generate_target(df: pd.DataFrame, company_name: str) -> dict:
         if matches:
             app_dir = matches[0]
         else:
-            _mask = df["company"].str.lower() == company_name.lower()
             if not _mask.any():
                 raise ValueError(
                     f"'{company_name}' not found in jobs.xlsx and no app dir exists at {app_dir}"
@@ -453,8 +477,6 @@ def _resolve_generate_target(df: pd.DataFrame, company_name: str) -> dict:
                     f"  [!] App dir not found for '{company_name}' — "
                     f"will recreate from xlsx"))
 
-    _mask = df["company"].str.lower() == company_name.lower()
-    _row = df[_mask].iloc[0] if _mask.any() else None
     target: dict = {"company": company_name, "app_dir": str(app_dir)}
     if _row is not None:
         target["id"] = str(_row.get("id", ""))
@@ -624,8 +646,9 @@ def cmd_promote(args) -> list[dict]:
 
                 # Write intel.txt if notes column has content
                 notes = str(row.get("notes", "")).strip()
-                if notes:
-                    (app_dir / "intel.txt").write_text(notes, encoding="utf-8")
+                intel_text = _intel_text(notes, str(row.get("url", "")), str(row.get("fit_score", "")))
+                if intel_text:
+                    (app_dir / "intel.txt").write_text(intel_text, encoding="utf-8")
 
                 # Update xlsx: status → promoted, folder_path → app_dir
                 mask = df["id"].astype(str) == row_id

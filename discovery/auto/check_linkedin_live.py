@@ -5,10 +5,9 @@ import json
 import sys
 from datetime import datetime
 
-from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import sync_playwright
 
-from linkedin_live import _ensure_logs_dir, _looks_logged_in, _open_linkedin_browser_session
+from linkedin_live import _ensure_logs_dir, _open_linkedin_browser_session, _session_preflight
 
 
 def _write_artifact(payload: dict) -> str:
@@ -16,31 +15,6 @@ def _write_artifact(payload: dict) -> str:
     path = _ensure_logs_dir() / f"linkedin_live_session_check_{stamp}.json"
     path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     return str(path)
-
-
-def _body_preview(page) -> str:
-    try:
-        text = page.locator("body").inner_text(timeout=2000)
-    except PlaywrightError:
-        return ""
-    return " ".join(text.split())[:400]
-
-
-def _is_authwall(page) -> bool:
-    current_url = page.url.lower()
-    if "linkedin.com/authwall" in current_url or "linkedin.com/login" in current_url:
-        return True
-    preview = _body_preview(page).lower()
-    return any(
-        token in preview
-        for token in (
-            "join linkedin",
-            "sign in",
-            "agree & join",
-            "new to linkedin",
-            "already on linkedin?",
-        )
-    )
 
 
 def main() -> int:
@@ -65,32 +39,8 @@ def main() -> int:
             session = _open_linkedin_browser_session(playwright, args.debug_port)
             try:
                 context = session["context"]
-                page = context.pages[0] if context.pages else context.new_page()
-                page.set_default_timeout(15000)
-
                 artifact_payload["steps"].append(f"Attached to Chrome on port {args.debug_port}")
-                artifact_payload["steps"].append(f"Initial page URL: {page.url}")
-
-                page.goto(args.url, wait_until="domcontentloaded", timeout=30000)
-                page.wait_for_timeout(2000)
-
-                cookies = context.cookies(["https://www.linkedin.com"])
-                has_li_at = any(cookie.get("name") == "li_at" for cookie in cookies)
-                logged_in = _looks_logged_in(page)
-                authwall = _is_authwall(page)
-
-                artifact_payload.update(
-                    {
-                        "ok": logged_in and not authwall,
-                        "current_url": page.url,
-                        "title": page.title(),
-                        "logged_in_heuristic": logged_in,
-                        "authwall_or_login": authwall,
-                        "has_li_at_cookie": has_li_at,
-                        "cookie_names": sorted(cookie.get("name", "") for cookie in cookies),
-                        "body_preview": _body_preview(page),
-                    }
-                )
+                artifact_payload.update(_session_preflight(context, target_url=args.url))
             finally:
                 try:
                     session["cleanup"]()

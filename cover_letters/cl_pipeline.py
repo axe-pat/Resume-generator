@@ -92,8 +92,9 @@ def load_api_key() -> str:
 def call_api(prompt: str, model: str, step_label: str = "", max_tokens: int = 8192) -> str:
     """Call Anthropic API and return response text.
 
-    Retries up to 3 times on rate-limit (429) errors with exponential backoff.
-    max_tokens defaults to 8192 — sufficient for verbose scorer/QC JSON output.
+    Retries up to 3 times on rate-limit (429) and overload (529) errors with
+    exponential backoff. max_tokens defaults to 8192 — sufficient for verbose
+    scorer/QC JSON output.
     """
     api_key = load_api_key()
     client = anthropic.Anthropic(
@@ -120,6 +121,14 @@ def call_api(prompt: str, model: str, step_label: str = "", max_tokens: int = 81
             wait = 20 * (2 ** attempt)   # 20s, 40s, 80s
             print(c(YELLOW,
                     f"  [!] Rate limit hit{label} — waiting {wait}s before retry "
+                    f"(attempt {attempt + 1}/3)..."), flush=True)
+            time.sleep(wait)
+        except anthropic.APIStatusError as e:
+            if getattr(e, "status_code", None) != 529 or attempt == 3:
+                raise
+            wait = 20 * (2 ** attempt)   # 20s, 40s, 80s
+            print(c(YELLOW,
+                    f"  [!] Anthropic overloaded{label} — waiting {wait}s before retry "
                     f"(attempt {attempt + 1}/3)..."), flush=True)
             time.sleep(wait)
     return ""  # unreachable

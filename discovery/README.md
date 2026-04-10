@@ -124,6 +124,10 @@ export LINKEDIN_CHROME_USER_DATA_DIR="/absolute/path/to/your/signed-in/chrome-da
 python discovery/auto/linkedin_live.py \
   --search "Product Manager Intern" --time r86400 \
   --extract-only
+
+# 5. Score/write later from the saved raw artifact(s) without reopening LinkedIn
+python discovery/auto/linkedin_live.py \
+  --score-from-raw discovery/auto/logs/linkedin_live_raw_YYYY-MM-DD_HHMMSS.json
 ```
 
 What the live runner now does automatically:
@@ -137,6 +141,12 @@ What the live runner now does automatically:
   - `accepted/<Company>/<Role>/jd.txt`
   - `accepted/<Company>/<Role>/intel.txt`
   - `accepted/<Company>/<Role>/metadata.json`
+
+Recommended staged pattern for reliability:
+- Run extraction first with `--extract-only`
+- Keep the `linkedin_live_raw_*.json` artifact as the source of truth
+- Replay scoring later with `--score-from-raw ...`
+- If scoring fails, rerun scoring from the raw artifact instead of redoing LinkedIn extraction
 
 ### JD fetch / retry
 

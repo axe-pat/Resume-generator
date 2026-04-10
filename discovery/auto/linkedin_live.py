@@ -108,6 +108,17 @@ class LinkedInJobCard:
     jd_text: str
 
 
+@dataclass
+class SearchRunResult:
+    search_term: str
+    time_filter: str
+    cards: list[LinkedInJobCard]
+    ui_observed_count: int | None
+    extracted_count: int
+    route_used: str
+    fallback_used: bool
+
+
 def _hash(text: str) -> str:
     return hashlib.md5(text.strip().lower().encode()).hexdigest()
 
@@ -163,6 +174,16 @@ def _write_run_artifact(name: str, payload: dict) -> Path:
     return path
 
 
+def _close_page_safely(page: Page | None) -> None:
+    if page is None:
+        return
+    try:
+        if not page.is_closed():
+            page.close()
+    except PlaywrightError:
+        pass
+
+
 def _dir_slug(text: str) -> str:
     slug = re.sub(r"[^A-Za-z0-9._ -]+", "", (text or "").strip())
     slug = re.sub(r"\s+", "_", slug).strip("._ ")
@@ -185,6 +206,17 @@ def _cache_key(url_hash_value: str, tc_hash_value: str) -> str:
 
 def _job_cache_key(job: dict) -> str:
     return _cache_key(str(job.get("url_hash") or ""), str(job.get("tc_hash") or ""))
+
+
+def _intel_text(notes: str, url: str, fit_score: object | None = None) -> str:
+    lines: list[str] = []
+    if url:
+        lines.append(f"job_link={url}")
+    if fit_score not in (None, "", "nan"):
+        lines.append(f"fit_score={fit_score}")
+    if notes:
+        lines.append(str(notes).strip())
+    return "\n".join(line for line in lines if line).strip()
 
 
 def _load_review_cache() -> pd.DataFrame:
@@ -320,11 +352,13 @@ def _export_run_bundle(
     *,
     run_label: str,
     searches: list[tuple[str, str]],
+    search_runs: list[dict],
     reviewed_jobs: list[dict],
     fresh_after_dedup: list[dict],
     markdown_report: Path,
     html_report: Path,
     extracted_count: int,
+    scored_count: int,
     existing_skip_count: int,
     cache_hits_count: int,
 ) -> Path:
@@ -338,14 +372,18 @@ def _export_run_bundle(
     shutil.copy2(markdown_report, report_md)
     shutil.copy2(html_report, report_html)
 
-    for job in fresh_after_dedup:
+    ranked_jobs = sorted(fresh_after_dedup, key=_job_score_value, reverse=True)
+    priority_entries: list[dict] = []
+
+    for rank, job in enumerate(ranked_jobs, start=1):
         company_dir = accepted_dir / _dir_slug(str(job.get("company") or "Unknown"))
         role_dir = company_dir / _dir_slug(str(job.get("role_title") or "Role"))
         role_dir.mkdir(parents=True, exist_ok=True)
         (role_dir / "jd.txt").write_text(str(job.get("jd_text") or "").strip(), encoding="utf-8")
         notes = str(job.get("notes") or "").strip()
-        if notes:
-            (role_dir / "intel.txt").write_text(notes, encoding="utf-8")
+        intel_text = _intel_text(notes, str(job.get("url") or ""), job.get("fit_score"))
+        if intel_text:
+            (role_dir / "intel.txt").write_text(intel_text, encoding="utf-8")
         metadata = {
             "company": job.get("company"),
             "role_title": job.get("role_title"),
@@ -360,15 +398,40 @@ def _export_run_bundle(
             "search_term": _notes_search(notes),
             "time_window": _notes_window(notes),
             "job_id": job.get("id"),
+            "priority_rank": rank,
         }
         (role_dir / "metadata.json").write_text(json.dumps(metadata, indent=2), encoding="utf-8")
+        priority_entries.append(
+            {
+                "priority_rank": rank,
+                "company": job.get("company"),
+                "role_title": job.get("role_title"),
+                "fit_score": job.get("fit_score"),
+                "decision": job.get("decision"),
+                "url": job.get("url"),
+                "bundle_dir": str(role_dir),
+            }
+        )
+
+    priority_json = export_dir / "priority_order.json"
+    priority_txt = export_dir / "priority_order.txt"
+    priority_json.write_text(json.dumps(priority_entries, indent=2), encoding="utf-8")
+    priority_txt.write_text(
+        "\n".join(
+            f"{entry['priority_rank']}. {entry['company']} | {entry['role_title']} | score={entry['fit_score']}"
+            for entry in priority_entries
+        ),
+        encoding="utf-8",
+    )
 
     manifest = {
         "run_label": run_label,
         "created_at": datetime.now().isoformat(timespec="seconds"),
         "searches": [{"search_term": term, "time_filter": window} for term, window in searches],
+        "search_runs": search_runs,
         "counts": {
             "extracted": extracted_count,
+            "scored": scored_count,
             "reviewed": len(reviewed_jobs),
             "existing_skipped": existing_skip_count,
             "review_cache_skipped": cache_hits_count,
@@ -378,19 +441,24 @@ def _export_run_bundle(
             "markdown": str(report_md),
             "html": str(report_html),
         },
+        "priority_files": {
+            "json": str(priority_json),
+            "text": str(priority_txt),
+        },
         "accepted_jobs": [
             {
                 "company": job.get("company"),
                 "role_title": job.get("role_title"),
                 "fit_score": job.get("fit_score"),
                 "url": job.get("url"),
+                "priority_rank": idx,
                 "bundle_dir": str(
                     accepted_dir
                     / _dir_slug(str(job.get("company") or "Unknown"))
                     / _dir_slug(str(job.get("role_title") or "Role"))
                 ),
             }
-            for job in fresh_after_dedup
+            for idx, job in enumerate(ranked_jobs, start=1)
         ],
     }
     (export_dir / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
@@ -399,19 +467,27 @@ def _export_run_bundle(
 
 def _open_linkedin_browser_session(playwright, debug_port: int):
     endpoint = f"http://127.0.0.1:{debug_port}"
-    try:
-        browser = playwright.chromium.connect_over_cdp(endpoint)
-        if browser.contexts:
-            return {
-                "mode": "cdp",
-                "context": browser.contexts[0],
-                "cleanup": lambda: None,
-            }
-    except PlaywrightError:
-        raise RuntimeError(
-            f"Could not attach to Chrome debug session at {endpoint}. "
-            "Launch your normal signed-in Chrome with --remote-debugging-port=9222 and keep it open."
-        )
+    last_error: Exception | None = None
+    for attempt in range(2):
+        try:
+            browser = playwright.chromium.connect_over_cdp(endpoint, timeout=30000)
+            if browser.contexts:
+                return {
+                    "mode": "cdp",
+                    "context": browser.contexts[0],
+                    "cleanup": lambda: None,
+                }
+            last_error = RuntimeError("Connected to Chrome, but no browser contexts were available.")
+        except PlaywrightError as exc:
+            last_error = exc
+        if attempt == 0:
+            time.sleep(1.0)
+    detail = f" Underlying error: {last_error}" if last_error else ""
+    raise RuntimeError(
+        f"Could not attach to Chrome debug session at {endpoint}. "
+        "Launch your normal signed-in Chrome with --remote-debugging-port=9222 and keep it open."
+        f"{detail}"
+    )
 
 
 def _slug(text: str) -> str:
@@ -553,6 +629,31 @@ def _safe_goto(page: Page, url: str, timeout_ms: int = 30000) -> bool:
         return False
 
 
+def _body_preview(page: Page) -> str:
+    try:
+        text = page.locator("body").inner_text(timeout=2000)
+    except PlaywrightError:
+        return ""
+    return " ".join(text.split())[:400]
+
+
+def _is_authwall_or_login(page: Page) -> bool:
+    current_url = page.url.lower()
+    if "linkedin.com/authwall" in current_url or "linkedin.com/login" in current_url:
+        return True
+    preview = _body_preview(page).lower()
+    return any(
+        token in preview
+        for token in (
+            "join linkedin",
+            "sign in",
+            "agree & join",
+            "new to linkedin",
+            "already on linkedin?",
+        )
+    )
+
+
 def _semantic_fuzzy_count(page: Page) -> int | None:
     code_nodes = page.locator("code")
     total = min(code_nodes.count(), 120)
@@ -569,6 +670,59 @@ def _semantic_fuzzy_count(page: Page) -> int | None:
     return None
 
 
+def _heading_results_count(page: Page) -> int | None:
+    selectors = [
+        "h1",
+        ".jobs-search-results-list__title-heading",
+        ".jobs-search-box__results-header",
+        "[data-view-name='search-results-page-title']",
+    ]
+    pattern = re.compile(r"\b(\d[\d,]*)\+?\s+results?\b", re.I)
+    for selector in selectors:
+        locator = page.locator(selector)
+        total = min(locator.count(), 5)
+        for idx in range(total):
+            try:
+                text = locator.nth(idx).inner_text(timeout=500)
+            except PlaywrightError:
+                continue
+            match = pattern.search(text or "")
+            if match:
+                return int(match.group(1).replace(",", ""))
+    return None
+
+
+def _ui_observed_results_count(page: Page) -> int | None:
+    return _semantic_fuzzy_count(page) or _heading_results_count(page)
+
+
+def _session_preflight(context, target_url: str = "https://www.linkedin.com/feed/") -> dict:
+    page_count_before = len(context.pages)
+    page = context.new_page()
+    page.set_default_timeout(15000)
+    try:
+        page.goto(target_url, wait_until="domcontentloaded", timeout=30000)
+        page.wait_for_timeout(1500)
+        cookies = context.cookies(["https://www.linkedin.com"])
+        has_li_at = any(cookie.get("name") == "li_at" for cookie in cookies)
+        logged_in = _looks_logged_in(page)
+        authwall = _is_authwall_or_login(page)
+        return {
+            "ok": logged_in and not authwall,
+            "target_url": target_url,
+            "current_url": page.url,
+            "title": page.title(),
+            "logged_in_heuristic": logged_in,
+            "authwall_or_login": authwall,
+            "has_li_at_cookie": has_li_at,
+            "cookie_names": sorted(cookie.get("name", "") for cookie in cookies),
+            "body_preview": _body_preview(page),
+            "context_pages_before": page_count_before,
+        }
+    finally:
+        _close_page_safely(page)
+
+
 def _job_score_value(job: dict) -> float:
     try:
         return float(job.get("fit_score"))
@@ -580,6 +734,7 @@ def _render_report_markdown(
     *,
     run_label: str,
     searches: list[tuple[str, str]],
+    search_runs: list[dict],
     scored_jobs: list[dict],
     accepted_for_write: list[dict],
     fresh_after_dedup: list[dict],
@@ -612,8 +767,26 @@ def _render_report_markdown(
         f"- Jobs written after dedup: {len(fresh_after_dedup)}",
         f"- Decisions: {', '.join(f'{k}={v}' for k, v in sorted(decisions.items())) or 'none'}",
         "",
-        "## Top Rated",
+        "## Search Counts",
     ]
+    if search_runs:
+        for run in search_runs:
+            ui_count = run.get("ui_observed_count")
+            mismatch = run.get("count_mismatch")
+            mismatch_note = " mismatch=yes" if mismatch else ""
+            lines.append(
+                f"- {run.get('search_term')} ({TIME_LABELS.get(run.get('time_filter'), run.get('time_filter'))}): "
+                f"ui_reported_total={ui_count if ui_count is not None else 'unknown'}, "
+                f"extracted_unique={run.get('extracted_count')}, "
+                f"route={run.get('route_used')}{mismatch_note}"
+            )
+    else:
+        lines.append("- No per-search telemetry recorded.")
+
+    lines.extend([
+        "",
+        "## Top Rated",
+    ])
 
     if top_jobs:
         lines.extend([
@@ -650,6 +823,7 @@ def _render_report_html(
     *,
     run_label: str,
     searches: list[tuple[str, str]],
+    search_runs: list[dict],
     scored_jobs: list[dict],
     accepted_for_write: list[dict],
     fresh_after_dedup: list[dict],
@@ -702,6 +876,15 @@ def _render_report_html(
         f"Jobs written after dedup: {len(fresh_after_dedup)}",
         f"Decisions: {', '.join(f'{k}={v}' for k, v in sorted(decisions.items())) or 'none'}",
     ]
+    search_count_items = [
+        (
+            f"{run.get('search_term')} ({TIME_LABELS.get(run.get('time_filter'), run.get('time_filter'))}): "
+            f"ui_reported_total={run.get('ui_observed_count') if run.get('ui_observed_count') is not None else 'unknown'}, "
+            f"extracted_unique={run.get('extracted_count')}, route={run.get('route_used')}"
+            + (" mismatch=yes" if run.get("count_mismatch") else "")
+        )
+        for run in search_runs
+    ]
 
     return f"""<!doctype html>
 <html lang="en">
@@ -736,6 +919,12 @@ def _render_report_html(
     </ul>
   </div>
   <div class="card">
+    <h2>Search Counts</h2>
+    <ul>
+      {''.join(f'<li>{html.escape(item)}</li>' for item in search_count_items) if search_count_items else '<li class="muted">No per-search telemetry recorded.</li>'}
+    </ul>
+  </div>
+  <div class="card">
     <h2>Top Rated</h2>
     <table>
       <thead>
@@ -766,6 +955,7 @@ def _write_batch_report(
     *,
     run_label: str,
     searches: list[tuple[str, str]],
+    search_runs: list[dict],
     scored_jobs: list[dict],
     accepted_for_write: list[dict],
     fresh_after_dedup: list[dict],
@@ -781,6 +971,7 @@ def _write_batch_report(
     md = _render_report_markdown(
         run_label=run_label,
         searches=searches,
+        search_runs=search_runs,
         scored_jobs=scored_jobs,
         accepted_for_write=accepted_for_write,
         fresh_after_dedup=fresh_after_dedup,
@@ -794,6 +985,7 @@ def _write_batch_report(
         _render_report_html(
             run_label=run_label,
             searches=searches,
+            search_runs=search_runs,
             scored_jobs=scored_jobs,
             accepted_for_write=accepted_for_write,
             fresh_after_dedup=fresh_after_dedup,
@@ -983,15 +1175,16 @@ def scrape_search(
     pages: int | None,
     extract_only: bool = False,
     detail_page: Page | None = None,
-) -> list[LinkedInJobCard]:
-    def _run_single_url(url: str) -> list[LinkedInJobCard]:
+) -> SearchRunResult:
+    def _run_single_url(url: str) -> tuple[list[LinkedInJobCard], int | None]:
         cards: list[LinkedInJobCard] = []
         seen_urls: set[str] = set()
+        observed_ui_count: int | None = None
 
         use_offset_paging = "linkedin.com/jobs/search-results/" in url
         if use_offset_paging:
             if not _safe_goto(page, url):
-                return cards
+                return cards, observed_ui_count
             _human_pause(page, 1600, 2400)
             if not _looks_logged_in(page):
                 raise RuntimeError(
@@ -1017,6 +1210,9 @@ def scrape_search(
                     )
 
                 page.wait_for_timeout(2000)
+                page_ui_count = _ui_observed_results_count(page)
+                if page_ui_count is not None:
+                    observed_ui_count = max(observed_ui_count or 0, page_ui_count)
                 initial_visible = _extract_visible_cards(page)
                 if not initial_visible:
                     break
@@ -1073,7 +1269,7 @@ def scrape_search(
                     break
                 start += page_size
                 page_index += 1
-            return cards
+            return cards, observed_ui_count
 
         page_index = 0
         while True:
@@ -1088,6 +1284,9 @@ def scrape_search(
                 )
 
             page.wait_for_timeout(2000)
+            page_ui_count = _ui_observed_results_count(page)
+            if page_ui_count is not None:
+                observed_ui_count = max(observed_ui_count or 0, page_ui_count)
             stagnant_scrolls = 0
             for _ in range(20):
                 before_count = len(seen_urls)
@@ -1137,16 +1336,27 @@ def scrape_search(
             if not moved:
                 break
             page_index += 1
-        return cards
+        return cards, observed_ui_count
 
-    primary_cards = _run_single_url(_jobs_search_url(search_term, time_filter))
+    primary_url = _jobs_search_url(search_term, time_filter)
+    fallback_url = _jobs_search_fallback_url(search_term, time_filter)
+    primary_cards, primary_ui_count = _run_single_url(primary_url)
     fallback_threshold = SEARCH_RESULTS_MIN_POOL_BEFORE_FALLBACK
     if limit_per_search is not None:
         fallback_threshold = min(limit_per_search, SEARCH_RESULTS_MIN_POOL_BEFORE_FALLBACK)
     if len(primary_cards) >= fallback_threshold:
-        return primary_cards
+        return SearchRunResult(
+            search_term=search_term,
+            time_filter=time_filter,
+            cards=primary_cards,
+            ui_observed_count=primary_ui_count,
+            extracted_count=len(primary_cards),
+            route_used="search-results",
+            fallback_used=False,
+        )
 
-    fallback_cards = _run_single_url(_jobs_search_fallback_url(search_term, time_filter))
+    fallback_cards, fallback_ui_count = _run_single_url(fallback_url)
+    fallback_attempted = True
     combined: list[LinkedInJobCard] = []
     seen: set[str] = set()
     for card in [*primary_cards, *fallback_cards]:
@@ -1156,7 +1366,16 @@ def scrape_search(
         combined.append(card)
         if limit_per_search is not None and len(combined) >= limit_per_search:
             break
-    return combined
+    observed_counts = [count for count in (primary_ui_count, fallback_ui_count) if count is not None]
+    return SearchRunResult(
+        search_term=search_term,
+        time_filter=time_filter,
+        cards=combined,
+        ui_observed_count=max(observed_counts) if observed_counts else None,
+        extracted_count=len(combined),
+        route_used="search-results+fallback" if fallback_attempted else "search-results",
+        fallback_used=fallback_attempted,
+    )
 
 
 def cards_to_jobs(cards: Iterable[LinkedInJobCard]) -> list[dict]:
@@ -1257,87 +1476,19 @@ def filter_jobs_for_write(jobs: list[dict]) -> tuple[list[dict], list[dict]]:
     return accepted, dropped
 
 
-def run_live_discovery(
+def _run_post_extract_pipeline(
+    *,
+    run_label: str,
     searches: list[tuple[str, str]],
-    debug_port: int,
-    limit_per_search: int | None,
-    pages: int | None,
+    search_runs: list[dict],
+    jobs: list[dict],
+    extracted_count: int,
     dry_run: bool,
     model: str,
     quiet: bool,
-    extract_only: bool = False,
-    max_workers: int = 2,
+    max_workers: int,
+    source_raw_artifacts: list[str] | None = None,
 ) -> int:
-    windows = sorted({TIME_LABELS.get(window, window) for _, window in searches})
-    run_label = windows[0] if len(windows) == 1 else "mixed"
-    with sync_playwright() as playwright:
-        session = _open_linkedin_browser_session(playwright, debug_port)
-        try:
-            context = session["context"]
-            page = context.new_page()
-            detail_page = context.new_page()
-            page.set_default_timeout(15000)
-            detail_page.set_default_timeout(15000)
-
-            scraped_cards: list[LinkedInJobCard] = []
-            for search_term, time_filter in searches:
-                if not quiet:
-                    print(f"\nSearching LinkedIn Jobs: {search_term} | {TIME_LABELS.get(time_filter, time_filter)}")
-                cards = scrape_search(
-                    page=page,
-                    search_term=search_term,
-                    time_filter=time_filter,
-                    limit_per_search=limit_per_search,
-                    pages=pages,
-                    extract_only=extract_only,
-                    detail_page=detail_page,
-                )
-                scraped_cards.extend(cards)
-                if not quiet:
-                    print(f"  Captured {len(cards)} cards")
-            detail_page.close()
-            page.close()
-        finally:
-            try:
-                session["cleanup"]()
-            except Exception:
-                pass
-
-    jobs = cards_to_jobs(scraped_cards)
-    artifact = _write_run_artifact(
-        "linkedin_live_raw",
-        {
-            "count": len(scraped_cards),
-            "searches": [{"search_term": s, "time_filter": t} for s, t in searches],
-            "cards": [asdict(card) for card in scraped_cards],
-        },
-    )
-
-    if not quiet:
-        print(f"\nRaw artifact: {artifact}")
-        print(f"Raw cards captured: {len(scraped_cards)}")
-
-    if not jobs:
-        print("No jobs were captured from LinkedIn live search.")
-        return 0
-
-    if extract_only:
-        md_report, html_report = _write_batch_report(
-            run_label=f"{run_label}_extract_only",
-            searches=searches,
-            scored_jobs=jobs,
-            accepted_for_write=[],
-            fresh_after_dedup=[],
-            extracted_count=len(jobs),
-            scored_count=0,
-            existing_skip_count=0,
-            cache_hits_count=0,
-        )
-        print(f"Extract-only count complete: {len(jobs)} jobs")
-        print(f"Batch report (Markdown): {md_report}")
-        print(f"Batch report (HTML): {html_report}")
-        return len(jobs)
-
     df_existing = load_jobs()
     jobs_unseen, existing_hits = _split_existing_jobs(jobs, df_existing)
     review_cache = _load_review_cache()
@@ -1356,7 +1507,7 @@ def run_live_discovery(
     score_artifact = _write_run_artifact(
         "linkedin_live_scored",
         {
-            "captured": len(scraped_cards),
+            "extracted": extracted_count,
             "scored": len(scored_new),
             "reviewed": len(reviewed_jobs),
             "existing_skipped": len(existing_hits),
@@ -1364,6 +1515,9 @@ def run_live_discovery(
             "accepted_for_write": len(accepted_for_write),
             "dropped_before_write": len(dropped_before_write),
             "new_after_dedup": len(fresh),
+            "searches": [{"search_term": s, "time_filter": t} for s, t in searches],
+            "search_runs": search_runs,
+            "source_raw_artifacts": source_raw_artifacts or [],
             "jobs": reviewed_jobs,
         },
     )
@@ -1377,10 +1531,11 @@ def run_live_discovery(
     md_report, html_report = _write_batch_report(
         run_label=run_label,
         searches=searches,
+        search_runs=search_runs,
         scored_jobs=reviewed_jobs,
         accepted_for_write=accepted_for_write,
         fresh_after_dedup=fresh,
-        extracted_count=len(scraped_cards),
+        extracted_count=extracted_count,
         scored_count=len(scored_new),
         existing_skip_count=len(existing_hits),
         cache_hits_count=len(cache_hits),
@@ -1407,11 +1562,13 @@ def run_live_discovery(
         run_bundle = _export_run_bundle(
             run_label=run_label,
             searches=searches,
+            search_runs=search_runs,
             reviewed_jobs=reviewed_jobs,
             fresh_after_dedup=fresh,
             markdown_report=md_report,
             html_report=html_report,
-            extracted_count=len(scraped_cards),
+            extracted_count=extracted_count,
+            scored_count=len(scored_new),
             existing_skip_count=len(existing_hits),
             cache_hits_count=len(cache_hits),
         )
@@ -1419,6 +1576,238 @@ def run_live_discovery(
             print(f"Run bundle: {run_bundle}")
 
     return len(fresh)
+
+
+def _searches_from_payload(payload: dict) -> list[tuple[str, str]]:
+    searches: list[tuple[str, str]] = []
+    for item in payload.get("searches", []):
+        search_term = str(item.get("search_term") or "").strip()
+        time_filter = str(item.get("time_filter") or "").strip()
+        if search_term and time_filter:
+            searches.append((search_term, time_filter))
+    return searches
+
+
+def _cards_from_payload(payload: dict) -> list[LinkedInJobCard]:
+    cards: list[LinkedInJobCard] = []
+    for item in payload.get("cards", []):
+        try:
+            cards.append(LinkedInJobCard(**item))
+        except TypeError:
+            continue
+    return cards
+
+
+def _dedupe_jobs_for_replay(jobs: Iterable[dict]) -> list[dict]:
+    deduped: list[dict] = []
+    seen_urls: set[str] = set()
+    seen_tcs: set[str] = set()
+    for job in jobs:
+        url_key = str(job.get("url_hash") or "").strip()
+        tc_key = str(job.get("tc_hash") or "").strip()
+        if url_key and url_key in seen_urls:
+            continue
+        if tc_key and tc_key in seen_tcs:
+            continue
+        if url_key:
+            seen_urls.add(url_key)
+        if tc_key:
+            seen_tcs.add(tc_key)
+        deduped.append(job)
+    return deduped
+
+
+def score_from_raw_artifacts(
+    raw_artifact_paths: list[str],
+    dry_run: bool,
+    model: str,
+    quiet: bool,
+    max_workers: int = 2,
+) -> int:
+    payloads: list[tuple[Path, dict]] = []
+    for raw_path in raw_artifact_paths:
+        path = Path(raw_path).expanduser().resolve()
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        payloads.append((path, payload))
+
+    searches: list[tuple[str, str]] = []
+    search_runs: list[dict] = []
+    replay_jobs: list[dict] = []
+    extracted_count = 0
+
+    for path, payload in payloads:
+        searches.extend(_searches_from_payload(payload))
+        search_runs.extend(payload.get("search_runs", []))
+        jobs = payload.get("jobs")
+        if isinstance(jobs, list) and jobs:
+            replay_jobs.extend(dict(job) for job in jobs)
+            extracted_count += int(payload.get("count") or len(jobs))
+        else:
+            cards = _cards_from_payload(payload)
+            replay_jobs.extend(cards_to_jobs(cards))
+            extracted_count += int(payload.get("count") or len(cards))
+
+    replay_jobs = _dedupe_jobs_for_replay(replay_jobs)
+    if not replay_jobs:
+        print("No jobs found in the provided raw artifact(s).")
+        return 0
+
+    windows = sorted({TIME_LABELS.get(window, window) for _, window in searches}) if searches else ["raw_replay"]
+    run_label = windows[0] if len(windows) == 1 else "mixed"
+
+    if not quiet:
+        print(f"Loaded {len(replay_jobs)} unique jobs from {len(payloads)} raw artifact(s).")
+        for path, _ in payloads:
+            print(f"  Raw input: {path}")
+
+    return _run_post_extract_pipeline(
+        run_label=run_label,
+        searches=searches,
+        search_runs=search_runs,
+        jobs=replay_jobs,
+        extracted_count=extracted_count,
+        dry_run=dry_run,
+        model=model,
+        quiet=quiet,
+        max_workers=max_workers,
+        source_raw_artifacts=[str(path) for path, _ in payloads],
+    )
+
+
+def run_live_discovery(
+    searches: list[tuple[str, str]],
+    debug_port: int,
+    limit_per_search: int | None,
+    pages: int | None,
+    dry_run: bool,
+    model: str,
+    quiet: bool,
+    extract_only: bool = False,
+    max_workers: int = 2,
+) -> int:
+    windows = sorted({TIME_LABELS.get(window, window) for _, window in searches})
+    run_label = windows[0] if len(windows) == 1 else "mixed"
+    search_run_summaries: list[dict] = []
+    with sync_playwright() as playwright:
+        session = _open_linkedin_browser_session(playwright, debug_port)
+        page: Page | None = None
+        detail_page: Page | None = None
+        try:
+            context = session["context"]
+            preflight = _session_preflight(context)
+            if not preflight.get("ok"):
+                raise RuntimeError(
+                    "LinkedIn live preflight failed. "
+                    f"URL={preflight.get('current_url', '')} "
+                    f"title={preflight.get('title', '')} "
+                    f"authwall_or_login={preflight.get('authwall_or_login')} "
+                    f"has_li_at_cookie={preflight.get('has_li_at_cookie')}"
+                )
+            if not quiet:
+                print(
+                    "LinkedIn preflight OK: "
+                    f"url={preflight.get('current_url', '')} "
+                    f"pages_before={preflight.get('context_pages_before')}"
+                )
+
+            page = context.new_page()
+            detail_page = context.new_page()
+            page.set_default_timeout(15000)
+            detail_page.set_default_timeout(15000)
+
+            scraped_cards: list[LinkedInJobCard] = []
+            for search_term, time_filter in searches:
+                if not quiet:
+                    print(f"\nSearching LinkedIn Jobs: {search_term} | {TIME_LABELS.get(time_filter, time_filter)}")
+                result = scrape_search(
+                    page=page,
+                    search_term=search_term,
+                    time_filter=time_filter,
+                    limit_per_search=limit_per_search,
+                    pages=pages,
+                    extract_only=extract_only,
+                    detail_page=detail_page,
+                )
+                cards = result.cards
+                search_run_summaries.append(
+                    {
+                        "search_term": result.search_term,
+                        "time_filter": result.time_filter,
+                        "ui_observed_count": result.ui_observed_count,
+                        "extracted_count": result.extracted_count,
+                        "route_used": result.route_used,
+                        "fallback_used": result.fallback_used,
+                        "count_mismatch": (
+                            result.ui_observed_count is not None
+                            and result.ui_observed_count != result.extracted_count
+                        ),
+                    }
+                )
+                scraped_cards.extend(cards)
+                if not quiet:
+                    ui_note = (
+                        f" | UI reported total {result.ui_observed_count}"
+                        if result.ui_observed_count is not None
+                        else ""
+                    )
+                    print(f"  Captured {len(cards)} cards{ui_note}")
+        finally:
+            _close_page_safely(detail_page)
+            _close_page_safely(page)
+            try:
+                session["cleanup"]()
+            except Exception:
+                pass
+
+    jobs = cards_to_jobs(scraped_cards)
+    artifact = _write_run_artifact(
+        "linkedin_live_raw",
+        {
+            "count": len(scraped_cards),
+            "searches": [{"search_term": s, "time_filter": t} for s, t in searches],
+            "search_runs": search_run_summaries,
+            "cards": [asdict(card) for card in scraped_cards],
+            "jobs": jobs,
+        },
+    )
+
+    if not quiet:
+        print(f"\nRaw artifact: {artifact}")
+        print(f"Raw cards captured: {len(scraped_cards)}")
+
+    if not jobs:
+        print("No jobs were captured from LinkedIn live search.")
+        return 0
+
+    if extract_only:
+        md_report, html_report = _write_batch_report(
+            run_label=f"{run_label}_extract_only",
+            searches=searches,
+            search_runs=search_run_summaries,
+            scored_jobs=jobs,
+            accepted_for_write=[],
+            fresh_after_dedup=[],
+            extracted_count=len(jobs),
+            scored_count=0,
+            existing_skip_count=0,
+            cache_hits_count=0,
+        )
+        print(f"Extract-only count complete: {len(jobs)} jobs")
+        print(f"Batch report (Markdown): {md_report}")
+        print(f"Batch report (HTML): {html_report}")
+        return len(jobs)
+    return _run_post_extract_pipeline(
+        run_label=run_label,
+        searches=searches,
+        search_runs=search_run_summaries,
+        jobs=jobs,
+        extracted_count=len(scraped_cards),
+        dry_run=dry_run,
+        model=model,
+        quiet=quiet,
+        max_workers=max_workers,
+        source_raw_artifacts=[str(artifact)],
+    )
 
 
 def _parse_args() -> argparse.Namespace:
@@ -1439,6 +1828,12 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--dry-run", action="store_true", help="Score jobs but skip writing jobs.xlsx")
     parser.add_argument("--model", type=str, default=DEFAULT_MODEL, help=f"Scoring model (default: {DEFAULT_MODEL})")
     parser.add_argument("--extract-only", action="store_true", help="Only extract/count jobs. Skip JD scoring and jobs.xlsx writes.")
+    parser.add_argument(
+        "--score-from-raw",
+        action="append",
+        default=[],
+        help="Replay scoring/write from a saved linkedin_live_raw_*.json artifact. Repeat for multiple artifacts.",
+    )
     parser.add_argument("--max-workers", type=int, default=2, help="Parallel scoring workers for the full scored run.")
     parser.add_argument("--quiet", action="store_true", help="Reduce terminal output")
     parser.add_argument("--search", action="append", default=[], help="Override search term. Repeat for multiple values.")
@@ -1461,17 +1856,26 @@ def _resolve_searches(args: argparse.Namespace) -> list[tuple[str, str]]:
 
 if __name__ == "__main__":
     args = _parse_args()
-    searches = _resolve_searches(args)
-    limit_per_search = None if args.limit_per_search in (None, 0) else args.limit_per_search
-    pages = None if args.pages in (None, 0) else args.pages
-    run_live_discovery(
-        searches=searches,
-        debug_port=args.debug_port,
-        limit_per_search=limit_per_search,
-        pages=pages,
-        dry_run=args.dry_run,
-        model=args.model,
-        quiet=args.quiet,
-        extract_only=args.extract_only,
-        max_workers=args.max_workers,
-    )
+    if args.score_from_raw:
+        score_from_raw_artifacts(
+            raw_artifact_paths=args.score_from_raw,
+            dry_run=args.dry_run,
+            model=args.model,
+            quiet=args.quiet,
+            max_workers=args.max_workers,
+        )
+    else:
+        searches = _resolve_searches(args)
+        limit_per_search = None if args.limit_per_search in (None, 0) else args.limit_per_search
+        pages = None if args.pages in (None, 0) else args.pages
+        run_live_discovery(
+            searches=searches,
+            debug_port=args.debug_port,
+            limit_per_search=limit_per_search,
+            pages=pages,
+            dry_run=args.dry_run,
+            model=args.model,
+            quiet=args.quiet,
+            extract_only=args.extract_only,
+            max_workers=args.max_workers,
+        )

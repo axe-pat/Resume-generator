@@ -133,6 +133,13 @@ def _import_pipelines():
     return resume_pipeline, cl_pipeline, generate_strategy
 
 
+def _env_flag(name: str, default: bool = False) -> bool:
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # ANSI colors
 # ─────────────────────────────────────────────────────────────────────────────
@@ -582,22 +589,28 @@ def run_app(
             if buf is not None:
                 _thread_local.capture = None
 
+    sequential_mode = _env_flag("RUN_APP_SEQUENTIAL", default=False)
     if run_resume and run_cl:
-        # Run both pipelines in parallel — saves ~1–1.5 min per app
-        resume_buf = io.StringIO()
-        cl_buf     = io.StringIO()
-        with ThreadPoolExecutor(max_workers=2) as ex:
-            f_resume = ex.submit(_run_resume, resume_buf)
-            f_cl     = ex.submit(_run_cl,     cl_buf)
-            exc_r = f_resume.exception()
-            exc_c = f_cl.exception()
-        # Dump outputs sequentially: resume first, then CL
-        _orig_stdout.write(resume_buf.getvalue())
-        _orig_stdout.write(cl_buf.getvalue())
-        if exc_r:
-            raise exc_r
-        if exc_c:
-            raise exc_c
+        if sequential_mode:
+            print(c(YELLOW, "  [i] RUN_APP_SEQUENTIAL=1 — running resume then CL for stability"))
+            _run_resume(None)
+            _run_cl(None)
+        else:
+            # Run both pipelines in parallel — saves ~1–1.5 min per app
+            resume_buf = io.StringIO()
+            cl_buf     = io.StringIO()
+            with ThreadPoolExecutor(max_workers=2) as ex:
+                f_resume = ex.submit(_run_resume, resume_buf)
+                f_cl     = ex.submit(_run_cl,     cl_buf)
+                exc_r = f_resume.exception()
+                exc_c = f_cl.exception()
+            # Dump outputs sequentially: resume first, then CL
+            _orig_stdout.write(resume_buf.getvalue())
+            _orig_stdout.write(cl_buf.getvalue())
+            if exc_r:
+                raise exc_r
+            if exc_c:
+                raise exc_c
     elif run_resume:
         _run_resume(None)   # no buffer — output goes straight to stdout
     elif run_cl:
