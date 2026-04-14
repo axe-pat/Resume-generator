@@ -189,11 +189,20 @@ def _rename_latest(directory: Path, old_stem_fragment: str, new_stem: str, ext: 
     return target
 
 
-def resolve_company(target: str) -> Path:
+def resolve_company(target: str, app_dir_override: str | None = None) -> Path:
     """
     Find the app directory for the given company name.
-    Accepts exact directory name or case-insensitive prefix match.
+    Accepts an explicit app-dir override, or exact directory name / case-insensitive
+    prefix match under apps/.
     """
+    if app_dir_override:
+        override = Path(app_dir_override).expanduser()
+        if not override.is_absolute():
+            override = (ROOT_DIR / override).resolve()
+        if override.is_dir():
+            return override
+        sys.exit(f"[ERROR] --app-dir does not exist or is not a directory: {override}")
+
     if not APPS_DIR.exists():
         sys.exit(
             f"[ERROR] apps/ directory not found at {APPS_DIR}\n"
@@ -409,8 +418,9 @@ def run_app(
     run_qc:       bool = True,
     make_docx:    bool = False,
     track:        str  = "pm",  # "pm" | "nonpm" — resume track selection
+    app_dir_override: str | None = None,
 ) -> None:
-    app_dir  = resolve_company(company)
+    app_dir  = resolve_company(company, app_dir_override=app_dir_override)
     jd_path  = app_dir / "jd.txt"
     intel_path = app_dir / "intel.txt"
 
@@ -670,13 +680,20 @@ def score_only_app(company: str, model: str, track: str = "pm") -> None:
     # ── Extract experience section from SECTION 3 ─────────────────────────────
     m_exp = re.search(
         r"SECTION 3 — FULL EXPERIENCE SECTION \(paste-ready[^)]*\)\n[-─]+\n(.*?)"
-        r"(?=\nSECTION 3 \(PASS 1|\nSECTION 4|\Z)",
+        r"(?=\nSECTION 3B|\nSECTION 3 \(PASS 1|\nSECTION 4|\Z)",
         content, re.DOTALL,
     )
     if not m_exp:
         sys.exit(f"[ERROR] Could not extract experience section from {txt_path.name}.\n"
                  "       Make sure this is a freeform_runner output file.")
     experience_section = m_exp.group(1).strip()
+
+    m_projects = re.search(
+        r"SECTION 3B — PROJECTS & CONSULTING \(paste-ready\)\n[-─]+\n(PROJECTS & CONSULTING.*?)"
+        r"(?=\nSECTION 4|\Z)",
+        content, re.DOTALL | re.IGNORECASE,
+    )
+    projects_section = m_projects.group(1).strip() if m_projects else ""
 
     # ── Extract skills section from SECTION 4 ────────────────────────────────
     m_skills = re.search(
@@ -794,14 +811,18 @@ def score_only_app(company: str, model: str, track: str = "pm") -> None:
         sections = {
             "summary_section": _fr._sanitize_summary_section(summary_section),
             "experience_section": experience_section,
+            "projects_section": projects_section,
             "skills_section": skills_section,
         }
 
         # ── Expansion pass (page < 85% full) ─────────────────────────────────
-        _fill_result = _fr._estimate_page_fill(experience_section, skills_section)
+        _fill_result = _fr._estimate_page_fill(
+            experience_section, skills_section, projects_section=projects_section
+        )
         if _fill_result and _fill_result[0] < 85.0:
             _exp_section, _ = _fr.run_expansion_pass(
                 experience_section, skills_section, jd_text, strategy_block, model,
+                projects_section=projects_section,
             )
             if _exp_section != experience_section:
                 experience_section = _exp_section
@@ -856,12 +877,19 @@ def docx_only_app(company: str, track: str = "pm") -> None:
 
     m_exp = re.search(
         r"SECTION 3 — FULL EXPERIENCE SECTION \(paste-ready[^)]*\)\n[-─]+\n(.*?)"
-        r"(?=\nSECTION 3 \(PASS 1|\nSECTION 4|\Z)",
+        r"(?=\nSECTION 3B|\nSECTION 3 \(PASS 1|\nSECTION 4|\Z)",
         content, re.DOTALL,
     )
     if not m_exp:
         sys.exit(f"[ERROR] Could not extract experience section from {txt_path.name}.")
     experience_section = m_exp.group(1).strip()
+
+    m_projects = re.search(
+        r"SECTION 3B — PROJECTS & CONSULTING \(paste-ready\)\n[-─]+\n(PROJECTS & CONSULTING.*?)"
+        r"(?=\nSECTION 4|\Z)",
+        content, re.DOTALL | re.IGNORECASE,
+    )
+    projects_section = m_projects.group(1).strip() if m_projects else ""
 
     m_skills = re.search(
         r"SECTION 4 — SKILLS & INTERESTS \(paste-ready\)\n[-─]+\n(SKILLS & INTERESTS.*?)"
@@ -884,6 +912,7 @@ def docx_only_app(company: str, track: str = "pm") -> None:
     sections = {
         'summary_section': _sanitize_summary_section_local(summary_section),
         'experience_section': experience_section,
+        'projects_section': projects_section,
         'skills_section': skills_section,
     }
 
@@ -951,6 +980,18 @@ def _parse_skills_rows_local(skills_text: str) -> list[dict]:
     return rows
 
 
+def _parse_project_rows_local(projects_text: str) -> list[str]:
+    rows = []
+    for line in projects_text.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.upper().startswith("PROJECTS & CONSULTING"):
+            continue
+        m = re.match(r'^[\u2022\u25cf\-\*●•]\s+(.*)', stripped)
+        if m:
+            rows.append(m.group(1).strip())
+    return rows
+
+
 def _generate_docx_local(sections: dict, jd_path: Path, out_dir: Path, score: float | None = None, track: str = 'pm') -> Path | None:
     docx_script = ROOT_DIR / 'resume' / 'resume_docx.js'
     node_path = str(ROOT_DIR / 'resume' / 'node_modules')
@@ -960,6 +1001,7 @@ def _generate_docx_local(sections: dict, jd_path: Path, out_dir: Path, score: fl
 
     company_blocks = _parse_experience_blocks_local(sections['experience_section'])
     skills_rows = _parse_skills_rows_local(sections['skills_section'])
+    project_rows = _parse_project_rows_local(sections.get('projects_section', ''))
     if not company_blocks:
         print(c(YELLOW, '  [!] Could not parse company blocks — skipping docx generation.'))
         return None
@@ -971,9 +1013,10 @@ def _generate_docx_local(sections: dict, jd_path: Path, out_dir: Path, score: fl
 
     payload = {
         'company_blocks': company_blocks,
+        'project_rows': project_rows,
         'skills_rows': skills_rows,
         'professional_summary': sections.get('summary_section', ''),
-        'summary_section_header': 'PRODUCT MANAGEMENT' if track == 'pm' else 'PROFILE',
+        'summary_section_header': 'PRODUCT MANAGEMENT' if track == 'pm' else 'PROFILE SUMMARY',
         'output_path': str(output_path),
         'layout': {
             'line': 200,
@@ -1031,7 +1074,9 @@ def main():
         epilog=__doc__,
     )
     parser.add_argument("company",
-                        help="Company name — must match a directory under apps/")
+                        help="Company label used for logs. By default this matches a directory under apps/.")
+    parser.add_argument("--app-dir",     default=None,
+                        help="Explicit app directory to operate on (supports run-folder-native generation)")
     parser.add_argument("--resume-only",  action="store_true",
                         help="Run only the resume pipeline (skip CL)")
     parser.add_argument("--cl-only",      action="store_true",
@@ -1096,6 +1141,7 @@ def main():
                 run_qc       = not args.no_qc,
                 make_docx    = not args.no_docx,
                 track        = args.track,
+                app_dir_override = args.app_dir,
             )
     finally:
         log_file.close()

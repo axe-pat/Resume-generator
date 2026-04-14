@@ -84,7 +84,7 @@ ResumeGenerator v1/
 │   ├── freeform_runner.py      Resume pipeline (Pass 0–4 + QC + docx; --track pm|nonpm)
 │   └── prompts/
 │       ├── freeform_master_v2.txt       PM track (default)
-│       ├── freeform_master_nonpm.txt    Non-PM track (Strategy/Consulting/S&O/PgM/RevOps)
+│       ├── freeform_master_nonpm.txt    Non-PM track (strategy/bizops/commercial/research/AI-automation/client/ops + optional Projects & Consulting)
 │       ├── freeform_voice_rewrite.txt
 │       ├── freeform_scorer.txt
 │       └── freeform_targeted_swap.txt   Pass 4 fix loop

@@ -126,6 +126,8 @@ def _format_strategy_block(d: dict) -> str:
     role_family = d.get("role_family", "")
     nonpm_subtype = d.get("nonpm_subtype", "")
     bullet_balance = d.get("bullet_balance", "")
+    nonpm_proof_signal = d.get("nonpm_proof_signal", "")
+    nonpm_proof_reasoning = d.get("nonpm_proof_reasoning", "")
 
     lines.append(f"Resume framing (primary):   {framing}")
     if framing2 != framing:
@@ -136,6 +138,10 @@ def _format_strategy_block(d: dict) -> str:
         lines.append(f"Non-PM subtype:             {nonpm_subtype}")
     if bullet_balance:
         lines.append(f"Bullet balance:             {bullet_balance}")
+    if nonpm_proof_signal:
+        lines.append(f"Non-engineering proof:      {nonpm_proof_signal}")
+        if nonpm_proof_reasoning:
+            lines.append(f"Proof rationale:            {nonpm_proof_reasoning}")
     if signals:
         lines.append(f"Top JD signals:             {' | '.join(signals)}")
     if gaps:

@@ -26,19 +26,14 @@ def _load_rows() -> pd.DataFrame:
     return df.sort_values(["fit_score_num", "date_found"], ascending=[False, False])
 
 
-def _ensure_job_link_files(app_dir: Path, url: str) -> tuple[bool, bool]:
-    created_or_updated_link = False
-    intel_updated = False
-
-    job_link_path = app_dir / "job_link.txt"
-    desired_link_text = f"{url}\n"
-    current_link_text = job_link_path.read_text(encoding="utf-8") if job_link_path.exists() else None
-    if current_link_text != desired_link_text:
-        job_link_path.write_text(desired_link_text, encoding="utf-8")
-        created_or_updated_link = True
-
+def _ensure_job_link_in_intel(app_dir: Path, url: str) -> bool:
     intel_path = app_dir / "intel.txt"
     desired_line = f"job_link={url}"
+    if not intel_path.exists():
+        intel_path.write_text(desired_line + "\n", encoding="utf-8")
+        return True
+
+    intel_updated = False
     if intel_path.exists():
         intel_text = intel_path.read_text(encoding="utf-8").strip()
         lines = [line.strip() for line in intel_text.splitlines() if line.strip()]
@@ -46,12 +41,11 @@ def _ensure_job_link_files(app_dir: Path, url: str) -> tuple[bool, bool]:
             new_text = desired_line if not intel_text else f"{desired_line}\n{intel_text}"
             intel_path.write_text(new_text + "\n", encoding="utf-8")
             intel_updated = True
-    return created_or_updated_link, intel_updated
+    return intel_updated
 
 
 def main() -> int:
     df = _load_rows()
-    updated = 0
     intel_updated = 0
     skipped: list[str] = []
 
@@ -71,15 +65,11 @@ def main() -> int:
             skipped.append(company)
             continue
 
-        link_changed, intel_changed = _ensure_job_link_files(app_dir, url)
-        if link_changed:
-            updated += 1
-        if intel_changed:
+        if _ensure_job_link_in_intel(app_dir, url):
             intel_updated += 1
         print(f"{company} -> {app_dir}")
 
-    print(f"job_link.txt updated: {updated}")
-    print(f"intel.txt backfilled: {intel_updated}")
+    print(f"intel.txt updated: {intel_updated}")
     if skipped:
         print("skipped (no app dir):")
         for company in skipped:

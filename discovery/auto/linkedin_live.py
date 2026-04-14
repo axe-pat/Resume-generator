@@ -1173,7 +1173,7 @@ def scrape_search(
     time_filter: str,
     limit_per_search: int | None,
     pages: int | None,
-    extract_only: bool = False,
+    count_only: bool = False,
     detail_page: Page | None = None,
 ) -> SearchRunResult:
     def _run_single_url(url: str) -> tuple[list[LinkedInJobCard], int | None]:
@@ -1231,7 +1231,7 @@ def scrape_search(
                         page_seen_urls.add(job_url)
                         if job_url in seen_urls:
                             continue
-                        if extract_only:
+                        if count_only:
                             jd_text, insight_text = "", ""
                         else:
                             try:
@@ -1295,7 +1295,7 @@ def scrape_search(
                     job_url = summary["url"]
                     if job_url in seen_urls:
                         continue
-                    if extract_only:
+                    if count_only:
                         jd_text, insight_text = "", ""
                     else:
                         try:
@@ -1683,6 +1683,7 @@ def run_live_discovery(
     model: str,
     quiet: bool,
     extract_only: bool = False,
+    count_only: bool = False,
     max_workers: int = 2,
 ) -> int:
     windows = sorted({TIME_LABELS.get(window, window) for _, window in searches})
@@ -1725,7 +1726,7 @@ def run_live_discovery(
                     time_filter=time_filter,
                     limit_per_search=limit_per_search,
                     pages=pages,
-                    extract_only=extract_only,
+                    count_only=count_only,
                     detail_page=detail_page,
                 )
                 cards = result.cards
@@ -1781,7 +1782,7 @@ def run_live_discovery(
 
     if extract_only:
         md_report, html_report = _write_batch_report(
-            run_label=f"{run_label}_extract_only",
+            run_label=f"{run_label}_{'count_only' if count_only else 'extract_only'}",
             searches=searches,
             search_runs=search_run_summaries,
             scored_jobs=jobs,
@@ -1792,7 +1793,7 @@ def run_live_discovery(
             existing_skip_count=0,
             cache_hits_count=0,
         )
-        print(f"Extract-only count complete: {len(jobs)} jobs")
+        print(f"{'Count-only' if count_only else 'Extract-only'} complete: {len(jobs)} jobs")
         print(f"Batch report (Markdown): {md_report}")
         print(f"Batch report (HTML): {html_report}")
         return len(jobs)
@@ -1828,6 +1829,11 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--dry-run", action="store_true", help="Score jobs but skip writing jobs.xlsx")
     parser.add_argument("--model", type=str, default=DEFAULT_MODEL, help=f"Scoring model (default: {DEFAULT_MODEL})")
     parser.add_argument("--extract-only", action="store_true", help="Only extract/count jobs. Skip JD scoring and jobs.xlsx writes.")
+    parser.add_argument(
+        "--count-only",
+        action="store_true",
+        help="Capture counts/cards only. Do not open job details for JD extraction.",
+    )
     parser.add_argument(
         "--score-from-raw",
         action="append",
@@ -1865,6 +1871,8 @@ if __name__ == "__main__":
             max_workers=args.max_workers,
         )
     else:
+        if args.count_only and not args.extract_only:
+            raise SystemExit("--count-only requires --extract-only.")
         searches = _resolve_searches(args)
         limit_per_search = None if args.limit_per_search in (None, 0) else args.limit_per_search
         pages = None if args.pages in (None, 0) else args.pages
@@ -1877,5 +1885,6 @@ if __name__ == "__main__":
             model=args.model,
             quiet=args.quiet,
             extract_only=args.extract_only,
+            count_only=args.count_only,
             max_workers=args.max_workers,
         )

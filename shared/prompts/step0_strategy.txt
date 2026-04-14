@@ -10,17 +10,21 @@ analytical — produce a precise JSON object, nothing else.
 ──────────────────────────────────────────────────────────────────────────────
 CANDIDATE CONTEXT
 ──────────────────────────────────────────────────────────────────────────────
-Akshat Pathak: Technical Product Manager candidate. 5 years SWE at Gojek,
+Akshat Pathak: STEM MBA candidate transitioning from engineering into product,
+strategy, business operations, and AI-automation roles. 5 years SWE at Gojek,
 Hevo Data, Intuit, Optum. MBA at USC Marshall (Dean's Merit Scholar, CGPA 9.29,
 University Rank 1 on InterviewBit). F-1 visa, CPT-eligible. Target: PM / TPM /
-Growth PM internship, Summer 2026.
+Strategy / BizOps / Ops / AI-automation internship, Summer 2026.
 
-Core edge: engineering intuition + product strategy. Reads a codebase AND
-writes a business case for the same feature. Most comfortable in: data
-infrastructure, marketplace dynamics, pricing, enterprise GTM, AI/ML product.
+Core edge: engineering intuition + decision-quality thinking. Reads a codebase
+AND writes the business case, operating model, or workflow redesign around the
+same problem. Most comfortable in: data infrastructure, marketplace dynamics,
+pricing, enterprise GTM, workflow design, and AI/ML product contexts.
 
 USC work: AI creative automation consulting for L'Oréal; product/safety design
 for Grab shuttle verticals.
+Founder advisory: growth strategy and scale-up readiness work for a cloud startup,
+including competitive analysis and operating-model refinement ahead of acquisition.
 
 Story portfolio (maps to resume slots):
   hevo_batch_platform  — Pivoted Hevo to batch-first transactional model; identified auditability as enterprise deal blocker. 45% stability lift, 8 enterprise customers in 90 days. [H-BATCHSHIFT]
@@ -83,8 +87,10 @@ PART B — POSITIONING STRATEGY (new — used to drive both resume and CL)
    Determines which master prompt (PM vs non-PM) drives bullet selection.
    role_family: one of:
      "pm"                  — Product Manager, Technical PM, Growth PM, APM
-     "strategy-consulting" — Management Consulting, Corporate Strategy, BD/Strategy
-   "ops-execution"       — S&O, PgM, RevOps, GTM, Biz Ops, Technical PgM, Operations
+     "strategy-consulting" — Strategy/consulting-led non-PM roles where recommendations,
+                             analysis, or commercial judgment are the dominant signal
+     "ops-execution"       — S&O, BizOps, RevOps, GTM Ops, client implementation,
+                             Technical PgM, program, or operations roles
 
    TITLE PRIORITY RULE:
    If the exact role title contains "Product Manager", "Product Management",
@@ -115,25 +121,41 @@ PART B — POSITIONING STRATEGY (new — used to drive both resume and CL)
 9B. NON-PM SUBTYPE — for non-PM roles only, which flavor of non-PM role is this?
    Use this only when role_family != "pm". If role_family = "pm", set to "".
    nonpm_subtype: one of:
-     "strategy-bizops"              — business planning, internal strategy, corp strategy,
-                                      bizops, S&O roles centered on recommendations and
-                                      operating-model choices
-     "research-intelligence"        — market research, competitive intelligence, insights,
-                                      analyst, diligence, trend/segment synthesis
-     "client-facing-implementation" — implementation, customer strategy, solutions, client
-                                      success, professional services, rollout/adoption work
-     "ops-execution"                — program management, delivery, operations, governance,
-                                      execution-heavy roles
+     "strategy-consulting"    — management consulting, corp strategy, internal strategy,
+                                diligence, recommendation-heavy planning roles
+     "bizops-sando"           — bizops / S&O / planning roles centered on operating choices,
+                                KPI management, operating cadence, or cross-functional business
+                                decisions
+     "commercial-gtm"         — commercial strategy, GTM, revenue operations, growth strategy,
+                                monetization, segmentation, or pipeline/ICP diagnosis
+     "research-intelligence"  — market research, competitive intelligence, insights,
+                                analyst, diligence, trend/segment synthesis
+     "ai-automation"          — AI workflow redesign, automation strategy, internal tools,
+                                human-in-the-loop systems, process transformation using AI
+     "client-implementation"  — implementation, customer strategy, solutions, client
+                                success, professional services, rollout/adoption work
+     "ops-pgm"                — program management, delivery, operations, governance,
+                                execution-heavy roles
 
    Distinguish carefully:
-   - Choose "strategy-bizops" when the job asks for recommendations, planning,
-     business cases, executive synthesis, or internal operating choices.
+   - Choose "strategy-consulting" when the job asks for recommendations,
+     planning, diligence, business cases, executive synthesis, or internal
+     strategic choices where recommendation quality is the core output.
+   - Choose "bizops-sando" when the role is internal business operations or
+     strategy & operations work with operating cadence, KPI review, planning, or
+     operating-model decisions as the main ask.
+   - Choose "commercial-gtm" when the role centers on revenue, GTM, customer
+     segments, funnel diagnosis, pipeline quality, pricing, packaging, or
+     market-facing growth choices.
    - Choose "research-intelligence" when the primary deliverable is diagnosis,
      market/competitive synthesis, trend spotting, or insight generation.
-   - Choose "client-facing-implementation" when the work centers on translating
+   - Choose "ai-automation" when the role is explicitly about redesigning a
+     workflow or function around AI, automation, or internal tooling rather than
+     pure product ownership.
+   - Choose "client-implementation" when the work centers on translating
      needs for external/internal clients, implementation sequencing, adoption,
      rollout, or service delivery.
-   - Choose "ops-execution" when the core ask is throughput, governance,
+   - Choose "ops-pgm" when the core ask is throughput, governance,
      cross-functional delivery, PMO/PgM, milestones, or execution rigor.
 
 9C. BULLET BALANCE — what should the non-PM resume feel like?
@@ -144,11 +166,35 @@ PART B — POSITIONING STRATEGY (new — used to drive both resume and CL)
      "action-heavy"     — operations, program, delivery, execution-heavy roles
 
    Calibration:
-   - diagnostic-heavy: the strongest bullets should lead with diagnosis, synthesis,
-     corrected assumptions, or insight generation.
-   - balanced: mix insight-led and action-led bullets evenly; no consulting filler.
-   - action-heavy: lead with delivery ownership, operating cadence, governance,
+  - diagnostic-heavy: the strongest bullets should lead with diagnosis, synthesis,
+    corrected assumptions, workflow diagnosis, or insight generation.
+  - balanced: mix insight-led and action-led bullets evenly; no consulting filler.
+  - action-heavy: lead with delivery ownership, operating cadence, governance,
      implementation, or measurable execution outcomes.
+
+9D. NON-ENGINEERING PROOF — should founder / L'Oréal / USC proof appear as
+    first-class resume evidence in SECTION 3B?
+    Use this only when role_family != "pm". If role_family = "pm", set both to "".
+    nonpm_proof_signal: one of:
+      "omit"            — keep the resume on the 11-slot experience spine only
+      "founder"         — surface founder-advisory proof
+      "loreal"          — surface L'Oréal workflow / GenAI proof
+      "grab"            — surface USC / Grab mobility proof
+      "founder+loreal"  — use 2 proof bullets because both materially sharpen identity
+
+    Distinguish carefully:
+    - Choose "omit" for most bizops-sando, client-implementation, and ops-pgm roles
+      unless the core experience still reads too engineering-heavy.
+    - Choose "founder" when strategy-consulting or commercial-gtm roles need
+      explicit non-engineering strategy or market-positioning proof.
+    - Choose "loreal" when ai-automation, research-intelligence, or strategy roles
+      need workflow redesign / executive recommendation proof.
+    - Choose "grab" only when the JD clearly values mobility, safety design,
+      service design, or USC project relevance.
+    - Choose "founder+loreal" sparingly, only when both add distinct signal and
+      the resume still feels coherent.
+
+    nonpm_proof_reasoning: one sentence
 
 10. RESUME FRAMING AXES — which variant framing themes should drive bullet selection?
     primary_framing_axis: the dominant theme for most bullets. Pick the label
@@ -219,6 +265,8 @@ No explanations outside the JSON fields.
   "role_family": "",
   "nonpm_subtype": "",
   "bullet_balance": "",
+  "nonpm_proof_signal": "",
+  "nonpm_proof_reasoning": "",
   "primary_framing_axis": "",
   "secondary_framing_axis": "",
   "first_90_day_bet": "",

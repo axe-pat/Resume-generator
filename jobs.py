@@ -437,20 +437,31 @@ def _intel_text(notes: str, url: str = "", fit_score: str = "") -> str:
     return "\n".join(parts).strip()
 
 
-def _resolve_generate_target(df: pd.DataFrame, company_name: str) -> dict:
+def _resolve_generate_target(df: pd.DataFrame, company_name: str | None = None, row_id: str | None = None) -> dict:
     """
-    Resolve a requested company name into a generate target dict.
-    Accepts exact company-name matches from xlsx and falls back to an apps/ slug.
-    If the app dir is missing but the xlsx row exists, generate will recreate it.
+    Resolve a requested xlsx row or company name into a generate target dict.
+    Prefers folder_path when present so run-folder-native generation works.
     """
-    company_name = company_name.strip()
-    if not company_name:
-        raise ValueError("empty company name")
+    if row_id is not None:
+        row_id = str(row_id).strip()
+        if not row_id:
+            raise ValueError("empty row id")
+        _mask = df["id"].astype(str) == row_id
+        if not _mask.any():
+            raise ValueError(f"row id '{row_id}' not found in jobs.xlsx")
+        _row = df[_mask].iloc[0]
+        company_name = str(_row.get("company") or "").strip()
+        if not company_name:
+            raise ValueError(f"row id '{row_id}' has no company name")
+    else:
+        company_name = (company_name or "").strip()
+        if not company_name:
+            raise ValueError("empty company name")
+        _mask = df["company"].str.lower() == company_name.lower()
+        _row = df[_mask].iloc[0] if _mask.any() else None
 
     slug = _dir_slug(company_name)
     app_dir = APPS_DIR / slug
-    _mask = df["company"].str.lower() == company_name.lower()
-    _row = df[_mask].iloc[0] if _mask.any() else None
 
     stored_folder_path = Path(str(_row.get("folder_path", "")).strip()) if _row is not None and str(_row.get("folder_path", "")).strip() else None
     if stored_folder_path:
@@ -469,7 +480,7 @@ def _resolve_generate_target(df: pd.DataFrame, company_name: str) -> dict:
         if matches:
             app_dir = matches[0]
         else:
-            if not _mask.any():
+            if _row is None:
                 raise ValueError(
                     f"'{company_name}' not found in jobs.xlsx and no app dir exists at {app_dir}"
                 )
@@ -695,7 +706,22 @@ def cmd_generate(args, promoted_jobs: list[dict] | None = None) -> list[dict]:
         with XlsxLock():
             df = load_jobs()
 
-        if hasattr(args, "company") and args.company:
+        if getattr(args, "id", None):
+            ids = [value.strip() for value in args.id.split(",") if value.strip()]
+            if not ids:
+                sys.exit("[ERROR] --id requires at least one non-empty row id")
+            targets = []
+            seen = set()
+            for row_id in ids:
+                if row_id in seen:
+                    print(c(YELLOW, f"  [i] Duplicate row id '{row_id}' in --id — skipping duplicate"))
+                    continue
+                seen.add(row_id)
+                try:
+                    targets.append(_resolve_generate_target(df, row_id=row_id))
+                except ValueError as e:
+                    sys.exit(f"[ERROR] {e}")
+        elif hasattr(args, "company") and args.company:
             targets = [_resolve_generate_target(df, args.company)]
         elif getattr(args, "companies", None):
             names = [name.strip() for name in args.companies.split(",") if name.strip()]
@@ -858,7 +884,9 @@ def cmd_generate(args, promoted_jobs: list[dict] | None = None) -> list[dict]:
         cmd = [
             sys.executable,
             str(ROOT_DIR / "run_app.py"),
-            app_dir.name,
+            company,
+            "--app-dir",
+            str(app_dir),
             "--no-color",
         ] + job_flags
 
@@ -1244,6 +1272,7 @@ def main():
     # ── generate ──────────────────────────────────────────────────────────────
     p_gen = sub.add_parser("generate", help="Run run_app.py for promoted jobs")
     g = p_gen.add_mutually_exclusive_group(required=True)
+    g.add_argument("--id",           type=str,  help="Comma-separated row IDs")
     g.add_argument("--company",      type=str,  help="Single company name")
     g.add_argument("--companies",    type=str,
                    help="Comma-separated company names (e.g. Flexera,Lennox,Risepoint)")

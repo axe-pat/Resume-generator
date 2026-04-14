@@ -115,8 +115,25 @@ def _write_job_dir(base_dir: Path, rank: int, row: dict, origin_runs: list[str],
         "url": metadata["url"],
         "origin_runs": origin_runs,
         "bundle_dir": str(role_dir),
+        "folder_path": str(role_dir),
         "reason": reason,
     }
+
+
+def _update_folder_paths(entries: list[dict]) -> None:
+    if not entries:
+        return
+    df = pd.read_excel(JOBS_XLSX, sheet_name="Jobs", dtype=str).fillna("")
+    for entry in entries:
+        row_id = str(entry.get("id") or "").strip()
+        folder_path = str(entry.get("folder_path") or "").strip()
+        if not row_id or not folder_path:
+            continue
+        mask = df["id"].astype(str) == row_id
+        if mask.any():
+            df.loc[mask, "folder_path"] = folder_path
+    with pd.ExcelWriter(JOBS_XLSX, engine="openpyxl", mode="a", if_sheet_exists="replace") as writer:
+        df.to_excel(writer, sheet_name="Jobs", index=False)
 
 
 def main() -> int:
@@ -161,6 +178,8 @@ def main() -> int:
             _write_job_dir(ready_dir, len(ready_entries) + 1, row, runs, "ready")
         )
 
+    _update_folder_paths(ready_entries)
+
     companies_to_generate = [
         entry["company"]
         for entry in ready_entries
@@ -198,8 +217,11 @@ def main() -> int:
         "",
     ]
     for company in companies_to_generate:
+        entry = next((item for item in ready_entries if item["company"] == company and str(item.get("status") or "").lower() != "generated"), None)
+        if not entry:
+            continue
         script_lines.append(
-            f"./venv/bin/python jobs.py --no-color generate --company {shlex.quote(company)}"
+            f"./venv/bin/python jobs.py --no-color generate --id {shlex.quote(str(entry['id']))}"
         )
     command_sh.write_text("\n".join(script_lines) + "\n", encoding="utf-8")
     command_sh.chmod(0o755)

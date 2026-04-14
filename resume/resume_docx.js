@@ -3,7 +3,7 @@
  * resume_docx.js — Generate a formatted resume .docx from structured data
  * Matches reference styling: Times New Roman, justified bullets, Symbol bullets
  * Usage: node resume_docx.js <input.json>
- * Input JSON: { company_blocks, skills_rows, professional_summary, output_path }
+ * Input JSON: { company_blocks, project_rows, skills_rows, professional_summary, output_path }
  */
 
 const path = require('path');
@@ -261,6 +261,15 @@ function buildResume(data) {
     children.push(subtitleLine(meta.title));
     for (const bt of block.bullets) {
       children.push(textBullet(bt));
+    }
+  }
+
+  // ── PROJECTS & CONSULTING (optional, primarily for non-PM routes) ───────
+  if (Array.isArray(data.project_rows) && data.project_rows.length > 0) {
+    children.push(sectionHeader('PROJECTS & CONSULTING'));
+    for (const row of data.project_rows) {
+      if (!row || !row.trim()) continue;
+      children.push(textBullet(row.trim()));
     }
   }
 

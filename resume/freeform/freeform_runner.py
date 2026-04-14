@@ -407,10 +407,12 @@ def extract_sections(response: str) -> dict:
     """
     Parse the required sections from model output.
     Returns dict with keys: signals, selection_notes, summary_section,
-                            experience_section, skills_section, raw.
+                            experience_section, projects_section,
+                            skills_section, raw.
     """
     result = {"signals": "", "selection_notes": "", "summary_section": "",
-              "experience_section": "", "skills_section": "", "raw": response}
+              "experience_section": "", "projects_section": "",
+              "skills_section": "", "raw": response}
 
     # Section 1
     m = re.search(r"SECTION 1[^\n]*\n(.*?)(?=SECTION 2|\Z)", response, re.S | re.I)
@@ -430,11 +432,22 @@ def extract_sections(response: str) -> dict:
     if m:
         result["summary_section"] = _sanitize_summary_section(m.group(1))
 
-    # Section 3 — from GOJEK header up to (but not including) SKILLS & INTERESTS or Section 4
-    m = re.search(r"(GOJEK \| Senior Software Engineer.*?)(?=\nSKILLS & INTERESTS|\nSECTION 4|\Z)",
+    # Section 3 — from GOJEK header up to the optional Projects section or Skills section.
+    m = re.search(
+        r"(GOJEK \| Senior Software Engineer.*?)(?=\nSECTION 3B|\nPROJECTS & CONSULTING|\nSKILLS & INTERESTS|\nSECTION 4|\Z)",
                   response, re.S | re.I)
     if m:
         result["experience_section"] = m.group(1).strip()
+
+    # Section 3B — optional Projects & Consulting block (non-PM routes only).
+    m = re.search(
+        r"SECTION 3B[^\n]*\n[─═\-=\u2500-\u257F]*\n?"
+        r"(PROJECTS & CONSULTING.*?)(?=\nSECTION 4|\Z)",
+        response,
+        re.S | re.I,
+    )
+    if m:
+        result["projects_section"] = m.group(1).strip()
 
     # Section 4 — SKILLS & INTERESTS block
     m = re.search(r"(SKILLS & INTERESTS\s*\n\s*●.*)", response, re.S | re.I)
@@ -1201,14 +1214,18 @@ def run_quality_checks(sections: dict, track: str = "pm") -> list[dict]:
                 skills_issues.append("Interests: row missing")
             _nonpm_openers = [
                 "Domain Expertise:",
+                "Operating Focus:",
+                "Commercial Focus:",
                 "Research Focus:",
+                "Workflow & AI Systems:",
                 "Implementation Focus:",
                 "Core Competencies:",
             ]
             if not any(opener in skills for opener in _nonpm_openers):
                 skills_issues.append(
                     "No route opener found — expected one of 'Domain Expertise:', "
-                    "'Research Focus:', 'Implementation Focus:', or "
+                    "'Operating Focus:', 'Commercial Focus:', 'Research Focus:', "
+                    "'Workflow & AI Systems:', 'Implementation Focus:', or "
                     "'Core Competencies:'"
                 )
             if "Product Focus:" in skills:
@@ -1409,6 +1426,12 @@ def save_output(
     lines.append("-" * 72)
     lines.append(sections["experience_section"] or "[not extracted]")
 
+    if sections.get("projects_section"):
+        lines.append("")
+        lines.append("SECTION 3B — PROJECTS & CONSULTING (paste-ready)")
+        lines.append("-" * 72)
+        lines.append(sections["projects_section"])
+
     if sections.get("experience_section_original"):
         lines.append("")
         lines.append("SECTION 3 (PASS 1 — PRE-REWRITE)")
@@ -1587,11 +1610,25 @@ def parse_skills_rows(skills_text: str) -> list:
     return rows
 
 
+def parse_project_rows(projects_text: str) -> list[str]:
+    rows = []
+    for line in projects_text.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.upper().startswith("PROJECTS & CONSULTING"):
+            continue
+        m = re.match(r'^[\u2022\u25cf\-\*●•]\s+(.*)', stripped)
+        if m:
+            rows.append(m.group(1).strip())
+    return rows
+
+
 def _estimate_height(company_blocks: list, skills_rows: list, tier: dict,
-                     summary_text: str = "") -> tuple[int, int]:
+                     summary_text: str = "",
+                     project_rows: list[str] | None = None) -> tuple[int, int]:
     L, SB, SA, MB = tier['line'], tier['sec_before'], tier['sec_after'], tier['margin_bot']
     available = _PAGE_H - _MARGIN_TOP - MB
     total     = 0
+    project_rows = project_rows or []
     total += 320
     total += L + 40
     # Professional summary section (optional — added between contact and EDUCATION)
@@ -1613,6 +1650,11 @@ def _estimate_height(company_blocks: list, skills_rows: list, tier: dict,
         for bullet in block.get('bullets', []):
             n = max(1, _math.ceil(len(bullet) / _CHARS_PER_LINE))
             total += n * L
+    if project_rows:
+        total += SB + L + SA
+        for bullet in project_rows:
+            n = max(1, _math.ceil(len(bullet) / _CHARS_PER_LINE))
+            total += n * L
     total += SB + L + SA
     for row in skills_rows:
         label    = (row.get('bold_label') or '')
@@ -1624,15 +1666,16 @@ def _estimate_height(company_blocks: list, skills_rows: list, tier: dict,
 
 
 def _choose_layout_tier(company_blocks: list, skills_rows: list,
-                        summary_text: str = "") -> tuple[dict, int, int]:
+                        summary_text: str = "",
+                        project_rows: list[str] | None = None) -> tuple[dict, int, int]:
     for tier in _LAYOUT_TIERS:
-        est, avail = _estimate_height(company_blocks, skills_rows, tier, summary_text)
+        est, avail = _estimate_height(company_blocks, skills_rows, tier, summary_text, project_rows)
         if est <= avail - _LAYOUT_BUFFER:
             return tier, est, avail
     # All tiers overflow — use T3 (tightest) and print a clear warning.
     # This usually means 2+ bullets are 300+ chars and should be trimmed.
     last       = _LAYOUT_TIERS[-1]
-    est, avail = _estimate_height(company_blocks, skills_rows, last, summary_text)
+    est, avail = _estimate_height(company_blocks, skills_rows, last, summary_text, project_rows)
     overage    = est - avail
     print(c(YELLOW,
             f"  [!] PAGE OVERFLOW WARNING: estimated content ({est} twips) exceeds "
@@ -1645,6 +1688,7 @@ def _estimate_page_fill(
     experience_section: str,
     skills_section: str,
     summary_text: str = "",
+    projects_section: str = "",
 ) -> tuple[float, int, str] | None:
     """
     Quick layout estimate without generating a docx.
@@ -1654,9 +1698,12 @@ def _estimate_page_fill(
     try:
         company_blocks = parse_experience_blocks(experience_section)
         skills_rows    = parse_skills_rows(skills_section)
+        project_rows   = parse_project_rows(projects_section)
         if not company_blocks:
             return None
-        tier, est_dxa, avail_dxa = _choose_layout_tier(company_blocks, skills_rows, summary_text)
+        tier, est_dxa, avail_dxa = _choose_layout_tier(
+            company_blocks, skills_rows, summary_text, project_rows
+        )
         fill_pct = 100.0 * est_dxa / avail_dxa
         spare_lines = max(0, round((avail_dxa - est_dxa) / tier['line']))
         _sparse = sorted(company_blocks, key=lambda b: sum(len(x) for x in b.get('bullets', [])))
@@ -1720,6 +1767,7 @@ def run_expansion_pass(
     strategy_block: str,
     model: str,
     summary_text: str = "",
+    projects_section: str = "",
 ) -> tuple[str, str]:
     """
     Expansion pass — triggered when the page is <85% full after all other passes.
@@ -1727,7 +1775,9 @@ def run_expansion_pass(
     Returns (expanded_experience_section, expansion_log_text).
     Falls back to (original, "") on any failure.
     """
-    result = _estimate_page_fill(experience_section, skills_section, summary_text)
+    result = _estimate_page_fill(
+        experience_section, skills_section, summary_text, projects_section
+    )
     if result is None:
         return experience_section, ""
     fill_pct, spare_lines, sparse_company = result
@@ -1778,7 +1828,7 @@ def run_expansion_pass(
         expansion_log = m_log.group(1).strip()
 
     # Estimate new fill after expansion
-    result2 = _estimate_page_fill(revised, skills_section, summary_text)
+    result2 = _estimate_page_fill(revised, skills_section, summary_text, projects_section)
     if result2:
         new_fill, new_spare, _ = result2
         if new_fill > 105.0:
@@ -1806,6 +1856,7 @@ def generate_docx(
 
     company_blocks = parse_experience_blocks(sections["experience_section"])
     skills_rows    = parse_skills_rows(sections["skills_section"])
+    project_rows   = parse_project_rows(sections.get("projects_section", ""))
 
     if not company_blocks:
         print(c(YELLOW, "  [!] Could not parse company blocks — skipping docx generation."))
@@ -1819,7 +1870,9 @@ def generate_docx(
     output_path = docx_dir / f"{today}_{slug}{score_tag}.docx"
 
     summary_text = sections.get("summary_section", "")
-    tier, est_dxa, avail_dxa = _choose_layout_tier(company_blocks, skills_rows, summary_text)
+    tier, est_dxa, avail_dxa = _choose_layout_tier(
+        company_blocks, skills_rows, summary_text, project_rows
+    )
 
     # ── Auto-trim: if T3 still overflows, drop the Interests row ─────────────
     # The Interests row is typically ~80 chars and saves ~1 line (~200 DXA at T3).
@@ -1829,8 +1882,9 @@ def generate_docx(
         skills_rows_trimmed = [r for r in skills_rows
                                if not (r.get('bold_label') or '').lower().startswith('interest')]
         if len(skills_rows_trimmed) < len(skills_rows):
-            tier2, est2, avail2 = _choose_layout_tier(company_blocks, skills_rows_trimmed,
-                                                      summary_text)
+            tier2, est2, avail2 = _choose_layout_tier(
+                company_blocks, skills_rows_trimmed, summary_text, project_rows
+            )
             if est2 <= avail2:
                 skills_rows = skills_rows_trimmed
                 tier, est_dxa, avail_dxa = tier2, est2, avail2
@@ -1868,6 +1922,7 @@ def generate_docx(
     }
     payload = {
         "company_blocks":         company_blocks,
+        "project_rows":           project_rows,
         "skills_rows":            skills_rows,
         "professional_summary":   sections.get("summary_section", ""),
         "summary_section_header": _SUMMARY_HEADERS.get(track, "PROFESSIONAL EXPERIENCE"),
@@ -1965,16 +2020,37 @@ Adjust archetype evaluation accordingly:
 • Read the strategy block for "Non-PM subtype" and "Bullet balance" and score
   against that route, not against generic PM instincts.
 • Non-PM subtypes matter:
-  - strategy-bizops: recommendations, business cases, operating-model choices
+  - strategy-consulting: recommendations, diligence, business cases, executive synthesis
+  - bizops-sando: operating cadence, KPI management, planning, internal business decisions
+  - commercial-gtm: segmentation, GTM diagnosis, revenue strategy, monetization, ICP work
   - research-intelligence: synthesis, market diagnosis, competitive insight
-  - client-facing-implementation: rollout, adoption, implementation sequencing,
+  - ai-automation: workflow redesign, AI tooling choices, automation operating model
+  - client-implementation: rollout, adoption, implementation sequencing,
     translating stakeholder needs into delivered change
-  - ops-execution: governance, milestones, throughput, cross-functional delivery
+  - ops-pgm: governance, milestones, throughput, cross-functional delivery
+• Score route identity, not just sentence polish. The clearest 3–4 bullets should
+  match the route's expected anchor family:
+  - strategy-consulting: G2 / H1 / I2 / O1 (+ H2 or founder proof when present)
+  - bizops-sando: G1 / H3 / I2 / I1
+  - commercial-gtm: G2 plus O1 / G3 / I1
+  - research-intelligence: G2 / G3 / H2 / I1
+  - ai-automation: O2 / H2 plus workflow evidence such as L'Oréal proof, G3, or I2
+  - client-implementation: H3 / I3 / O1 / G1
+  - ops-pgm: G1 / H3 / I2 / I3
+• If the route says Commercial, Research, Strategy, or AI-Automation but the
+  strongest bullets still read mainly like enterprise engineering delivery,
+  score holistic fit down even if the prose is polished.
 • Penalize generic consulting language when it lacks a named method, operating
   choice, research technique, implementation constraint, or concrete outcome.
 • Metric expectations may differ: transformation language ("future-state",
   "operating model") is acceptable only when paired with a visible method or
   decision. Empty strategy filler should still score down.
+• Structural penalties to apply at the section level:
+  - D_EXCESS: if diagnostic total exceeds route ceiling (Strategy >5, BizOps/others >4,
+    Research >6), deduct -0.3 from holistic score.
+  - C_MISSING: if context-first total = 0 across all 11 bullets, deduct -0.3.
+  - I_MISSING: if impact-first total = 0 across all 11 bullets, deduct -0.3.
+  These stack with MONOTONY (-0.5) and ACTION_COUNT_LOW penalties.
 • All other scoring criteria (mechanism visibility, attribution accuracy,
   metric placement, no forbidden words, register) apply unchanged.
 """
@@ -1983,14 +2059,26 @@ ROLE TRACK CONTEXT — NON-PM RESUME (Strategy / Research / Client Implementatio
 This is NOT a PM resume rewrite. Preserve the non-PM route signaled in the strategy
 block, especially any "Non-PM subtype" and "Bullet balance" fields.
 Hard guidance:
-• strategy-bizops bullets should sound recommendation-ready, not product-manager-ish.
+• strategy-consulting bullets should sound recommendation-ready, not product-manager-ish.
+• bizops-sando bullets should foreground operating cadence, prioritization logic,
+  KPI ownership, and business decision quality rather than generic "strategy" filler.
+• commercial-gtm bullets should foreground segmentation, GTM diagnosis, funnel or
+  monetization logic, and commercial hypothesis quality.
 • research-intelligence bullets should foreground synthesis, diagnosis, and named
   research/analysis methods; avoid generic ops language.
-• client-facing-implementation bullets should foreground rollout, adoption,
+• ai-automation bullets should foreground workflow redesign, AI operating choices,
+  automation constraints, adoption logic, and human-in-the-loop judgment.
+• client-implementation bullets should foreground rollout, adoption,
   sequencing, stakeholder translation, and delivery under real constraints.
-• ops-execution bullets should foreground governance, execution, throughput, and
+• ops-pgm bullets should foreground governance, execution, throughput, and
   ownership; avoid bland consulting abstractions.
 • Do NOT flatten everything into generic "strategy / ops / stakeholder" wording.
+• Preserve the anchor hierarchy chosen in Pass 1. Let the route-native anchor
+  bullets carry the identity; do not inflate supporting bullets into pseudo-
+  consulting centerpieces.
+• For Strategy / Commercial / Research / AI-Automation routes, do NOT let
+  G1 / H1 / H3 / I3 drift into dominant identity bullets unless Pass 1 clearly
+  selected them as anchors for the route.
 • If you change an opener, keep the bullet aligned to the route's intended balance:
   diagnostic-heavy, balanced, or action-heavy as indicated by the strategy block.
 • Contrast phrase cap remains in force during rewrite: keep at most ONE contrast
@@ -2333,8 +2421,9 @@ Hard guidance:
     # ── Expansion pass (runs only when docx requested + page < 85% full) ──────
     if make_docx:
         _summary = sections.get("summary_section", "")
+        _projects = sections.get("projects_section", "")
         _fill_result = _estimate_page_fill(
-            sections["experience_section"], sections["skills_section"], _summary,
+            sections["experience_section"], sections["skills_section"], _summary, _projects,
         )
         if _fill_result and _fill_result[0] < 85.0:
             _exp_section, _exp_log = run_expansion_pass(
@@ -2342,6 +2431,7 @@ Hard guidance:
                 sections["skills_section"],
                 jd_text, strategy_block, model,
                 summary_text=_summary,
+                projects_section=_projects,
             )
             if _exp_section != sections["experience_section"]:
                 sections["experience_section"] = _exp_section
