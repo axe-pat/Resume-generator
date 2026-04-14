@@ -148,6 +148,45 @@ Recommended staged pattern for reliability:
 - Replay scoring later with `--score-from-raw ...`
 - If scoring fails, rerun scoring from the raw artifact instead of redoing LinkedIn extraction
 
+### Queue / apply surfaces
+
+Current steady-state structure:
+- `apps/runs/current_apply_queue/` = only live apply inbox
+- `apps/runs/forgotten_queue/` = older manual leftovers and future aged-out items
+- `apps/archive/discovery_runs/` = immutable discovery history
+- `apps/archive/applied/` = jobs treated as applied
+
+Useful maintenance commands:
+
+```bash
+# Mark any folder containing Resume.pdf as applied, update jobs.xlsx, and archive it
+python discovery/scripts/sync_applied_pdfs.py
+
+# Rebuild the single live apply inbox from jobs.xlsx
+python discovery/scripts/refresh_current_apply_queue.py
+
+# Move leftover manual dirs and 10-day-old queue items into forgotten_queue
+python discovery/scripts/refresh_forgotten_queue.py
+
+# One-time cleanup helper to archive redundant old surfaces
+python discovery/scripts/consolidate_apply_surfaces.py
+```
+
+Recommended post-apply rhythm:
+
+```bash
+python discovery/scripts/sync_applied_pdfs.py
+python discovery/scripts/refresh_current_apply_queue.py
+python discovery/scripts/refresh_forgotten_queue.py
+```
+
+Recommended post-discovery rhythm:
+
+```bash
+python discovery/scripts/refresh_current_apply_queue.py
+python discovery/scripts/refresh_forgotten_queue.py
+```
+
 ### JD fetch / retry
 
 For xlsx rows with no JD text (typically screenshot-sourced jobs that couldn't be found within the original 168h window):
