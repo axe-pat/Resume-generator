@@ -48,13 +48,23 @@ FIRST-CLASS NON-PM PROOF UNITS (for optional SECTION 3B — PROJECTS & CONSULTIN
   strategy; benchmarked competitors, clarified target customers, and refined
   the go-to-market plan ahead of acquisition."
 
+  P-FOUNDER [segment-prioritization]
+  "Advised a cloud startup founder on which customer segments to prioritize
+  first; benchmarked competitors, clarified target customers, and sequenced
+  the go-to-market plan ahead of acquisition."
+
   P-LOREAL [workflow-diagnostic]
   "Mapped creative workflow bottlenecks across 2 L'Oréal business units;
   translated them into 3 GenAI automation recommendations for executive review."
 
   P-LOREAL [ai-automation]
   "Mapped GenAI use cases across 2 L'Oréal business units; prioritized 3
-  workflow-automation recommendations for executive review."
+  automation recommendations for executive review."
+
+  P-LOREAL [evaluation-framework]
+  "Mapped creative workflows across 2 L'Oréal business units and built a
+  framework to evaluate GenAI tools, prioritizing 3 automation
+  recommendations for executive review."
 
   P-GRAB [mobility-safety]
   "Translated rider-safety and operating constraints for Grab shuttle concepts
@@ -73,6 +83,22 @@ Rules for using proof units:
   • Include at most 2 proof bullets total in Section 3B.
   • If a proof unit appears in Section 3B, do NOT duplicate it as a Strategy
     Project row in Section 4.
+
+MISSING-PROOF OVERRIDES — use when the JD's top signals are not fully covered
+by the default company spine:
+  • For Commercial/GTM roles, prefer variants that name:
+    segment choice, targeting logic, buyer objections, commercial
+    recommendations, or GTM decision artifacts.
+    When two variants are similarly strong, prefer the one that names the
+    decision artifact or go-to-market move explicitly rather than stopping at
+    diagnosis.
+  • For AI-Automation roles, prefer variants that name:
+    workflow mapping, evaluation criteria, recommendation briefs, adoption
+    constraints, operator trust logic, or pilot design.
+    When two variants are similarly strong, prefer the one that names the
+    workflow artifact, evaluation lens, or recommendation output explicitly.
+  • Section 3B may reinforce these signals, but the main Section 3 experience
+    bullets must still carry them.
 
 ──────────────────────────────────────────────────────────────────────────────
 HARD RULES FOR VARIANT SELECTION
@@ -272,10 +298,12 @@ ROUTE ANCHOR POLICY — THIS OVERRIDES LEGACY INLINE LABELS BELOW:
   2 or fewer.
 
   Route 1 — Strategy/Consulting
-    Anchors: G2, H1, I2, O1
-    Secondary anchors: H2 or P-FOUNDER
+    Anchors: G2, H1, I1, O1
+    Secondary anchors: G3 or I3
+    Optional supporting proof: P-FOUNDER only when the strategy block
+    explicitly says to surface founder/consulting proof
     Interpretation: the resume should read recommendation-ready, diagnosis-first,
-    and operating-model aware. G2/H1/I2 should do most of the identity work.
+    and operating-model aware. G2/H1/I1 should do most of the identity work.
 
   Route 2 — BizOps/S&O
     Anchors: G1, H3, I2, I1
@@ -284,22 +312,28 @@ ROUTE ANCHOR POLICY — THIS OVERRIDES LEGACY INLINE LABELS BELOW:
     and prioritization logic led by someone who can still diagnose root causes.
 
   Route 3 — Commercial/GTM
-    Anchors: G2 (mandatory), O1, I1
-    Secondary anchor: G3
-    Optional non-engineering anchor: P-FOUNDER only when the strategy block
+    Anchors: G2 (mandatory), I1, O1
+    Secondary anchors: G3 or H1
+    Optional supporting proof: P-FOUNDER only when the strategy block
     explicitly says to surface founder/commercial proof
+    Support-only defaults when not anchors: G1, H3, I2, I3
     Interpretation: the resume should read market-facing, segmented, and
     commercial, not generic strategy in engineering clothes.
 
   Route 4 — Research/Intelligence
     Anchors: G2, G3, H2, I1
-    Secondary anchor: H1 or P-LOREAL
+    Secondary anchor: H1 or I3
+    Optional supporting proof: P-LOREAL only when the strategy block
+    explicitly says workflow-research or AI-tool evaluation proof matters
     Interpretation: at least two anchor bullets should name a real research or
     analysis method; this route should feel synthesis-led, not execution-led.
 
   Route 5 — AI-Automation
-    Anchors: O2 (mandatory), H2, G3 or I2
-    Default non-engineering anchor: P-LOREAL
+    Anchors: O2 (mandatory), H2, H1 or G3
+    Secondary anchor: I3
+    Optional supporting proof: P-LOREAL only when the strategy block
+    explicitly says workflow/GenAI proof should be surfaced
+    Support-only defaults when not anchors: G1, H3, O1, I3
     Interpretation: the resume should read like workflow redesign and automation
     judgment, not generic AI enthusiasm or generic PM language.
 
@@ -320,19 +354,29 @@ ROUTE ANCHOR POLICY — THIS OVERRIDES LEGACY INLINE LABELS BELOW:
       become anchors even if they are not listed above.
     • Route 3 Commercial/GTM must make G2 one of the strongest bullets by
       method/detail. Do NOT let G1 or H1 dominate the commercial identity.
+    • Route 3 Commercial/GTM must include at least 1 anchor bullet that
+      explicitly names a target segment, buyer-signoff blocker, commercial
+      recommendation, or prioritization artifact. If the selected anchors do not
+      do this, recalibrate before finalizing.
     • Route 4 Research/Intelligence must anchor at least 2 of G2/G3/H2/I1 in
       clearly diagnostic or research-method variants.
     • Route 5 AI-Automation must anchor O2 and H2. If those bullets are not
-      among the clearest in the section, recalibrate before finalizing.
+      among the clearest in the section, recalibrate before finalizing. H1, G3,
+      or I3 must carry the translation/recommendation layer in the main section;
+      do not rely on Section 3B to do that job.
+    • Route 5 AI-Automation must include at least 1 main-section bullet that
+      explicitly names a workflow-mapping, evaluation, recommendation, or
+      adoption artifact. If the section only signals AI through O2, it is
+      underpowered for this route.
     • Routes 1 / 3 / 4 / 5 may have at most 2 clearly engineering-surface
       bullets doing anchor duty. The rest of the anchor set must read as
       strategy, commercial, research, workflow, or operating proof.
 
   ROUTE EVIDENCE-MIX CHECKS:
     • Route 1 Strategy/Consulting:
-      At least 3 of the 5 strongest bullets should come from G2 / H1 / I2 / O1
-      plus optional H2 or P-FOUNDER. G1 and H3 may appear, but they should not
-      define the resume's identity unless the strategy block explicitly says so.
+      At least 3 of the 5 strongest bullets should come from G2 / H1 / I1 / O1
+      plus optional G3 or I3. G1 and H3 may appear, but they should not define
+      the resume's identity unless the strategy block explicitly says so.
     • Route 2 BizOps/S&O:
       G1 / H3 / I2 / I1 should carry most of the ownership and operating-model
       signal. Diagnostic bullets are good, but at least 3 of these anchors must
@@ -340,19 +384,35 @@ ROUTE ANCHOR POLICY — THIS OVERRIDES LEGACY INLINE LABELS BELOW:
       prioritization, or sequencing.
     • Route 3 Commercial/GTM:
       G2 must be one of the 2 clearest bullets in the entire resume. At least 2
-      of G2 / G3 / O1 / I1 should sit among the 4 strongest bullets. Keep H1 /
-      H3 / I3 concise so the resume does not drift back into enterprise-engineering
-      identity.
+      of G2 / G3 / O1 / I1 should sit among the 4 strongest bullets. Keep H3 /
+      I2 / I3 concise so the resume does not drift back into enterprise-engineering
+      identity. If founder proof is selected in Section 3B, it can strengthen
+      holistic GTM credibility, but it may never substitute for missing main-section
+      commercial proof.
+      At least 1 of G2 / H1 / I1 / I3 should read like a GTM artifact or
+      recommendation, not only a diagnosis.
+      Prefer artifact-forward variants such as G2 target-segment-thesis, H1
+      buyer-signoff-blocker, I1 cancellation-trigger, or I3 account-priority-
+      brief when the JD emphasizes ICP, revenue intelligence, or messaging.
     • Route 4 Research/Intelligence:
       At least 2 of G2 / G3 / H2 / I1 must explicitly name a research, analysis,
       or synthesis method. H3 and I3 may support credibility, but they should
       not become the core identity unless the JD strongly values diligence under
       pressure or incident-risk judgment.
     • Route 5 AI-Automation:
-      O2 and H2 must both read as anchor-quality bullets. Pair them with P-LOREAL
-      by default or with G3 / I2 when the JD values system diagnosis over external
-      proof. At least 2 bullets must explicitly mention workflow, automation logic,
-      pilot design, monitoring, or an AI decision rule.
+      O2 and H2 must both read as anchor-quality bullets. Pair them with H1 / G3 /
+      I3 in the main section so the resume shows workflow diagnosis, translation,
+      and recommendation quality without leaning on Section 3B. At least 2 bullets
+      must explicitly mention workflow, automation logic, pilot design, monitoring,
+      requirements, or an AI decision rule. If P-LOREAL is selected, treat it as
+      supporting proof of hands-on workflow redesign and keep G1 / H3 / O1 visibly
+      secondary.
+      At least 1 of H1 / H2 / I3 must name a recommendation, evaluation, or
+      trust/adoption artifact rather than pure reliability language.
+      Prefer artifact-forward variants such as H2 evaluation-surface, H2
+      trust-surface, I3 executive-recommendation, or O2 pilot-decision-workflow
+      when the JD emphasizes workflow redesign, tool evaluation, or executive
+      recommendation delivery.
     • Route 6 Client-Implementation:
       H3 / I3 / O1 / G1 should carry the strongest delivery, rollout, or adoption
       language. G2 and H2 may appear, but keep them concise unless the JD clearly
@@ -365,12 +425,110 @@ ROUTE ANCHOR POLICY — THIS OVERRIDES LEGACY INLINE LABELS BELOW:
   NON-ANCHOR CALIBRATION:
     • When a slot is not an anchor for the chosen route, choose the most concise
       mechanism-visible variant for that slot.
+    • For Routes 1 / 3 / 4 / 5, if G1 / H3 / I2 / O1 are not anchors, prefer a
+      support-only variant when one is available. Those variants are intentionally
+      shorter and less identity-defining so the core route anchors keep narrative
+      control.
     • Do NOT spray consulting language across every bullet. Let the anchor slots
       do the identity work.
     • If a non-anchor slot starts sounding like filler, shorten the framing and
       keep the mechanism concrete.
     • Supporting bullets should add credible range, not compete with the anchor
       bullets for narrative control.
+
+ROUTE MAIN-SECTION TEMPLATES — HARD:
+  These templates govern what the core 11 experience bullets must accomplish.
+  Section 3B may reinforce identity, but it can never replace missing main-
+  section proof for any route.
+
+  Route 1 — Strategy/Consulting:
+    • Top 6 bullets must include:
+      - 2 diagnosis/reframe anchors from G2 / H1 / G3 / I1
+      - 1 decision / recommendation / business-case bullet from O1 / I3 / G2 / I2
+      - 1 operating-model or sequencing bullet from G1 / I2 / H2 / O1
+    • H3 may appear, but it should not be one of the 4 strongest bullets unless
+      the JD explicitly prioritizes service-ops governance.
+
+  Route 2 — BizOps/S&O:
+    • Top 6 bullets must include:
+      - 2 operating-mechanism bullets from G1 / H3 / I2 / I1
+      - 1 diagnosis bullet from H1 / G2 / I1
+      - 1 throughput / governance / ownership bullet from H3 / I2 / I3
+    • Keep purely commercial anchors to 2 or fewer unless the JD clearly mixes
+      planning with GTM or pricing work.
+
+  Route 3 — Commercial/GTM:
+    • Top 6 bullets must include:
+      - G2 among the top 2 bullets
+      - 1 funnel / buyer-friction anchor from G3 or H1
+      - 1 revenue-quality / expansion / commercial-sizing anchor from I1 or O1
+      - 1 evidence-collection, targeting, or GTM decision artifact bullet from
+        G2 / I1 / H1 / I3
+    • H3 / I2 / I3 combined may occupy at most 1 of the top 6 bullets.
+    • Section 3B may support brand or GTM range, but it cannot substitute for
+      missing main-section commercial proof.
+
+  Route 4 — Research/Intelligence:
+    • Top 6 bullets must include:
+      - 2 research-method anchors from G2 / G3 / H2 / I1
+      - 1 synthesis / recommendation anchor from I3 / O1 / H1
+    • Pure governance or escalation bullets may occupy at most 1 of the top 6.
+
+  Route 5 — AI-Automation:
+    • Top 6 bullets must include:
+      - O2 among the top 2 bullets
+      - 1 workflow visibility / evaluation / requirements anchor from H2 or H1
+      - 1 translation / recommendation / adoption anchor from I3 / G3 / H1 / H2
+      - 1 optional business-case or operating-model anchor from G2 / O1 / G1
+        only if it reinforces the workflow story rather than replacing it
+    • H3 / I2 combined may occupy at most 1 of the top 6 bullets.
+    • Section 3B L'Oréal proof may reinforce workflow credibility, but it cannot
+      substitute for missing core AI/workflow proof in the experience section.
+
+  Route 6 — Client-Implementation:
+    • Top 6 bullets must include:
+      - 2 rollout / remediation / adoption bullets from H3 / I3 / O1 / G1
+      - 1 diagnostic or translation bullet from H1 / G2 / H2
+    • Keep research-heavy bullets to support duty unless the JD explicitly values
+      discovery or implementation design.
+
+  Route 7 — Ops/PgM:
+    • Top 6 bullets must include:
+      - 3 delivery / governance / execution bullets from G1 / H3 / I2 / I3
+      - 1 diagnosis bullet from H1 / G2 / I1
+    • G2 / H2 / O2 combined may occupy at most 2 of the top 6 unless the JD
+      explicitly mixes operations with strategy or AI transformation.
+
+SUPPORT-SLOT SUPPRESSION — especially important for Routes 3 and 5:
+  • Route 3 Commercial/GTM:
+    H3, I2, and I3 may support operating rigor, but they must not occupy more
+    than 1 of the four strongest bullets unless the JD explicitly prioritizes
+    operational SLA / handoff design. If founder proof is selected in Section 3B,
+    keep it visibly supportive; do not let it distract from the commercial core.
+  • Route 5 AI-Automation:
+    G1, H3, O1, and I2 are range proof only unless the strategy block explicitly
+    prioritizes them. They must not outshine O2, H2, H1, G3, or I3.
+    If P-LOREAL is selected, let it reinforce workflow-automation credibility;
+    do not spend prime main-section language on generic governance bullets.
+  • If a support bullet still reads longer, denser, or more route-defining than
+    an anchor bullet, recalibrate before finalizing.
+
+ANTI-DUPLICATION RULES — HARD:
+  • Do not let H3, I2, and I3 collapse into the same "triage / governance /
+    prioritization" shape in one resume. These three slots must read materially
+    different from one another.
+  • If H3 uses a triage / escalation / ownership model, I2 must foreground
+    backlog prioritization or portfolio sequencing logic rather than another
+    near-identical escalation/governance construction.
+  • If I2 is governance-heavy, I3 must remain clearly incident-synthesis /
+    refund-decision / remediation-command proof — never a second throughput or
+    governance bullet in disguise.
+  • For Route 3 Commercial/GTM, H3 and I2 may both appear only if their
+    mechanisms are visibly different and neither reads like one of the resume's
+    strongest four bullets.
+  • For Route 5 AI-Automation, H3 should almost always stay secondary. If H3 is
+    selected, keep I2 concise and let H2 / O2 / P-LOREAL carry the workflow-
+    redesign signal.
 
 ADDITIONAL HARD FLOORS:
   • Diagnostic floor is absolute. No route may output zero diagnostic bullets.
@@ -389,6 +547,8 @@ ADDITIONAL HARD FLOORS:
     funnel analysis, competitive benchmarking, ICP, or monetization design.
   • If the route is AI-Automation, at least 2 bullets must name a workflow,
     automation constraint, AI decision rule, pilot design, or adoption mechanism.
+  • Supporting proof in Section 3B may sharpen the resume's identity, but it can
+    never satisfy a missing main-section requirement for the chosen route.
   • If the route is Client-Facing/Implementation, at least 3 bullets must name a
     rollout / implementation / remediation / adoption mechanism.
   • If the route is Ops/PgM, at least 4 bullets must foreground a delivery,
@@ -427,8 +587,8 @@ CONTRAST PHRASE RULE
 ──────────────────────────────────────────────────────────────────────────────
 Contrast phrases ("not X but Y", "rather than X", "X, not Y") are capped at
 ONE across all 11 bullets. The strongest natural contrast is in H-MONITORING
-("not an engineering-capacity constraint") — reserve it there. Write all other
-bullets without contrast phrases, even in diagnostic-heavy routes.
+if a contrast survives at all — reserve it there. Write all other bullets
+without contrast phrases, even in diagnostic-heavy routes.
 
 To express a diagnostic without a contrast phrase, use:
   "Identified [X] as [root cause]; analyzed [Y] and recommended [Z]"
@@ -446,27 +606,34 @@ G1 — G-SUPPLY (always occupies slot G1)
   [cluster-a — workstream-hypothesis] ★ PRIMARY for consulting/strategy JDs
   "Owned Gojek's supply-expansion workstream; tested whether fragmented transport
   integrations were capping scalability and designed a multi-partner operating
-  model across Singapore and Bali, unlocking 18% more peak-hour supply and
-  supporting ~$110M+ in platform value."
+  model across Singapore and Bali, unlocking 18% more peak-hour supply on a
+  platform generating ~$110M+ annually."
   ~253 chars | opener: "Owned"
 
   [cluster-a — diagnostic-market]
   "Diagnosed fragmented transport integrations as Gojek's peak-hour supply
   constraint; owned the workstream to design a multi-partner operating model
   integrating metro, bus, and private fleets across Singapore and Bali,
-  unlocking 18% more peak-hour supply and ~$110M+ in platform value."
+  unlocking 18% more peak-hour supply on a platform generating ~$110M+
+  annually."
   ~241 chars | opener: "Diagnosed"
 
   [cluster-b — impact-operating-model] ★ PRIMARY for ops/execution JDs
   "Built a multi-partner operating model that integrated metro, bus, and private
   fleets into Gojek's platform across Singapore and Bali, unlocking 18% more
-  peak-hour supply and supporting ~$110M+ in platform value."
+  peak-hour supply on a platform generating ~$110M+ annually."
   ~216 chars | opener: "Built"
+
+  [support-only — route-secondary]
+  "Built a multi-partner operating model across Singapore and Bali, integrating
+  metro, bus, and private fleets to expand peak-hour supply by 18%."
+  ~150 chars | opener: "Built"
 
   [cluster-b — delivery-led]
   "Delivered a multi-partner operating model across Singapore and Bali that
   integrated metro, bus, and private fleets, unlocking 18% more peak-hour
-  driver supply, cutting ETAs by 2 minutes, and supporting ~$110M+ in value."
+  driver supply and cutting ETAs by 2 minutes on a platform generating ~$110M+
+  annually."
   ~226 chars | opener: "Delivered"
 
   ORDERING RULE: G-SUPPLY is always G1. Do not move it.
@@ -478,58 +645,65 @@ G2 — G-PRICING (always occupies slot G2)
   synthesis → recommendation → outcome). Both cluster variants must lead with the
   analytical process, not the outcome. Impact-first openers score WRONG_ARCHETYPE.
 
-  [cluster-a — market-diagnostic] ★ PRIMARY for consulting/strategy JDs
-  "Diagnosed rider willingness-to-pay as a segmentation problem; combined 30+
-  rider interviews with funnel analysis to recommend a segmented pricing
-  strategy, driving a 9% booking lift and $15M+ in value."
-  ~214 chars | opener: "Diagnosed"
-
-  [cluster-a — market-assessment]
-  "Evaluated rider willingness-to-pay across segments; combined competitor
-  benchmarks, 30+ rider interviews, and unit-economics modeling to recommend a
-  segmented pricing strategy, increasing bookings 9% and adding $15M+ in
+  [cluster-a — segmentation-diagnostic] ★ PRIMARY for consulting/strategy JDs
+  "Diagnosed rider willingness-to-pay as a segmentation problem rather than a
+  uniform price ceiling; combined 30+ rider interviews with funnel analysis to
+  define a tiered pricing strategy that lifted bookings 9% and added $15M+ in
   annual value."
-  ~246 chars | opener: "Evaluated"
+  ~258 chars | opener: "Diagnosed"
 
-  [cluster-b — structured-research] ★ PRIMARY for ops/execution JDs
-  "Built the business case for segmented pricing for price-sensitive rider
-  cohorts using 30+ rider interviews and structured A/B tests, lifting booking
-  conversions 9% and driving $15M+ in annual revenue."
-  ~200 chars | opener: "Built" (mechanism leads)
+  [cluster-a — commercial-thesis]
+  "Tested whether weak conversion reflected low demand or a mismatched offer;
+  combined 30+ rider interviews, competitor benchmarks, and unit-economics
+  modeling to recommend a discount tier for price-sensitive riders, lifting
+  bookings 9% and adding $15M+ in annual value."
+  ~278 chars | opener: "Tested"
 
-  [cluster-b — ops-data-driven]
-  "Developed a segmented pricing model for price-sensitive riders using 30+
-  rider interviews and A/B tests, increasing booking conversions 9% and
-  generating $15M+ in additional revenue."
-  ~192 chars | opener: "Developed"
+  [cluster-a — target-segment-thesis]
+  "Identified price-sensitive riders as the highest-conversion segment within
+  Gojek's broader funnel; combined 30+ rider interviews with funnel analysis
+  to define a discount tier, lifting bookings 9% and adding $15M+ in annual
+  value."
+  ~251 chars | opener: "Identified"
+
+  [cluster-b — business-case-anchor] ★ PRIMARY for ops/execution JDs
+  "Built the business case for a discount tier for price-sensitive riders
+  using 30+ rider interviews and structured A/B tests, lifting booking
+  conversions 9% and adding $15M+ in annual value."
+  ~211 chars | opener: "Built" (mechanism leads)
+
+  [cluster-b — thesis-validation]
+  "Validated a discount-tier pricing thesis for price-sensitive riders through
+  30+ rider interviews and structured A/B tests, lifting booking conversions
+  9% and adding $15M+ in annual value."
+  ~207 chars | opener: "Validated"
 
 ──────────────────────────────────────────────────────────────────────────────
 G3 — G-LATENCY (always occupies slot G3)
 
-  [cluster-a — revenue-leakage-diagnostic] ★ PRIMARY for consulting/strategy JDs
-  "Identified fare-quote latency as a conversion leak in Gojek's pricing
-  workflow; analyzed conversion drop-off data to isolate the bottleneck and
-  redesign the quote-generation flow, delivering ~$5M+ in impact through 70%
-  faster quotes."
-  ~252 chars | opener: "Identified" (no contrast phrase — contrast cap preserved for H2)
+  [cluster-a — funnel-diagnostic] ★ PRIMARY for consulting/strategy JDs
+  "Identified fare-quote latency as the binding conversion leak in Gojek's
+  booking funnel; traced pre-payment drop-offs to quote-generation lag and
+  redesigned the pricing handoff, cutting quote times 70% and recovering ~$5M+
+  in annual value."
+  ~258 chars | opener: "Identified"
 
-  [cluster-a — process-diagnostic]
-  "Diagnosed fare-quote latency as Gojek's primary booking bottleneck; mapped
-  the pricing workflow end-to-end and redesigned the quote-generation step,
-  delivering ~$5M+ in impact through 70% faster quotes and 28K additional
-  monthly rides."
-  ~254 chars
+  [cluster-a — workflow-diagnostic]
+  "Mapped Gojek's pricing workflow end-to-end and found quote-generation lag
+  was suppressing conversion; redesigned the slowest step, cutting quote times
+  70% and recovering 28K monthly rides worth ~$5M+ annually."
+  ~236 chars | opener: "Mapped"
 
-  [cluster-b — captured-impact] ★ PRIMARY for ops/execution JDs
-  "Captured ~$5M+ in annual value by diagnosing fare-quote latency as a
-  conversion bottleneck and redesigning the pricing workflow, cutting quote
-  times 70% and enabling 28K additional monthly rides."
-  ~225 chars | opener: "Captured"
+  [cluster-b — conversion-recovery] ★ PRIMARY for ops/execution JDs
+  "Redesigned the pricing workflow after tracing pre-payment drop-offs to
+  quote-generation lag, cutting quote times 70% and recovering 28K monthly
+  rides worth ~$5M+ in annual value."
+  ~201 chars | opener: "Redesigned"
 
-  [cluster-b — delivery-pricing]
-  "Improved pricing-funnel conversion by redesigning quote generation to deliver
-  70% faster fare quotes, reducing booking drop-offs and enabling 28K
-  additional monthly rides worth ~$5M+ in annual value."
+  [cluster-b — pricing-flow-fix]
+  "Improved booking-funnel conversion by removing quote-generation lag from
+  Gojek's pricing flow, cutting quote times 70% and recovering 28K monthly
+  rides worth ~$5M+ in annual value."
   ~194 chars | opener: "Improved"
 
 ──────────────────────────────────────────────────────────────────────────────
@@ -548,33 +722,50 @@ ORDERING RULE — HARD CONSTRAINT:
 ──────────────────────────────────────────────────────────────────────────────
 H1 — H-BATCHSHIFT
 
-  [cluster-a — workstream-future-state] ★ PRIMARY for consulting/strategy JDs
-  "Owned a core workstream in Hevo's enterprise-readiness transformation;
-  diagnosed auditability and observability gaps as blockers to enterprise
-  adoption and defined the future-state platform changes, enabling onboarding
-  of 12 enterprise clients within 90 days."
-  ~234 chars | opener: "Owned a core workstream"
+  [cluster-a — enterprise-deal-blocker] ★ PRIMARY for consulting/strategy JDs
+  "Diagnosed auditability and observability gaps as the main blocker in
+  enterprise trials; translated trial friction into logging and monitoring
+  requirements and reset the enterprise roadmap around them, enabling
+  onboarding of 12 enterprise clients within 90 days."
+  ~249 chars | opener: "Diagnosed"
 
-  [cluster-a — maturity-assessment]
-  "Executed a maturity assessment across 120K+ pipelines to surface
-  auditability and reliability gaps, then prioritized the platform changes
-  that enabled onboarding 12 enterprise clients within 90 days."
-  ~211 chars | opener: "Executed"
+  [cluster-a — buyer-signoff-blocker]
+  "Diagnosed missing auditability as the reason enterprise trials were stalling
+  at signoff; translated evaluation friction into logging and monitoring
+  requirements and reset the roadmap around them, enabling onboarding of 12
+  enterprise clients within 90 days."
+  ~249 chars | opener: "Diagnosed"
 
-  [cluster-b — market-informed-transformation] ★ PRIMARY for ops/execution JDs
-  "Shifted Hevo's execution model toward enterprise-grade auditability and
-  reliability, enabling onboarding of 8 enterprise clients within 90 days."
-  ~174 chars | opener: "Shifted"
+  [cluster-a — trust-infrastructure]
+  "Found that enterprise evaluations were stalling on missing auditability;
+  turned trial feedback and failure analysis into logging and monitoring
+  requirements and reset the enterprise roadmap around them, enabling
+  onboarding of 12 enterprise clients within 90 days."
+  ~262 chars | opener: "Found"
 
-  [cluster-b — enterprise-adoption]
-  "Strengthened platform integrity 45% by prioritizing auditability and
-  observability around enterprise onboarding needs, enabling 8 enterprise
-  clients to go live within 90 days."
-  ~182 chars | opener: "Strengthened"
+  [cluster-a — objection-to-proof-surface]
+  "Found that enterprise trials were stalling on trust; turned buyer objections
+  and failure analysis into logging and monitoring requirements,
+  resetting the roadmap around them and enabling onboarding of 12 enterprise
+  clients within 90 days."
+  ~244 chars | opener: "Found"
 
-  NOTE: 12 clients appears in the maturity-assessment variant (confirmed figure);
-  8 clients appears in the market-informed variants. Both are accurate — use
-  whichever appears in the selected variant. Do NOT mix figures across variants.
+  [cluster-b — enterprise-readiness-shift] ★ PRIMARY for ops/execution JDs
+  "Shifted Hevo toward more auditable, enterprise-ready execution after mapping
+  trial friction to missing visibility and controls, enabling onboarding of 8
+  enterprise clients within 90 days."
+  ~188 chars | opener: "Shifted"
+
+  [cluster-b — trust-surface-reset]
+  "Reset platform priorities around auditability and observability for
+  enterprise trials, enabling onboarding of 8 enterprise clients within 90
+  days."
+  ~162 chars | opener: "Reset"
+
+  NOTE: 12 clients appears in the trial-friction / requirements variants;
+  8 clients appears in the enterprise-readiness shift variants. Both are
+  accurate — use whichever appears in the selected variant. Do NOT mix figures
+  across variants.
 
 ──────────────────────────────────────────────────────────────────────────────
 H2 — H-MONITORING
@@ -585,29 +776,42 @@ H2 — H-MONITORING
   already contains the exact contrast and it is clearly the strongest surviving
   contrast in the section.
 
-  [cluster-a — decision-visibility-diagnostic] ★ PRIMARY for consulting/strategy JDs
-  "Identified slow incident resolution as a decision-visibility issue;
-  redesigned the monitoring framework to surface failure signals and escalation
-  patterns, reducing time-to-insight ~40% and improving SLA performance by 30%."
-  ~208 chars | opener: "Identified"
+  [cluster-a — operator-decision-surface] ★ PRIMARY for consulting/strategy JDs
+  "Reframed Job Monitoring as the central view for incident decisions;
+  surfaced failure state and escalation context in real time, cutting
+  time-to-insight ~40% and improving SLA performance by 30%."
+  ~203 chars | opener: "Reframed"
 
-  [cluster-a — observability-recommendation]
-  "Diagnosed incident delays as a visibility deficit, not a capacity problem;
-  redesigned the diagnostic layer to surface failure signals and escalation
-  paths, cutting time-to-insight ~40% and improving SLA performance by 30%."
-  ~227 chars
+  [cluster-a — trust-surface]
+  "Reframed Job Monitoring as the real-time view enterprise operators needed to
+  trust the system; surfaced failure state and escalation context in real
+  time, cutting time-to-insight ~40% and improving SLA performance by 30%."
+  ~238 chars | opener: "Reframed"
 
-  [cluster-b — enterprise-grade-monitoring] ★ PRIMARY for ops/execution JDs
-  "Transformed monitoring into an enterprise incident surface by designing KPIs
-  and AI-driven dashboards, reducing client time-to-insight 40% and improving
-  SLA performance by 30%."
-  ~195 chars | opener: "Transformed" — note: if using this variant, omit contrast phrase from H3
+  [cluster-a — workflow-visibility]
+  "Traced slow incident resolution to missing decision context for on-call
+  teams; redesigned Job Monitoring to surface failure signals and escalation
+  state in real time, cutting time-to-insight ~40% and improving SLA
+  performance by 30%."
+  ~252 chars | opener: "Traced"
 
-  [cluster-b — time-to-insight]
-  "Improved enterprise time-to-insight by 40% by redesigning the monitoring
-  layer and diagnostic dashboards for key customers, reducing SLA breach rates
-  by 30% and strengthening Hevo's enterprise case."
-  ~209 chars | opener: "Improved"
+  [cluster-a — evaluation-surface]
+  "Mapped the missing decision context that kept operators from acting quickly;
+  redesigned Job Monitoring to surface failure signals and escalation state in
+  real time, cutting time-to-insight ~40% and improving SLA performance by 30%."
+  ~251 chars | opener: "Mapped"
+
+  [cluster-b — incident-surface] ★ PRIMARY for ops/execution JDs
+  "Designed Job Monitoring as an enterprise incident surface with structured
+  alerting and visibility, cutting time-to-insight ~40% and improving SLA
+  performance by 30%."
+  ~180 chars | opener: "Designed"
+
+  [cluster-b — alert-routing]
+  "Improved enterprise time-to-insight by 40% by redesigning Job Monitoring
+  around structured alerting, escalation state, and failure visibility,
+  improving SLA performance by 30%."
+  ~194 chars | opener: "Improved"
 
   NOTE: For Cluster B variants above, the contrast phrase is dropped. Since QC-12
   caps contrast phrases at 1, do not introduce a contrast phrase elsewhere unless
@@ -618,27 +822,38 @@ H2 — H-MONITORING
 H3 — H-SUPPORT-OPS (★ always H3 — do not move)
 
   [cluster-a — operating-model-reframe] ★ PRIMARY for consulting/strategy JDs
-  "Reframed recurring escalations as a governance gap between Support and
-  Engineering; designed a cross-team incident intake and prioritization model,
-  accelerating resolution and improving reliability for enterprise customers."
-  ~228 chars | opener: "Reframed" | no contrast phrase (contrast cap used at H2)
+  "Reframed recurring escalations as an ownership-design gap between Support and
+  Engineering; introduced severity-based intake rules and clearer escalation
+  paths for enterprise incidents."
+  ~193 chars | opener: "Reframed" | no contrast phrase (contrast cap used at H2)
   REWRITE GUARD: This variant contains NO metric. Pass 2 must NOT introduce
   metric-implying verbs ("cut", "reduced by", "improved by [%]") or any
-  percentage/number claim. Preserve "accelerating resolution" and "improving
-  reliability" verbatim. If a numbered metric is required by the JD, select a
-  cluster-b variant instead — do NOT hallucinate a number into this variant.
+  percentage/number claim. Preserve the ownership-gap and escalation-path
+  framing; if a numbered metric is required by the JD, select a cluster-b
+  variant instead — do NOT hallucinate a number into this variant.
 
   [cluster-b — sla-governance-model] ★ PRIMARY for ops/execution JDs
-  "Reduced issue-resolution time by 30% by introducing a cross-team operating
-  model between Support and Engineering, improving SLA performance and
-  strengthening reliability for thousands of clients."
-  ~195 chars | opener: "Reduced"
+  "Cut issue-resolution time by 30% by introducing severity-based routing
+  between Support and Engineering, clarifying ownership for enterprise
+  incidents and improving SLA performance."
+  ~185 chars | opener: "Cut"
+  REWRITE GUARD: Preserve the direct 'issue-resolution time by 30%' metric. Do
+  NOT rewrite this into vague 'response time' or 'faster handling' language
+  unless the 30% resolution-time figure remains explicit.
 
   [cluster-b — governance-delivery]
-  "Established a cross-functional governance model between Support and Engineering,
-  improving SLA performance by 30% and accelerating incident resolution for
-  enterprise customers."
-  ~170 chars | opener: "Established"
+  "Established a Support-Engineering escalation model with severity-based
+  routing and named ownership by incident tier, cutting issue-resolution time
+  by 30% while improving SLA performance for enterprise customers."
+  ~190 chars | opener: "Established"
+  REWRITE GUARD: Preserve the direct 30% issue-resolution metric. Do NOT
+  convert this bullet into a metric-less 'response-time' claim.
+
+  [support-only — escalation-ownership]
+  "Established a severity-based escalation model between Support and
+  Engineering, clarifying ownership at each incident tier for enterprise
+  customers."
+  ~161 chars | opener: "Established"
 
   IMPORTANT: Do NOT use H-REGRESSION (the quality-assurance / release-cycle story)
   in this prompt. H-SUPPORT-OPS is the fixed H3 for all non-PM tracks. H-REGRESSION
@@ -659,18 +874,23 @@ ORDERING RULE:
 ──────────────────────────────────────────────────────────────────────────────
 I1 — I-RECONCILIATION
 
-  [cluster-a — workstream-root-cause] ★ PRIMARY for consulting/strategy JDs
+  [cluster-a — revenue-integrity-anchor] ★ PRIMARY for consulting/strategy JDs
   "Owned Intuit's billing-integrity workstream; traced SMB renewal risk to
-  cross-system data mismatches and designed a five-platform reconciliation
-  model, restoring accuracy for 80K+ businesses and driving a 10% renewal
-  lift."
-  ~259 chars | opener: "Owned"
+  cross-system billing mismatches and built a five-system reconciliation
+  model that restored accuracy for 80K+ businesses and lifted renewals 10%."
+  ~240 chars | opener: "Owned"
 
-  [cluster-a — data-integration-model]
-  "Stabilized billing accuracy for 80K+ businesses by unifying financial data
-  from 5 systems in a standardized reconciliation model, improving renewal
-  confidence and contributing to a 10% lift in renewals."
-  ~222 chars | opener: "Stabilized" (still analytic, works for Cluster A when workstream frame isn't needed)
+  [cluster-a — commercial-risk-diagnostic]
+  "Diagnosed billing accuracy as a renewal-risk problem for SMB customers;
+  joined data across five systems to build a reconciliation model that
+  restored accuracy for 80K+ businesses and lifted renewals 10%."
+  ~225 chars | opener: "Diagnosed"
+
+  [cluster-a — cancellation-trigger]
+  "Diagnosed cross-system billing mismatches as the cancellation trigger for
+  SMB renewals; joined data across five systems to build a reconciliation
+  model that restored accuracy for 80K+ businesses and lifted renewals 10%."
+  ~228 chars | opener: "Diagnosed"
 
   [cluster-b — data-consistency-framework] ★ PRIMARY for ops/execution JDs
   "Built a five-platform reconciliation framework that resolved daily data
@@ -687,17 +907,17 @@ I1 — I-RECONCILIATION
 ──────────────────────────────────────────────────────────────────────────────
 I2 — I-GOVERNANCE (new story — does not exist in PM master)
 
-  [cluster-a — governance-reframe] ★ PRIMARY for consulting/strategy JDs
-  "Reframed delivery inefficiency as a governance problem; analyzed a 20K+
-  issue backlog across 8 teams and built a risk-sequenced triage model,
-  improving throughput by 25%."
-  ~208 chars | opener: "Reframed" | no explicit contrast phrase
+  [cluster-a — sequencing-reframe] ★ PRIMARY for consulting/strategy JDs
+  "Reframed delivery drag as a sequencing problem across 8 teams; analyzed a
+  20K+ issue backlog and built a risk-tiered prioritization model that
+  improved throughput by 25%."
+  ~197 chars | opener: "Reframed" | no explicit contrast phrase
 
-  [cluster-a — portfolio-diagnostic]
-  "Diagnosed delivery bottlenecks as a prioritization and sequencing gap across
-  8 teams; built a portfolio triage model to rationalize a 20K+ issue backlog
-  and improve throughput by 25%."
-  ~230 chars | opener: "Diagnosed"
+  [cluster-a — governance-diagnostic]
+  "Diagnosed throughput loss as a prioritization-design gap across 8 teams;
+  built a risk-tiered governance model for a 20K+ issue backlog and improved
+  throughput by 25%."
+  ~199 chars | opener: "Diagnosed"
 
   [cluster-b — throughput-governance] ★ PRIMARY for ops/execution JDs
   "Improved delivery throughput by 25% by instituting a cross-team triage and
@@ -710,23 +930,40 @@ I2 — I-GOVERNANCE (new story — does not exist in PM master)
   risk-sequenced prioritization."
   ~201 chars | opener: "Established"
 
+  [support-only — risk-prioritization]
+  "Across 8 teams and a 20K+ issue backlog, introduced risk-tiered
+  prioritization rules that improved delivery throughput by 25%."
+  ~132 chars | opener: "Across"
+
 ──────────────────────────────────────────────────────────────────────────────
 I3 — I-INCIDENT [PROTECTED — cannot be dropped or moved]
 
   NOTE: This story is protected. The metric "1,500+" must appear. Do not rephrase
   this away. If QC-03 fails (1,500+ missing), Pass 2 will retry with a hard constraint.
 
-  [cluster-a — synthesis-problem-solving] ★ PRIMARY for consulting/strategy JDs
-  "Synthesized technical diagnostics and customer-impact data during a critical
-  billing incident affecting 1,500+ businesses; guided remediation and refund
-  decisions across Engineering, Product, and Support to restore trust."
-  ~225 chars | opener: "Synthesized"
+  [cluster-a — recommendation-brief] ★ PRIMARY for consulting/strategy JDs
+  "Translated technical diagnostics and customer-impact data across a billing
+  incident affecting 1,500+ businesses into a refund and recovery brief that
+  aligned Engineering, Product, and Support on targeted account fixes."
+  ~251 chars | opener: "Translated"
 
-  [cluster-a — risk-diligence]
-  "Mitigated value at risk during a critical incident affecting 1,500+ businesses
-  by conducting rapid system-risk diligence and directing Engineering, Product,
-  and Support on remediation and refunds."
-  ~205 chars | opener: "Mitigated"
+  [cluster-a — account-priority-brief]
+  "Translated incident diagnostics across 1,500+ affected businesses into a
+  refund and recovery brief that ranked accounts by urgency and aligned
+  Engineering, Product, and Support on targeted fixes."
+  ~201 chars | opener: "Translated"
+
+  [cluster-a — incident-synthesis]
+  "Synthesized incident diagnostics across 1,500+ affected businesses into one
+  recovery recommendation, guiding Engineering, Product, and Support to full
+  resolution."
+  ~194 chars | opener: "Synthesized"
+
+  [cluster-a — executive-recommendation]
+  "Synthesized incident diagnostics across 1,500+ affected businesses into a
+  single refund and recovery recommendation, giving Engineering, Product, and
+  Support one coordinated plan for targeted account fixes."
+  ~195 chars | opener: "Synthesized"
 
   [cluster-b — incident-command] ★ PRIMARY for ops/execution JDs
   "Contained a critical production incident affecting 1,500+ businesses by directing
@@ -752,58 +989,79 @@ Both slots are fixed. Do not swap them.
 ──────────────────────────────────────────────────────────────────────────────
 O1 — O-PROVIDER
 
-  [cluster-a — network-gap-diagnostic] ★ PRIMARY for consulting/strategy JDs
-  "Diagnosed provider-network gaps as Optum's primary growth constraint;
-  analyzed coverage needs across a 50M-user footprint and built the expansion
-  case for a ~$20M+ annual revenue opportunity."
-  ~211 chars | opener: "Diagnosed" | no contrast phrase (cap already used at H2)
+  [cluster-a — expansion-constraint] ★ PRIMARY for consulting/strategy JDs
+  "Identified provider coverage as Optum's main expansion constraint; mapped
+  underserved geographies across a 50M-user footprint and built a provider-
+  expansion case around a ~$20M+ addressable annual opportunity."
+  ~223 chars | opener: "Identified" | no contrast phrase (cap already used at H2)
 
-  [cluster-a — growth-constraint-analysis]
-  "Identified provider coverage as Optum's binding growth constraint; analyzed
-  market gaps across a 50M-user footprint and built the case for network
-  expansion worth ~$20M+ in annual revenue."
-  ~219 chars | opener: "Identified"
+  [cluster-a — market-entry-recommendation]
+  "Mapped provider-network gaps across a 50M-user footprint to identify
+  underserved markets and shape a provider-expansion recommendation around a
+  ~$20M+ addressable annual revenue opportunity."
+  ~200 chars | opener: "Mapped"
 
-  [cluster-b — revenue-impact] ★ PRIMARY for ops/execution JDs
-  "Integrated a provider network that expanded coverage access for 50M
-  additional users across Optum's footprint, supporting ~$20M+ in annual
-  revenue."
+  [cluster-a — segment-prioritization]
+  "Mapped provider-network gaps across a 50M-user footprint to identify the
+  underserved markets Optum should prioritize first, shaping a provider-
+  expansion recommendation around a ~$20M+ addressable annual opportunity."
+  ~222 chars | opener: "Mapped"
+
+  [cluster-b — network-integration] ★ PRIMARY for ops/execution JDs
+  "Integrated a provider network across Optum's 50M-user footprint, extending
+  plan access in underserved markets and supporting a ~$20M+ annual
+  opportunity."
   ~174 chars | opener: "Integrated"
 
-  [cluster-b — network-integration]
-  "Expanded Optum's provider coverage footprint by integrating a new network,
-  unlocking access for 50M additional users and supporting ~$20M+ in annual
-  revenue."
+  [cluster-b — access-expansion]
+  "Expanded provider coverage across Optum's footprint by integrating a new
+  network, increasing plan access in underserved markets and supporting a
+  ~$20M+ annual opportunity."
   ~177 chars | opener: "Expanded"
+
+  [support-only — market-gap-sizing]
+  "Mapped provider coverage gaps across a 50M-user footprint, identifying
+  underserved geographies tied to a ~$20M+ annual revenue opportunity."
+  ~145 chars | opener: "Mapped"
 
 ──────────────────────────────────────────────────────────────────────────────
 O2 — O-AFFORDABILITY
 
-  [cluster-a — innovation-workstream-reframe] ★ PRIMARY for consulting/strategy JDs
-  "Owned an innovation workstream on member affordability; reframed support
-  around early-risk prediction and designed an AI model to flag high
-  out-of-pocket risk and route members toward lower-cost care, winning Optum's
-  global hackathon and advancing to pilot."
-  ~250 chars | opener: "Owned an innovation workstream"
+  [cluster-a — ai-workflow-design] ★ PRIMARY for consulting/strategy JDs
+  "Designed an AI workflow for member affordability that flagged high
+  out-of-pocket risk and routed members toward lower-cost care pathways,
+  winning Optum's global hackathon and advancing to pilot."
+  ~202 chars | opener: "Designed"
 
-  [cluster-a — ai-diagnostic]
-  "Designed an AI-driven affordability workflow by identifying high
-  out-of-pocket risk before it surfaced and routing members toward lower-cost
-  care pathways, winning Optum's global hackathon and advancing to a formal
-  pilot."
-  ~228 chars | opener: "Designed"
+  [cluster-a — pilot-decision-workflow]
+  "Designed an AI workflow for member affordability that flagged high
+  out-of-pocket risk and guided members toward lower-cost care pathways,
+  winning Optum's global hackathon and advancing to pilot."
+  ~202 chars | opener: "Designed"
+
+  [cluster-a — decision-workflow]
+  "Designed an AI workflow for member affordability that used high
+  out-of-pocket risk signals to route members toward lower-cost care
+  pathways, winning Optum's global hackathon and advancing to pilot."
+  ~210 chars | opener: "Designed"
+
+  [cluster-a — adoption-aware-workflow]
+  "Designed an AI affordability workflow around a clear decision rule for high
+  out-of-pocket risk, routing members toward lower-cost care pathways and
+  advancing from hackathon win to pilot."
+  ~195 chars | opener: "Designed"
 
   [cluster-b — hackathon-impact] ★ PRIMARY for ops/execution JDs
-  "Won Optum's global hackathon by designing an AI affordability model that
-  flagged high out-of-pocket spend risk and routed members toward lower-cost
-  care pathways; it advanced to pilot as an early AI affordability initiative."
-  ~230 chars | opener: "Won"
+  "Won Optum's global hackathon by designing an AI affordability workflow that
+  flagged high out-of-pocket risk and routed members toward lower-cost care
+  pathways, advancing to pilot."
+  ~193 chars | opener: "Won"
 
   [cluster-b — ai-solution-delivery]
-  "Designed an AI-driven affordability workflow that identified members at
-  risk of out-of-pocket spikes and routed them toward lower-cost care
-  pathways, winning Optum's global hackathon and advancing to pilot."
-  ~203 chars | opener: "Designed"
+  "Designed an AI affordability workflow that flagged high out-of-pocket risk
+  and routed members toward lower-cost care pathways, winning Optum's global
+  hackathon and advancing to pilot."
+  ~191 chars | opener: "Designed"
 
 ──────────────────────────────────────────────────────────────────────────────
 PROFESSIONAL SUMMARY POOL — Section 0
@@ -839,15 +1097,15 @@ executing the work to owning the operating choice behind it."
 
 [nonpm-strategy]
 "Technical operator with five years turning messy operating signals into
-executive-grade decisions: enterprise-readiness bets at Hevo, billing-risk
-reframes at Intuit, and marketplace operating-model choices at Gojek. At USC
+executive-grade decisions: enterprise readiness priorities at Hevo, billing
+risk diagnosis at Intuit, and marketplace operating choices at Gojek. At USC
 Marshall to own strategy and operating design, not just execute against them."
 
 [nonpm-bizops]
 "Five years running the operating cadences and prioritization decisions that
 BizOps and S&O teams are hired to own: triage model for 20K+ issues across 8
-teams at Intuit, enterprise-readiness bets at Hevo, and supply operating-model
-choices at Gojek. At USC Marshall to move from running workstreams to owning
+teams at Intuit, enterprise readiness priorities at Hevo, and supply
+operating choices at Gojek. At USC Marshall to move from running workstreams to owning
 the operating system behind them."
 
 [nonpm-research]

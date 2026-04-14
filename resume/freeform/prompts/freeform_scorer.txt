@@ -350,6 +350,12 @@ Section-level penalties (applied once each, flat):
   JD_FIT: -0.2 if fewer than 2 of the 3 top JD signals are clearly foregrounded
     across the section (see Positioning Strategy below for the top signals)
 
+PROJECTS & CONSULTING ADJUSTMENT (mainly for non-PM routes):
+  If a Projects & Consulting section is provided below and it directly covers a
+  missing JD signal, use it as supporting evidence for JD fit and narrative
+  coherence. It may soften a JD_FIT or narrative concern, but it does NOT erase
+  a weak main experience section. Section 3 still carries most of the score.
+
 Cap holistic_score at 10, floor at 0. Round to one decimal place.
 
 Verdict thresholds:
@@ -380,6 +386,12 @@ EXPERIENCE SECTION TO SCORE
 {{EXPERIENCE_SECTION}}
 
 ──────────────────────────────────────────────────────────────────────────────
+PROJECTS & CONSULTING (supporting proof only — may be absent)
+──────────────────────────────────────────────────────────────────────────────
+
+{{PROJECTS_SECTION}}
+
+──────────────────────────────────────────────────────────────────────────────
 NARRATIVE COHERENCE (holistic observation — unscored)
 ──────────────────────────────────────────────────────────────────────────────
 
@@ -390,6 +402,10 @@ Coherent means: the earned details, opener archetypes, and foregrounded metrics
 collectively reinforce a single professional identity — the one defined by the
 primary_framing_axis in the strategy. A hiring manager who reads the section
 should finish with a clear, specific impression of what kind of PM Akshat is.
+If a Projects & Consulting block is present, treat it as supporting identity
+evidence for non-PM routes — especially when it adds founder, workflow, or
+consulting proof the main section cannot naturally carry — but do not let it
+fully rescue a main section whose strongest bullets still point at the wrong job.
 
 Signs of incoherence:
   - Earned details from 3-4 different earned detail types with no dominant type

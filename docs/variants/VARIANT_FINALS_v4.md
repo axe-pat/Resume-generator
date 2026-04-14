@@ -83,6 +83,10 @@ The outcome is the measurable result. Mix types across the resume:
 [ ] NO PARENTHESES Use "including X and Y" or restructure the sentence.
 [ ] MOM TEST Non-technical recruiter can follow the thought in one read.
     If they'd pause at a term, replace or remove it.
+[ ] LOW COGNITIVE LOAD Prefer plain-English wording over coined or compound-heavy
+    phrasing. If a term like "buyer-signoff blocker," "proof surface," or
+    "refund-and-remediation" makes the reader decode the sentence twice,
+    simplify it. Keep one sharp term if it earns its place; do not stack them.
 [ ] OPENER VARIETY Across 11 bullets: vary your first verb.
     Pool: Identified, Surfaced, Linked, Recognized, Profiled, Led, Unified, Shipped,
           Converted, Reshaped, Drove, Diagnosed, Built, Defined, Onboarded, Cut

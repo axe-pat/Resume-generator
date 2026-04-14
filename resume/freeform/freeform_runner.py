@@ -193,6 +193,13 @@ def load_rewrite_prompt(experience_section: str, jd_text: str, strategy_block: s
 # Pass 2 regression guard
 # ─────────────────────────────────────────────────────────────────────────────
 _BULLET_PAT = re.compile(r'^([\u2022\u25cf\-\*●•])\s+(.*)')
+_CONTRAST_PAT = re.compile(r'\b(?:rather than|instead of)\b|not\b[^.]{0,80}\bbut\b', re.I)
+
+
+def _contrast_phrase_count(text: str) -> int:
+    if not text:
+        return 0
+    return len(_CONTRAST_PAT.findall(text))
 
 
 def _apply_regression_guard(p1_section: str, p2_section: str) -> tuple[str, list[str]]:
@@ -220,6 +227,9 @@ def _apply_regression_guard(p1_section: str, p2_section: str) -> tuple[str, list
 
     reverts = []
     patched = list(p2_lines)
+    p1_contrast_total = _contrast_phrase_count(p1_section)
+    p2_contrast_total = _contrast_phrase_count(p2_section)
+    contrast_overflow = p2_contrast_total > 1 and p2_contrast_total > p1_contrast_total
 
     for bnum, (line_idx, prefix, p2_text) in enumerate(p2_bullet_refs):
         if bnum >= len(p1_bullets):
@@ -242,6 +252,15 @@ def _apply_regression_guard(p1_section: str, p2_section: str) -> tuple[str, list
             reasons.append(f"2-liner→3-liner (P1={p1_len}, P2={p2_len} chars)")
         elif is_extreme_bloat:
             reasons.append(f"extreme bloat (+{length_growth} chars)")
+        if contrast_overflow and _contrast_phrase_count(p2_text) > _contrast_phrase_count(p1_text):
+            reasons.append("added contrast phrase beyond section cap")
+        # H3 metric guard: if Pass 1 had the direct 30% issue-resolution metric,
+        # don't let later passes blur it into vague "response time" language.
+        p1_lower = p1_text.lower()
+        p2_lower = p2_text.lower()
+        if ("issue-resolution" in p1_lower or "issue resolution" in p1_lower) and "30%" in p1_text:
+            if not (("issue-resolution" in p2_lower or "issue resolution" in p2_lower) and "30%" in p2_text):
+                reasons.append("lost direct H3 resolution-time metric")
 
         if reasons:
             # Preserve original leading whitespace from the p2 line
@@ -259,7 +278,8 @@ def _apply_regression_guard(p1_section: str, p2_section: str) -> tuple[str, list
 
 def load_scorer_prompt(experience_section: str, jd_text: str,
                        strategy_block: str = "",
-                       role_preamble: str = "") -> str:
+                       role_preamble: str = "",
+                       projects_section: str = "") -> str:
     """Load scorer prompt and inject inputs.
 
     Args:
@@ -273,6 +293,10 @@ def load_scorer_prompt(experience_section: str, jd_text: str,
         return ""
     template = SCORER_PROMPT.read_text(encoding="utf-8")
     template = template.replace("{{EXPERIENCE_SECTION}}", experience_section.strip())
+    template = template.replace(
+        "{{PROJECTS_SECTION}}",
+        projects_section.strip() if projects_section.strip() else "No projects section provided.",
+    )
     template = template.replace("{{JOB_DESCRIPTION}}", jd_text.strip())
     template = template.replace(
         "{{STRATEGY}}",
@@ -553,6 +577,13 @@ def run_voice_rewrite(
         print(c(YELLOW, f"  [!] Pass 2: expected 11 bullets in rewrite, found {n_bullets} "
                         f"— regression guard + QC will flag structural issues"))
 
+    ok_structure, structure_detail = validate_experience_structure(rewritten)
+    if not ok_structure:
+        print(c(YELLOW,
+                f"  [!] Pass 2: invalid company bullet structure after rewrite "
+                f"({structure_detail}) — using Pass 1 bullets."))
+        return experience_section, ""
+
     return rewritten, log
 
 
@@ -561,7 +592,8 @@ def run_voice_rewrite(
 # ─────────────────────────────────────────────────────────────────────────────
 def run_scorer(experience_section: str, jd_text: str, model: str,
                strategy_block: str = "",
-               role_preamble: str = "") -> dict:
+               role_preamble: str = "",
+               projects_section: str = "") -> dict:
     """
     Run scoring pass. Returns scorer JSON dict.
     Returns {} on failure.
@@ -570,8 +602,13 @@ def run_scorer(experience_section: str, jd_text: str, model: str,
         print(c(YELLOW, "  [!] Scorer prompt not found — skipping Pass 3."))
         return {}
 
-    prompt = load_scorer_prompt(experience_section, jd_text, strategy_block,
-                                role_preamble=role_preamble)
+    prompt = load_scorer_prompt(
+        experience_section,
+        jd_text,
+        strategy_block,
+        role_preamble=role_preamble,
+        projects_section=projects_section,
+    )
     if not prompt:
         return {}
 
@@ -1048,6 +1085,19 @@ def run_targeted_fixes(
         revised = "\n".join(_p4_lines[:_p4_last_b + 1]).strip()
     revised = _sanitize_experience_section(revised)
 
+    revised, guard_msgs = _apply_regression_guard(experience_section, revised)
+    if guard_msgs:
+        print(c(YELLOW, "  [!] Pass 4 regression guard triggered:"))
+        for msg in guard_msgs:
+            print(c(YELLOW, msg))
+
+    ok_structure, structure_detail = validate_experience_structure(revised)
+    if not ok_structure:
+        print(c(YELLOW,
+                f"  [!] Pass 4 produced invalid company bullet structure "
+                f"({structure_detail}) — keeping pre-Pass-4 section."))
+        return experience_section, ""
+
     print(c(GREEN, f"  \u2713 Pass 4 complete — {len(weak)} bullet(s) targeted"))
     return revised, fix_log
 
@@ -1107,6 +1157,23 @@ def count_bullets_per_company(experience: str) -> dict:
         if BULLET_RE.match(stripped) and current:
             counts[current] = counts.get(current, 0) + 1
     return counts
+
+
+def validate_experience_structure(experience: str) -> tuple[bool, str]:
+    """Return whether the section still has the required 3/3/3/2 bullet structure."""
+    counts = count_bullets_per_company(experience)
+    slot_issues = []
+    for company, expected in COMPANY_SLOTS.items():
+        actual = counts.get(company, 0)
+        if actual != expected:
+            slot_issues.append(f"{company}: expected {expected}, got {actual}")
+    total = sum(counts.values())
+    if slot_issues or total != 11:
+        detail = f"Total={total}"
+        if slot_issues:
+            detail += " | " + ", ".join(slot_issues)
+        return False, detail
+    return True, f"Total={total} | {counts}"
 
 
 def run_quality_checks(sections: dict, track: str = "pm") -> list[dict]:
@@ -2040,6 +2107,10 @@ Adjust archetype evaluation accordingly:
 • If the route says Commercial, Research, Strategy, or AI-Automation but the
   strongest bullets still read mainly like enterprise engineering delivery,
   score holistic fit down even if the prose is polished.
+• If a Projects & Consulting section is provided, treat it as supporting non-
+  engineering proof for holistic JD fit and narrative coherence. It may strengthen
+  the score modestly when it directly closes a route signal gap, but it does not
+  excuse a weak main experience section.
 • Penalize generic consulting language when it lacks a named method, operating
   choice, research technique, implementation constraint, or concrete outcome.
 • Metric expectations may differ: transformation language ("future-state",
@@ -2079,6 +2150,8 @@ Hard guidance:
 • For Strategy / Commercial / Research / AI-Automation routes, do NOT let
   G1 / H1 / H3 / I3 drift into dominant identity bullets unless Pass 1 clearly
   selected them as anchors for the route.
+• If Pass 1 selected a support-only variant, preserve its support role. Keep it
+  short, concrete, and secondary; do not inflate it into an anchor-style bullet.
 • If you change an opener, keep the bullet aligned to the route's intended balance:
   diagnostic-heavy, balanced, or action-heavy as indicated by the strategy block.
 • Contrast phrase cap remains in force during rewrite: keep at most ONE contrast
@@ -2196,7 +2269,8 @@ Hard guidance:
     score_data = {}
     if run_score and sections["experience_section"]:
         score_data = run_scorer(sections["experience_section"], jd_text, model,
-                                strategy_block, role_preamble=role_preamble)
+                                strategy_block, role_preamble=role_preamble,
+                                projects_section=sections.get("projects_section", ""))
         print_score(score_data)
 
     # ── Pass 4: Targeted fix loop (max 2 attempts) ───────────────────────────
@@ -2254,7 +2328,8 @@ Hard guidance:
                 print()
                 print(c(BOLD, f"  Pass 4 Re-score (attempt {fix_attempt})"))
                 score_data = run_scorer(sections["experience_section"], jd_text, model,
-                                        strategy_block, role_preamble=role_preamble)
+                                        strategy_block, role_preamble=role_preamble,
+                                        projects_section=sections.get("projects_section", ""))
                 print_score(score_data)
 
                 # ── Regression guard ─────────────────────────────────────────────
@@ -2357,12 +2432,18 @@ Hard guidance:
             extra_constraint=_QC03_CONSTRAINT,
         )
         if rewritten2 and rewritten2 != p1_original:
+            rewritten2, guard_msgs2 = _apply_regression_guard(p1_original, rewritten2)
+            if guard_msgs2:
+                print(c(YELLOW, "  [!] Pass 2 retry regression guard triggered:"))
+                for msg in guard_msgs2:
+                    print(c(YELLOW, msg))
             sections["experience_section"] = rewritten2
             rewrites_log = rewrites_log2
             # Re-score so the saved file reflects the retry output
             if run_score:
                 score_data = run_scorer(sections["experience_section"], jd_text, model,
-                                        strategy_block, role_preamble=role_preamble)
+                                        strategy_block, role_preamble=role_preamble,
+                                        projects_section=sections.get("projects_section", ""))
                 print_score(score_data)
             checks = run_quality_checks(sections, track=track)
 
@@ -2388,7 +2469,8 @@ Hard guidance:
             print()
             print(c(BOLD, "  QC-13 Re-score after trim:"))
             _trim_score_data = run_scorer(_trim_exp, jd_text, model, strategy_block,
-                                         role_preamble=role_preamble)
+                                         role_preamble=role_preamble,
+                                         projects_section=sections.get("projects_section", ""))
             print_score(_trim_score_data)
             _old_h = score_data.get("holistic_score", 0.0) if score_data else 0.0
             _new_h = _trim_score_data.get("holistic_score", 0.0) if _trim_score_data else 0.0
