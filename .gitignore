@@ -51,8 +51,10 @@ cover_letters/runs/
 # Generated application outputs and archives
 apps/*
 !apps/README.md
+!apps/.gitkeep
 inactive_apps/
 resume_archive/
+archive/
 
 # Personal profile assets and binary source material
 profile/handcrafted_resumes/
@@ -61,10 +63,8 @@ profile/repos/
 *.docx
 *.zip
 
-# Keep text/json/source assets versioned even inside ignored app directories
-!apps/*/
-!apps/*/jd.txt
-!apps/*/intel.txt
-!apps/*/strategy.json
-!apps/*/*.txt
-!apps/*/*.json
+# Ignore run-native batch workspaces by default
+apps/runs/**
+
+# Local backups
+discovery/jobs.xlsx.bak
