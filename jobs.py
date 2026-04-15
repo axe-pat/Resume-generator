@@ -500,6 +500,7 @@ def _resolve_generate_target(df: pd.DataFrame, company_name: str | None = None, 
 def _load_queue_generate_targets(
     df: pd.DataFrame,
     queue_path: Path,
+    offset: int = 0,
     limit: int | None = None,
 ) -> list[dict]:
     if not queue_path.exists():
@@ -529,6 +530,7 @@ def _load_queue_generate_targets(
 
     targets: list[dict] = []
     seen_ids: set[str] = set()
+    skipped = 0
     for entry in entries:
         if not isinstance(entry, dict):
             continue
@@ -536,6 +538,10 @@ def _load_queue_generate_targets(
         if not row_id or row_id in seen_ids:
             continue
         seen_ids.add(row_id)
+
+        if skipped < max(offset, 0):
+            skipped += 1
+            continue
 
         queue_dir = _normalize_queue_dir(str(entry.get("bundle_dir") or entry.get("folder_path") or ""))
         if queue_dir:
@@ -814,9 +820,10 @@ def cmd_generate(args, promoted_jobs: list[dict] | None = None) -> list[dict]:
                     sys.exit(f"[ERROR] {e}\n        Run 'jobs.py promote' first, or check the company name.")
         elif getattr(args, "queue", False):
             queue_path = Path(getattr(args, "queue_path", "") or CURRENT_APPLY_QUEUE_PRIORITY_JSON)
+            offset = max(0, int(getattr(args, "offset", 0) or 0))
             limit = getattr(args, "limit", None)
             try:
-                targets = _load_queue_generate_targets(df, queue_path=queue_path, limit=limit)
+                targets = _load_queue_generate_targets(df, queue_path=queue_path, offset=offset, limit=limit)
             except ValueError as e:
                 sys.exit(f"[ERROR] {e}")
         elif getattr(args, "all_promoted", False):
@@ -1364,6 +1371,8 @@ def main():
                         "(ignores xlsx status; skips already-generated dirs by default)")
     p_gen.add_argument("--queue-path", type=str, default=str(CURRENT_APPLY_QUEUE_PRIORITY_JSON),
                        help="Path to a queue priority_order.json file (default: current apply queue)")
+    p_gen.add_argument("--offset",      type=int, default=0, metavar="N",
+                       help="With --queue: skip the first N queue items before generating")
     p_gen.add_argument("--limit",       type=int, default=None, metavar="N",
                        help="With --queue: only generate the first N queue items")
     p_gen.add_argument("--dry-run",      action="store_true")
