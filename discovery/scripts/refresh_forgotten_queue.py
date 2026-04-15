@@ -10,7 +10,8 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[2]
 APPS_DIR = ROOT / "apps"
 RUNS_DIR = APPS_DIR / "runs"
-FORGOTTEN_DIR = RUNS_DIR / "forgotten_queue"
+APPLY_QUEUES_DIR = APPS_DIR / "Apply queues"
+FORGOTTEN_DIR = APPLY_QUEUES_DIR / "forgotten_queue"
 LEGACY_DIR = FORGOTTEN_DIR / "manual_legacy"
 AGED_OUT_DIR = FORGOTTEN_DIR / "aged_out"
 JOBS_XLSX = ROOT / "discovery" / "jobs.xlsx"
@@ -37,7 +38,7 @@ def _age_days(date_found: str) -> int | None:
 
 
 def _remaining_top_level_dirs() -> list[Path]:
-    keep = {"runs", "archive"}
+    keep = {"runs", "archive", "Apply queues"}
     return sorted(
         p for p in APPS_DIR.iterdir()
         if p.is_dir() and p.name not in keep

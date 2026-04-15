@@ -33,7 +33,7 @@ import time
 from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Iterable
+from typing import Callable, Iterable
 from urllib.parse import quote_plus
 from urllib.parse import urlencode
 
@@ -60,6 +60,31 @@ DEFAULT_LIMIT_PER_SEARCH: int | None = None
 DEFAULT_PAGES: int | None = None
 SOURCE_TAG = "linkedin_live_jobs_v1"
 SEARCH_RESULTS_MIN_POOL_BEFORE_FALLBACK = 2
+SEARCH_RESULTS_FALLBACK_COVERAGE_RATIO = 0.6
+SEARCH_RESULTS_OFFSET_PAGE_SIZE = 25
+SEARCH_RESULTS_MAX_STAGNANT_OFFSET_PAGES = 2
+HEARTBEAT_INTERVAL_SECONDS = 15.0
+JD_CHROME_MARKERS = (
+    "looking for talent?",
+    "post a job",
+    "linkedin corporation ©",
+    "select language",
+    "questions?",
+    "visit our help center",
+    "manage your account and privacy",
+    "recommendation transparency",
+)
+JD_SECTION_MARKERS = (
+    "about the job",
+    "responsibilities",
+    "qualifications",
+    "minimum qualifications",
+    "preferred qualifications",
+    "what you'll do",
+    "what you will do",
+    "what you need to succeed",
+    "job description",
+)
 DEFAULT_SEARCHES = [
     ("Product Manager Intern", "r86400"),
     ("Product Manager Intern", "r604800"),
@@ -119,6 +144,30 @@ class SearchRunResult:
     fallback_used: bool
 
 
+def _should_try_fallback(
+    primary_count: int,
+    primary_ui_count: int | None,
+    limit_per_search: int | None,
+) -> bool:
+    fallback_threshold = SEARCH_RESULTS_MIN_POOL_BEFORE_FALLBACK
+    if limit_per_search is not None:
+        fallback_threshold = min(limit_per_search, SEARCH_RESULTS_MIN_POOL_BEFORE_FALLBACK)
+    if primary_count < fallback_threshold:
+        return True
+
+    if primary_ui_count is None or primary_ui_count <= 0:
+        return False
+
+    expected_pool = primary_ui_count
+    if limit_per_search is not None:
+        expected_pool = min(expected_pool, limit_per_search)
+    if expected_pool <= 0:
+        return False
+
+    coverage = primary_count / expected_pool
+    return coverage < SEARCH_RESULTS_FALLBACK_COVERAGE_RATIO
+
+
 def _hash(text: str) -> str:
     return hashlib.md5(text.strip().lower().encode()).hexdigest()
 
@@ -172,6 +221,18 @@ def _write_run_artifact(name: str, payload: dict) -> Path:
     path = _ensure_logs_dir() / f"{name}_{stamp}.json"
     path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     return path
+
+
+def _write_json_artifact(path: Path, payload: dict) -> None:
+    path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+
+def _inflight_artifact_paths(run_stamp: str, run_label: str) -> tuple[Path, Path]:
+    logs_dir = _ensure_logs_dir()
+    slug = _slug(run_label)
+    progress_path = logs_dir / f"linkedin_live_progress_{run_stamp}_{slug}.json"
+    raw_path = logs_dir / f"linkedin_live_raw_inflight_{run_stamp}_{slug}.json"
+    return progress_path, raw_path
 
 
 def _close_page_safely(page: Page | None) -> None:
@@ -597,6 +658,70 @@ def _extract_about_job_text(page: Page) -> str:
     return ""
 
 
+def _normalize_jd_text(text: str) -> str:
+    return re.sub(r"\n{3,}", "\n\n", (text or "").strip())
+
+
+def _jd_quality_issue(text: str) -> str:
+    normalized = _normalize_jd_text(text)
+    if not normalized:
+        return "empty"
+
+    lower = normalized.lower()
+    chrome_hits = sum(marker in lower for marker in JD_CHROME_MARKERS)
+    section_hits = sum(marker in lower for marker in JD_SECTION_MARKERS)
+
+    if normalized.startswith("Looking for talent?"):
+        return "linkedin_chrome"
+    if "linkedin corporation ©" in lower and section_hits == 0:
+        return "linkedin_chrome"
+    if chrome_hits >= 3 and section_hits == 0:
+        return "linkedin_chrome"
+    if chrome_hits >= 2 and len(normalized) < 2200 and section_hits == 0:
+        return "linkedin_chrome"
+    return ""
+
+
+def _expand_job_description(page: Page) -> None:
+    expanders = [
+        page.get_by_role("button", name=re.compile("show more", re.I)),
+        page.locator(".show-more-less-html__button"),
+        page.locator("button[aria-label*='show more' i]"),
+    ]
+    for locator in expanders:
+        try:
+            count = min(locator.count(), 3)
+        except PlaywrightError:
+            continue
+        for idx in range(count):
+            try:
+                locator.nth(idx).click(timeout=1000)
+                page.wait_for_timeout(400)
+            except PlaywrightError:
+                continue
+
+
+def _wait_for_job_description(page: Page, timeout_ms: int = 3500) -> None:
+    selectors = [
+        ".jobs-search__job-details--wrapper",
+        ".jobs-box__html-content",
+        "#job-details",
+        ".jobs-description",
+        ".jobs-description-content__text",
+        ".show-more-less-html__markup",
+    ]
+    deadline = time.monotonic() + (timeout_ms / 1000)
+    while time.monotonic() < deadline:
+        for selector in selectors:
+            try:
+                locator = page.locator(selector).first
+                if locator.count() and locator.inner_text(timeout=400).strip():
+                    return
+            except PlaywrightError:
+                continue
+        page.wait_for_timeout(350)
+
+
 def _safe_goto(page: Page, url: str, timeout_ms: int = 30000) -> bool:
     def _looks_loaded() -> bool:
         try:
@@ -730,12 +855,62 @@ def _job_score_value(job: dict) -> float:
         return -1.0
 
 
+def _report_gate_label(job: dict, accepted_urls: set[str]) -> str:
+    gate = str(job.get("__report_gate") or "").strip()
+    if gate:
+        return gate
+    return "accepted" if job.get("url") in accepted_urls else "dropped"
+
+
+def _report_reason_tag(job: dict) -> str:
+    gate = str(job.get("__report_gate") or "").strip().lower()
+    if gate == "existing":
+        return "existing"
+
+    decision = str(job.get("decision") or "").strip().lower()
+    if decision == "proceed":
+        return ""
+    rationale = str(job.get("fit_rationale") or "").lower()
+    role_title = str(job.get("role_title") or "").lower()
+
+    if decision == "error":
+        if "no jd text" in rationale:
+            return "jd-missing"
+        if "invalid jd capture" in rationale or "linkedin shell" in rationale:
+            return "bad-jd"
+        return "extract-fail"
+
+    checks = [
+        ("visa", ("visa", "sponsor", "sponsorship", "authorized to work", "without visa support")),
+        ("level", ("level mismatch", "2–4 years", "2-4 years", "full-time senior", "not an internship")),
+        ("marketing", ("marketing intern", "product marketing")),
+        ("ops-heavy", ("ops-heavy", "operations support", "process management", "execution-focused")),
+        ("role-mismatch", ("role type mismatch", "role-type mismatch", "hard mismatch")),
+        ("non-tech", ("non-tech", "traditional non-tech", "retail", "timeshare", "hospitality")),
+        ("no-pm", ("no product ownership", "minimal product ownership", "no strategic decision-making")),
+        ("corp-dev", ("corporate development", "business development", "sales operations")),
+        ("thin-jd", ("under-specified", "insufficient information", "cannot proceed without substantive role details")),
+    ]
+    for tag, needles in checks:
+        if any(needle in rationale for needle in needles):
+            return tag
+
+    if "marketing" in role_title:
+        return "marketing"
+    if decision == "deprioritize":
+        return "weak-fit"
+    if decision == "reject":
+        return "reject"
+    return ""
+
+
 def _render_report_markdown(
     *,
     run_label: str,
     searches: list[tuple[str, str]],
     search_runs: list[dict],
     scored_jobs: list[dict],
+    all_reviewed_jobs: list[dict],
     accepted_for_write: list[dict],
     fresh_after_dedup: list[dict],
     extracted_count: int,
@@ -803,16 +978,17 @@ def _render_report_markdown(
     else:
         lines.append("No scored jobs available.")
 
-    lines.extend(["", "## All Reviewed Jobs", "| Score | Decision | Write Gate | Company | Role | Source Search |", "|---|---|---|---|---|---|"])
+    lines.extend(["", "## All Reviewed Jobs", "| Score | Decision | Reason | Write Gate | Company | Role | Source Search |", "|---|---|---|---|---|---|---|"])
     accepted_urls = {job.get("url") for job in accepted_for_write}
-    for job in sorted(scored_jobs, key=_job_score_value, reverse=True):
+    for job in sorted(all_reviewed_jobs, key=_job_score_value, reverse=True):
         notes = str(job.get("notes", ""))
         search_match = re.search(r"search=(.*?)(?: window=| insight=|$)", notes)
         source_search = search_match.group(1) if search_match else ""
         lines.append(
             f"| {job.get('fit_score', '') if job.get('fit_score') is not None else ''} | "
             f"{job.get('decision', '')} | "
-            f"{'accepted' if job.get('url') in accepted_urls else 'dropped'} | "
+            f"{_report_reason_tag(job)} | "
+            f"{_report_gate_label(job, accepted_urls)} | "
             f"{job.get('company', '')} | {job.get('role_title', '')} | {source_search} |"
         )
     lines.append("")
@@ -825,6 +1001,7 @@ def _render_report_html(
     searches: list[tuple[str, str]],
     search_runs: list[dict],
     scored_jobs: list[dict],
+    all_reviewed_jobs: list[dict],
     accepted_for_write: list[dict],
     fresh_after_dedup: list[dict],
     extracted_count: int,
@@ -855,9 +1032,10 @@ def _render_report_html(
             cells = [
                 html.escape("" if job.get("fit_score") is None else str(job.get("fit_score"))),
                 html.escape(str(job.get("decision", ""))),
+                html.escape(_report_reason_tag(job)),
             ]
             if include_gate:
-                cells.append("accepted" if job.get("url") in accepted_urls else "dropped")
+                cells.append(_report_gate_label(job, accepted_urls))
             cells.extend([
                 html.escape(str(job.get("company", ""))),
                 html.escape(str(job.get("role_title", ""))),
@@ -939,10 +1117,10 @@ def _render_report_html(
     <h2>All Reviewed Jobs</h2>
     <table>
       <thead>
-        <tr><th>Score</th><th>Decision</th><th>Write Gate</th><th>Company</th><th>Role</th><th>Search</th></tr>
+        <tr><th>Score</th><th>Decision</th><th>Reason</th><th>Write Gate</th><th>Company</th><th>Role</th><th>Search</th></tr>
       </thead>
       <tbody>
-        {rows_html(sorted(scored_jobs, key=_job_score_value, reverse=True), include_gate=True)}
+        {rows_html(sorted(all_reviewed_jobs, key=_job_score_value, reverse=True), include_gate=True)}
       </tbody>
     </table>
   </div>
@@ -957,6 +1135,7 @@ def _write_batch_report(
     searches: list[tuple[str, str]],
     search_runs: list[dict],
     scored_jobs: list[dict],
+    all_reviewed_jobs: list[dict],
     accepted_for_write: list[dict],
     fresh_after_dedup: list[dict],
     extracted_count: int,
@@ -973,6 +1152,7 @@ def _write_batch_report(
         searches=searches,
         search_runs=search_runs,
         scored_jobs=scored_jobs,
+        all_reviewed_jobs=all_reviewed_jobs,
         accepted_for_write=accepted_for_write,
         fresh_after_dedup=fresh_after_dedup,
         extracted_count=extracted_count,
@@ -987,6 +1167,7 @@ def _write_batch_report(
             searches=searches,
             search_runs=search_runs,
             scored_jobs=scored_jobs,
+            all_reviewed_jobs=all_reviewed_jobs,
             accepted_for_write=accepted_for_write,
             fresh_after_dedup=fresh_after_dedup,
             extracted_count=extracted_count,
@@ -1078,58 +1259,74 @@ def _open_job_details(page: Page, job_url: str, detail_page: Page | None = None)
     detail_page = detail_page or page.context.new_page()
     detail_page.set_default_timeout(5000)
     try:
-        detail_page.goto(job_url, wait_until="domcontentloaded", timeout=8000)
-        detail_page.wait_for_timeout(900)
+        last_jd_text = ""
+        last_insight_text = ""
+        for attempt in range(1, 4):
+            detail_page.goto(job_url, wait_until="domcontentloaded", timeout=8000)
+            detail_page.wait_for_timeout(700 + (attempt * 300))
+            _wait_for_job_description(detail_page, timeout_ms=2500 + (attempt * 1000))
+            _expand_job_description(detail_page)
 
-        extracted = detail_page.evaluate(
-            """
-            () => {
-              const pickText = (selectors) => {
-                for (const selector of selectors) {
-                  const node = document.querySelector(selector);
-                  if (!node) continue;
-                  const text = (node.innerText || '').replace(/\\s+/g, ' ').trim();
-                  if (text) return text;
+            extracted = detail_page.evaluate(
+                """
+                () => {
+                  const pickText = (selectors) => {
+                    for (const selector of selectors) {
+                      const node = document.querySelector(selector);
+                      if (!node) continue;
+                      const text = (node.innerText || '').replace(/\\s+/g, ' ').trim();
+                      if (text) return text;
+                    }
+                    return '';
+                  };
+
+                  let jdText = pickText([
+                    '.jobs-search__job-details--wrapper',
+                    '.jobs-box__html-content',
+                    '#job-details',
+                    '.jobs-description',
+                    '.jobs-description-content__text',
+                    '.show-more-less-html__markup',
+                  ]);
+
+                  let insightText = pickText([
+                    '.jobs-unified-top-card__job-insight',
+                    '.job-details-jobs-unified-top-card__primary-description-container',
+                    '.jobs-unified-top-card__primary-description-container',
+                    '.jobs-unified-top-card__subtitle-primary-grouping',
+                  ]);
+
+                  if (!insightText) {
+                    const main = document.querySelector('main');
+                    const mainText = (main?.innerText || '').replace(/\\s+/g, ' ').trim();
+                    if (mainText) {
+                      const aboutIdx = mainText.indexOf('About the job');
+                      insightText = aboutIdx > 0 ? mainText.slice(0, aboutIdx).trim() : mainText.slice(0, 400).trim();
+                    }
+                  }
+
+                  return { jdText, insightText };
                 }
-                return '';
-              };
+                """
+            )
 
-              let jdText = pickText([
-                '.jobs-search__job-details--wrapper',
-                '.jobs-box__html-content',
-                '#job-details',
-                '.jobs-description',
-                '.jobs-description-content__text',
-                '.show-more-less-html__markup',
-              ]);
+            jd_text = (extracted or {}).get("jdText", "").strip()
+            if not jd_text:
+                jd_text = _extract_about_job_text(detail_page)
+            jd_text = _normalize_jd_text(jd_text)
+            insight_text = (extracted or {}).get("insightText", "").strip()
 
-              let insightText = pickText([
-                '.jobs-unified-top-card__job-insight',
-                '.job-details-jobs-unified-top-card__primary-description-container',
-                '.jobs-unified-top-card__primary-description-container',
-                '.jobs-unified-top-card__subtitle-primary-grouping',
-              ]);
+            last_jd_text = jd_text
+            last_insight_text = insight_text
+            issue = _jd_quality_issue(jd_text)
+            if not issue:
+                return jd_text, insight_text
 
-              if (!insightText) {
-                const main = document.querySelector('main');
-                const mainText = (main?.innerText || '').replace(/\\s+/g, ' ').trim();
-                if (mainText) {
-                  const aboutIdx = mainText.indexOf('About the job');
-                  insightText = aboutIdx > 0 ? mainText.slice(0, aboutIdx).trim() : mainText.slice(0, 400).trim();
-                }
-              }
+            if issue == "linkedin_chrome":
+                detail_page.wait_for_timeout(800 * attempt)
+                continue
 
-              return { jdText, insightText };
-            }
-            """
-        )
-
-        jd_text = (extracted or {}).get("jdText", "").strip()
-        if not jd_text:
-            jd_text = _extract_about_job_text(detail_page)
-        insight_text = (extracted or {}).get("insightText", "").strip()
-
-        return jd_text, insight_text
+        return "", last_insight_text
     except PlaywrightError:
         return "", ""
     finally:
@@ -1175,6 +1372,7 @@ def scrape_search(
     pages: int | None,
     count_only: bool = False,
     detail_page: Page | None = None,
+    progress_callback: Callable[[dict], None] | None = None,
 ) -> SearchRunResult:
     def _run_single_url(url: str) -> tuple[list[LinkedInJobCard], int | None]:
         cards: list[LinkedInJobCard] = []
@@ -1182,6 +1380,7 @@ def scrape_search(
         observed_ui_count: int | None = None
 
         use_offset_paging = "linkedin.com/jobs/search-results/" in url
+        route_used = "search-results" if use_offset_paging else "jobs-search-fallback"
         if use_offset_paging:
             if not _safe_goto(page, url):
                 return cards, observed_ui_count
@@ -1195,6 +1394,7 @@ def scrape_search(
             page_signatures: set[tuple[str, ...]] = set()
             start = 0
             page_index = 0
+            stagnant_pages = 0
             while True:
                 if pages is not None and page_index >= max(pages, 1):
                     break
@@ -1213,6 +1413,20 @@ def scrape_search(
                 page_ui_count = _ui_observed_results_count(page)
                 if page_ui_count is not None:
                     observed_ui_count = max(observed_ui_count or 0, page_ui_count)
+                if progress_callback is not None:
+                    progress_callback(
+                        {
+                            "event": "page_loaded",
+                            "search_term": search_term,
+                            "time_filter": time_filter,
+                            "route": route_used,
+                            "page_index": page_index,
+                            "start": start,
+                            "search_extracted": len(cards),
+                            "ui_observed_count": observed_ui_count,
+                            "cards_snapshot": cards,
+                        }
+                    )
                 initial_visible = _extract_visible_cards(page)
                 if not initial_visible:
                     break
@@ -1221,6 +1435,7 @@ def scrape_search(
                     break
                 page_signatures.add(signature)
 
+                before_page_count = len(seen_urls)
                 page_seen_urls: set[str] = set()
                 stagnant_scrolls = 0
                 for _ in range(20):
@@ -1254,8 +1469,22 @@ def scrape_search(
                             )
                         )
                         if limit_per_search is not None and len(cards) >= limit_per_search:
-                            return cards
+                            return cards, observed_ui_count
 
+                    if progress_callback is not None and len(seen_urls) > before_count:
+                        progress_callback(
+                            {
+                                "event": "new_cards",
+                                "search_term": search_term,
+                                "time_filter": time_filter,
+                                "route": route_used,
+                                "page_index": page_index,
+                                "start": start,
+                                "search_extracted": len(cards),
+                                "ui_observed_count": observed_ui_count,
+                                "cards_snapshot": cards,
+                            }
+                        )
                     if len(seen_urls) == before_count:
                         stagnant_scrolls += 1
                     else:
@@ -1264,9 +1493,23 @@ def scrape_search(
                         break
                     _scroll_results_list(page)
 
-                page_size = max(len(page_seen_urls), 1)
-                if page_size <= len(initial_visible):
+                page_growth = len(seen_urls) - before_page_count
+                if page_growth <= 0:
+                    stagnant_pages += 1
+                else:
+                    stagnant_pages = 0
+
+                if stagnant_pages >= SEARCH_RESULTS_MAX_STAGNANT_OFFSET_PAGES:
                     break
+
+                if observed_ui_count is not None and len(seen_urls) >= observed_ui_count:
+                    break
+
+                page_size = max(
+                    len(page_seen_urls),
+                    len(initial_visible),
+                    SEARCH_RESULTS_OFFSET_PAGE_SIZE,
+                )
                 start += page_size
                 page_index += 1
             return cards, observed_ui_count
@@ -1287,6 +1530,19 @@ def scrape_search(
             page_ui_count = _ui_observed_results_count(page)
             if page_ui_count is not None:
                 observed_ui_count = max(observed_ui_count or 0, page_ui_count)
+            if progress_callback is not None:
+                progress_callback(
+                    {
+                        "event": "page_loaded",
+                        "search_term": search_term,
+                        "time_filter": time_filter,
+                        "route": route_used,
+                        "page_index": page_index,
+                        "search_extracted": len(cards),
+                        "ui_observed_count": observed_ui_count,
+                        "cards_snapshot": cards,
+                    }
+                )
             stagnant_scrolls = 0
             for _ in range(20):
                 before_count = len(seen_urls)
@@ -1318,8 +1574,21 @@ def scrape_search(
                         )
                     )
                     if limit_per_search is not None and len(cards) >= limit_per_search:
-                        return cards
+                        return cards, observed_ui_count
 
+                if progress_callback is not None and len(seen_urls) > before_count:
+                    progress_callback(
+                        {
+                            "event": "new_cards",
+                            "search_term": search_term,
+                            "time_filter": time_filter,
+                            "route": route_used,
+                            "page_index": page_index,
+                            "search_extracted": len(cards),
+                            "ui_observed_count": observed_ui_count,
+                            "cards_snapshot": cards,
+                        }
+                    )
                 if len(seen_urls) == before_count:
                     stagnant_scrolls += 1
                 else:
@@ -1341,10 +1610,7 @@ def scrape_search(
     primary_url = _jobs_search_url(search_term, time_filter)
     fallback_url = _jobs_search_fallback_url(search_term, time_filter)
     primary_cards, primary_ui_count = _run_single_url(primary_url)
-    fallback_threshold = SEARCH_RESULTS_MIN_POOL_BEFORE_FALLBACK
-    if limit_per_search is not None:
-        fallback_threshold = min(limit_per_search, SEARCH_RESULTS_MIN_POOL_BEFORE_FALLBACK)
-    if len(primary_cards) >= fallback_threshold:
+    if not _should_try_fallback(len(primary_cards), primary_ui_count, limit_per_search):
         return SearchRunResult(
             search_term=search_term,
             time_filter=time_filter,
@@ -1500,6 +1766,10 @@ def _run_post_extract_pipeline(
 
     scored_new = score_batch(jobs_to_score, model=model, verbose=not quiet, max_workers=max_workers) if jobs_to_score else []
     reviewed_jobs = [*scored_new, *cache_hits]
+    all_reviewed_jobs = [
+        *reviewed_jobs,
+        *[{**job, "__report_gate": "existing"} for job in existing_hits],
+    ]
     accepted_for_write, dropped_before_write = filter_jobs_for_write(reviewed_jobs)
     merged_df, fresh = append_new_jobs(df_existing, accepted_for_write)
     cache_rows = _terminal_cache_rows(scored_new)
@@ -1533,6 +1803,7 @@ def _run_post_extract_pipeline(
         searches=searches,
         search_runs=search_runs,
         scored_jobs=reviewed_jobs,
+        all_reviewed_jobs=all_reviewed_jobs,
         accepted_for_write=accepted_for_write,
         fresh_after_dedup=fresh,
         extracted_count=extracted_count,
@@ -1688,79 +1959,247 @@ def run_live_discovery(
 ) -> int:
     windows = sorted({TIME_LABELS.get(window, window) for _, window in searches})
     run_label = windows[0] if len(windows) == 1 else "mixed"
+    run_stamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
+    progress_path, raw_inflight_path = _inflight_artifact_paths(run_stamp, run_label)
     search_run_summaries: list[dict] = []
-    with sync_playwright() as playwright:
-        session = _open_linkedin_browser_session(playwright, debug_port)
-        page: Page | None = None
-        detail_page: Page | None = None
-        try:
-            context = session["context"]
-            preflight = _session_preflight(context)
-            if not preflight.get("ok"):
-                raise RuntimeError(
-                    "LinkedIn live preflight failed. "
-                    f"URL={preflight.get('current_url', '')} "
-                    f"title={preflight.get('title', '')} "
-                    f"authwall_or_login={preflight.get('authwall_or_login')} "
-                    f"has_li_at_cookie={preflight.get('has_li_at_cookie')}"
-                )
-            if not quiet:
-                print(
-                    "LinkedIn preflight OK: "
-                    f"url={preflight.get('current_url', '')} "
-                    f"pages_before={preflight.get('context_pages_before')}"
-                )
+    scraped_cards: list[LinkedInJobCard] = []
+    current_search_cards: list[LinkedInJobCard] = []
+    progress_state: dict[str, object] = {
+        "run_label": run_label,
+        "run_stamp": run_stamp,
+        "status": "starting",
+        "started_at": datetime.now().isoformat(timespec="seconds"),
+        "last_progress_at": None,
+        "last_heartbeat_at": None,
+        "event": "starting",
+        "searches": [{"search_term": term, "time_filter": window} for term, window in searches],
+        "current_search_term": "",
+        "current_time_filter": "",
+        "current_route": "",
+        "current_page_index": 0,
+        "current_start": 0,
+        "current_search_extracted": 0,
+        "total_extracted": 0,
+        "ui_observed_count": None,
+        "searches_completed": 0,
+        "inflight_raw_path": str(raw_inflight_path),
+    }
+    last_progress_write = 0.0
+    last_partial_raw_write = 0.0
 
-            page = context.new_page()
-            detail_page = context.new_page()
-            page.set_default_timeout(15000)
-            detail_page.set_default_timeout(15000)
+    def _partial_raw_payload() -> dict:
+        combined_cards = [*scraped_cards, *current_search_cards]
+        return {
+            "status": progress_state.get("status"),
+            "run_label": run_label,
+            "run_stamp": run_stamp,
+            "count": len(combined_cards),
+            "searches": [{"search_term": s, "time_filter": t} for s, t in searches],
+            "search_runs": search_run_summaries,
+            "progress": progress_state,
+            "cards": [asdict(card) for card in combined_cards],
+            "jobs": cards_to_jobs(combined_cards),
+        }
 
-            scraped_cards: list[LinkedInJobCard] = []
-            for search_term, time_filter in searches:
-                if not quiet:
-                    print(f"\nSearching LinkedIn Jobs: {search_term} | {TIME_LABELS.get(time_filter, time_filter)}")
-                result = scrape_search(
-                    page=page,
-                    search_term=search_term,
-                    time_filter=time_filter,
-                    limit_per_search=limit_per_search,
-                    pages=pages,
-                    count_only=count_only,
-                    detail_page=detail_page,
-                )
-                cards = result.cards
-                search_run_summaries.append(
-                    {
-                        "search_term": result.search_term,
-                        "time_filter": result.time_filter,
-                        "ui_observed_count": result.ui_observed_count,
-                        "extracted_count": result.extracted_count,
-                        "route_used": result.route_used,
-                        "fallback_used": result.fallback_used,
-                        "count_mismatch": (
-                            result.ui_observed_count is not None
-                            and result.ui_observed_count != result.extracted_count
-                        ),
-                    }
-                )
-                scraped_cards.extend(cards)
-                if not quiet:
-                    ui_note = (
-                        f" | UI reported total {result.ui_observed_count}"
-                        if result.ui_observed_count is not None
-                        else ""
-                    )
-                    print(f"  Captured {len(cards)} cards{ui_note}")
-        finally:
-            _close_page_safely(detail_page)
-            _close_page_safely(page)
+    def _emit_progress(
+        *,
+        force: bool = False,
+        event: str,
+        status: str | None = None,
+        search_term: str | None = None,
+        time_filter: str | None = None,
+        route: str | None = None,
+        page_index: int | None = None,
+        start: int | None = None,
+        search_extracted: int | None = None,
+        total_extracted: int | None = None,
+        ui_observed_count: int | None = None,
+        cards_snapshot: list[LinkedInJobCard] | None = None,
+        error: str | None = None,
+        progress_made: bool = False,
+    ) -> None:
+        nonlocal last_progress_write, last_partial_raw_write, current_search_cards
+        now_mono = time.monotonic()
+        now_iso = datetime.now().isoformat(timespec="seconds")
+
+        if status is not None:
+            progress_state["status"] = status
+        progress_state["event"] = event
+        if search_term is not None:
+            progress_state["current_search_term"] = search_term
+        if time_filter is not None:
+            progress_state["current_time_filter"] = time_filter
+        if route is not None:
+            progress_state["current_route"] = route
+        if page_index is not None:
+            progress_state["current_page_index"] = page_index
+        if start is not None:
+            progress_state["current_start"] = start
+        if search_extracted is not None:
+            progress_state["current_search_extracted"] = search_extracted
+        if total_extracted is not None:
+            progress_state["total_extracted"] = total_extracted
+        if ui_observed_count is not None:
+            progress_state["ui_observed_count"] = ui_observed_count
+        if error is not None:
+            progress_state["error"] = error
+        if cards_snapshot is not None:
+            current_search_cards = list(cards_snapshot)
+        if progress_made:
+            progress_state["last_progress_at"] = now_iso
+
+        should_write = force or (now_mono - last_progress_write) >= HEARTBEAT_INTERVAL_SECONDS
+        if not should_write:
+            return
+
+        progress_state["last_heartbeat_at"] = now_iso
+        _write_json_artifact(progress_path, progress_state)
+        if force or (now_mono - last_partial_raw_write) >= HEARTBEAT_INTERVAL_SECONDS:
+            _write_json_artifact(raw_inflight_path, _partial_raw_payload())
+            last_partial_raw_write = now_mono
+        last_progress_write = now_mono
+
+        if not quiet:
+            window_label = TIME_LABELS.get(str(progress_state.get("current_time_filter") or ""), str(progress_state.get("current_time_filter") or ""))
+            print(
+                "[heartbeat] "
+                f"status={progress_state.get('status')} "
+                f"search={progress_state.get('current_search_term') or '-'} "
+                f"window={window_label or '-'} "
+                f"route={progress_state.get('current_route') or '-'} "
+                f"page={progress_state.get('current_page_index')} "
+                f"search_count={progress_state.get('current_search_extracted')} "
+                f"total_count={progress_state.get('total_extracted')}"
+            )
+
+    _emit_progress(force=True, event="starting", status="starting", total_extracted=0)
+
+    try:
+        with sync_playwright() as playwright:
+            session = _open_linkedin_browser_session(playwright, debug_port)
+            page: Page | None = None
+            detail_page: Page | None = None
             try:
-                session["cleanup"]()
-            except Exception:
-                pass
+                context = session["context"]
+                preflight = _session_preflight(context)
+                if not preflight.get("ok"):
+                    raise RuntimeError(
+                        "LinkedIn live preflight failed. "
+                        f"URL={preflight.get('current_url', '')} "
+                        f"title={preflight.get('title', '')} "
+                        f"authwall_or_login={preflight.get('authwall_or_login')} "
+                        f"has_li_at_cookie={preflight.get('has_li_at_cookie')}"
+                    )
+                if not quiet:
+                    print(
+                        "LinkedIn preflight OK: "
+                        f"url={preflight.get('current_url', '')} "
+                        f"pages_before={preflight.get('context_pages_before')}"
+                    )
+
+                _emit_progress(force=True, event="preflight_ok", status="running", total_extracted=0, progress_made=True)
+
+                page = context.new_page()
+                detail_page = context.new_page()
+                page.set_default_timeout(15000)
+                detail_page.set_default_timeout(15000)
+
+                for search_idx, (search_term, time_filter) in enumerate(searches, start=1):
+                    current_search_cards = []
+                    _emit_progress(
+                        force=True,
+                        event="search_started",
+                        status="running",
+                        search_term=search_term,
+                        time_filter=time_filter,
+                        page_index=0,
+                        start=0,
+                        search_extracted=0,
+                        total_extracted=len(scraped_cards),
+                        progress_made=True,
+                    )
+                    if not quiet:
+                        print(f"\nSearching LinkedIn Jobs: {search_term} | {TIME_LABELS.get(time_filter, time_filter)}")
+                    result = scrape_search(
+                        page=page,
+                        search_term=search_term,
+                        time_filter=time_filter,
+                        limit_per_search=limit_per_search,
+                        pages=pages,
+                        count_only=count_only,
+                        detail_page=detail_page,
+                        progress_callback=lambda payload: _emit_progress(
+                            event=str(payload.get("event") or "progress"),
+                            status="running",
+                            search_term=str(payload.get("search_term") or search_term),
+                            time_filter=str(payload.get("time_filter") or time_filter),
+                            route=str(payload.get("route") or ""),
+                            page_index=int(payload.get("page_index") or 0),
+                            start=int(payload.get("start") or 0),
+                            search_extracted=int(payload.get("search_extracted") or 0),
+                            total_extracted=len(scraped_cards) + int(payload.get("search_extracted") or 0),
+                            ui_observed_count=payload.get("ui_observed_count"),
+                            cards_snapshot=payload.get("cards_snapshot"),
+                            progress_made=str(payload.get("event") or "") == "new_cards",
+                        ),
+                    )
+                    cards = result.cards
+                    current_search_cards = cards
+                    search_run_summaries.append(
+                        {
+                            "search_term": result.search_term,
+                            "time_filter": result.time_filter,
+                            "ui_observed_count": result.ui_observed_count,
+                            "extracted_count": result.extracted_count,
+                            "route_used": result.route_used,
+                            "fallback_used": result.fallback_used,
+                            "count_mismatch": (
+                                result.ui_observed_count is not None
+                                and result.ui_observed_count != result.extracted_count
+                            ),
+                        }
+                    )
+                    scraped_cards.extend(cards)
+                    progress_state["searches_completed"] = search_idx
+                    current_search_cards = []
+                    _emit_progress(
+                        force=True,
+                        event="search_complete",
+                        status="running",
+                        search_term=search_term,
+                        time_filter=time_filter,
+                        route=result.route_used,
+                        search_extracted=len(cards),
+                        total_extracted=len(scraped_cards),
+                        ui_observed_count=result.ui_observed_count,
+                        progress_made=True,
+                    )
+                    if not quiet:
+                        ui_note = (
+                            f" | UI reported total {result.ui_observed_count}"
+                            if result.ui_observed_count is not None
+                            else ""
+                        )
+                        print(f"  Captured {len(cards)} cards{ui_note}")
+            finally:
+                _close_page_safely(detail_page)
+                _close_page_safely(page)
+                try:
+                    session["cleanup"]()
+                except Exception:
+                    pass
+    except Exception as exc:
+        _emit_progress(
+            force=True,
+            event="failed",
+            status="failed",
+            total_extracted=len(scraped_cards) + len(current_search_cards),
+            error=str(exc),
+        )
+        raise
 
     jobs = cards_to_jobs(scraped_cards)
+    _emit_progress(force=True, event="extraction_complete", status="extraction_complete", total_extracted=len(scraped_cards), progress_made=True)
     artifact = _write_run_artifact(
         "linkedin_live_raw",
         {
@@ -1777,6 +2216,7 @@ def run_live_discovery(
         print(f"Raw cards captured: {len(scraped_cards)}")
 
     if not jobs:
+        _emit_progress(force=True, event="complete", status="complete", total_extracted=0)
         print("No jobs were captured from LinkedIn live search.")
         return 0
 
@@ -1786,6 +2226,7 @@ def run_live_discovery(
             searches=searches,
             search_runs=search_run_summaries,
             scored_jobs=jobs,
+            all_reviewed_jobs=jobs,
             accepted_for_write=[],
             fresh_after_dedup=[],
             extracted_count=len(jobs),
@@ -1793,22 +2234,30 @@ def run_live_discovery(
             existing_skip_count=0,
             cache_hits_count=0,
         )
+        _emit_progress(force=True, event="complete", status="complete", total_extracted=len(jobs), progress_made=True)
         print(f"{'Count-only' if count_only else 'Extract-only'} complete: {len(jobs)} jobs")
         print(f"Batch report (Markdown): {md_report}")
         print(f"Batch report (HTML): {html_report}")
         return len(jobs)
-    return _run_post_extract_pipeline(
-        run_label=run_label,
-        searches=searches,
-        search_runs=search_run_summaries,
-        jobs=jobs,
-        extracted_count=len(scraped_cards),
-        dry_run=dry_run,
-        model=model,
-        quiet=quiet,
-        max_workers=max_workers,
-        source_raw_artifacts=[str(artifact)],
-    )
+    _emit_progress(force=True, event="scoring_started", status="scoring", total_extracted=len(jobs), progress_made=True)
+    try:
+        fresh_count = _run_post_extract_pipeline(
+            run_label=run_label,
+            searches=searches,
+            search_runs=search_run_summaries,
+            jobs=jobs,
+            extracted_count=len(scraped_cards),
+            dry_run=dry_run,
+            model=model,
+            quiet=quiet,
+            max_workers=max_workers,
+            source_raw_artifacts=[str(artifact)],
+        )
+    except Exception as exc:
+        _emit_progress(force=True, event="failed", status="failed", total_extracted=len(jobs), error=str(exc))
+        raise
+    _emit_progress(force=True, event="complete", status="complete", total_extracted=len(jobs), progress_made=True)
+    return fresh_count
 
 
 def _parse_args() -> argparse.Namespace:

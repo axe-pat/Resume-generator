@@ -25,9 +25,11 @@ from discovery.scripts.build_linkedin_apply_queue import (
 
 APPS_DIR = ROOT / "apps"
 RUNS_DIR = APPS_DIR / "runs"
+APPLY_QUEUES_DIR = APPS_DIR / "Apply queues"
 ARCHIVE_DIR = APPS_DIR / "archive"
 DISCOVERY_ARCHIVE_DIR = ARCHIVE_DIR / "discovery_runs"
-QUEUE_DIR = RUNS_DIR / "current_apply_queue"
+QUEUE_DIR = APPLY_QUEUES_DIR / "current_apply_queue"
+QUEUE_TMP_DIR = APPLY_QUEUES_DIR / ".current_apply_queue_tmp"
 JOBS_DIR = QUEUE_DIR / "jobs"
 MANUAL_DIR = QUEUE_DIR / "manual_review"
 JOBS_XLSX = ROOT / "discovery" / "jobs.xlsx"
@@ -120,10 +122,10 @@ def _copy_tree_contents(src: Path, dst: Path) -> None:
     for child in src.iterdir():
         target = dst / child.name
         if child.is_dir():
-            if target.exists():
-                shutil.rmtree(target)
-            shutil.copytree(child, target)
+            target.mkdir(parents=True, exist_ok=True)
+            _copy_tree_contents(child, target)
         else:
+            target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(child, target)
 
 
@@ -142,22 +144,114 @@ def _move_tree_contents(src: Path, dst: Path) -> None:
         pass
 
 
-def _sync_existing_artifacts(row: dict, target_dir: Path) -> None:
+def _normalize_tmp_queue_path(path_str: str) -> str:
+    raw = str(path_str or "").strip()
+    if not raw:
+        return raw
+    return raw.replace(str(QUEUE_TMP_DIR), str(QUEUE_DIR))
+
+
+def _archived_queue_metadata_index() -> dict[str, list[Path]]:
+    roots = [ARCHIVE_DIR / "stale_apply_queues", APPLY_QUEUES_DIR]
+    indexed: dict[str, list[Path]] = {}
+    for root in roots:
+        if not root.exists():
+            continue
+        for metadata_path in root.rglob("metadata.json"):
+            try:
+                data = json.loads(metadata_path.read_text(encoding="utf-8"))
+            except Exception:
+                continue
+            row_id = str(data.get("id") or "").strip()
+            if not row_id:
+                continue
+            indexed.setdefault(row_id, [])
+            role_dir = metadata_path.parent
+            if role_dir not in indexed[row_id]:
+                indexed[row_id].append(role_dir)
+    return indexed
+
+
+def _archived_top_level_company_index() -> dict[str, list[Path]]:
+    roots = [ARCHIVE_DIR / "redundant_top_level"]
+    indexed: dict[str, list[Path]] = {}
+    for root in roots:
+        if not root.exists():
+            continue
+        for company_dir in root.rglob("*"):
+            if not company_dir.is_dir():
+                continue
+            if company_dir.name in {"redundant_top_level"}:
+                continue
+            if (company_dir / "jd.txt").exists() or (company_dir / "strategy.json").exists():
+                key = _dir_slug(company_dir.name).lower()
+                indexed.setdefault(key, [])
+                if company_dir not in indexed[key]:
+                    indexed[key].append(company_dir)
+    return indexed
+
+
+def _artifact_source_candidates(
+    row: dict,
+    *,
+    queue_metadata_index: dict[str, list[Path]],
+    top_level_company_index: dict[str, list[Path]],
+) -> list[Path]:
+    candidates: list[Path] = []
+
+    def _add(path: Path | None) -> None:
+        if path is None:
+            return
+        try:
+            resolved = path.resolve()
+        except Exception:
+            resolved = path
+        if not resolved.exists():
+            return
+        if resolved not in candidates:
+            candidates.append(resolved)
+
     src_str = str(row.get("folder_path") or "").strip()
-    if not src_str:
-        return
-    src = Path(src_str)
-    if not src.exists() or src.resolve() == target_dir.resolve():
-        return
+    if src_str:
+        _add(Path(src_str))
 
+    row_id = str(row.get("id") or "").strip()
+    for path in queue_metadata_index.get(row_id, []):
+        _add(path)
+
+    company_key = _dir_slug(str(row.get("company") or "")).lower()
+    for path in top_level_company_index.get(company_key, []):
+        _add(path)
+
+    return candidates
+
+
+def _sync_existing_artifacts(candidate_dirs: list[Path], target_dir: Path) -> None:
+    if not candidate_dirs:
+        return
     target_dir.mkdir(parents=True, exist_ok=True)
-    root_apps_children = [p.resolve() for p in APPS_DIR.iterdir() if p.name not in {"runs", "archive"}]
-    is_top_level_app = any(src.resolve() == child for child in root_apps_children)
-
-    if is_top_level_app:
-        _move_tree_contents(src, target_dir)
-    else:
+    for src in candidate_dirs:
+        if not src.exists():
+            continue
+        if src.resolve() == target_dir.resolve():
+            continue
         _copy_tree_contents(src, target_dir)
+
+
+def _cleanup_redundant_top_level_dirs(entries: list[dict]) -> list[Path]:
+    removed: list[Path] = []
+    seen: set[Path] = set()
+    for entry in entries:
+        company_slug = _dir_slug(str(entry.get("company") or ""))
+        if not company_slug:
+            continue
+        top_level_dir = APPS_DIR / company_slug
+        if top_level_dir in seen or not top_level_dir.exists() or not top_level_dir.is_dir():
+            continue
+        seen.add(top_level_dir)
+        shutil.rmtree(top_level_dir)
+        removed.append(top_level_dir)
+    return removed
 
 
 def _update_folder_paths(entries: list[dict]) -> None:
@@ -252,10 +346,15 @@ def main() -> int:
     blocklist = _load_blocklist()
     origin_runs = _origin_runs_by_url()
 
-    if QUEUE_DIR.exists():
-        shutil.rmtree(QUEUE_DIR)
-    JOBS_DIR.mkdir(parents=True, exist_ok=True)
-    MANUAL_DIR.mkdir(parents=True, exist_ok=True)
+    queue_metadata_index = _archived_queue_metadata_index()
+    top_level_company_index = _archived_top_level_company_index()
+
+    if QUEUE_TMP_DIR.exists():
+        shutil.rmtree(QUEUE_TMP_DIR)
+    temp_jobs_dir = QUEUE_TMP_DIR / "jobs"
+    temp_manual_dir = QUEUE_TMP_DIR / "manual_review"
+    temp_jobs_dir.mkdir(parents=True, exist_ok=True)
+    temp_manual_dir.mkdir(parents=True, exist_ok=True)
 
     ready_entries: list[dict] = []
     manual_entries: list[dict] = []
@@ -267,18 +366,18 @@ def main() -> int:
         url = str(row_dict.get("url") or "").strip()
         bucket = str(row_dict.get("queue_bucket") or "carry")
         in_latest_run = bool(row_dict.get("in_latest_run"))
-        role_dir = _job_dir(JOBS_DIR, row_dict, bucket)
+        role_dir = _job_dir(temp_jobs_dir, row_dict, bucket)
         reason = ""
         is_manual = False
 
         if company_lc in EXCLUDED_COMPANIES:
             is_manual = True
             reason = "excluded_company"
-            role_dir = _job_dir(MANUAL_DIR, row_dict, bucket)
+            role_dir = _job_dir(temp_manual_dir, row_dict, bucket)
         elif _is_blocklisted(company, blocklist):
             is_manual = True
             reason = "blocklisted"
-            role_dir = _job_dir(MANUAL_DIR, row_dict, bucket)
+            role_dir = _job_dir(temp_manual_dir, row_dict, bucket)
 
         metadata = _write_job_files(
             role_dir,
@@ -289,7 +388,14 @@ def main() -> int:
             origin_runs=origin_runs.get(url, []),
             reason=reason,
         )
-        _sync_existing_artifacts(row_dict, role_dir)
+        _sync_existing_artifacts(
+            _artifact_source_candidates(
+                row_dict,
+                queue_metadata_index=queue_metadata_index,
+                top_level_company_index=top_level_company_index,
+            ),
+            role_dir,
+        )
 
         entry = {
             "id": metadata["id"],
@@ -325,14 +431,23 @@ def main() -> int:
     for priority_rank, entry in enumerate(manual_entries, start=1):
         entry["priority_rank"] = priority_rank
 
+    for entry in ready_entries + manual_entries:
+        entry["folder_path"] = _normalize_tmp_queue_path(str(entry.get("folder_path") or ""))
+
     _update_folder_paths(ready_entries + manual_entries)
 
-    priority_txt = QUEUE_DIR / "priority_order.txt"
-    priority_json = QUEUE_DIR / "priority_order.json"
-    latest_txt = QUEUE_DIR / "latest_run_jobs.txt"
-    carry_txt = QUEUE_DIR / "carry_over_jobs.txt"
-    manual_txt = QUEUE_DIR / "manual_review.txt"
-    command_sh = QUEUE_DIR / "generate_command.sh"
+    priority_txt = QUEUE_TMP_DIR / "priority_order.txt"
+    priority_json = QUEUE_TMP_DIR / "priority_order.json"
+    latest_txt = QUEUE_TMP_DIR / "latest_run_jobs.txt"
+    carry_txt = QUEUE_TMP_DIR / "carry_over_jobs.txt"
+    manual_txt = QUEUE_TMP_DIR / "manual_review.txt"
+    command_sh = QUEUE_TMP_DIR / "generate_command.sh"
+    final_priority_txt = QUEUE_DIR / "priority_order.txt"
+    final_priority_json = QUEUE_DIR / "priority_order.json"
+    final_latest_txt = QUEUE_DIR / "latest_run_jobs.txt"
+    final_carry_txt = QUEUE_DIR / "carry_over_jobs.txt"
+    final_manual_txt = QUEUE_DIR / "manual_review.txt"
+    final_command_sh = QUEUE_DIR / "generate_command.sh"
 
     def _line(entry: dict) -> str:
         bucket = "NEW" if entry.get("in_latest_run") else "CARRY"
@@ -364,10 +479,10 @@ def main() -> int:
         "#!/usr/bin/env bash",
         "set -euo pipefail",
         'cd "$(dirname "$0")/../../.."',
+        "export RUN_APP_SEQUENTIAL=1",
         "",
+        "./venv/bin/python jobs.py --no-color generate --queue --queue-path 'apps/Apply queues/current_apply_queue/priority_order.json'",
     ]
-    for entry in companies_to_generate:
-        script_lines.append(f"./venv/bin/python jobs.py --no-color generate --id {entry['id']}")
     command_sh.write_text("\n".join(script_lines) + "\n", encoding="utf-8")
     command_sh.chmod(0o755)
 
@@ -380,20 +495,30 @@ def main() -> int:
         "ready_jobs": ready_entries,
         "manual_review_jobs": manual_entries,
         "files": {
-            "priority_order": str(priority_txt),
-            "latest_run_jobs": str(latest_txt),
-            "carry_over_jobs": str(carry_txt),
-            "manual_review": str(manual_txt),
-            "generate_command": str(command_sh),
+            "priority_order": str(final_priority_txt),
+            "latest_run_jobs": str(final_latest_txt),
+            "carry_over_jobs": str(final_carry_txt),
+            "manual_review": str(final_manual_txt),
+            "generate_command": str(final_command_sh),
         },
     }
-    (QUEUE_DIR / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    (QUEUE_TMP_DIR / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+
+    if QUEUE_DIR.exists():
+        backup_dir = APPLY_QUEUES_DIR / ".current_apply_queue_prev"
+        if backup_dir.exists():
+            shutil.rmtree(backup_dir)
+        QUEUE_DIR.rename(backup_dir)
+    QUEUE_TMP_DIR.rename(QUEUE_DIR)
+    removed_dirs = _cleanup_redundant_top_level_dirs(ready_entries + manual_entries)
 
     print(f"Queue: {QUEUE_DIR}")
     print(f"Latest discovery run: {latest_run_name or 'none'}")
     print(f"Ready jobs: {len(ready_entries)}")
     print(f"Manual review jobs: {len(manual_entries)}")
-    print(f"Generate command: bash {command_sh}")
+    if removed_dirs:
+        print(f"Removed redundant top-level app dirs: {len(removed_dirs)}")
+    print(f"Generate command: bash {final_command_sh}")
     return 0
 
 
