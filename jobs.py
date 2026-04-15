@@ -107,6 +107,9 @@ if os.path.exists("/sessions") and os.environ.get("HTTPS_PROXY"):
 ROOT_DIR   = Path(__file__).parent
 JOBS_XLSX  = ROOT_DIR / "discovery" / "jobs.xlsx"
 APPS_DIR   = ROOT_DIR / "apps"
+APPLY_QUEUES_DIR = APPS_DIR / "Apply queues"
+CURRENT_APPLY_QUEUE_DIR = APPLY_QUEUES_DIR / "current_apply_queue"
+CURRENT_APPLY_QUEUE_PRIORITY_JSON = CURRENT_APPLY_QUEUE_DIR / "priority_order.json"
 LOCK_FILE  = ROOT_DIR / "discovery" / ".jobs.lock"
 ARCHIVE_SHEET = "Archive"
 JOBS_SHEET    = "Jobs"
@@ -494,6 +497,82 @@ def _resolve_generate_target(df: pd.DataFrame, company_name: str | None = None, 
     return target
 
 
+def _load_queue_generate_targets(
+    df: pd.DataFrame,
+    queue_path: Path,
+    offset: int = 0,
+    limit: int | None = None,
+) -> list[dict]:
+    if not queue_path.exists():
+        raise ValueError(f"queue file not found: {queue_path}")
+
+    try:
+        entries = json.loads(queue_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        raise ValueError(f"could not read queue file {queue_path}: {exc}") from exc
+
+    if not isinstance(entries, list):
+        raise ValueError(f"queue file {queue_path} must contain a JSON list")
+
+    def _normalize_queue_dir(path_str: str) -> str:
+        raw = str(path_str or "").strip()
+        if not raw:
+            return raw
+        normalized = raw.replace(
+            f"{APPLY_QUEUES_DIR}/.current_apply_queue_tmp/",
+            f"{CURRENT_APPLY_QUEUE_DIR}/",
+        )
+        normalized = normalized.replace(
+            "/Apply queues/.current_apply_queue_tmp/",
+            "/Apply queues/current_apply_queue/",
+        )
+        return normalized
+
+    targets: list[dict] = []
+    seen_ids: set[str] = set()
+    skipped = 0
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        row_id = str(entry.get("id") or "").strip()
+        if not row_id or row_id in seen_ids:
+            continue
+        seen_ids.add(row_id)
+
+        if skipped < max(offset, 0):
+            skipped += 1
+            continue
+
+        queue_dir = _normalize_queue_dir(str(entry.get("bundle_dir") or entry.get("folder_path") or ""))
+        if queue_dir:
+            target = {
+                "id": row_id,
+                "company": str(entry.get("company") or "").strip(),
+                "app_dir": queue_dir,
+            }
+            if not target["company"]:
+                try:
+                    target = _resolve_generate_target(df, row_id=row_id)
+                    target["app_dir"] = queue_dir
+                except ValueError as exc:
+                    print(c(YELLOW, f"  [i] Skipping queue row id '{row_id}': {exc}"))
+                    continue
+            targets.append(target)
+            if limit is not None and len(targets) >= limit:
+                break
+            continue
+
+        try:
+            targets.append(_resolve_generate_target(df, row_id=row_id))
+        except ValueError as exc:
+            print(c(YELLOW, f"  [i] Skipping queue row id '{row_id}': {exc}"))
+            continue
+        if limit is not None and len(targets) >= limit:
+            break
+
+    return targets
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Blocklist helpers
 # ─────────────────────────────────────────────────────────────────────────────
@@ -739,6 +818,14 @@ def cmd_generate(args, promoted_jobs: list[dict] | None = None) -> list[dict]:
                     targets.append(_resolve_generate_target(df, name))
                 except ValueError as e:
                     sys.exit(f"[ERROR] {e}\n        Run 'jobs.py promote' first, or check the company name.")
+        elif getattr(args, "queue", False):
+            queue_path = Path(getattr(args, "queue_path", "") or CURRENT_APPLY_QUEUE_PRIORITY_JSON)
+            offset = max(0, int(getattr(args, "offset", 0) or 0))
+            limit = getattr(args, "limit", None)
+            try:
+                targets = _load_queue_generate_targets(df, queue_path=queue_path, offset=offset, limit=limit)
+            except ValueError as e:
+                sys.exit(f"[ERROR] {e}")
         elif getattr(args, "all_promoted", False):
             promoted_rows = df[df["status"] == "promoted"]
             targets = [
@@ -789,7 +876,7 @@ def cmd_generate(args, promoted_jobs: list[dict] | None = None) -> list[dict]:
                         f"  [i] {len(partial)} dir(s) have CL but no resume "
                         f"— running --resume-only --no-strategy for: {partial}"))
         else:
-            sys.exit("[ERROR] Specify --company NAME, --companies A,B,C, --all-promoted, or --all-apps")
+            sys.exit("[ERROR] Specify --id, --company, --companies, --queue, --all-promoted, or --all-apps")
 
     if not targets:
         print(c(YELLOW, "  No promoted jobs to generate for."))
@@ -1276,10 +1363,18 @@ def main():
     g.add_argument("--company",      type=str,  help="Single company name")
     g.add_argument("--companies",    type=str,
                    help="Comma-separated company names (e.g. Flexera,Lennox,Risepoint)")
+    g.add_argument("--queue",        action="store_true",
+                   help="Generate in current apply-queue priority order")
     g.add_argument("--all-promoted", action="store_true")
     g.add_argument("--all-apps",     action="store_true",
                    help="Run for every apps/ subdir that has a jd.txt "
                         "(ignores xlsx status; skips already-generated dirs by default)")
+    p_gen.add_argument("--queue-path", type=str, default=str(CURRENT_APPLY_QUEUE_PRIORITY_JSON),
+                       help="Path to a queue priority_order.json file (default: current apply queue)")
+    p_gen.add_argument("--offset",      type=int, default=0, metavar="N",
+                       help="With --queue: skip the first N queue items before generating")
+    p_gen.add_argument("--limit",       type=int, default=None, metavar="N",
+                       help="With --queue: only generate the first N queue items")
     p_gen.add_argument("--dry-run",      action="store_true")
     p_gen.add_argument("--force",        action="store_true",
                        help="With --all-apps: run even if resume_*.txt already exists")

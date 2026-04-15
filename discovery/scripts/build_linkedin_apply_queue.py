@@ -209,20 +209,15 @@ def main() -> int:
     )
     companies_txt.write_text("\n".join(companies_to_generate), encoding="utf-8")
 
+    queue_priority_rel = "apps/Apply queues/current_apply_queue/priority_order.json"
     script_lines = [
         "#!/usr/bin/env bash",
         "set -euo pipefail",
         'cd "$(dirname "$0")/../../.."',
         "export RUN_APP_SEQUENTIAL=1",
         "",
+        f'./venv/bin/python jobs.py --no-color generate --queue --queue-path {shlex.quote(queue_priority_rel)}',
     ]
-    for company in companies_to_generate:
-        entry = next((item for item in ready_entries if item["company"] == company and str(item.get("status") or "").lower() != "generated"), None)
-        if not entry:
-            continue
-        script_lines.append(
-            f"./venv/bin/python jobs.py --no-color generate --id {shlex.quote(str(entry['id']))}"
-        )
     command_sh.write_text("\n".join(script_lines) + "\n", encoding="utf-8")
     command_sh.chmod(0o755)
 

@@ -63,6 +63,24 @@ DEFAULT_MODEL  = "claude-haiku-4-5-20251001"
 MAX_TOKENS     = 400   # output is short — 6 structured lines
 JD_CHAR_LIMIT  = 6000  # truncate very long JDs to save tokens
 RETRY_ATTEMPTS = 5   # more attempts for rate-limit resilience (most will be 429 waits)
+JD_CHROME_MARKERS = (
+    "looking for talent?",
+    "post a job",
+    "linkedin corporation ©",
+    "select language",
+    "visit our help center",
+    "manage your account and privacy",
+    "recommendation transparency",
+)
+JD_SECTION_MARKERS = (
+    "about the job",
+    "responsibilities",
+    "qualifications",
+    "minimum qualifications",
+    "preferred qualifications",
+    "what you'll do",
+    "job description",
+)
 
 # Thread-safe printing — used by score_job when called from ThreadPoolExecutor
 _print_lock = threading.Lock()
@@ -184,6 +202,24 @@ def _error_result(error: str) -> dict:
     }
 
 
+def _jd_quality_issue(jd_text: str) -> str:
+    raw = (jd_text or "").strip()
+    if not raw:
+        return "empty"
+    lower = raw.lower()
+    chrome_hits = sum(marker in lower for marker in JD_CHROME_MARKERS)
+    section_hits = sum(marker in lower for marker in JD_SECTION_MARKERS)
+    if raw.startswith("Looking for talent?"):
+        return "linkedin_chrome"
+    if "linkedin corporation ©" in lower and section_hits == 0:
+        return "linkedin_chrome"
+    if chrome_hits >= 3 and section_hits == 0:
+        return "linkedin_chrome"
+    if chrome_hits >= 2 and len(raw) < 2200 and section_hits == 0:
+        return "linkedin_chrome"
+    return ""
+
+
 # ---------------------------------------------------------------------------
 # Core score function
 # ---------------------------------------------------------------------------
@@ -238,11 +274,21 @@ def score_job(job: dict, client: anthropic.Anthropic,
         return job
 
     # ── No JD text — can't score meaningfully ─────────────────────────────────
-    if not (job.get("jd_text") or "").strip():
+    jd_text = job.get("jd_text") or ""
+    if not jd_text.strip():
         result = _error_result("No JD text available — cannot score")
         with _print_lock:
             if verbose:
                 print(f"    ⚠  No JD text — {company} / {title}")
+        job.update(result)
+        return job
+
+    jd_issue = _jd_quality_issue(jd_text)
+    if jd_issue == "linkedin_chrome":
+        result = _error_result("Invalid JD capture — extracted LinkedIn shell/footer text")
+        with _print_lock:
+            if verbose:
+                print(f"    ⚠  Bad JD capture — {company} / {title}")
         job.update(result)
         return job
 
