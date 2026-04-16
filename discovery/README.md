@@ -107,6 +107,7 @@ Pre-reqs:
 - Run Chrome with remote debugging enabled on port `9222`
 - Keep LinkedIn logged in in that Chrome profile
 - Ensure Playwright is installed in the Python env that runs the script
+- See `../docs/LINKEDIN_BROWSER_PLAYBOOK.md` for the canonical shared Chrome-session rules used by both discovery and Outreach
 
 Recommended live-session flow:
 

@@ -24,6 +24,13 @@ LISTENER_CMD="$(ps -p "${LISTENER_PID}" -o command= 2>/dev/null || true)"
 
 echo "CDP owner (${DEBUG_PORT}): ${LISTENER_CMD}"
 
+if [[ "${LISTENER_CMD}" != *"--remote-debugging-port"* ]]; then
+  cat <<EOF >&2
+ERROR: Port ${DEBUG_PORT} is not owned by a Chrome process launched with remote debugging enabled.
+EOF
+  exit 1
+fi
+
 if [[ "${LISTENER_CMD}" == *"${BAD_PROFILE_PATH}"* ]]; then
   cat <<EOF >&2
 ERROR: Refusing to proceed because port ${DEBUG_PORT} is owned by the forbidden unsigned profile:
