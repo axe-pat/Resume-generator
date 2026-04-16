@@ -221,6 +221,7 @@ python run_app.py Stripe --no-strategy       # skip strategy step
 python run_app.py Stripe --no-rewrite --no-score --no-qc  # fast mode ~$0.08
 python run_app.py Stripe --score-only        # re-score existing resume txt, rename docx
 python run_app.py Stripe --docx-only         # regenerate docx from latest resume_*.txt with no AI
+python run_app.py Stripe --no-smart-cost     # disable fit-score-based model/pass downgrades
 
 # Non-PM resume track (Strategy / Consulting / S&O / PgM / RevOps)
 python run_app.py McKinsey --track nonpm     # uses freeform_master_nonpm.txt
@@ -298,17 +299,27 @@ To add a company mid-session: edit `discovery/blocklist.txt` directly, then run 
 | Stage              | Model       | Cost/job  |
 |--------------------|-------------|-----------|
 | Discovery scoring  | Haiku       | ~$0.002   |
-| Strategy (Step 0)  | Sonnet      | ~$0.04    |
+| Strategy (Step 0)  | Sonnet or Haiku | ~$0.01-$0.04 |
 | Resume Pass 1      | Sonnet      | ~$0.06    |
 | Resume Pass 2      | Sonnet      | ~$0.04    |
-| Resume Pass 3      | Sonnet      | ~$0.02    |
+| Resume Pass 3      | Sonnet or Haiku | ~$0.005-$0.02 |
 | CL generation      | Sonnet      | ~$0.05    |
-| CL QC              | Sonnet      | ~$0.01    |
-| **Full pipeline**  |             | **~$0.24**|
+| CL QC              | Haiku       | ~$0.002-$0.004 |
+| **Full pipeline**  |             | **varies by fit-score tier** |
 
 Fast mode flags: `--no-rewrite --no-score --no-qc` → ~$0.12/job
 
 The pipeline prints a cost estimate before each scoring run so you can abort if the batch is unexpectedly large.
+
+### Smart-cost policy
+
+`run_app.py` now reads `fit_score=` from `apps/<Company>/intel.txt` and uses that to decide how much model spend is justified for that job.
+
+- `fit_score >= 7.8` → full mode: keep the full quality path. Strategy, rewrite, scoring, fix loop, and CL QC can all run; strategy/scoring stay on the main model.
+- `7.0 <= fit_score < 7.8` → balanced mode: keep core generation, but downgrade strategy and resume scoring to Haiku; skip Pass 4 targeted fixes and CL QC.
+- `fit_score < 7.0` → lean mode: skip strategy, rewrite, resume scoring, fix loop, and CL QC entirely. Core resume/CL generation still runs, but the expensive review/remediation passes are suppressed.
+
+This is meant to preserve quality where job relevance is high while cutting spend on lower-fit applications. Use `--no-smart-cost` if you want to force the old all-on behavior.
 
 ---
 

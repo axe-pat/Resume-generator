@@ -60,14 +60,16 @@ Last updated: 2026-03-29
   - Non-PM track: operational — `--track nonpm` uses freeform_master_nonpm.txt (Cluster A: Strategy/Consulting, Cluster B: Ops/Execution); QC-07 and docx header are track-aware; track auto-detected from role_family if --track not passed; test run pending (requires Mac terminal)
 - CL pipeline: operational (Steps 0–3 + QC)
 - jobs.py: built, not yet in cron (promote/generate loop not fully automated)
+- run_app.py smart-cost policy: operational — reads `fit_score=` from `intel.txt`; high-fit jobs keep full quality path, mid-fit jobs downgrade strategy/scoring to Haiku and skip CL QC / Pass 4, low-fit jobs skip non-core expensive passes; `--no-smart-cost` disables this
+- CL QC default model: `claude-haiku-4-5-20251001` via `--qc-model`; CL generation remains on the main `--model`
 - Pending: TikTok-specific query, dedup between pipeline/screenshot sources, promote script automation, nonpm test run
 
 ## Resume pipeline pass flow (for reference)
 
-Pass 0 → strategy (haiku via scorer.py, stored in strategy.json); emits role_family ("pm" | "strategy-consulting" | "ops-execution")
+Pass 0 → strategy (Sonnet by default in direct runs; may downgrade to Haiku in run_app smart-cost mode; stored in strategy.json); emits role_family ("pm" | "strategy-consulting" | "ops-execution")
 Pass 1 → variant selection + section generation (freeform_master_v2.txt [pm] or freeform_master_nonpm.txt [nonpm] → sonnet)
 Pass 2 → voice rewrite (freeform_voice_rewrite.txt → sonnet)
-Pass 3 → scoring (freeform_scorer.txt → sonnet, threshold 8.0; nonpm track prepends scorer preamble)
+Pass 3 → scoring (freeform_scorer.txt → Sonnet by default; may downgrade to Haiku in run_app smart-cost mode; threshold 8.0; nonpm track prepends scorer preamble)
 Pass 4 → targeted fix loop, 1 attempt max (freeform_targeted_swap.txt → sonnet)
 QC     → structural checks QC-01 through QC-13; QC-03 retry if fails; QC-07 track-aware; QC-13 auto-trim if >2 bullets ≥260 chars
 Expand → expansion pass if fill_pct < 85% (_estimate_page_fill)
@@ -75,7 +77,7 @@ Docx   → generate_docx (pandoc via Node.js); summary header track-aware (PRODU
 
 ## Known issues / technical notes
 
-- All resume pipeline API calls use claude-sonnet-4-6 (DEFAULT_MODEL) including scoring
+- Direct freeform runs still default to `claude-sonnet-4-6`, but `run_app.py` can now route strategy and scoring to Haiku for lower-fit jobs
 - score_only_app() in run_app.py runs score+pass4+QC-13+expansion on existing .txt files
 - QC-03 auto-retry only on intuit_incident protected story (1,500+ businesses)
 - The "rather than" contrast phrase cap is 1 per section (QC-12); story bank variants avoid it

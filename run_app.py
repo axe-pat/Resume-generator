@@ -26,6 +26,7 @@ Options:
   --no-rewrite    Skip resume Pass 2 (voice rewrite)
   --no-score      Skip resume Pass 3 (scoring)
   --no-qc         Skip CL Step 3 (AI quality check)
+  --no-smart-cost Disable score-aware model/pass downgrades for lower-fit jobs
   --no-docx       Skip formatted .docx generation (default: generate docx)
   --model MODEL   Anthropic model (default: claude-sonnet-4-6)
   --no-color      Disable ANSI color output
@@ -117,6 +118,9 @@ sys.stdout = _ThreadLocalStdout()
 # ─────────────────────────────────────────────────────────────────────────────
 ROOT_DIR  = Path(__file__).parent        # ResumeGenerator v1/
 APPS_DIR  = ROOT_DIR / "apps"
+HAIKU_MODEL = "claude-haiku-4-5-20251001"
+FULL_QUALITY_SCORE_THRESHOLD = 7.8
+LEAN_MODE_SCORE_THRESHOLD = 7.0
 
 # Make shared/ and both pipeline dirs importable
 sys.path.insert(0, str(ROOT_DIR))
@@ -162,6 +166,83 @@ def c(color, text):
 # ─────────────────────────────────────────────────────────────────────────────
 def _today() -> str:
     return datetime.now().strftime("%Y-%m-%d")
+
+
+def _extract_fit_score(intel_text: str) -> float | None:
+    for raw_line in str(intel_text or "").splitlines():
+        line = raw_line.strip()
+        if not line.lower().startswith("fit_score="):
+            continue
+        try:
+            return float(line.split("=", 1)[1].strip())
+        except ValueError:
+            return None
+    return None
+
+
+def _choose_cost_policy(
+    fit_score: float | None,
+    requested_strategy: bool,
+    requested_rewrite: bool,
+    requested_score: bool,
+    requested_fix: bool,
+    requested_qc: bool,
+    default_model: str,
+    smart_cost: bool,
+) -> dict:
+    if not smart_cost or fit_score is None:
+        return {
+            "tier": "full",
+            "reason": "smart cost disabled" if not smart_cost else "fit score unavailable",
+            "strategy_model": default_model,
+            "score_model": default_model,
+            "run_strategy": requested_strategy,
+            "run_rewrite": requested_rewrite,
+            "run_score": requested_score,
+            "run_fix": requested_fix and requested_score,
+            "run_qc": requested_qc,
+        }
+
+    if fit_score >= FULL_QUALITY_SCORE_THRESHOLD:
+        return {
+            "tier": "full",
+            "reason": f"fit_score {fit_score:.1f} >= {FULL_QUALITY_SCORE_THRESHOLD:.1f}",
+            "strategy_model": default_model,
+            "score_model": default_model,
+            "run_strategy": requested_strategy,
+            "run_rewrite": requested_rewrite,
+            "run_score": requested_score,
+            "run_fix": requested_fix and requested_score,
+            "run_qc": requested_qc,
+        }
+
+    if fit_score >= LEAN_MODE_SCORE_THRESHOLD:
+        return {
+            "tier": "balanced",
+            "reason": (
+                f"{LEAN_MODE_SCORE_THRESHOLD:.1f} <= fit_score {fit_score:.1f} "
+                f"< {FULL_QUALITY_SCORE_THRESHOLD:.1f}"
+            ),
+            "strategy_model": HAIKU_MODEL,
+            "score_model": HAIKU_MODEL,
+            "run_strategy": requested_strategy,
+            "run_rewrite": requested_rewrite,
+            "run_score": requested_score,
+            "run_fix": False,
+            "run_qc": False,
+        }
+
+    return {
+        "tier": "lean",
+        "reason": f"fit_score {fit_score:.1f} < {LEAN_MODE_SCORE_THRESHOLD:.1f}",
+        "strategy_model": HAIKU_MODEL,
+        "score_model": HAIKU_MODEL,
+        "run_strategy": False,
+        "run_rewrite": False,
+        "run_score": False,
+        "run_fix": False,
+        "run_qc": False,
+    }
 
 
 def _rename_latest(directory: Path, old_stem_fragment: str, new_stem: str, ext: str) -> Path | None:
@@ -419,6 +500,7 @@ def run_app(
     make_docx:    bool = False,
     track:        str  = "pm",  # "pm" | "nonpm" — resume track selection
     app_dir_override: str | None = None,
+    smart_cost:   bool = True,
 ) -> None:
     app_dir  = resolve_company(company, app_dir_override=app_dir_override)
     jd_path  = app_dir / "jd.txt"
@@ -432,11 +514,35 @@ def run_app(
 
     jd_text    = jd_path.read_text(encoding="utf-8").strip()
     intel_text = intel_path.read_text(encoding="utf-8").strip() if intel_path.exists() else ""
+    fit_score  = _extract_fit_score(intel_text)
 
     if not jd_text:
         sys.exit(f"[ERROR] jd.txt is empty in {app_dir}")
 
     resume_pipeline, cl_pipeline, generate_strategy = _import_pipelines()
+
+    requested_strategy = run_strategy
+    requested_rewrite  = run_rewrite
+    requested_score    = run_score
+    requested_fix      = True
+    requested_qc       = run_qc
+    cost_policy = _choose_cost_policy(
+        fit_score=fit_score,
+        requested_strategy=requested_strategy,
+        requested_rewrite=requested_rewrite,
+        requested_score=requested_score,
+        requested_fix=requested_fix,
+        requested_qc=requested_qc,
+        default_model=model,
+        smart_cost=smart_cost,
+    )
+    strategy_model = cost_policy["strategy_model"]
+    score_model    = cost_policy["score_model"]
+    run_strategy   = cost_policy["run_strategy"]
+    run_rewrite    = cost_policy["run_rewrite"]
+    run_score      = cost_policy["run_score"]
+    run_fix        = cost_policy["run_fix"]
+    run_qc         = cost_policy["run_qc"]
 
     today = _today()
 
@@ -449,8 +555,12 @@ def run_app(
         print(c(GREEN,  f"  ✓ Intel found ({len(intel_text)} chars)"))
     else:
         print(c(YELLOW,  "  [i] No intel.txt — running without additional context"))
-    print(f"  Model: {c(CYAN, model)}  |  resume={run_resume}  cl={run_cl}  "
-          f"strategy={run_strategy}  rewrite={run_rewrite}  score={run_score}  qc={run_qc}")
+    if fit_score is not None:
+        print(f"  Fit score: {c(CYAN, f'{fit_score:.1f}')}")
+    print(f"  Model: {c(CYAN, model)}  |  resume={run_resume}  cl={run_cl}")
+    print(f"  Cost policy: {c(CYAN, cost_policy['tier'])} ({cost_policy['reason']})")
+    print(f"  Strategy model: {c(CYAN, strategy_model)}  |  Score model: {c(CYAN, score_model)}")
+    print(f"  Effective passes: strategy={run_strategy}  rewrite={run_rewrite}  score={run_score}  fix={run_fix}  qc={run_qc}")
 
     # ── Step 0: Strategy (once, shared) ──────────────────────────────────────
     strategy_dict  = {}
@@ -472,7 +582,7 @@ def run_app(
                             key = line.split("=", 1)[1].strip().strip('"').strip("'")
                             break
             strategy_dict, strategy_block = _gen_strat(
-                jd_text=jd_text, intel_text=intel_text, model=model, api_key=key,
+                jd_text=jd_text, intel_text=intel_text, model=strategy_model, api_key=key,
             )
             pre_strategy = (strategy_dict, strategy_block)
 
@@ -542,9 +652,11 @@ def run_app(
                 run_strategy = False,
                 run_rewrite  = run_rewrite,
                 run_score    = run_score,
+                run_fix      = run_fix,
                 pre_strategy = pre_strategy,
                 docx_out_dir = app_dir,
                 track        = track,
+                score_model  = score_model,
             )
             txt_renamed = _rename_latest(app_dir, "_jd", f"resume_{today}", ".txt")
             if txt_renamed:
@@ -980,15 +1092,31 @@ def _parse_skills_rows_local(skills_text: str) -> list[dict]:
     return rows
 
 
-def _parse_project_rows_local(projects_text: str) -> list[str]:
+def _parse_project_rows_local(projects_text: str) -> list[dict]:
     rows = []
+    current = None
     for line in projects_text.splitlines():
         stripped = line.strip()
         if not stripped or stripped.upper().startswith("PROJECTS & CONSULTING"):
             continue
-        m = re.match(r'^[\u2022\u25cf\-\*●•]\s+(.*)', stripped)
-        if m:
-            rows.append(m.group(1).strip())
+        m_bullet = re.match(r'^[\u2022\u25cf\-\*●•]\s+(.*)', stripped)
+        if m_bullet:
+            bullet = m_bullet.group(1).strip()
+            if current is None:
+                current = {"company": "", "title": "", "date": "", "bullets": []}
+                rows.append(current)
+            current["bullets"].append(bullet)
+            continue
+        if "|" in stripped:
+            parts = [p.strip() for p in stripped.split("|")]
+            company = parts[0] if len(parts) >= 1 else ""
+            title = parts[1] if len(parts) >= 2 else ""
+            date = parts[2] if len(parts) >= 3 else ""
+            current = {"company": company, "title": title, "date": date, "bullets": []}
+            rows.append(current)
+            continue
+        current = {"company": stripped, "title": "", "date": "", "bullets": []}
+        rows.append(current)
     return rows
 
 
@@ -1093,6 +1221,8 @@ def main():
                         help="Skip resume Pass 3 (scoring)")
     parser.add_argument("--no-qc",        action="store_true",
                         help="Skip CL Step 3 (AI quality check)")
+    parser.add_argument("--no-smart-cost", action="store_true",
+                        help="Disable score-aware model/pass downgrades for lower-fit jobs")
     parser.add_argument("--docx",         action="store_true",
                         help="Deprecated no-op: .docx is now generated by default")
     parser.add_argument("--no-docx",      action="store_true",
@@ -1142,6 +1272,7 @@ def main():
                 make_docx    = not args.no_docx,
                 track        = args.track,
                 app_dir_override = args.app_dir,
+                smart_cost   = not args.no_smart_cost,
             )
     finally:
         log_file.close()

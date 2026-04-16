@@ -36,6 +36,10 @@ cause, and built something that proved his diagnosis right. Do not list three
 bullet-point achievements. Do not name-drop multiple projects. Depth over
 breadth: a reader should be able to describe what Akshat did at one company
 in one precise sentence by the end of the body paragraph.
+HARD RULE: Once you choose the body story, do not append a second achievement
+or "around the same time / I also" mini-story in the same paragraph. The body
+paragraph may contain one setup beat and one payoff beat from the SAME story,
+but never a second metric, second project, or second company as extra proof.
 
 PRINCIPLE 3 — COMPANY RESEARCH MUST GO BELOW THE SURFACE
 The company paragraph cannot reference: the company's mission statement, their
@@ -369,6 +373,9 @@ company's context. Use the pivot structure: observation → insight → action �
 scale. Include one quotable line. Numbers must be verbatim from the story bank
 (never fabricate or approximate). The story should feel like it's evidence for
 a thesis, not a list of credentials.
+Do NOT append a second achievement after the main payoff sentence. If you feel
+tempted to write "Around the same time...", "I also...", or "That same pattern
+showed up when...", stop. Cut it. One story only.
 
 PARAGRAPH 3 — THE COMPANY CONNECTION (~70–90 words)
 Connect Akshat's angle to something specific about this company — not their
@@ -450,6 +457,8 @@ PRE-WRITE CHECKLIST (run silently before writing the letter)
 ──────────────────────────────────────────────────────────────────────────────
 □ Does the hook open with a scene, not a statement about Akshat?
 □ Is the story depth > breadth — one story told well?
+□ Does Paragraph 2 name exactly one company / one achievement spine, with no
+  late-added second metric story?
 □ Does the company paragraph go below the surface?
 □ Is there one sentence in the letter that functions as a quotable line?
 □ Does the close echo the hook's register?

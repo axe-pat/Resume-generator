@@ -1677,21 +1677,41 @@ def parse_skills_rows(skills_text: str) -> list:
     return rows
 
 
-def parse_project_rows(projects_text: str) -> list[str]:
+def parse_project_rows(projects_text: str) -> list[dict]:
     rows = []
+    current = None
     for line in projects_text.splitlines():
         stripped = line.strip()
         if not stripped or stripped.upper().startswith("PROJECTS & CONSULTING"):
             continue
-        m = re.match(r'^[\u2022\u25cf\-\*●•]\s+(.*)', stripped)
-        if m:
-            rows.append(m.group(1).strip())
+
+        m_bullet = re.match(r'^[\u2022\u25cf\-\*●•]\s+(.*)', stripped)
+        if m_bullet:
+            bullet = m_bullet.group(1).strip()
+            if current is None:
+                current = {"company": "", "title": "", "date": "", "bullets": []}
+                rows.append(current)
+            current["bullets"].append(bullet)
+            continue
+
+        if "|" in stripped:
+            parts = [p.strip() for p in stripped.split("|")]
+            company = parts[0] if len(parts) >= 1 else ""
+            title = parts[1] if len(parts) >= 2 else ""
+            date = parts[2] if len(parts) >= 3 else ""
+            current = {"company": company, "title": title, "date": date, "bullets": []}
+            rows.append(current)
+            continue
+
+        # Backward-compatible fallback: treat any stray non-bullet line as a title row.
+        current = {"company": stripped, "title": "", "date": "", "bullets": []}
+        rows.append(current)
     return rows
 
 
 def _estimate_height(company_blocks: list, skills_rows: list, tier: dict,
                      summary_text: str = "",
-                     project_rows: list[str] | None = None) -> tuple[int, int]:
+                     project_rows: list[dict] | None = None) -> tuple[int, int]:
     L, SB, SA, MB = tier['line'], tier['sec_before'], tier['sec_after'], tier['margin_bot']
     available = _PAGE_H - _MARGIN_TOP - MB
     total     = 0
@@ -1719,9 +1739,16 @@ def _estimate_height(company_blocks: list, skills_rows: list, tier: dict,
             total += n * L
     if project_rows:
         total += SB + L + SA
-        for bullet in project_rows:
-            n = max(1, _math.ceil(len(bullet) / _CHARS_PER_LINE))
-            total += n * L
+        for row in project_rows:
+            header = (row.get("company") or "")
+            title = (row.get("title") or "")
+            if header:
+                total += L
+            if title:
+                total += L
+            for bullet in row.get("bullets", []):
+                n = max(1, _math.ceil(len(bullet) / _CHARS_PER_LINE))
+                total += n * L
     total += SB + L + SA
     for row in skills_rows:
         label    = (row.get('bold_label') or '')
@@ -1734,7 +1761,7 @@ def _estimate_height(company_blocks: list, skills_rows: list, tier: dict,
 
 def _choose_layout_tier(company_blocks: list, skills_rows: list,
                         summary_text: str = "",
-                        project_rows: list[str] | None = None) -> tuple[dict, int, int]:
+                        project_rows: list[dict] | None = None) -> tuple[dict, int, int]:
     for tier in _LAYOUT_TIERS:
         est, avail = _estimate_height(company_blocks, skills_rows, tier, summary_text, project_rows)
         if est <= avail - _LAYOUT_BUFFER:
@@ -2065,6 +2092,7 @@ def run_single(
     pre_strategy: tuple | None = None,   # (strategy_dict, strategy_block) — skips Pass 0
     docx_out_dir: Path  | None = None,   # override docx output dir (default: out_dir.parent/docx)
     track:        str         = "pm",    # "pm" | "nonpm" — selects master prompt + QC rules
+    score_model:  str  | None = None,    # override model for Pass 3 scoring/re-scoring
 ) -> bool:
     """Run full pipeline for one JD. Returns True if all structural checks pass."""
     # ── Track setup ───────────────────────────────────────────────────────────
@@ -2072,6 +2100,7 @@ def run_single(
         print(c(YELLOW, f"  [!] Unknown track '{track}' — defaulting to 'pm'"))
         track = "pm"
     master_prompt_path = NONPM_PROMPT_PATH if track == "nonpm" else PROMPT_PATH
+    score_model = score_model or model
 
     # Scorer preamble for non-PM track: reminds the scorer that strategy/ops
     # verb openers ('reframed', 'diagnosed', 'synthesized', 'owned a workstream')
@@ -2268,7 +2297,7 @@ Hard guidance:
     # ── Pass 3: Scoring ──────────────────────────────────────────────────────
     score_data = {}
     if run_score and sections["experience_section"]:
-        score_data = run_scorer(sections["experience_section"], jd_text, model,
+        score_data = run_scorer(sections["experience_section"], jd_text, score_model,
                                 strategy_block, role_preamble=role_preamble,
                                 projects_section=sections.get("projects_section", ""))
         print_score(score_data)
@@ -2327,7 +2356,7 @@ Hard guidance:
                 # Re-score to check if more attempts are needed
                 print()
                 print(c(BOLD, f"  Pass 4 Re-score (attempt {fix_attempt})"))
-                score_data = run_scorer(sections["experience_section"], jd_text, model,
+                score_data = run_scorer(sections["experience_section"], jd_text, score_model,
                                         strategy_block, role_preamble=role_preamble,
                                         projects_section=sections.get("projects_section", ""))
                 print_score(score_data)
@@ -2441,7 +2470,7 @@ Hard guidance:
             rewrites_log = rewrites_log2
             # Re-score so the saved file reflects the retry output
             if run_score:
-                score_data = run_scorer(sections["experience_section"], jd_text, model,
+                score_data = run_scorer(sections["experience_section"], jd_text, score_model,
                                         strategy_block, role_preamble=role_preamble,
                                         projects_section=sections.get("projects_section", ""))
                 print_score(score_data)
@@ -2468,7 +2497,7 @@ Hard guidance:
             # Re-score to guard against regression
             print()
             print(c(BOLD, "  QC-13 Re-score after trim:"))
-            _trim_score_data = run_scorer(_trim_exp, jd_text, model, strategy_block,
+            _trim_score_data = run_scorer(_trim_exp, jd_text, score_model, strategy_block,
                                          role_preamble=role_preamble,
                                          projects_section=sections.get("projects_section", ""))
             print_score(_trim_score_data)

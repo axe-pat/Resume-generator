@@ -1,9 +1,9 @@
 AKSHAT PATHAK — FREEFORM NON-PM RESUME MASTER (Pass 1)
 ======================================================
-Version 2.1  |  Routes: Strategy/Consulting · BizOps/S&O · Commercial/GTM · Research/Intelligence · AI-Automation · Client-Implementation · Ops/PgM
+Version 2.2  |  Routes: Strategy/Consulting · BizOps/S&O · Commercial/GTM · Research/Intelligence · AI-Automation · Client-Implementation · Ops/PgM
 
 You are generating Section 0 (PROFILE SUMMARY), Section 3 (EXPERIENCE),
-optional Section 3B (PROJECTS & CONSULTING), and Section 4 (SKILLS & INTERESTS)
+and Section 4 (SKILLS & INTERESTS)
 of Akshat Pathak's resume for a non-PM role: Strategy, Management Consulting,
 Corporate Strategy, BizOps, S&O, RevOps, GTM, Research/Insights, AI-automation,
 Client Implementation, PgM, or Technical PgM.
@@ -36,7 +36,7 @@ Story portfolio (maps to resume slots):
   O-PROVIDER      → O1: Provider-network integration; 50M users; ~$20M+
   O-AFFORDABILITY → O2: AI affordability model; global hackathon win; piloted
 
-FIRST-CLASS NON-PM PROOF UNITS (for optional SECTION 3B — PROJECTS & CONSULTING):
+FIRST-CLASS NON-PM PROOF UNITS (for optional Strategy Project row in SECTION 4):
 
   P-FOUNDER [strategy-operating-model]
   "Advised a cloud startup founder on growth strategy and scale-up readiness;
@@ -73,6 +73,10 @@ FIRST-CLASS NON-PM PROOF UNITS (for optional SECTION 3B — PROJECTS & CONSULTIN
 Rules for using proof units:
   • These are first-class proof, not filler. Use them only when they materially
     improve non-PM identity.
+  • Do NOT create a standalone PROJECTS & CONSULTING section.
+  • Use these only as one compact Strategy Project row in Section 4 when the
+    strategy block explicitly recommends non-engineering proof and the extra
+    signal still helps after the main experience section is drafted.
   • If the strategy block includes a Non-engineering proof recommendation,
     follow it unless it would create obvious duplication or route conflict.
   • Prefer P-FOUNDER for strategy-consulting, bizops-sando, or commercial-gtm.
@@ -80,9 +84,7 @@ Rules for using proof units:
     needing non-engineering proof.
   • Use P-GRAB only when the strategy block explicitly signals USC / mobility /
     workflow-design relevance. Keep it factual and modest; do not invent metrics.
-  • Include at most 2 proof bullets total in Section 3B.
-  • If a proof unit appears in Section 3B, do NOT duplicate it as a Strategy
-    Project row in Section 4.
+  • Include at most ONE proof row total.
 
 MISSING-PROOF OVERRIDES — use when the JD's top signals are not fully covered
 by the default company spine:
@@ -97,8 +99,8 @@ by the default company spine:
     constraints, operator trust logic, or pilot design.
     When two variants are similarly strong, prefer the one that names the
     workflow artifact, evaluation lens, or recommendation output explicitly.
-  • Section 3B may reinforce these signals, but the main Section 3 experience
-    bullets must still carry them.
+  • A Strategy Project row may reinforce these signals, but the main Section 3
+    experience bullets must still carry them.
 
 ──────────────────────────────────────────────────────────────────────────────
 HARD RULES FOR VARIANT SELECTION
@@ -363,7 +365,7 @@ ROUTE ANCHOR POLICY — THIS OVERRIDES LEGACY INLINE LABELS BELOW:
     • Route 5 AI-Automation must anchor O2 and H2. If those bullets are not
       among the clearest in the section, recalibrate before finalizing. H1, G3,
       or I3 must carry the translation/recommendation layer in the main section;
-      do not rely on Section 3B to do that job.
+      do not rely on the Strategy Project row to do that job.
     • Route 5 AI-Automation must include at least 1 main-section bullet that
       explicitly names a workflow-mapping, evaluation, recommendation, or
       adoption artifact. If the section only signals AI through O2, it is
@@ -386,7 +388,7 @@ ROUTE ANCHOR POLICY — THIS OVERRIDES LEGACY INLINE LABELS BELOW:
       G2 must be one of the 2 clearest bullets in the entire resume. At least 2
       of G2 / G3 / O1 / I1 should sit among the 4 strongest bullets. Keep H3 /
       I2 / I3 concise so the resume does not drift back into enterprise-engineering
-      identity. If founder proof is selected in Section 3B, it can strengthen
+      identity. If founder proof is selected as a Strategy Project row, it can strengthen
       holistic GTM credibility, but it may never substitute for missing main-section
       commercial proof.
       At least 1 of G2 / H1 / I1 / I3 should read like a GTM artifact or
@@ -402,7 +404,7 @@ ROUTE ANCHOR POLICY — THIS OVERRIDES LEGACY INLINE LABELS BELOW:
     • Route 5 AI-Automation:
       O2 and H2 must both read as anchor-quality bullets. Pair them with H1 / G3 /
       I3 in the main section so the resume shows workflow diagnosis, translation,
-      and recommendation quality without leaning on Section 3B. At least 2 bullets
+      and recommendation quality without leaning on the Strategy Project row. At least 2 bullets
       must explicitly mention workflow, automation logic, pilot design, monitoring,
       requirements, or an AI decision rule. If P-LOREAL is selected, treat it as
       supporting proof of hands-on workflow redesign and keep G1 / H3 / O1 visibly
@@ -438,7 +440,7 @@ ROUTE ANCHOR POLICY — THIS OVERRIDES LEGACY INLINE LABELS BELOW:
 
 ROUTE MAIN-SECTION TEMPLATES — HARD:
   These templates govern what the core 11 experience bullets must accomplish.
-  Section 3B may reinforce identity, but it can never replace missing main-
+  A Strategy Project row may reinforce identity, but it can never replace missing main-
   section proof for any route.
 
   Route 1 — Strategy/Consulting:
@@ -465,7 +467,7 @@ ROUTE MAIN-SECTION TEMPLATES — HARD:
       - 1 evidence-collection, targeting, or GTM decision artifact bullet from
         G2 / I1 / H1 / I3
     • H3 / I2 / I3 combined may occupy at most 1 of the top 6 bullets.
-    • Section 3B may support brand or GTM range, but it cannot substitute for
+    • A Strategy Project row may support brand or GTM range, but it cannot substitute for
       missing main-section commercial proof.
 
   Route 4 — Research/Intelligence:
@@ -482,7 +484,7 @@ ROUTE MAIN-SECTION TEMPLATES — HARD:
       - 1 optional business-case or operating-model anchor from G2 / O1 / G1
         only if it reinforces the workflow story rather than replacing it
     • H3 / I2 combined may occupy at most 1 of the top 6 bullets.
-    • Section 3B L'Oréal proof may reinforce workflow credibility, but it cannot
+    • A L'Oréal Strategy Project row may reinforce workflow credibility, but it cannot
       substitute for missing core AI/workflow proof in the experience section.
 
   Route 6 — Client-Implementation:
@@ -503,7 +505,7 @@ SUPPORT-SLOT SUPPRESSION — especially important for Routes 3 and 5:
   • Route 3 Commercial/GTM:
     H3, I2, and I3 may support operating rigor, but they must not occupy more
     than 1 of the four strongest bullets unless the JD explicitly prioritizes
-    operational SLA / handoff design. If founder proof is selected in Section 3B,
+    operational SLA / handoff design. If founder proof is selected as a Strategy Project row,
     keep it visibly supportive; do not let it distract from the commercial core.
   • Route 5 AI-Automation:
     G1, H3, O1, and I2 are range proof only unless the strategy block explicitly
@@ -547,7 +549,7 @@ ADDITIONAL HARD FLOORS:
     funnel analysis, competitive benchmarking, ICP, or monetization design.
   • If the route is AI-Automation, at least 2 bullets must name a workflow,
     automation constraint, AI decision rule, pilot design, or adoption mechanism.
-  • Supporting proof in Section 3B may sharpen the resume's identity, but it can
+  • Supporting proof in the Strategy Project row may sharpen the resume's identity, but it can
     never satisfy a missing main-section requirement for the chosen route.
   • If the route is Client-Facing/Implementation, at least 3 bullets must name a
     rollout / implementation / remediation / adoption mechanism.
@@ -1148,31 +1150,26 @@ supply scalability gap as a platform integration problem. At USC Marshall to
 operate at the intersection of technical depth and business strategy."
 
 ──────────────────────────────────────────────────────────────────────────────
-SECTION 3B — PROJECTS & CONSULTING (optional)
+STRATEGY PROJECT ROW (optional compact proof row inside SECTION 4)
 ──────────────────────────────────────────────────────────────────────────────
-Use this section only when non-engineering proof materially improves the resume's
+Use this row only when non-engineering proof materially improves the resume's
 identity for the selected route.
 
 Selection rules — apply in order:
-  1. For Route 1 Strategy/Consulting: include 1–2 bullets unless the main
-     experience section already reads clearly strategy-first without help.
-  2. For Route 3 Commercial/GTM and Route 4 Research/Intelligence: include
-     1 bullet when founder advisory or L'Oréal sharpens the non-engineering proof.
-  3. For Route 5 AI-Automation: include 1 bullet; prefer P-LOREAL.
-  4. For Route 2 BizOps/S&O: include 1 bullet only when the strategy block
-     explicitly says to surface USC / founder / L'Oréal work.
-  5. For Route 6 Client-Implementation and Route 7 Ops/PgM: omit by default.
-     Include only if the strategy block explicitly says the non-engineering proof
-     is needed to close a signal gap.
-  6. Default to 1 bullet. Use 2 only when the strategy block clearly calls for it.
-  7. If you include Section 3B, do NOT repeat the same proof as a Strategy Project
-     row in Section 4.
-  8. If no proof unit is selected, omit the entire Section 3B block.
+  1. Omit by default for all routes.
+  2. Include only when the strategy block's Non-engineering proof field explicitly
+     calls for founder, loreal, grab, or founder+loreal.
+  3. Even when the strategy block recommends proof, omit the row if the main
+     experience section already carries the route's identity cleanly.
+  4. For Route 5 AI-Automation: prefer P-LOREAL when workflow / GenAI proof
+     should be surfaced.
+  5. For Route 1 Strategy/Consulting or Route 3 Commercial/GTM: prefer P-FOUNDER
+     when founder proof adds distinct signal.
+  6. Include at most ONE compact row.
+  7. If no proof unit is selected, omit the row entirely.
 
 Output format when used:
-PROJECTS & CONSULTING
-• [selected P-FOUNDER / P-LOREAL / P-GRAB variant]
-• [optional second selected variant]
+Strategy Project: [selected proof bullet]
 
 ──────────────────────────────────────────────────────────────────────────────
 SKILLS & INTERESTS — Section 4
@@ -1300,15 +1297,15 @@ BOTH / ALL ROUTES — fixed rows (verbatim, do not alter):
   Interests: fitness and strength training, DJing house parties, behavioral
     psychology, astrophysics, and trekking the Himalayas.
 
-STRATEGY PROJECT ROW (optional — include as 5th row only when SECTION 3B is omitted):
+STRATEGY PROJECT ROW (optional — include as 5th row only when selected):
   Label: Strategy Project:
   Consulting variant (for MBB/consulting): "Advised a cloud startup founder on growth
     strategy and scale-up readiness, conducting competitive analysis and refining the
     operating model to facilitate a successful acquisition."
   L'Oréal variant (for AI/tech-adjacent consulting): "Mapped GenAI use cases across
     2 business units at L'Oréal; 3 workflow recommendations delivered for executive review."
-  → Use only if Section 3B is omitted. Include for strategy-heavy, research-heavy,
-    commercial, or AI-automation routes when the extra signal still helps.
+  → Include for strategy-heavy, research-heavy, commercial, or AI-automation
+    routes when the extra signal still helps.
 
 RULES:
   • No row labelled "Product Focus:" in non-PM resumes (wrong identity signal).
@@ -1316,8 +1313,8 @@ RULES:
     the route-appropriate focus row.
   • Include 4 rows for Route 6 and Route 7 resumes.
   • Include 4 or 5 rows for Routes 1–5.
-  • Add Strategy Project only when Section 3B is omitted and the extra non-engineering
-    signal still helps.
+  • Add Strategy Project only when the strategy block explicitly recommends it
+    and the extra non-engineering signal still helps.
 
 ──────────────────────────────────────────────────────────────────────────────
 FORBIDDEN WORDS
@@ -1356,7 +1353,7 @@ No two consecutive bullets may share the same opening verb.
 ──────────────────────────────────────────────────────────────────────────────
 OUTPUT FORMAT — PRODUCE EXACTLY THIS STRUCTURE
 ──────────────────────────────────────────────────────────────────────────────
-Produce EXACTLY five sections, or six if Section 3B is used, in the order below.
+Produce EXACTLY five sections in the order below.
 Do not reorder them. Do not add extra commentary, preamble, or post-output
 reasoning. After the last row of Section 4, stop immediately.
 
@@ -1454,18 +1451,12 @@ OPTUM | Software Engineer | Jul 2020 – Aug 2022 | Gurgaon, India
 • [O2]
 
 ────────────────────────
-SECTION 3B — PROJECTS & CONSULTING (optional; include only when a proof unit is selected)
-────────────────────────
-PROJECTS & CONSULTING
-• [selected proof bullet]
-• [optional second proof bullet]
-
-────────────────────────
 SECTION 4 — SKILLS & INTERESTS (paste-ready)
 ────────────────────────
 SKILLS & INTERESTS
 ● [Label]: [content]
 ● [Label]: [content]
+● Strategy Project: [selected proof bullet]   ← optional, include only when selected
 ● Community: [verbatim community text]
 ● Interests: [verbatim interests text]
 

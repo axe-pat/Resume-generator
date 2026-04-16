@@ -130,6 +130,18 @@ function subtitleLine(text) {
   });
 }
 
+function projectHeaderLine({ company, date }) {
+  return new Paragraph({
+    spacing: { line: LAYOUT.line },
+    tabStops: [{ type: TabStopType.RIGHT, position: CONTENT_W }],
+    indent:   { left: HDR_LEFT, hanging: HDR_HANG },
+    children: [
+      run(company || '', { bold: true }),
+      run(date ? '\t' + date : ''),
+    ],
+  });
+}
+
 // Bullet paragraph — justified, indent from numbering config
 function bulletPara(children) {
   return new Paragraph({
@@ -267,9 +279,24 @@ function buildResume(data) {
   // ── PROJECTS & CONSULTING (optional, primarily for non-PM routes) ───────
   if (Array.isArray(data.project_rows) && data.project_rows.length > 0) {
     children.push(sectionHeader('PROJECTS & CONSULTING'));
-    for (const row of data.project_rows) {
-      if (!row || !row.trim()) continue;
-      children.push(textBullet(row.trim()));
+    for (let i = 0; i < data.project_rows.length; i++) {
+      const row = data.project_rows[i];
+      if (!row) continue;
+      if (i > 0) children.push(spacer());
+
+      if (row.company || row.date) {
+        children.push(projectHeaderLine({
+          company: row.company || '',
+          date: row.date || '',
+        }));
+      }
+      if (row.title) {
+        children.push(subtitleLine(row.title));
+      }
+      for (const bt of (row.bullets || [])) {
+        if (!bt || !bt.trim()) continue;
+        children.push(textBullet(bt.trim()));
+      }
     }
   }
 

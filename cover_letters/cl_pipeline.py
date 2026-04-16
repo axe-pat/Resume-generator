@@ -9,7 +9,8 @@ Usage:
   Options:
     --no-qc          Skip Step 3 quality check (faster, saves API cost)
     --no-strategy    Skip Step 0 strategy (use legacy Step 1 JD analysis only)
-    --model MODEL    Anthropic model (default: claude-sonnet-4-6)
+    --model MODEL    Anthropic model for strategy/generation (default: claude-sonnet-4-6)
+    --qc-model MODEL Anthropic model for Step 3 QC (default: claude-haiku-4-5-20251001)
     --out DIR        Output directory (default: runs/)
     --no-color       Disable terminal color output
 
@@ -47,6 +48,7 @@ PROMPTS_DIR   = BASE_DIR / "prompts"
 JDS_DIR       = BASE_DIR / "jds"
 DEFAULT_OUT   = BASE_DIR / "runs"
 DEFAULT_MODEL = "claude-sonnet-4-6"
+DEFAULT_QC_MODEL = "claude-haiku-4-5-20251001"
 
 STEP1_PROMPT  = PROMPTS_DIR / "step1_cl_jd_analysis.txt"  # legacy fallback
 STEP2_PROMPT  = PROMPTS_DIR / "step2_cl_generation.txt"
@@ -623,6 +625,7 @@ def run_single(
     model:           str,
     out_dir:         Path,
     run_qc:          bool        = True,
+    qc_model:        str         = DEFAULT_QC_MODEL,
     run_strategy:    bool        = True,
     pre_strategy:    tuple | None = None,   # (step1_data_dict, strategy_block) — skips Step 0
     pre_intel_text:  str   | None = None,   # inject intel text directly (skips file detection)
@@ -730,7 +733,7 @@ def run_single(
         print()
         print(c(BOLD, "  Step 3 — AI Quality Check"))
         step3_prompt = load_step3_prompt(cl_body)
-        step3_raw    = call_api(step3_prompt, model, "Step 3")
+        step3_raw    = call_api(step3_prompt, qc_model, "Step 3")
         qc_data      = parse_step3_json(step3_raw)
         print_qc_summary(qc_data)
 
@@ -824,6 +827,8 @@ def main():
                         help="Skip Step 0 strategy; use legacy Step 1 JD analysis")
     parser.add_argument("--model",        default=DEFAULT_MODEL,
                         help=f"Anthropic model (default: {DEFAULT_MODEL})")
+    parser.add_argument("--qc-model",     default=DEFAULT_QC_MODEL,
+                        help=f"Anthropic model for Step 3 QC (default: {DEFAULT_QC_MODEL})")
     parser.add_argument("--out",          default=str(DEFAULT_OUT),
                         help=f"Output directory (default: {DEFAULT_OUT})")
     parser.add_argument("--no-color",     action="store_true",
@@ -835,13 +840,14 @@ def main():
 
     out_dir      = Path(args.out)
     model        = args.model
+    qc_model     = args.qc_model
     run_qc       = not args.no_qc
     run_strategy = not args.no_strategy
 
     print(c(BOLD + CYAN, "\n  ╔══════════════════════════════════════════╗"))
     print(c(BOLD + CYAN,   "  ║   Cover Letter Generator v2.0            ║"))
     print(c(BOLD + CYAN,   "  ╚══════════════════════════════════════════╝"))
-    print(f"  Model: {c(CYAN, model)}  |  Output: {out_dir}  |  QC: {run_qc}  |  Strategy: {run_strategy}")
+    print(f"  Model: {c(CYAN, model)}  |  QC model: {c(CYAN, qc_model)}  |  Output: {out_dir}  |  QC: {run_qc}  |  Strategy: {run_strategy}")
 
     if args.batch:
         jd_files = sorted(
@@ -858,7 +864,7 @@ def main():
 
         results = {}
         for jd_path in jd_files:
-            ok = run_single(jd_path, model, out_dir, run_qc, run_strategy)
+            ok = run_single(jd_path, model, out_dir, run_qc, qc_model, run_strategy)
             results[jd_path.name] = "PASS" if ok else "WARN/FAIL"
 
         print()
@@ -874,7 +880,7 @@ def main():
 
     elif args.target:
         jd_path = resolve_jd_path(args.target)
-        run_single(jd_path, model, out_dir, run_qc, run_strategy)
+        run_single(jd_path, model, out_dir, run_qc, qc_model, run_strategy)
 
     else:
         parser.print_help()
