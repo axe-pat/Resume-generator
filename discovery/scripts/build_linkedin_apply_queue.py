@@ -18,6 +18,8 @@ SOURCE = "linkedin_live_jobs_v1"
 MIN_SCORE = 5.9
 EXCLUDED_COMPANIES = {"comcast"}
 
+import jobs
+
 
 def _dir_slug(text: str) -> str:
     slug = re.sub(r"[^A-Za-z0-9._ -]+", "", (text or "").strip())
@@ -132,8 +134,7 @@ def _update_folder_paths(entries: list[dict]) -> None:
         mask = df["id"].astype(str) == row_id
         if mask.any():
             df.loc[mask, "folder_path"] = folder_path
-    with pd.ExcelWriter(JOBS_XLSX, engine="openpyxl", mode="a", if_sheet_exists="replace") as writer:
-        df.to_excel(writer, sheet_name="Jobs", index=False)
+    jobs.save_jobs(df)
 
 
 def main() -> int:

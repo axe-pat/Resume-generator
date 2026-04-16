@@ -2,12 +2,18 @@
 from __future__ import annotations
 
 import shutil
+import sys
 from datetime import date, datetime
 from pathlib import Path
 
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+import jobs
+
 APPS_DIR = ROOT / "apps"
 RUNS_DIR = APPS_DIR / "runs"
 APPLY_QUEUES_DIR = APPS_DIR / "Apply queues"
@@ -67,7 +73,7 @@ def _age_out_current_queue_rows() -> list[dict]:
         folder_path = str(row.get("folder_path") or "").strip()
         if source != "linkedin_live_jobs_v1":
             continue
-        if status in {"applied", "reject", "rejected", "deprioritized", "ignore"}:
+        if status in {"applied", "closed", "parked", "reject", "rejected", "deprioritized", "ignore"}:
             continue
         if "current_apply_queue" not in folder_path:
             continue
@@ -90,8 +96,7 @@ def _age_out_current_queue_rows() -> list[dict]:
             })
 
     if moved:
-        with pd.ExcelWriter(JOBS_XLSX, engine="openpyxl", mode="a", if_sheet_exists="replace") as writer:
-            df.to_excel(writer, sheet_name="Jobs", index=False)
+        jobs.save_jobs(df)
 
     return moved
 

@@ -64,6 +64,7 @@ SEARCH_RESULTS_FALLBACK_COVERAGE_RATIO = 0.6
 SEARCH_RESULTS_OFFSET_PAGE_SIZE = 25
 SEARCH_RESULTS_MAX_STAGNANT_OFFSET_PAGES = 2
 HEARTBEAT_INTERVAL_SECONDS = 15.0
+JD_REPAIR_MAX_JOBS = 12
 JD_CHROME_MARKERS = (
     "looking for talent?",
     "post a job",
@@ -142,6 +143,14 @@ class SearchRunResult:
     extracted_count: int
     route_used: str
     fallback_used: bool
+
+
+@dataclass
+class JdRepairSummary:
+    candidates: int
+    attempted: int
+    repaired: int
+    remaining_failed: int
 
 
 def _should_try_fallback(
@@ -1334,6 +1343,80 @@ def _open_job_details(page: Page, job_url: str, detail_page: Page | None = None)
             detail_page.close()
 
 
+def _repair_scraped_cards(
+    *,
+    page: Page,
+    detail_page: Page,
+    cards: list[LinkedInJobCard],
+    quiet: bool,
+    progress_callback: Callable[[dict], None] | None = None,
+    max_jobs: int = JD_REPAIR_MAX_JOBS,
+) -> JdRepairSummary:
+    candidates = [card for card in cards if _jd_quality_issue(card.jd_text)]
+    if not candidates:
+        return JdRepairSummary(candidates=0, attempted=0, repaired=0, remaining_failed=0)
+
+    attempted = 0
+    repaired = 0
+    repair_batch = candidates[:max(max_jobs, 0)]
+
+    if not quiet:
+        print(
+            f"\n[repair] Retrying JD extraction for {len(repair_batch)} of "
+            f"{len(candidates)} candidate jobs before scoring..."
+        )
+
+    for idx, card in enumerate(repair_batch, start=1):
+        attempted += 1
+        if progress_callback is not None:
+            progress_callback(
+                {
+                    "event": "jd_repair_attempt",
+                    "repair_index": idx,
+                    "repair_total": len(repair_batch),
+                    "repair_url": card.url,
+                    "repair_title": card.title,
+                    "repair_company": card.company,
+                }
+            )
+        try:
+            jd_text, insight_text = _open_job_details(page, card.url, detail_page=detail_page)
+        except PlaywrightError:
+            jd_text, insight_text = "", ""
+
+        if _jd_quality_issue(jd_text):
+            continue
+
+        card.jd_text = jd_text
+        if insight_text.strip():
+            card.insight = insight_text.strip()
+        repaired += 1
+        if progress_callback is not None:
+            progress_callback(
+                {
+                    "event": "jd_repair_success",
+                    "repair_index": idx,
+                    "repair_total": len(repair_batch),
+                    "repair_url": card.url,
+                    "repair_title": card.title,
+                    "repair_company": card.company,
+                }
+            )
+
+    remaining_failed = sum(1 for card in cards if _jd_quality_issue(card.jd_text))
+    if not quiet:
+        print(
+            f"[repair] JD repair complete: repaired {repaired}/{attempted} attempted "
+            f"({remaining_failed} still missing/invalid)"
+        )
+    return JdRepairSummary(
+        candidates=len(candidates),
+        attempted=attempted,
+        repaired=repaired,
+        remaining_failed=remaining_failed,
+    )
+
+
 def _goto_next_page(page: Page) -> bool:
     candidates = [
         page.get_by_role("button", name=re.compile("next", re.I)),
@@ -1964,6 +2047,7 @@ def run_live_discovery(
     search_run_summaries: list[dict] = []
     scraped_cards: list[LinkedInJobCard] = []
     current_search_cards: list[LinkedInJobCard] = []
+    repair_summary = JdRepairSummary(candidates=0, attempted=0, repaired=0, remaining_failed=0)
     progress_state: dict[str, object] = {
         "run_label": run_label,
         "run_stamp": run_stamp,
@@ -2181,6 +2265,35 @@ def run_live_discovery(
                             else ""
                         )
                         print(f"  Captured {len(cards)} cards{ui_note}")
+
+                if not count_only and scraped_cards:
+                    _emit_progress(
+                        force=True,
+                        event="jd_repair_started",
+                        status="repairing",
+                        total_extracted=len(scraped_cards),
+                        progress_made=True,
+                    )
+                    repair_summary = _repair_scraped_cards(
+                        page=page,
+                        detail_page=detail_page,
+                        cards=scraped_cards,
+                        quiet=quiet,
+                        progress_callback=lambda payload: _emit_progress(
+                            force=str(payload.get("event") or "").endswith("success"),
+                            event=str(payload.get("event") or "jd_repair_progress"),
+                            status="repairing",
+                            total_extracted=len(scraped_cards),
+                            progress_made=str(payload.get("event") or "") == "jd_repair_success",
+                        ),
+                    )
+                    _emit_progress(
+                        force=True,
+                        event="jd_repair_complete",
+                        status="running",
+                        total_extracted=len(scraped_cards),
+                        progress_made=repair_summary.repaired > 0,
+                    )
             finally:
                 _close_page_safely(detail_page)
                 _close_page_safely(page)
@@ -2206,6 +2319,7 @@ def run_live_discovery(
             "count": len(scraped_cards),
             "searches": [{"search_term": s, "time_filter": t} for s, t in searches],
             "search_runs": search_run_summaries,
+            "jd_repair_summary": asdict(repair_summary),
             "cards": [asdict(card) for card in scraped_cards],
             "jobs": jobs,
         },
@@ -2214,6 +2328,14 @@ def run_live_discovery(
     if not quiet:
         print(f"\nRaw artifact: {artifact}")
         print(f"Raw cards captured: {len(scraped_cards)}")
+        if repair_summary.attempted:
+            print(
+                "JD repair summary: "
+                f"candidates={repair_summary.candidates} "
+                f"attempted={repair_summary.attempted} "
+                f"repaired={repair_summary.repaired} "
+                f"remaining_failed={repair_summary.remaining_failed}"
+            )
 
     if not jobs:
         _emit_progress(force=True, event="complete", status="complete", total_extracted=0)

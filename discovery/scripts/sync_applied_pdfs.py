@@ -14,6 +14,7 @@ import jobs  # noqa: E402
 
 APPS_DIR = ROOT / "apps"
 ARCHIVE_ROOT = APPS_DIR / "archive" / "applied"
+QUEUE_ROOT = APPS_DIR / "Apply queues"
 
 
 def _find_resume_pdf_dirs() -> list[Path]:
@@ -51,6 +52,22 @@ def _archive_target(app_dir: Path, applied_on: str) -> Path:
     return ARCHIVE_ROOT / applied_on / rel
 
 
+def _prune_empty_ancestors(start_dir: Path) -> None:
+    current = start_dir.parent.resolve()
+    stop_dirs = {
+        APPS_DIR.resolve(),
+        QUEUE_ROOT.resolve(),
+    }
+    while current not in stop_dirs and current.exists():
+        try:
+            next(current.iterdir())
+            break
+        except StopIteration:
+            parent = current.parent.resolve()
+            current.rmdir()
+            current = parent
+
+
 def main() -> int:
     resume_dirs = _find_resume_pdf_dirs()
     if not resume_dirs:
@@ -83,6 +100,7 @@ def main() -> int:
             updated_rows += matching.shape[0]
 
             shutil.move(str(app_dir), str(archive_target))
+            _prune_empty_ancestors(app_dir)
             moved_dirs += 1
             companies = ", ".join(sorted(set(matching["company"].astype(str).tolist())))
             print(f"[applied] {companies} -> {archive_target}")

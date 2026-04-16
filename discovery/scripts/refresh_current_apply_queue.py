@@ -14,6 +14,8 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+import jobs
+
 from discovery.scripts.build_linkedin_apply_queue import (
     EXCLUDED_COMPANIES,
     MIN_SCORE,
@@ -266,8 +268,7 @@ def _update_folder_paths(entries: list[dict]) -> None:
         mask = df["id"].astype(str) == row_id
         if mask.any():
             df.loc[mask, "folder_path"] = folder_path
-    with pd.ExcelWriter(JOBS_XLSX, engine="openpyxl", mode="a", if_sheet_exists="replace") as writer:
-        df.to_excel(writer, sheet_name="Jobs", index=False)
+    jobs.save_jobs(df)
 
 
 def _origin_runs_by_url() -> dict[str, list[str]]:

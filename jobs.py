@@ -58,7 +58,7 @@ Status lifecycle
                     ↑                      ↑
               (jobs.py promote)    (user marks after submitting)
 
-  Terminal statuses (won't be touched by automation): applied, rejected, skip
+  Terminal statuses (won't be touched by automation): applied, closed, rejected, skip
 """
 
 import argparse
@@ -115,7 +115,7 @@ ARCHIVE_SHEET = "Archive"
 JOBS_SHEET    = "Jobs"
 
 # Statuses the automation will never touch
-TERMINAL_STATUSES = {"applied", "rejected", "skip", "skipped"}
+TERMINAL_STATUSES = {"applied", "closed", "parked", "rejected", "skip", "skipped"}
 PROMOTE_FROM      = {"queued"}        # statuses eligible for promotion
 GENERATE_FROM     = {"promoted"}      # statuses eligible for generation
 
@@ -125,10 +125,12 @@ STATUS_RANK = {
     "promoted":  1,
     "generated": 2,
     "applied":   3,
-    "new":       4,
-    "skipped":   5,
-    "skip":      5,
-    "rejected":  5,
+    "closed":    4,
+    "parked":    5,
+    "new":       6,
+    "skipped":   7,
+    "skip":      7,
+    "rejected":  7,
 }
 
 # xlsx cell fill colours per status (hex, no #)
@@ -137,6 +139,8 @@ _STATUS_COLOR = {
     "promoted":  "BDD7EE",   # soft blue
     "generated": "DDEBF7",   # lighter blue
     "applied":   "EDEDED",   # light grey
+    "closed":    "EDEDED",   # light grey
+    "parked":    "EDEDED",   # light grey
     "new":       None,
     "skipped":   "C0C0C0",   # silver
     "skip":      "C0C0C0",
@@ -1148,7 +1152,7 @@ def cmd_pipeline(args):
 # Subcommand: mark
 # ─────────────────────────────────────────────────────────────────────────────
 def cmd_mark(args):
-    valid_statuses = {"queued", "promoted", "generated", "applied", "rejected", "skip", "skipped"}
+    valid_statuses = {"queued", "promoted", "generated", "applied", "closed", "parked", "rejected", "skip", "skipped"}
     if args.status not in valid_statuses:
         sys.exit(f"[ERROR] Invalid status '{args.status}'. Choose from: {valid_statuses}")
 
