@@ -33,6 +33,8 @@ Akshat is an F-1 visa holder. CPT (Curricular Practical Training) is his work au
 - "No visa sponsorship available" — refers to H-1B, not CPT
 - "Must be authorized to work without sponsorship" — ambiguous; CPT provides authorization without employer sponsoring a visa
 - "We cannot sponsor employment visas" — same as above
+- "No employment sponsorship required now or in the future" — still ambiguous unless CPT/OPT/F-1 is explicitly excluded
+- "Must be authorized to work for the US without visa sponsorship now or in the future" — still ambiguous unless CPT/OPT/F-1 is explicitly excluded
 - Export control / export license language (e.g. "authorization to receive technology controlled under export laws without sponsorship for an export license") — this is NOT immigration language
 
 **If the language is ambiguous** (generic "no sponsorship" without naming CPT/OPT/F-1): score the role normally and add a note in the rationale: "Immigration: JD has generic no-sponsorship language — verify CPT eligibility before applying."

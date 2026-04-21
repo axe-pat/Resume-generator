@@ -642,6 +642,89 @@ def _scroll_results_list(page: Page) -> int:
 
 
 def _extract_about_job_text(page: Page) -> str:
+    def _extract_text_via_js() -> list[str]:
+        try:
+            payload = page.evaluate(
+                """
+                () => {
+                  const texts = [];
+                  const seen = new Set();
+                  const pushNode = (node) => {
+                    if (!node) return;
+                    const text = (node.innerText || node.textContent || '').trim();
+                    if (!text || seen.has(text)) return;
+                    seen.add(text);
+                    texts.push(text);
+                  };
+                  pushNode(document.querySelector('main'));
+                  pushNode(document.querySelector('[role="main"]'));
+                  pushNode(document.body);
+                  return texts;
+                }
+                """
+            )
+            return [str(item or "").strip() for item in (payload or []) if str(item or "").strip()]
+        except PlaywrightError:
+            return []
+
+    def _slice_job_text(raw_text: str) -> str:
+        normalized = re.sub(r"\n{3,}", "\n\n", (raw_text or "").strip())
+        if not normalized:
+            return ""
+
+        start_markers = [
+            "About the job",
+            "Job Summary",
+            "Role Overview",
+            "About this role",
+            "Position Summary",
+            "Overview",
+            "What you'll do",
+            "What you will do",
+            "Primary Duties And Responsibilities",
+            "Responsibilities",
+        ]
+        end_markers = [
+            "Seniority level",
+            "Employment type",
+            "Job function",
+            "Industries",
+            "Referrals increase your chances",
+            "Set alert for similar jobs",
+            "People you can reach out to",
+            "Meet the hiring team",
+            "About the company",
+            "Get notified about new",
+            "Show less",
+        ]
+
+        start_idx = None
+        matched_marker = ""
+        for marker in start_markers:
+            idx = normalized.lower().find(marker.lower())
+            if idx >= 0 and (start_idx is None or idx < start_idx):
+                start_idx = idx
+                matched_marker = marker
+
+        if start_idx is None:
+            return normalized
+
+        start = start_idx + len(matched_marker)
+        body = normalized[start:].strip()
+        end_positions = [
+            body.lower().find(marker.lower())
+            for marker in end_markers
+            if body.lower().find(marker.lower()) > 0
+        ]
+        if end_positions:
+            body = body[: min(end_positions)].strip()
+        return body
+
+    for raw_text in _extract_text_via_js():
+        sliced = _slice_job_text(raw_text)
+        if sliced:
+            return sliced
+
     candidates = [
         page.locator("main").first,
         page.locator("body").first,
@@ -651,17 +734,9 @@ def _extract_about_job_text(page: Page) -> str:
             if locator.count() == 0:
                 continue
             text = locator.inner_text(timeout=3000).strip()
-            if not text:
-                continue
-            normalized = re.sub(r"\n{3,}", "\n\n", text)
-            match = re.search(
-                r"About the job\s+(.*?)(?:\n(?:Seniority level|Employment type|Job function|Industries|Referrals increase your chances|Set alert for similar jobs|People you can reach out to)\b|$)",
-                normalized,
-                flags=re.S | re.I,
-            )
-            if match:
-                return match.group(1).strip()
-            return normalized
+            sliced = _slice_job_text(text)
+            if sliced:
+                return sliced
         except PlaywrightError:
             continue
     return ""
@@ -890,8 +965,13 @@ def _report_reason_tag(job: dict) -> str:
         return "extract-fail"
 
     checks = [
-        ("visa", ("visa", "sponsor", "sponsorship", "authorized to work", "without visa support")),
-        ("level", ("level mismatch", "2–4 years", "2-4 years", "full-time senior", "not an internship")),
+        ("undergrad-only", ("undergraduate students", "working towards a bachelor's", "currently enrolled undergraduate", "rising senior", "incoming junior", "incoming senior")),
+        ("language", ("japanese", "bilingual", "full professional proficiency", "native or full professional proficiency")),
+        ("location", ("full on-site availability", "onsite in", "on-site in", "location mismatch", "must be available to work onsite")),
+        ("cpt-explicit", ("no cpt", "no opt", "f-1", "f1", "permanent basis", "permanent work authorization", "us citizen", "green card", "security clearance", "us person")),
+        ("visa-ambig", ("no sponsorship", "visa sponsorship", "without visa sponsorship", "authorized to work without sponsorship", "no employment sponsorship")),
+        ("senior-fulltime", ("4+ years required", "3+ years required", "8 years required", "full-time hire", "senior hire", "not an internship")),
+        ("level", ("level mismatch", "2–4 years", "2-4 years")),
         ("marketing", ("marketing intern", "product marketing")),
         ("ops-heavy", ("ops-heavy", "operations support", "process management", "execution-focused")),
         ("role-mismatch", ("role type mismatch", "role-type mismatch", "hard mismatch")),
