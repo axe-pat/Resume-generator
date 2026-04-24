@@ -19,11 +19,11 @@ import jobs
 from discovery.scripts.build_linkedin_apply_queue import (
     EXCLUDED_COMPANIES,
     MIN_SCORE,
-    SOURCE,
     _dir_slug,
     _is_blocklisted,
     _load_blocklist,
 )
+from shared.discovery_sources import APPLY_QUEUE_SOURCES, queue_company_label
 
 APPS_DIR = ROOT / "apps"
 RUNS_DIR = APPS_DIR / "runs"
@@ -56,7 +56,12 @@ def _latest_discovery_manifest() -> tuple[Path | None, dict]:
 
 
 def _job_dir(base_dir: Path, row: dict, bucket: str) -> Path:
-    company = _dir_slug(str(row.get("company") or ""))
+    company = _dir_slug(
+        queue_company_label(
+            str(row.get("company") or ""),
+            str(row.get("source") or ""),
+        )
+    )
     role = _dir_slug(str(row.get("role_title") or ""))
     date_found = str(row.get("date_found") or "").strip()
     mmdd = "unknown"
@@ -331,7 +336,7 @@ def main() -> int:
     }
 
     df = pd.read_excel(JOBS_XLSX, sheet_name="Jobs", dtype=str).fillna("")
-    df = df[df["source"].eq(SOURCE)].copy()
+    df = df[df["source"].isin(APPLY_QUEUE_SOURCES)].copy()
     df["fit_score_num"] = pd.to_numeric(df["fit_score"], errors="coerce")
     df = df[df["status"].isin(["queued", "promoted", "generated"])]
     df = df[df["fit_score_num"] >= MIN_SCORE]
@@ -490,6 +495,7 @@ def main() -> int:
     manifest = {
         "created_at": datetime.now().isoformat(timespec="seconds"),
         "queue_type": "current_apply_queue",
+        "sources": sorted(APPLY_QUEUE_SOURCES),
         "latest_discovery_run": latest_run_name,
         "ready_count": len(ready_entries),
         "manual_review_count": len(manual_entries),

@@ -122,20 +122,22 @@ GENERATE_FROM     = {"promoted"}      # statuses eligible for generation
 # Sort order for xlsx view — lower rank floats to top
 STATUS_RANK = {
     "queued":    0,
-    "promoted":  1,
-    "generated": 2,
-    "applied":   3,
-    "closed":    4,
-    "parked":    5,
-    "new":       6,
-    "skipped":   7,
-    "skip":      7,
-    "rejected":  7,
+    "review":    1,
+    "promoted":  2,
+    "generated": 3,
+    "applied":   4,
+    "closed":    5,
+    "parked":    6,
+    "new":       7,
+    "skipped":   8,
+    "skip":      8,
+    "rejected":  8,
 }
 
 # xlsx cell fill colours per status (hex, no #)
 _STATUS_COLOR = {
     "queued":    "E2EFDA",   # soft green
+    "review":    "FFF2CC",   # soft amber
     "promoted":  "BDD7EE",   # soft blue
     "generated": "DDEBF7",   # lighter blue
     "applied":   "EDEDED",   # light grey

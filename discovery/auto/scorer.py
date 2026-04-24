@@ -32,6 +32,8 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
+import pandas as pd
+
 try:
     import anthropic
 except ImportError:
@@ -99,11 +101,27 @@ def _load_file(path: Path, label: str) -> str:
     return path.read_text(encoding="utf-8").strip()
 
 
+def _as_text(value) -> str:
+    if value is None:
+        return ""
+    try:
+        if pd.isna(value):
+            return ""
+    except Exception:
+        pass
+    return str(value)
+
+
+def _job_text(job: dict, key: str, default: str = "") -> str:
+    value = _as_text(job.get(key, default))
+    return value if value else default
+
+
 def build_prompt(job: dict, profile_text: str, scorer_text: str) -> str:
     """
     Assemble the full prompt: scorer instructions + profile + JD.
     """
-    jd_raw  = job.get("jd_text") or ""
+    jd_raw  = _job_text(job, "jd_text")
     jd_text = jd_raw[:JD_CHAR_LIMIT] + (" [truncated]" if len(jd_raw) > JD_CHAR_LIMIT else "")
 
     return f"""{scorer_text}
@@ -118,10 +136,10 @@ def build_prompt(job: dict, profile_text: str, scorer_text: str) -> str:
 
 ## Job Description to Evaluate
 
-Company:    {job.get('company', 'Unknown')}
-Role Title: {job.get('role_title', 'Unknown')}
-Location:   {job.get('location', 'Unknown')}
-Source:     {job.get('source', 'unknown')}
+Company:    {_job_text(job, 'company', 'Unknown')}
+Role Title: {_job_text(job, 'role_title', 'Unknown')}
+Location:   {_job_text(job, 'location', 'Unknown')}
+Source:     {_job_text(job, 'source', 'unknown')}
 
 {jd_text}
 """
@@ -203,7 +221,7 @@ def _error_result(error: str) -> dict:
 
 
 def _jd_quality_issue(jd_text: str) -> str:
-    raw = (jd_text or "").strip()
+    raw = _as_text(jd_text).strip()
     if not raw:
         return "empty"
     lower = raw.lower()
@@ -232,8 +250,8 @@ def score_job(job: dict, client: anthropic.Anthropic,
     Score a single job dict. Returns a result dict with fit_score etc.
     Merges result back into the job dict and returns the enriched job.
     """
-    company = job.get("company", "?")
-    title   = job.get("role_title", "?")
+    company = _job_text(job, "company", "?")
+    title   = _job_text(job, "role_title", "?")
 
     with _print_lock:
         if verbose:
@@ -251,7 +269,8 @@ def score_job(job: dict, client: anthropic.Anthropic,
         return job
 
     # ── Pre-filter: immigration ───────────────────────────────────────────────
-    is_reject, reason = pre_filter_immigration(job.get("jd_text") or "")
+    jd_text = _job_text(job, "jd_text")
+    is_reject, reason = pre_filter_immigration(jd_text)
     if is_reject:
         result = _rejected_result(reason)
         with _print_lock:
@@ -263,7 +282,7 @@ def score_job(job: dict, client: anthropic.Anthropic,
 
     # ── Pre-filter: full-time hire (not an internship) ────────────────────────
     # Module-level _INTERN_SIGNAL / _YEARS_REQUIRED are used (compiled once).
-    is_reject, reason = pre_filter_full_time_level(title, job.get("jd_text") or "")
+    is_reject, reason = pre_filter_full_time_level(title, jd_text)
     if is_reject:
         result = _rejected_result(reason)
         with _print_lock:
@@ -274,7 +293,6 @@ def score_job(job: dict, client: anthropic.Anthropic,
         return job
 
     # ── No JD text — can't score meaningfully ─────────────────────────────────
-    jd_text = job.get("jd_text") or ""
     if not jd_text.strip():
         result = _error_result("No JD text available — cannot score")
         with _print_lock:

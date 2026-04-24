@@ -36,6 +36,9 @@ discovery/
 # Standard run (scrape last 24h, score, write xlsx)
 python discovery/auto/pipeline.py
 
+# Standard run + startup apply lane in one command
+python discovery/auto/pipeline.py --with-startup-apply
+
 # Widen scrape window (e.g. after a gap in cron)
 python discovery/auto/pipeline.py --hours-old 48
 
@@ -54,6 +57,32 @@ python discovery/auto/pipeline.py --model claude-sonnet-4-6
 
 # Suppress verbose per-job output
 python discovery/auto/pipeline.py --quiet
+```
+
+### Startup apply pipeline
+
+Separate startup-focused lane for roles you can apply to now. Writes into the same
+`jobs.xlsx`, but uses startup-specific `source` tags and can surface `review` rows
+for borderline roles that should stay out of the live apply queue until checked.
+
+```bash
+# Dry-run discovery smoke test without Anthropic scoring
+python discovery/auto/startup_apply_pipeline.py --dry-run --skip-score
+
+# Standard run
+python discovery/auto/startup_apply_pipeline.py
+
+# Narrow to specific sources while tuning
+python discovery/auto/startup_apply_pipeline.py \
+  --source yc_sf_bay_hiring \
+  --source builtin_sf_job_lists \
+  --source a16z_job_board
+
+# Go lighter or broader on discovery breadth
+python discovery/auto/startup_apply_pipeline.py --limit-companies 8 --limit-jobs 20
+
+# Analyze the current startup sources without deduping against jobs.xlsx
+python discovery/auto/startup_apply_pipeline.py --dry-run --ignore-existing
 ```
 
 ### Screenshot scoring (LinkedIn PDF screenshots)
@@ -296,6 +325,9 @@ The `date_posted` column is set from JobSpy's `date_posted` field and reflects w
 |--------------|----------------------------------------------------------------------|
 | `linkedin`   | Automated pipeline (LinkedIn)                                        |
 | `indeed`     | Automated pipeline (Indeed)                                          |
+| `yc_startup_jobs` | Startup-apply pipeline from YC startup sources                  |
+| `builtin_startup_jobs` | Startup-apply pipeline from Built In startup job-list sources |
+| `a16z_startup_jobs` | Startup-apply pipeline from a16z portfolio jobs board         |
 | `screenshot` | Extracted from LinkedIn screenshot PDF via score_screenshots.py      |
 | `seeded`     | Pre-seeded historical jobs (applied before this system was built)    |
 | `manual`     | Manually added rows directly in xlsx                                 |

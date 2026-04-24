@@ -13,6 +13,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 import jobs
+from shared.discovery_sources import APPLY_QUEUE_SOURCES
 
 APPS_DIR = ROOT / "apps"
 RUNS_DIR = APPS_DIR / "runs"
@@ -71,7 +72,7 @@ def _age_out_current_queue_rows() -> list[dict]:
         source = str(row.get("source") or "").strip()
         status = str(row.get("status") or "").strip().lower()
         folder_path = str(row.get("folder_path") or "").strip()
-        if source != "linkedin_live_jobs_v1":
+        if source not in APPLY_QUEUE_SOURCES:
             continue
         if status in {"applied", "closed", "parked", "reject", "rejected", "deprioritized", "ignore"}:
             continue

@@ -14,11 +14,11 @@ APPS_DIR = ROOT / "apps"
 RUNS_DIR = APPS_DIR / "runs"
 JOBS_XLSX = ROOT / "discovery" / "jobs.xlsx"
 BLOCKLIST = ROOT / "discovery" / "blocklist.txt"
-SOURCE = "linkedin_live_jobs_v1"
 MIN_SCORE = 5.9
 EXCLUDED_COMPANIES = {"comcast"}
 
 import jobs
+from shared.discovery_sources import APPLY_QUEUE_SOURCES, queue_company_label
 
 
 def _dir_slug(text: str) -> str:
@@ -81,7 +81,8 @@ def _intel_text(row: dict, origin_runs: list[str]) -> str:
 def _write_job_dir(base_dir: Path, rank: int, row: dict, origin_runs: list[str], category: str, reason: str = "") -> dict:
     company = str(row.get("company") or "")
     role = str(row.get("role_title") or "")
-    ranked_company_dir = base_dir / f"{rank:02d}_{_dir_slug(company)}"
+    source = str(row.get("source") or "")
+    ranked_company_dir = base_dir / f"{rank:02d}_{_dir_slug(queue_company_label(company, source))}"
     role_dir = ranked_company_dir / _dir_slug(role)
     role_dir.mkdir(parents=True, exist_ok=True)
 
@@ -101,6 +102,7 @@ def _write_job_dir(base_dir: Path, rank: int, row: dict, origin_runs: list[str],
         "url": str(row.get("url") or ""),
         "date_found": str(row.get("date_found") or ""),
         "folder_path": str(row.get("folder_path") or ""),
+        "source": source,
         "origin_runs": origin_runs,
         "category": category,
         "reason": reason,
@@ -139,7 +141,7 @@ def _update_folder_paths(entries: list[dict]) -> None:
 
 def main() -> int:
     df = pd.read_excel(JOBS_XLSX, sheet_name="Jobs", dtype=str).fillna("")
-    df = df[df["source"].eq(SOURCE)].copy()
+    df = df[df["source"].isin(APPLY_QUEUE_SOURCES)].copy()
     df["fit_score_num"] = pd.to_numeric(df["fit_score"], errors="coerce")
     df = df[df["status"].isin(["queued", "promoted", "generated"])]
     df = df[df["fit_score_num"] >= MIN_SCORE]
@@ -224,7 +226,7 @@ def main() -> int:
 
     manifest = {
         "created_at": datetime.now().isoformat(timespec="seconds"),
-        "source": SOURCE,
+        "sources": sorted(APPLY_QUEUE_SOURCES),
         "min_score": MIN_SCORE,
         "ready_count": len(ready_entries),
         "manual_review_count": len(manual_entries),

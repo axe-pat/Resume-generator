@@ -62,17 +62,19 @@ BLOCKLIST_PATH = _ROOT / "blocklist.txt"   # discovery/blocklist.txt
 
 _STATUS_RANK = {
     "queued":    0,
-    "promoted":  1,
-    "generated": 2,
-    "applied":   3,
-    "new":       4,
-    "skipped":   5,
-    "skip":      5,
-    "rejected":  5,
+    "review":    1,
+    "promoted":  2,
+    "generated": 3,
+    "applied":   4,
+    "new":       5,
+    "skipped":   6,
+    "skip":      6,
+    "rejected":  6,
 }
 
 _STATUS_COLOR = {
     "queued":    "E2EFDA",
+    "review":    "FFF2CC",
     "promoted":  "BDD7EE",
     "generated": "DDEBF7",
     "applied":   "EDEDED",
@@ -427,6 +429,10 @@ def run(hours_old: int = 24,
         skip_scrape: bool = False,
         model: str = "claude-haiku-4-5-20251001",
         results_override: int | None = None,
+        with_startup_apply: bool = False,
+        startup_limit_companies: int = 12,
+        startup_limit_jobs: int = 30,
+        startup_sources: set[str] | None = None,
         verbose: bool = True) -> list[dict]:
     """
     Full pipeline run. Returns list of newly added + scored job dicts.
@@ -469,61 +475,77 @@ def run(hours_old: int = 24,
             verbose=verbose,
         )
 
+    scored_jobs: list[dict] = []
     if not new_jobs:
         if verbose:
-            print("  No new jobs to process. Done.")
-        return []
-
-    # ── Step 3: Score ─────────────────────────────────────────────────────────
-    api_key = _load_api_key()
-    client  = anthropic.Anthropic(api_key=api_key)
-
-    if verbose:
-        # Cost estimate before committing — assumes ~1,800 input + 80 output tokens/job
-        # Haiku:  $0.80/M input  + $4.00/M output  ≈ $0.00176/job
-        # Sonnet: $3.00/M input  + $15.00/M output ≈ $0.00660/job
-        n = len(new_jobs)
-        if "haiku" in model.lower():
-            cost_per = 0.00176
-        elif "sonnet" in model.lower():
-            cost_per = 0.00660
-        else:
-            cost_per = 0.00500   # safe fallback for unknown model
-        est_cost = n * cost_per
-        print(f"\n  Scoring {n} jobs with {model}")
-        print(f"  Estimated API cost: ~${est_cost:.2f}  ({n} × ${cost_per:.5f}/job)")
-
-    scored_jobs = score_batch(
-        new_jobs, client=client, model=model, verbose=verbose
-    )
-
-    # ── Step 4: Write to xlsx ─────────────────────────────────────────────────
-    if not skip_scrape:
-        rows   = jobs_to_rows(scored_jobs, start_id=next_id)
-        df_new = pd.DataFrame(rows, columns=COLUMNS)
-        df_all = pd.concat([df_existing, df_new], ignore_index=True)
+            print("  No new jobs to process in the standard lane.")
     else:
-        # Update existing rows in-place
-        df_all = df_existing.copy()
-        for job in scored_jobs:
-            mask = df_all["url_hash"] == job.get("url_hash", "")
-            for col in ["fit_score", "fit_rationale", "role_type", "status"]:
-                if mask.any() and job.get(col) is not None:
-                    df_all.loc[mask, col] = job[col]
+        # ── Step 3: Score ─────────────────────────────────────────────────────
+        api_key = _load_api_key()
+        client  = anthropic.Anthropic(api_key=api_key)
 
-    save_jobs(df_all, dry_run=dry_run)
+        if verbose:
+            # Cost estimate before committing — assumes ~1,800 input + 80 output tokens/job
+            # Haiku:  $0.80/M input  + $4.00/M output  ≈ $0.00176/job
+            # Sonnet: $3.00/M input  + $15.00/M output ≈ $0.00660/job
+            n = len(new_jobs)
+            if "haiku" in model.lower():
+                cost_per = 0.00176
+            elif "sonnet" in model.lower():
+                cost_per = 0.00660
+            else:
+                cost_per = 0.00500   # safe fallback for unknown model
+            est_cost = n * cost_per
+            print(f"\n  Scoring {n} jobs with {model}")
+            print(f"  Estimated API cost: ~${est_cost:.2f}  ({n} × ${cost_per:.5f}/job)")
 
-    if verbose and not dry_run:
-        print(f"\n  ✓ jobs.xlsx updated  ({len(df_all)} total rows)")
+        scored_jobs = score_batch(
+            new_jobs, client=client, model=model, verbose=verbose
+        )
 
-    # ── Step 5: Digest + log ──────────────────────────────────────────────────
-    print_digest(scored_jobs, run_start)
+        # ── Step 4: Write to xlsx ─────────────────────────────────────────────
+        if not skip_scrape:
+            rows   = jobs_to_rows(scored_jobs, start_id=next_id)
+            df_new = pd.DataFrame(rows, columns=COLUMNS)
+            df_all = pd.concat([df_existing, df_new], ignore_index=True)
+        else:
+            # Update existing rows in-place
+            df_all = df_existing.copy()
+            for job in scored_jobs:
+                mask = df_all["url_hash"] == job.get("url_hash", "")
+                for col in ["fit_score", "fit_rationale", "role_type", "status"]:
+                    if mask.any() and job.get(col) is not None:
+                        df_all.loc[mask, col] = job[col]
 
-    log_path = write_run_log(scored_jobs, run_start, hours_old, dry_run)
-    if verbose:
-        print(f"  Run log → {log_path}")
+        save_jobs(df_all, dry_run=dry_run)
 
-    return scored_jobs
+        if verbose and not dry_run:
+            print(f"\n  ✓ jobs.xlsx updated  ({len(df_all)} total rows)")
+
+        # ── Step 5: Digest + log ──────────────────────────────────────────────
+        print_digest(scored_jobs, run_start)
+
+        log_path = write_run_log(scored_jobs, run_start, hours_old, dry_run)
+        if verbose:
+            print(f"  Run log → {log_path}")
+
+    startup_jobs: list[dict] = []
+    if with_startup_apply:
+        if verbose:
+            print("\n  Running startup apply lane...")
+        from startup_apply_pipeline import run as run_startup_apply
+
+        startup_jobs = run_startup_apply(
+            dry_run=dry_run,
+            skip_score=False,
+            model=model,
+            limit_companies=startup_limit_companies,
+            limit_jobs=startup_limit_jobs,
+            include_sources=startup_sources,
+            verbose=verbose,
+        )
+
+    return [*scored_jobs, *startup_jobs]
 
 
 # ---------------------------------------------------------------------------
@@ -558,6 +580,22 @@ if __name__ == "__main__":
         "--results", type=int, default=None,
         help="Override RESULTS_WANTED per query per site (e.g. --results 200 for validation runs)"
     )
+    parser.add_argument(
+        "--with-startup-apply", action="store_true",
+        help="Also run the startup-apply lane after the standard LinkedIn/Indeed lane"
+    )
+    parser.add_argument(
+        "--startup-limit-companies", type=int, default=12,
+        help="Maximum companies/pages to inspect per startup source (default: 12)"
+    )
+    parser.add_argument(
+        "--startup-limit-jobs", type=int, default=30,
+        help="Maximum startup jobs to keep before scoring (default: 30)"
+    )
+    parser.add_argument(
+        "--startup-source", action="append", default=[],
+        help="Optional startup source_id filter, repeatable (for example: --startup-source builtin_sf_job_lists)"
+    )
     args = parser.parse_args()
 
     run(
@@ -566,5 +604,9 @@ if __name__ == "__main__":
         skip_scrape=args.skip_scrape,
         model=args.model,
         results_override=args.results,
+        with_startup_apply=args.with_startup_apply,
+        startup_limit_companies=max(args.startup_limit_companies, 1),
+        startup_limit_jobs=max(args.startup_limit_jobs, 1),
+        startup_sources={value.strip() for value in args.startup_source if value.strip()} or None,
         verbose=not args.quiet,
     )

@@ -10,16 +10,16 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
 import jobs  # noqa: E402
+from shared.discovery_sources import APPLY_QUEUE_SOURCES
 
 
 MIN_SCORE = 5.9
-SOURCE = "linkedin_live_jobs_v1"
 ACTIVE_STATUSES = {"queued", "promoted", "generated"}
 
 
 def _load_rows() -> pd.DataFrame:
     df = pd.read_excel(jobs.JOBS_XLSX, sheet_name=jobs.JOBS_SHEET, dtype=str).fillna("")
-    df = df[df["source"].eq(SOURCE)].copy()
+    df = df[df["source"].isin(APPLY_QUEUE_SOURCES)].copy()
     df = df[df["status"].isin(ACTIVE_STATUSES)].copy()
     df["fit_score_num"] = pd.to_numeric(df["fit_score"], errors="coerce")
     df = df[df["fit_score_num"] >= MIN_SCORE].copy()
