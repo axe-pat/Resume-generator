@@ -69,3 +69,6 @@ apps/runs/**
 
 # Local backups
 discovery/jobs.xlsx.bak
+
+# Personal interview prep
+docs/interview_prep/

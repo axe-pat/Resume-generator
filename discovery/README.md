@@ -112,6 +112,9 @@ Uses your real logged-in LinkedIn Jobs session in Chrome to run targeted searche
 open visible jobs, capture JD text from the right-hand detail pane, score them,
 and append new rows into `jobs.xlsx`.
 
+Semantic URLs include **geo + distance** (default: US + 25 mi) so the results list is not empty;
+override with `LINKEDIN_JOBS_GEO_ID` and `LINKEDIN_JOBS_DISTANCE` in `.env` or the shell if needed.
+
 ```bash
 # Standard run using the built-in searches:
 # - Product Manager Intern (past 24h)
@@ -120,11 +123,22 @@ and append new rows into `jobs.xlsx`.
 # - MBA Intern (past week)
 python discovery/auto/linkedin_live.py
 
+# Same, but start Chrome via launch_linkedin_browser.sh when CDP port is closed
+# (set LINKEDIN_CHROME_USER_DATA_DIR in the environment or in project root .env)
+python discovery/auto/linkedin_live.py --launch-chrome
+
+# Recommended one-command wrappers
+./discovery/scripts/run_linkedin_discovery.sh 24h
+./discovery/scripts/run_linkedin_discovery.sh 7d
+
 # Dry run — scrape + score, don't write xlsx
 python discovery/auto/linkedin_live.py --dry-run
 
 # Go deeper per search
 python discovery/auto/linkedin_live.py --limit-per-search 15 --pages 2
+
+# Optional: explicitly allow fallback to the noisier /jobs/search/ route when semantic coverage is low
+python discovery/auto/linkedin_live.py --allow-jobs-search-fallback
 
 # Custom search set
 python discovery/auto/linkedin_live.py \
@@ -133,21 +147,24 @@ python discovery/auto/linkedin_live.py \
 ```
 
 Pre-reqs:
-- Run Chrome with remote debugging enabled on port `9222`
+- Run Chrome with remote debugging enabled on port `9222` (or pass `--launch-chrome` once `LINKEDIN_CHROME_USER_DATA_DIR` is set)
 - Keep LinkedIn logged in in that Chrome profile
 - Ensure Playwright is installed in the Python env that runs the script
 - See `../docs/LINKEDIN_BROWSER_PLAYBOOK.md` for the canonical shared Chrome-session rules used by both discovery and Outreach
+
+`linkedin_live.py` already runs a LinkedIn **preflight** after attaching to CDP (login / authwall), so `./discovery/scripts/check_linkedin_live.sh` is optional — use it when you want a quick health check without starting a full scrape.
 
 Recommended live-session flow:
 
 ```bash
 # 1. Point the launcher at an explicitly approved signed-in Chrome profile
+#    (or add the same line to ResumeGenerator v1/.env — no export needed)
 export LINKEDIN_CHROME_USER_DATA_DIR="/absolute/path/to/your/signed-in/chrome-data"
 
-# 2. Launch that exact profile on port 9222
+# 2. Launch that profile on port 9222 (skip if Chrome is already listening on 9222)
 ./discovery/scripts/launch_linkedin_browser.sh
 
-# 3. Verify that LinkedIn is really signed in and not on authwall/login
+# 3. (Optional) Verify CDP owner + LinkedIn session before a long run
 ./discovery/scripts/check_linkedin_live.sh
 
 # 4. Run a focused extract-only probe before the full batch
@@ -159,6 +176,22 @@ python discovery/auto/linkedin_live.py \
 python discovery/auto/linkedin_live.py \
   --score-from-raw discovery/auto/logs/linkedin_live_raw_YYYY-MM-DD_HHMMSS.json
 ```
+
+For normal day-to-day use, prefer the wrapper:
+
+```bash
+./discovery/scripts/run_linkedin_discovery.sh 24h
+./discovery/scripts/run_linkedin_discovery.sh 7d
+```
+
+It does:
+- applied-PDF sync
+- queue refresh
+- LinkedIn extract-only run
+- scoring from the saved raw artifact
+- queue refresh again
+
+This is the most reliable path when LinkedIn browser extraction is healthy but live scoring is occasionally flaky.
 
 What the live runner now does automatically:
 - Skips scoring jobs already present in `jobs.xlsx`

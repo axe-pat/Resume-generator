@@ -13,9 +13,11 @@ Usage:
     python discovery/auto/linkedin_live.py --limit-per-search 12
     python discovery/auto/linkedin_live.py --pages 2
     python discovery/auto/linkedin_live.py --search "Product Manager Intern" --time r86400
+    # If CDP port is closed, launch signed-in Chrome (needs LINKEDIN_CHROME_USER_DATA_DIR):
+    python discovery/auto/linkedin_live.py --launch-chrome
 
 Pre-reqs:
-  1. Chrome must already be running with remote debugging enabled.
+  1. Chrome must already be running with remote debugging enabled (or pass --launch-chrome).
   2. The logged-in LinkedIn session must be active in that Chrome profile.
   3. Playwright must be installed in the Python env running this script.
 """
@@ -26,8 +28,11 @@ import argparse
 import hashlib
 import html
 import json
+import os
 import re
 import shutil
+import socket
+import subprocess
 import sys
 import time
 from dataclasses import asdict, dataclass
@@ -97,6 +102,10 @@ TIME_LABELS = {
     "r86400": "past_24h",
     "r604800": "past_week",
 }
+# search-results can render empty without a location scope; matches prior /jobs/search defaults.
+# Override with LINKEDIN_JOBS_GEO_ID / LINKEDIN_JOBS_DISTANCE (e.g. another metro).
+DEFAULT_JOBS_GEO_ID = "103644278"  # United States (LinkedIn geo)
+DEFAULT_JOBS_DISTANCE_MILES = "25"
 PROJECT_ROOT = JOBS_XLSX.parent.parent
 APPS_DIR = PROJECT_ROOT / "apps"
 RUN_EXPORTS_DIR = APPS_DIR / "runs"
@@ -119,6 +128,91 @@ REVIEW_CACHE_COLUMNS = [
     "time_window",
     "date_reviewed",
 ]
+
+
+def _cdp_port_listening(host: str, port: int, timeout: float = 0.35) -> bool:
+    try:
+        with socket.create_connection((host, port), timeout=timeout):
+            return True
+    except OSError:
+        return False
+
+
+def _read_project_root_dotenv() -> dict[str, str]:
+    """KEY=VALUE lines from project root .env (same shape as other scripts in this repo)."""
+    path = PROJECT_ROOT / ".env"
+    if not path.is_file():
+        return {}
+    out: dict[str, str] = {}
+    for line in path.read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        k, v = line.split("=", 1)
+        out[k.strip()] = v.strip().strip('"').strip("'")
+    return out
+
+
+def _resolve_linkedin_chrome_user_data_dir() -> str:
+    """
+    Order: process env, then project root .env, then copy into os.environ for subprocesses.
+    """
+    v = (os.environ.get("LINKEDIN_CHROME_USER_DATA_DIR") or "").strip()
+    if v:
+        return v
+    v = (_read_project_root_dotenv().get("LINKEDIN_CHROME_USER_DATA_DIR") or "").strip()
+    if not v:
+        return ""
+    expanded = str(Path(v).expanduser().resolve())
+    if Path(expanded).is_dir():
+        os.environ["LINKEDIN_CHROME_USER_DATA_DIR"] = expanded
+        return expanded
+    return v
+
+
+def _launch_chrome_via_repo_script(debug_port: int, quiet: bool) -> None:
+    profile = _resolve_linkedin_chrome_user_data_dir()
+    if not profile:
+        raise RuntimeError(
+            "Nothing is listening on the CDP port and --launch-chrome was set, but "
+            "LINKEDIN_CHROME_USER_DATA_DIR is not set. Add it to ResumeGenerator v1/.env as "
+            "LINKEDIN_CHROME_USER_DATA_DIR=\"/absolute/path/to/signed-in/chrome-data\", or export it, "
+            "or start Chrome with remote debugging yourself. See ../docs/LINKEDIN_BROWSER_PLAYBOOK.md."
+        )
+    if not Path(profile).is_dir():
+        raise RuntimeError(
+            f"LINKEDIN_CHROME_USER_DATA_DIR is not a directory: {profile}"
+        )
+    script = PROJECT_ROOT / "discovery" / "scripts" / "launch_linkedin_browser.sh"
+    if not script.is_file():
+        raise RuntimeError(f"Chrome launcher script missing: {script}")
+    env = os.environ.copy()
+    env.setdefault("LINKEDIN_DEBUG_PORT", str(debug_port))
+    if not quiet:
+        print(f"Nothing on 127.0.0.1:{debug_port}; launching Chrome via {script}")
+    subprocess.run(["/bin/bash", str(script)], cwd=str(PROJECT_ROOT), check=True, env=env)
+
+
+def _wait_for_cdp_port(port: int, *, seconds: float = 45.0, quiet: bool) -> None:
+    deadline = time.monotonic() + seconds
+    while time.monotonic() < deadline:
+        if _cdp_port_listening("127.0.0.1", port):
+            if not quiet:
+                print(f"CDP port {port} is open.")
+            return
+        time.sleep(0.4)
+    raise RuntimeError(f"Timed out after {seconds:.0f}s waiting for 127.0.0.1:{port} (Chrome + CDP).")
+
+
+def _ensure_chrome_cdp(debug_port: int, launch_chrome: bool, quiet: bool) -> None:
+    if _cdp_port_listening("127.0.0.1", debug_port):
+        if launch_chrome and not quiet:
+            print(f"CDP already listening on 127.0.0.1:{debug_port}; skipping Chrome launch.")
+        return
+    if not launch_chrome:
+        return
+    _launch_chrome_via_repo_script(debug_port, quiet=quiet)
+    _wait_for_cdp_port(debug_port, quiet=quiet)
 
 
 @dataclass
@@ -193,12 +287,25 @@ def _human_pause(page: Page, low_ms: int = 900, high_ms: int = 1700) -> None:
     page.wait_for_timeout(low_ms + int((high_ms - low_ms) * 0.5))
 
 
+def _semantic_jobs_scope_query() -> str:
+    """
+    Optional geo + distance for semantic /search-results/ (same intent as the older /jobs/search/ URL).
+    """
+    geo = (os.environ.get("LINKEDIN_JOBS_GEO_ID") or DEFAULT_JOBS_GEO_ID).strip() or DEFAULT_JOBS_GEO_ID
+    dist = (os.environ.get("LINKEDIN_JOBS_DISTANCE") or DEFAULT_JOBS_DISTANCE_MILES).strip()
+    if not dist:
+        dist = DEFAULT_JOBS_DISTANCE_MILES
+    return f"&geoId={quote_plus(geo)}&distance={dist}"
+
+
 def _jobs_search_url(search_term: str, time_filter: str) -> str:
     return (
         "https://www.linkedin.com/jobs/search-results/"
         f"?keywords={quote_plus(search_term)}"
+        f"{_semantic_jobs_scope_query()}"
         f"&f_TPR={time_filter}"
         "&origin=SEMANTIC_SEARCH_JOB_ALERT_IN_APP_NOTIFICATION"
+        "&sortBy=DD"
     )
 
 
@@ -538,9 +645,10 @@ def _export_run_bundle(
 def _open_linkedin_browser_session(playwright, debug_port: int):
     endpoint = f"http://127.0.0.1:{debug_port}"
     last_error: Exception | None = None
-    for attempt in range(2):
+    # Stale Chrome can accept TCP 9222 but hang the CDP WebSocket; retry a few times.
+    for attempt in range(4):
         try:
-            browser = playwright.chromium.connect_over_cdp(endpoint, timeout=30000)
+            browser = playwright.chromium.connect_over_cdp(endpoint, timeout=60000)
             if browser.contexts:
                 return {
                     "mode": "cdp",
@@ -550,12 +658,13 @@ def _open_linkedin_browser_session(playwright, debug_port: int):
             last_error = RuntimeError("Connected to Chrome, but no browser contexts were available.")
         except PlaywrightError as exc:
             last_error = exc
-        if attempt == 0:
-            time.sleep(1.0)
+        if attempt < 3:
+            time.sleep(1.5)
     detail = f" Underlying error: {last_error}" if last_error else ""
     raise RuntimeError(
         f"Could not attach to Chrome debug session at {endpoint}. "
-        "Launch your normal signed-in Chrome with --remote-debugging-port=9222 and keep it open."
+        "If a port is listening but attach keeps timing out, quit that Chrome and relaunch with "
+        f"--remote-debugging-port={debug_port} (or run with --launch-chrome). "
         f"{detail}"
     )
 
@@ -817,6 +926,8 @@ def _safe_goto(page: Page, url: str, timeout_ms: int = 30000) -> bool:
             page.wait_for_timeout(1200)
             if page.locator("[data-job-id]").count() > 0:
                 return True
+            if page.locator("a[href*='/jobs/view/']").count() > 0:
+                return True
             body_text = page.locator("body").inner_text(timeout=1500)
             body_text = body_text.lower()
             if "join linkedin" in body_text or "agree & join" in body_text or "already on linkedin? sign in" in body_text:
@@ -910,8 +1021,46 @@ def _session_preflight(context, target_url: str = "https://www.linkedin.com/feed
     page = context.new_page()
     page.set_default_timeout(15000)
     try:
-        page.goto(target_url, wait_until="domcontentloaded", timeout=30000)
-        page.wait_for_timeout(1500)
+        nav_error: Exception | None = None
+        # Feed can intermittently hang despite a healthy logged-in session.
+        # Probe both feed and jobs, then fall back to already-open LinkedIn tabs.
+        for candidate in (
+            target_url,
+            "https://www.linkedin.com/jobs/",
+            "https://www.linkedin.com/jobs/search-results/",
+        ):
+            try:
+                page.goto(candidate, wait_until="domcontentloaded", timeout=20000)
+                page.wait_for_timeout(1200)
+                nav_error = None
+                break
+            except PlaywrightTimeoutError as exc:
+                nav_error = exc
+            except PlaywrightError as exc:
+                nav_error = exc
+
+        if nav_error is not None and not _looks_logged_in(page):
+            for existing in context.pages:
+                if existing is page or existing.is_closed():
+                    continue
+                try:
+                    url = (existing.url or "").lower()
+                except PlaywrightError:
+                    continue
+                if "linkedin.com" not in url:
+                    continue
+                if _looks_logged_in(existing) and not _is_authwall_or_login(existing):
+                    try:
+                        page.goto(existing.url, wait_until="domcontentloaded", timeout=15000)
+                        page.wait_for_timeout(1000)
+                        nav_error = None
+                    except PlaywrightError:
+                        pass
+                    break
+
+        if nav_error is not None and not _looks_logged_in(page):
+            raise nav_error
+
         cookies = context.cookies(["https://www.linkedin.com"])
         has_li_at = any(cookie.get("name") == "li_at" for cookie in cookies)
         logged_in = _looks_logged_in(page)
@@ -1269,6 +1418,24 @@ def _write_batch_report(
     return md_path, html_path
 
 
+def _wait_for_search_results_hydration(page: Page) -> None:
+    """
+    Semantics /search-results/ can paint an empty shell before cards mount.
+    """
+    for selector in (
+        "[data-job-id]",
+        "a[href*='/jobs/view/']",
+        "ul.jobs-search-results__list",
+        "ul.semantic-search-results-list",
+    ):
+        try:
+            page.locator(selector).first.wait_for(state="attached", timeout=20000)
+            return
+        except PlaywrightError:
+            continue
+    page.wait_for_timeout(1500)
+
+
 def _looks_logged_in(page: Page) -> bool:
     if page.is_closed():
         return False
@@ -1300,14 +1467,24 @@ def _extract_visible_cards(page: Page) -> list[dict]:
         return first === second ? first : normalized;
       };
       const seen = new Set();
+      const pushCard = (url, title, company, location, listedAt) => {
+        if (!url || !title) return;
+        if (seen.has(url)) return;
+        seen.add(url);
+        cards.push({
+          title: cleanRepeated(title),
+          company: normalize(company),
+          location: location || '',
+          listed_at: listedAt || '',
+          url,
+        });
+      };
       const cards = [];
       const cardNodes = Array.from(document.querySelectorAll('[data-job-id]'));
       for (const node of cardNodes) {
         const jobId = node.getAttribute('data-job-id');
         const url = jobId ? `https://www.linkedin.com/jobs/view/${jobId}/` : '';
-        if (!url || seen.has(url)) continue;
-        seen.add(url);
-
+        if (!url) continue;
         const titleNode =
           node.querySelector('.job-card-job-posting-card-wrapper__title strong') ||
           node.querySelector('.job-card-job-posting-card-wrapper__title') ||
@@ -1327,20 +1504,59 @@ def _extract_visible_cards(page: Page) -> list[dict]:
         const listedAt = metaTexts.find(text =>
           /(ago|today|yesterday|viewed|reposted|within the past)/i.test(text)
         ) || '';
+        const title = titleNode ? titleNode.textContent : '';
+        const company = companyNode ? companyNode.textContent : '';
+        pushCard(url, title, company, location, listedAt);
+      }
+      if (cards.length) return cards;
 
-        cards.push({
-          title: cleanRepeated(titleNode ? titleNode.textContent : ''),
-          company: normalize(companyNode ? companyNode.textContent : ''),
-          location,
-          listed_at: listedAt,
-          url,
-        });
+      const viewRe = /\\/jobs\\/view\\/(\\d+)\\b/;
+      const anchors = Array.from(document.querySelectorAll('a[href*="/jobs/view/"]'));
+      for (const a of anchors) {
+        const href = a.getAttribute('href') || a.href || '';
+        const m = href.match(viewRe);
+        if (!m) continue;
+        const jobId = m[1];
+        const url = `https://www.linkedin.com/jobs/view/${jobId}/`;
+        if (seen.has(url)) continue;
+        const li = a.closest('li, article, [class*="job-card"]') || a.parentElement;
+        const title = normalize(
+          (a.querySelector('strong') || a.querySelector('[class*="title"]') || a).innerText || ''
+        );
+        let company = '';
+        if (li) {
+          const cn = li.querySelector('.artdeco-entity-lockup__subtitle') ||
+            li.querySelector('[class*="company"]') ||
+            li.querySelector('.artdeco-entity-lockup__primary-subtitle');
+          company = normalize(cn ? cn.textContent : '');
+        }
+        const metas = li
+          ? Array.from(li.querySelectorAll(
+              '.job-card-container__metadata-item, .artdeco-entity-lockup__caption, time, span'
+            )).map(el => normalize(el.textContent)).filter(Boolean)
+          : [];
+        const location = metas.find(text =>
+          text &&
+          !/(ago|applicant|applicants|clicked apply|viewed|easy apply|promoted|response|benefit)/i.test(text) &&
+          text.length < 80
+        ) || '';
+        const listedAt = metas.find(text =>
+          /(ago|today|yesterday|reposted|within the past)/i.test(text)
+        ) || '';
+        pushCard(url, title, company, location, listedAt);
       }
       return cards;
     }
     """
     data = page.evaluate(script)
-    return [row for row in data if row.get("title") and row.get("company") and row.get("url")]
+    out: list[dict] = []
+    for row in data:
+        if not row.get("url") or not (row.get("title") or "").strip():
+            continue
+        if not (row.get("company") or "").strip():
+            row = {**row, "company": "Unknown"}
+        out.append(row)
+    return out
 
 
 def _open_job_details(page: Page, job_url: str, detail_page: Page | None = None) -> tuple[str, str]:
@@ -1533,6 +1749,7 @@ def scrape_search(
     time_filter: str,
     limit_per_search: int | None,
     pages: int | None,
+    allow_jobs_search_fallback: bool = True,
     count_only: bool = False,
     detail_page: Page | None = None,
     progress_callback: Callable[[dict], None] | None = None,
@@ -1573,6 +1790,7 @@ def scrape_search(
                     )
 
                 page.wait_for_timeout(2000)
+                _wait_for_search_results_hydration(page)
                 page_ui_count = _ui_observed_results_count(page)
                 if page_ui_count is not None:
                     observed_ui_count = max(observed_ui_count or 0, page_ui_count)
@@ -1668,11 +1886,18 @@ def scrape_search(
                 if observed_ui_count is not None and len(seen_urls) >= observed_ui_count:
                     break
 
-                page_size = max(
-                    len(page_seen_urls),
-                    len(initial_visible),
-                    SEARCH_RESULTS_OFFSET_PAGE_SIZE,
-                )
+                page_size = max(len(page_seen_urls), len(initial_visible))
+                if page_size <= 0:
+                    break
+
+                # LinkedIn semantic pages can show "N results" but return an empty list
+                # for offset URLs like start=25 when N is small. Only advance offset when
+                # we have evidence there are still unseen rows.
+                if observed_ui_count is not None and len(seen_urls) >= observed_ui_count:
+                    break
+                if observed_ui_count is not None and start + page_size >= observed_ui_count:
+                    break
+
                 start += page_size
                 page_index += 1
             return cards, observed_ui_count
@@ -1771,9 +1996,11 @@ def scrape_search(
         return cards, observed_ui_count
 
     primary_url = _jobs_search_url(search_term, time_filter)
-    fallback_url = _jobs_search_fallback_url(search_term, time_filter)
     primary_cards, primary_ui_count = _run_single_url(primary_url)
-    if not _should_try_fallback(len(primary_cards), primary_ui_count, limit_per_search):
+    if (
+        not allow_jobs_search_fallback
+        or not _should_try_fallback(len(primary_cards), primary_ui_count, limit_per_search)
+    ):
         return SearchRunResult(
             search_term=search_term,
             time_filter=time_filter,
@@ -1784,6 +2011,7 @@ def scrape_search(
             fallback_used=False,
         )
 
+    fallback_url = _jobs_search_fallback_url(search_term, time_filter)
     fallback_cards, fallback_ui_count = _run_single_url(fallback_url)
     fallback_attempted = True
     combined: list[LinkedInJobCard] = []
@@ -2119,6 +2347,7 @@ def run_live_discovery(
     extract_only: bool = False,
     count_only: bool = False,
     max_workers: int = 2,
+    allow_jobs_search_fallback: bool = True,
 ) -> int:
     windows = sorted({TIME_LABELS.get(window, window) for _, window in searches})
     run_label = windows[0] if len(windows) == 1 else "mixed"
@@ -2290,6 +2519,7 @@ def run_live_discovery(
                         time_filter=time_filter,
                         limit_per_search=limit_per_search,
                         pages=pages,
+                        allow_jobs_search_fallback=allow_jobs_search_fallback,
                         count_only=count_only,
                         detail_page=detail_page,
                         progress_callback=lambda payload: _emit_progress(
@@ -2500,6 +2730,22 @@ def _parse_args() -> argparse.Namespace:
         default=[],
         help="Override LinkedIn recency filter(s), e.g. r86400 or r604800. Must align with --search count if provided.",
     )
+    parser.add_argument(
+        "--allow-jobs-search-fallback",
+        action="store_true",
+        help=(
+            "Allow fallback from LinkedIn /jobs/search-results/ to /jobs/search/ when "
+            "semantic search coverage appears low. Off by default to avoid noisy results."
+        ),
+    )
+    parser.add_argument(
+        "--launch-chrome",
+        action="store_true",
+        help=(
+            "If nothing is listening on the CDP port, run discovery/scripts/launch_linkedin_browser.sh "
+            "(requires LINKEDIN_CHROME_USER_DATA_DIR). Skipped when CDP is already up."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -2524,6 +2770,13 @@ if __name__ == "__main__":
     else:
         if args.count_only and not args.extract_only:
             raise SystemExit("--count-only requires --extract-only.")
+        _ensure_chrome_cdp(args.debug_port, launch_chrome=args.launch_chrome, quiet=args.quiet)
+        if not _cdp_port_listening("127.0.0.1", args.debug_port):
+            raise SystemExit(
+                f"Nothing is listening on 127.0.0.1:{args.debug_port}. "
+                "Start Chrome with remote debugging, or re-run with --launch-chrome "
+                "after setting LINKEDIN_CHROME_USER_DATA_DIR (env or project .env)."
+            )
         searches = _resolve_searches(args)
         limit_per_search = None if args.limit_per_search in (None, 0) else args.limit_per_search
         pages = None if args.pages in (None, 0) else args.pages
@@ -2538,4 +2791,5 @@ if __name__ == "__main__":
             extract_only=args.extract_only,
             count_only=args.count_only,
             max_workers=args.max_workers,
+            allow_jobs_search_fallback=args.allow_jobs_search_fallback,
         )

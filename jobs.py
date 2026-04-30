@@ -579,6 +579,49 @@ def _load_queue_generate_targets(
     return targets
 
 
+def _filter_existing_generate_targets(
+    targets: list[dict],
+    *,
+    force: bool = False,
+    resume_only: bool = False,
+) -> tuple[list[dict], list[str], list[str]]:
+    """
+    Skip already-generated dirs unless --force, and auto-switch partial dirs
+    (CL exists but no resume) into resume-only mode.
+
+    Returns:
+      filtered_targets, skipped_company_names, partial_company_names
+    """
+    filtered: list[dict] = []
+    skipped: list[str] = []
+    partial: list[str] = []
+
+    for target in targets:
+        app_dir = Path(str(target.get("app_dir") or ""))
+        if not app_dir.exists():
+            filtered.append(target)
+            continue
+
+        has_resume = bool(list(app_dir.glob("resume_*.txt")))
+        has_cl = bool(list(app_dir.glob("cl_*.txt")))
+        has_strat = (app_dir / "strategy.json").exists()
+
+        if has_resume and not force:
+            skipped.append(str(target.get("company") or app_dir.name))
+            continue
+
+        updated = dict(target)
+        if has_cl and not has_resume and has_strat and not resume_only:
+            updated["resume_only"] = True
+            partial.append(str(target.get("company") or app_dir.name))
+        elif resume_only:
+            updated["resume_only"] = True
+
+        filtered.append(updated)
+
+    return filtered, skipped, partial
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Blocklist helpers
 # ─────────────────────────────────────────────────────────────────────────────
@@ -832,6 +875,19 @@ def cmd_generate(args, promoted_jobs: list[dict] | None = None) -> list[dict]:
                 targets = _load_queue_generate_targets(df, queue_path=queue_path, offset=offset, limit=limit)
             except ValueError as e:
                 sys.exit(f"[ERROR] {e}")
+            force = getattr(args, "force", False)
+            resume_only = getattr(args, "resume_only", False)
+            targets, skipped, partial = _filter_existing_generate_targets(
+                targets, force=force, resume_only=resume_only
+            )
+            if skipped:
+                print(c(YELLOW,
+                        f"  [i] Skipping {len(skipped)} already-generated queue item(s) "
+                        f"(use --force to rerun): {skipped}"))
+            if partial:
+                print(c(YELLOW,
+                        f"  [i] {len(partial)} queue item(s) have CL but no resume "
+                        f"— running --resume-only --no-strategy for: {partial}"))
         elif getattr(args, "all_promoted", False):
             promoted_rows = df[df["status"] == "promoted"]
             targets = [
