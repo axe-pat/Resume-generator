@@ -6,7 +6,7 @@ cd "$ROOT"
 
 PYTHON_BIN="${PYTHON_BIN:-./venv/bin/python}"
 WINDOW="${1:-24h}"
-MODE="${WINDOW,,}"
+MODE="$(printf '%s' "$WINDOW" | tr '[:upper:]' '[:lower:]')"
 
 case "$MODE" in
   24h|past-24h)
