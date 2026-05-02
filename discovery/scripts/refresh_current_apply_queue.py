@@ -133,6 +133,12 @@ def _copy_tree_contents(src: Path, dst: Path) -> None:
             target.mkdir(parents=True, exist_ok=True)
             _copy_tree_contents(child, target)
         else:
+            # Queue refresh should preserve generated artifacts, but the freshly
+            # written queue metadata/intel files are the source of truth for the
+            # rebuilt surface. Do not let copied historical artifacts overwrite
+            # them with stale values like company="Unknown".
+            if child.name in {"metadata.json", "intel.txt"} and target.exists():
+                continue
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(child, target)
 
@@ -277,6 +283,51 @@ def _update_folder_paths(entries: list[dict]) -> None:
     jobs.save_jobs(df)
 
 
+def _load_manual_queue_entries() -> list[dict]:
+    priority_json = QUEUE_DIR / "priority_order.json"
+    if not priority_json.exists():
+        return []
+    try:
+        entries = json.loads(priority_json.read_text(encoding="utf-8"))
+    except Exception:
+        return []
+    if not isinstance(entries, list):
+        return []
+
+    manual_entries: list[dict] = []
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        row_id = str(entry.get("id") or "").strip()
+        folder_path = str(entry.get("folder_path") or "").strip()
+        company = str(entry.get("company") or "").strip()
+        role_title = str(entry.get("role_title") or "").strip()
+        if not row_id.startswith("manual-") or not folder_path:
+            continue
+        role_dir = Path(folder_path)
+        if not role_dir.exists():
+            continue
+        manual_entries.append(
+            {
+                "id": row_id,
+                "company": company,
+                "role_title": role_title,
+                "fit_score": str(entry.get("fit_score") or ""),
+                "priority_score": str(entry.get("priority_score") or ""),
+                "status": str(entry.get("status") or "manual_queue"),
+                "url": str(entry.get("url") or ""),
+                "queue_bucket": str(entry.get("queue_bucket") or "manual"),
+                "in_latest_run": bool(entry.get("in_latest_run")),
+                "latest_run": str(entry.get("latest_run") or "manual"),
+                "origin_runs": entry.get("origin_runs") or ["manual"],
+                "priority_meta": entry.get("priority_meta") or {},
+                "folder_path": str(role_dir),
+                "reason": str(entry.get("reason") or "manual_queue"),
+            }
+        )
+    return manual_entries
+
+
 def _origin_runs_by_url() -> dict[str, list[str]]:
     by_url: dict[str, list[str]] = {}
     manifests = list(RUNS_DIR.glob("*/manifest.json"))
@@ -365,6 +416,41 @@ def main() -> int:
 
     ready_entries: list[dict] = []
     manual_entries: list[dict] = []
+
+    preserved_manual_entries = _load_manual_queue_entries()
+    for manual_entry in preserved_manual_entries:
+        source_dir = Path(str(manual_entry["folder_path"]))
+        role_dir = _job_dir(temp_jobs_dir, {
+            "company": manual_entry["company"],
+            "role_title": manual_entry["role_title"],
+            "date_found": date.today().isoformat(),
+            "fit_score": manual_entry["fit_score"],
+        }, "manual")
+        _sync_existing_artifacts([source_dir], role_dir)
+        # Refresh metadata/intel after copying artifacts so the rebuilt queue
+        # stays self-consistent.
+        metadata = _write_job_files(
+            role_dir,
+            {
+                "id": manual_entry["id"],
+                "company": manual_entry["company"],
+                "role_title": manual_entry["role_title"],
+                "fit_score": manual_entry["fit_score"],
+                "status": manual_entry["status"],
+                "url": manual_entry["url"],
+                "date_found": date.today().isoformat(),
+                "priority_score": manual_entry["priority_score"],
+                "notes": f"manual_queue=true reason={manual_entry['reason']}",
+            },
+            bucket="manual",
+            latest_run_name=str(manual_entry.get("latest_run") or "manual"),
+            in_latest_run=False,
+            origin_runs=list(manual_entry.get("origin_runs") or ["manual"]),
+            reason=str(manual_entry.get("reason") or "manual_queue"),
+        )
+        manual_entry["folder_path"] = str(role_dir)
+        manual_entry["status"] = metadata["status"]
+        ready_entries.append(manual_entry)
 
     for _, row in df.iterrows():
         row_dict = row.to_dict()
