@@ -197,7 +197,9 @@ What the live runner now does automatically:
 - Skips scoring jobs already present in `jobs.xlsx`
 - Skips rescoring jobs previously marked `Reject` or `Deprioritize` in the hidden `ReviewCache` sheet inside `jobs.xlsx`
 - Writes batch reports to `discovery/auto/logs/`
-- Exports a dated run bundle to `apps/runs/<timestamp>_<window>/` with:
+- Appends accepted (`Proceed`) rows to `discovery/jobs.xlsx` with **`status=queued`** so they match `jobs.py` / apply-queue flows
+- After new rows are written, runs **`discovery/scripts/refresh_current_apply_queue.py`** (best-effort) so `apps/Apply queues/current_apply_queue/` is rebuilt with `priority_order.json` for `jobs.py generate --queue`
+- Still exports a dated **read-only** run bundle to `apps/runs/<timestamp>_<window>/` with:
   - `report.md`
   - `report.html`
   - `manifest.json`
@@ -214,7 +216,7 @@ Recommended staged pattern for reliability:
 ### Queue / apply surfaces
 
 Current steady-state structure:
-- `apps/runs/current_apply_queue/` = only live apply inbox
+- `apps/Apply queues/current_apply_queue/` = live apply inbox (`jobs.py generate --queue`)
 - `apps/runs/forgotten_queue/` = older manual leftovers and future aged-out items
 - `apps/archive/discovery_runs/` = immutable discovery history
 - `apps/archive/applied/` = jobs treated as applied

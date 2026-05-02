@@ -1099,6 +1099,8 @@ def _report_reason_tag(job: dict) -> str:
     gate = str(job.get("__report_gate") or "").strip().lower()
     if gate == "existing":
         return "existing"
+    if gate == "company-missing":
+        return "company-missing"
 
     decision = str(job.get("decision") or "").strip().lower()
     if decision == "proceed":
@@ -1553,19 +1555,54 @@ def _extract_visible_cards(page: Page) -> list[dict]:
     for row in data:
         if not row.get("url") or not (row.get("title") or "").strip():
             continue
-        if not (row.get("company") or "").strip():
-            row = {**row, "company": "Unknown"}
         out.append(row)
     return out
 
 
-def _open_job_details(page: Page, job_url: str, detail_page: Page | None = None) -> tuple[str, str]:
+def _company_from_job_detail_page(detail_page: Page) -> str:
+    """Prefer LinkedIn job-detail chrome when list cards omit company."""
+    try:
+        txt = detail_page.evaluate(
+            """
+            () => {
+              const selectors = [
+                '.jobs-unified-top-card__company-name a',
+                '.jobs-unified-top-card__company-name',
+                'a.job-details-jobs-unified-top-card__company-name',
+                '[data-test-job-detail-company] a',
+                '[data-test-job-detail-company]',
+              ];
+              for (const sel of selectors) {
+                const el = document.querySelector(sel);
+                if (!el) continue;
+                const t = (el.innerText || el.textContent || '').replace(/\\s+/g, ' ').trim();
+                if (t) return t;
+              }
+              return '';
+            }
+            """
+        )
+        return (txt or "").strip()
+    except PlaywrightError:
+        return ""
+
+
+def _company_from_list_or_detail(list_company: str, detail_company: str) -> str:
+    s = (list_company or "").strip()
+    d = (detail_company or "").strip()
+    if d and (not s or s.lower() == "unknown"):
+        return d
+    return s or d or ""
+
+
+def _open_job_details(page: Page, job_url: str, detail_page: Page | None = None) -> tuple[str, str, str]:
     owns_page = detail_page is None
     detail_page = detail_page or page.context.new_page()
     detail_page.set_default_timeout(5000)
     try:
         last_jd_text = ""
         last_insight_text = ""
+        last_company = ""
         for attempt in range(1, 4):
             detail_page.goto(job_url, wait_until="domcontentloaded", timeout=8000)
             detail_page.wait_for_timeout(700 + (attempt * 300))
@@ -1620,20 +1657,21 @@ def _open_job_details(page: Page, job_url: str, detail_page: Page | None = None)
                 jd_text = _extract_about_job_text(detail_page)
             jd_text = _normalize_jd_text(jd_text)
             insight_text = (extracted or {}).get("insightText", "").strip()
+            last_company = _company_from_job_detail_page(detail_page) or last_company
 
             last_jd_text = jd_text
             last_insight_text = insight_text
             issue = _jd_quality_issue(jd_text)
             if not issue:
-                return jd_text, insight_text
+                return jd_text, insight_text, last_company
 
             if issue == "linkedin_chrome":
                 detail_page.wait_for_timeout(800 * attempt)
                 continue
 
-        return "", last_insight_text
+        return "", last_insight_text, last_company
     except PlaywrightError:
-        return "", ""
+        return "", "", ""
     finally:
         if owns_page:
             detail_page.close()
@@ -1676,9 +1714,9 @@ def _repair_scraped_cards(
                 }
             )
         try:
-            jd_text, insight_text = _open_job_details(page, card.url, detail_page=detail_page)
+            jd_text, insight_text, detail_co = _open_job_details(page, card.url, detail_page=detail_page)
         except PlaywrightError:
-            jd_text, insight_text = "", ""
+            jd_text, insight_text, detail_co = "", "", ""
 
         if _jd_quality_issue(jd_text):
             continue
@@ -1686,6 +1724,9 @@ def _repair_scraped_cards(
         card.jd_text = jd_text
         if insight_text.strip():
             card.insight = insight_text.strip()
+        merged_co = _company_from_list_or_detail(card.company, detail_co)
+        if merged_co:
+            card.company = merged_co
         repaired += 1
         if progress_callback is not None:
             progress_callback(
@@ -1828,20 +1869,23 @@ def scrape_search(
                         if job_url in seen_urls:
                             continue
                         if count_only:
-                            jd_text, insight_text = "", ""
+                            jd_text, insight_text, detail_co = "", "", ""
                         else:
                             try:
-                                jd_text, insight_text = _open_job_details(page, job_url, detail_page=detail_page)
+                                jd_text, insight_text, detail_co = _open_job_details(
+                                    page, job_url, detail_page=detail_page
+                                )
                             except PlaywrightError:
-                                jd_text, insight_text = "", ""
+                                jd_text, insight_text, detail_co = "", "", ""
 
                         seen_urls.add(job_url)
+                        merged_company = _company_from_list_or_detail(str(summary.get("company") or ""), detail_co)
                         cards.append(
                             LinkedInJobCard(
                                 search_term=search_term,
                                 time_filter=time_filter,
                                 title=_clean_title(summary["title"]),
-                                company=summary["company"],
+                                company=merged_company,
                                 location=summary["location"],
                                 url=job_url,
                                 listed_at=summary["listed_at"],
@@ -1940,20 +1984,23 @@ def scrape_search(
                     if job_url in seen_urls:
                         continue
                     if count_only:
-                        jd_text, insight_text = "", ""
+                        jd_text, insight_text, detail_co = "", "", ""
                     else:
                         try:
-                            jd_text, insight_text = _open_job_details(page, job_url, detail_page=detail_page)
+                            jd_text, insight_text, detail_co = _open_job_details(
+                                page, job_url, detail_page=detail_page
+                            )
                         except PlaywrightError:
-                            jd_text, insight_text = "", ""
+                            jd_text, insight_text, detail_co = "", "", ""
 
                     seen_urls.add(job_url)
+                    merged_company = _company_from_list_or_detail(str(summary.get("company") or ""), detail_co)
                     cards.append(
                         LinkedInJobCard(
                             search_term=search_term,
                             time_filter=time_filter,
                             title=_clean_title(summary["title"]),
-                            company=summary["company"],
+                            company=merged_company,
                             location=summary["location"],
                             url=job_url,
                             listed_at=summary["listed_at"],
@@ -2126,11 +2173,34 @@ def filter_jobs_for_write(jobs: list[dict]) -> tuple[list[dict], list[dict]]:
     for job in jobs:
         has_jd = bool((job.get("jd_text") or "").strip())
         decision = str(job.get("decision") or "").strip().lower()
+        company = str(job.get("company") or "").strip()
+        missing_company = not company or company.lower() == "unknown"
         if not has_jd or decision not in {"proceed"}:
+            dropped.append(job)
+            continue
+        if missing_company:
+            job["__report_gate"] = "company-missing"
             dropped.append(job)
             continue
         accepted.append(job)
     return accepted, dropped
+
+
+def _refresh_apply_queue_best_effort(*, quiet: bool) -> None:
+    """
+    Rebuild apps/Apply queues/current_apply_queue from discovery/jobs.xlsx.
+    Mirrors manual: python discovery/scripts/refresh_current_apply_queue.py
+    """
+    root = str(PROJECT_ROOT)
+    if root not in sys.path:
+        sys.path.insert(0, root)
+    try:
+        from discovery.scripts.refresh_current_apply_queue import main as refresh_queue_main
+
+        refresh_queue_main()
+    except Exception as exc:
+        if not quiet:
+            print(f"[warn] Could not refresh apply queue (jobs still in jobs.xlsx): {exc}")
 
 
 def _run_post_extract_pipeline(
@@ -2162,6 +2232,8 @@ def _run_post_extract_pipeline(
         *[{**job, "__report_gate": "existing"} for job in existing_hits],
     ]
     accepted_for_write, dropped_before_write = filter_jobs_for_write(reviewed_jobs)
+    for job in accepted_for_write:
+        job["status"] = "queued"
     merged_df, fresh = append_new_jobs(df_existing, accepted_for_write)
     cache_rows = _terminal_cache_rows(scored_new)
 
@@ -2236,6 +2308,8 @@ def _run_post_extract_pipeline(
         )
         if not quiet:
             print(f"Run bundle: {run_bundle}")
+        if fresh:
+            _refresh_apply_queue_best_effort(quiet=quiet)
 
     return len(fresh)
 

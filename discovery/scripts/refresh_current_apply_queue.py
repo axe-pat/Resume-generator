@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import shutil
 import sys
+from collections import defaultdict
 from datetime import date, datetime
 from pathlib import Path
 
@@ -426,14 +427,28 @@ def main() -> int:
 
     for priority_rank, entry in enumerate(ready_entries, start=1):
         entry["priority_rank"] = priority_rank
+
+    # Several tracker rows can share one parent folder (e.g. company="Unknown" + same
+    # date/fit bucket). Rename each physical parent once using the best (min) rank in
+    # that group — otherwise the second rename raises FileNotFoundError.
+    parent_buckets: defaultdict[Path, list[dict]] = defaultdict(list)
+    for entry in ready_entries:
         role_dir = Path(str(entry["folder_path"]))
-        parent_dir = role_dir.parent
-        target_parent = parent_dir.parent / f"{priority_rank:02d}_{parent_dir.name}"
+        parent_buckets[role_dir.parent].append(entry)
+
+    for parent_dir, entries in parent_buckets.items():
+        min_rank = min(int(e["priority_rank"]) for e in entries)
+        sample_role = Path(str(entries[0]["folder_path"])).name
+        target_parent = parent_dir.parent / f"{min_rank:02d}_{parent_dir.name}"
         if parent_dir != target_parent:
             if target_parent.exists():
                 shutil.rmtree(target_parent)
             parent_dir.rename(target_parent)
-            entry["folder_path"] = str(target_parent / role_dir.name)
+            new_parent = target_parent
+        else:
+            new_parent = parent_dir
+        for entry in entries:
+            entry["folder_path"] = str(new_parent / Path(str(entry["folder_path"])).name)
     for priority_rank, entry in enumerate(manual_entries, start=1):
         entry["priority_rank"] = priority_rank
 

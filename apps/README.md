@@ -21,6 +21,12 @@ apps/
 
 The discovery layer also writes dated run bundles under `apps/runs/`. These are read-only exports for review and content planning, not direct `run_app.py` targets.
 
+LinkedIn live discovery (`discovery/auto/linkedin_live.py`) still writes those bundles, but after it appends new accepted rows to `discovery/jobs.xlsx` it also triggers a rebuild of **`apps/Apply queues/current_apply_queue/`** (same logic as `discovery/scripts/refresh_current_apply_queue.py`) so you can run:
+
+```bash
+python jobs.py generate --queue
+```
+
 ```
 apps/
 ├── <Company>/
