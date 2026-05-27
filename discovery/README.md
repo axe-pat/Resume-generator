@@ -137,7 +137,7 @@ What it gates against:
 - the live queue at `apps/Apply queues/current_apply_queue/priority_order.json`
 - existing Outreach organizations, contacts, and touchpoints
 
-Output goes to `discovery/source_validation/*-daily-action-queue.{json,md}` with:
+Output goes to `discovery/source_validation/*-daily-action-queue.{json,md,html}` with:
 
 - `score_for_application`: net-new application candidates worth sending through the scorer
 - `application_plus_outreach`: active application targets that also need contact work

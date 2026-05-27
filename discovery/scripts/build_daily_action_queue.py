@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import csv
 import hashlib
+import html
 import json
 import re
 import sys
@@ -535,6 +536,303 @@ def _write_markdown(path: Path, payload: dict[str, Any]) -> None:
     path.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
 
 
+def _esc(value: Any) -> str:
+    return html.escape("" if value is None else str(value), quote=True)
+
+
+def _link(url: Any, label: str = "Open") -> str:
+    clean = _clean(url)
+    if not clean:
+        return ""
+    return f'<a href="{_esc(clean)}">{_esc(label)}</a>'
+
+
+def _reason_chips(reasons: list[str]) -> str:
+    if not reasons:
+        return ""
+    chips = "".join(f'<span class="chip">{_esc(reason)}</span>' for reason in reasons[:8])
+    return f'<div class="chips">{chips}</div>'
+
+
+def _app_card(item: dict[str, Any]) -> str:
+    meta = [
+        _esc(item.get("source")),
+        f"rank {item.get('queue_rank')}" if item.get("queue_rank") else "",
+        f"fit {item.get('fit_score')}" if item.get("fit_score") else "",
+        f"contacts {item.get('outreach_contact_count')}" if item.get("outreach_contact_count") not in (None, "") else "",
+        f"touches {item.get('outreach_touchpoint_count')}" if item.get("outreach_touchpoint_count") not in (None, "") else "",
+    ]
+    meta_text = " / ".join(value for value in meta if value)
+    return f"""
+      <article class="item app-item">
+        <div class="item-main">
+          <h3>{_esc(item.get('company'))}</h3>
+          <p class="role">{_esc(item.get('role_title'))}</p>
+          <p class="meta">{meta_text}</p>
+          {_reason_chips(item.get('reasons') or [])}
+        </div>
+        <div class="item-actions">{_link(item.get('url'), 'Job')}</div>
+      </article>
+    """
+
+
+def _relationship_card(item: dict[str, Any]) -> str:
+    score = item.get("relationship_score", "-")
+    meta = " / ".join(value for value in [_esc(item.get("source")), _esc(item.get("city"))] if value)
+    return f"""
+      <article class="item relationship-item">
+        <div class="score">{_esc(score)}<span>/10</span></div>
+        <div class="item-main">
+          <h3>{_esc(item.get('company'))}</h3>
+          <p class="meta">{meta}</p>
+          {_reason_chips(item.get('reasons') or [])}
+        </div>
+        <div class="item-actions">{_link(item.get('company_url'), 'Company')}</div>
+      </article>
+    """
+
+
+def _render_items(payload: dict[str, Any], key: str) -> str:
+    relationship = key in {"outreach_only_today", "relationship_buffer"}
+    renderer = _relationship_card if relationship else _app_card
+    items = payload.get(key) or []
+    if not items:
+        return '<p class="empty">None</p>'
+    return "\n".join(renderer(item) for item in items)
+
+
+def _source_mix(payload: dict[str, Any]) -> str:
+    rows: list[str] = []
+    for bucket, counts in (payload.get("source_counts") or {}).items():
+        for source, count in counts.items():
+            rows.append(
+                f"<tr><td>{_esc(bucket)}</td><td>{_esc(source)}</td><td>{_esc(count)}</td></tr>"
+            )
+    return "\n".join(rows) or '<tr><td colspan="3">No source counts</td></tr>'
+
+
+def _write_html(path: Path, payload: dict[str, Any]) -> None:
+    counts = payload.get("counts") or {}
+    sections = [
+        ("Score For Application", "score_for_application"),
+        ("Application Plus Outreach", "application_plus_outreach"),
+        ("Application Only", "application_only"),
+        ("Outreach Only Today", "outreach_only_today"),
+        ("Follow Up", "follow_up"),
+        ("Relationship Buffer", "relationship_buffer"),
+        ("Skipped/Internal", "skipped_internal"),
+    ]
+    count_cards = "\n".join(
+        f'<div class="stat"><span>{_esc(value)}</span><small>{_esc(key.replace("_", " "))}</small></div>'
+        for key, value in counts.items()
+    )
+    nav = "\n".join(
+        f'<a href="#{_esc(key)}">{_esc(title)} <span>{_esc(counts.get(key, 0))}</span></a>'
+        for title, key in sections
+    )
+    section_html = "\n".join(
+        f"""
+        <section id="{_esc(key)}">
+          <div class="section-head">
+            <h2>{_esc(title)}</h2>
+            <span>{_esc(counts.get(key, 0))}</span>
+          </div>
+          <div class="items">{_render_items(payload, key)}</div>
+        </section>
+        """
+        for title, key in sections
+    )
+    commands = "\n".join(f"<code>{_esc(command)}</code>" for command in payload.get("suggested_commands") or [])
+
+    document = f"""<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Daily Action Queue</title>
+  <style>
+    :root {{
+      --paper: #fbfaf7;
+      --panel: #ffffff;
+      --ink: #1d2525;
+      --muted: #66706d;
+      --line: #d9dfda;
+      --teal: #0f766e;
+      --gold: #9a6700;
+      --rose: #b4235a;
+      --blue: #2563eb;
+    }}
+    * {{ box-sizing: border-box; }}
+    body {{
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }}
+    header {{
+      padding: 28px clamp(18px, 4vw, 48px) 18px;
+      border-bottom: 1px solid var(--line);
+      background: #fffefa;
+    }}
+    h1, h2, h3, p {{ margin: 0; }}
+    h1 {{ font-size: 30px; line-height: 1.1; letter-spacing: 0; }}
+    .generated {{ color: var(--muted); margin-top: 8px; }}
+    .stats {{
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+      gap: 10px;
+      margin-top: 22px;
+      max-width: 1180px;
+    }}
+    .stat {{
+      border: 1px solid var(--line);
+      background: var(--panel);
+      border-radius: 8px;
+      padding: 12px;
+    }}
+    .stat span {{ display: block; font-size: 24px; font-weight: 750; }}
+    .stat small {{ color: var(--muted); text-transform: capitalize; }}
+    nav {{
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding: 10px clamp(18px, 4vw, 48px);
+      border-bottom: 1px solid var(--line);
+      background: rgba(251, 250, 247, .96);
+      backdrop-filter: blur(10px);
+    }}
+    nav a {{
+      white-space: nowrap;
+      color: var(--ink);
+      text-decoration: none;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 7px 11px;
+      background: var(--panel);
+    }}
+    nav span {{ color: var(--teal); font-weight: 700; }}
+    main {{ padding: 22px clamp(18px, 4vw, 48px) 48px; }}
+    section {{ max-width: 1180px; margin: 0 auto 30px; }}
+    .section-head {{
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 10px;
+    }}
+    .section-head h2 {{ font-size: 20px; }}
+    .section-head span {{ color: var(--muted); font-weight: 700; }}
+    .items {{ display: grid; gap: 10px; }}
+    .item {{
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 16px;
+      align-items: start;
+      border: 1px solid var(--line);
+      border-left: 4px solid var(--teal);
+      border-radius: 8px;
+      background: var(--panel);
+      padding: 14px;
+    }}
+    .relationship-item {{ grid-template-columns: 72px minmax(0, 1fr) auto; border-left-color: var(--gold); }}
+    #skipped_internal .item {{ border-left-color: var(--rose); }}
+    #score_for_application .item {{ border-left-color: var(--blue); }}
+    .score {{
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--gold);
+      line-height: 1;
+    }}
+    .score span {{ font-size: 12px; color: var(--muted); font-weight: 650; }}
+    h3 {{ font-size: 16px; line-height: 1.25; }}
+    .role {{ margin-top: 3px; color: var(--ink); }}
+    .meta {{ margin-top: 5px; color: var(--muted); font-size: 12px; }}
+    .chips {{ display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }}
+    .chip {{
+      border: 1px solid #dfe6e0;
+      background: #f5f7f2;
+      color: #35413d;
+      border-radius: 999px;
+      padding: 4px 8px;
+      font-size: 12px;
+    }}
+    .item-actions a {{
+      display: inline-flex;
+      min-width: 74px;
+      justify-content: center;
+      color: #0f5f57;
+      text-decoration: none;
+      border: 1px solid #abcfc8;
+      border-radius: 7px;
+      padding: 7px 10px;
+      font-weight: 700;
+    }}
+    .empty {{
+      border: 1px dashed var(--line);
+      border-radius: 8px;
+      padding: 18px;
+      color: var(--muted);
+      background: rgba(255, 255, 255, .55);
+    }}
+    table {{
+      width: 100%;
+      border-collapse: collapse;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }}
+    th, td {{ text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); }}
+    th {{ color: var(--muted); font-size: 12px; }}
+    .commands {{ display: grid; gap: 8px; }}
+    code {{
+      display: block;
+      white-space: pre-wrap;
+      word-break: break-word;
+      background: #eff3ee;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px;
+      color: #21302d;
+    }}
+    @media (max-width: 720px) {{
+      h1 {{ font-size: 24px; }}
+      .item, .relationship-item {{ grid-template-columns: 1fr; }}
+      .score {{ font-size: 18px; }}
+      .item-actions a {{ width: 100%; }}
+    }}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Daily Action Queue</h1>
+    <p class="generated">Generated {_esc(payload.get('generated_at'))}</p>
+    <div class="stats">{count_cards}</div>
+  </header>
+  <nav>{nav}</nav>
+  <main>
+    {section_html}
+    <section id="source-mix">
+      <div class="section-head"><h2>Source Mix</h2></div>
+      <table>
+        <thead><tr><th>Bucket</th><th>Source</th><th>Count</th></tr></thead>
+        <tbody>{_source_mix(payload)}</tbody>
+      </table>
+    </section>
+    <section id="commands">
+      <div class="section-head"><h2>Suggested Commands</h2></div>
+      <div class="commands">{commands}</div>
+    </section>
+  </main>
+</body>
+</html>
+"""
+    path.write_text(document, encoding="utf-8")
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Build the gated daily action queue from source artifacts and live state.")
     parser.add_argument("--source-breadth", type=Path)
@@ -641,11 +939,14 @@ def main() -> int:
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     json_path = args.out_dir / f"{stamp}-daily-action-queue.json"
     md_path = args.out_dir / f"{stamp}-daily-action-queue.md"
+    html_path = args.out_dir / f"{stamp}-daily-action-queue.html"
     json_path.write_text(json.dumps(payload, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
     _write_markdown(md_path, payload)
+    _write_html(html_path, payload)
 
     print(f"Wrote JSON: {json_path}")
     print(f"Wrote Markdown: {md_path}")
+    print(f"Wrote HTML: {html_path}")
     print(f"counts: {payload['counts']}")
     return 0
 
