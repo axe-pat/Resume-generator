@@ -85,6 +85,25 @@ python discovery/auto/startup_apply_pipeline.py --limit-companies 8 --limit-jobs
 python discovery/auto/startup_apply_pipeline.py --dry-run --ignore-existing
 ```
 
+### Startup source report
+
+No-write daily/validation report that puts startup apply candidates and Outreach
+organization artifacts into the same source-engine vocabulary.
+
+```bash
+venv/bin/python discovery/scripts/build_startup_source_report.py \
+  --limit-companies 12 --limit-jobs 30
+
+# Source-health mode: ignore existing jobs.xlsx dedupe
+venv/bin/python discovery/scripts/build_startup_source_report.py \
+  --limit-companies 12 --limit-jobs 30 --ignore-existing
+```
+
+Output goes to `discovery/source_validation/` with:
+
+- startup apply items classified as `app_score_now`, `app_review`, `outreach_signal`, or `skip_noise`
+- relationship org targets ranked from the latest no-write Outreach discovery artifacts
+
 ### Screenshot scoring (LinkedIn PDF screenshots)
 
 **Run from your Mac terminal, not the Cowork VM** — the VM has SSL issues that break the Anthropic API.

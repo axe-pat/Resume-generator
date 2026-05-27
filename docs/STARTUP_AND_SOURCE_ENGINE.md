@@ -93,6 +93,17 @@ Current finding:
 
 - The lane works, but app-ready supply is thin.
 - On 2026-05-27 it found 2 review candidates and 0 queued candidates in dry-run mode.
+- The no-write startup source report now reclassifies those candidates with the shared verdicts:
+  2 `app_score_now`, 0 `app_review`, 0 `skip_noise` on the 2026-05-27 12-company smoke run.
+
+Current report command:
+
+```bash
+venv/bin/python discovery/scripts/build_startup_source_report.py \
+  --limit-companies 12 --limit-jobs 30
+```
+
+Use `--ignore-existing` when checking source health instead of only net-new tracker additions.
 
 ### Outreach Organization Discovery Lane
 
@@ -114,7 +125,8 @@ Purpose:
 Current finding:
 
 - Org discovery has healthy supply.
-- On 2026-05-27: YC SF hiring returned 25 orgs, YC LA returned 25 orgs, Built In LA returned 20 orgs.
+- On 2026-05-27: YC SF hiring returned 25 orgs, YC LA returned 25 orgs, Built In LA returned 20 orgs, Built In SF returned 20 orgs.
+- The startup source report reads the latest no-write Outreach artifacts and ranks relationship targets by source quality, active hiring, geography, domain fit, and team-size/contactability signals.
 
 ## Target Daily Architecture
 
