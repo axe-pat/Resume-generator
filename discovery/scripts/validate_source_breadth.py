@@ -42,6 +42,12 @@ TARGET_SIGNAL_PATTERNS = [
     ("startup_operator", re.compile(r"\b(chief of staff|founder'?s associate|founding operator|business associate|venture|new ventures)\b", re.I)),
 ]
 
+EARLY_ADJACENT_RE = re.compile(
+    r"\b(product|strategy|operations|growth|business|program|market|acquisition|"
+    r"customer engagement|loyalty|commercial|partnership|new ventures)\b",
+    re.I,
+)
+
 SENIORITY_REJECT_RE = re.compile(
     r"\b("
     r"senior|sr\.?|staff|principal|director|head|vp|vice president|lead product manager|"
@@ -50,11 +56,55 @@ SENIORITY_REJECT_RE = re.compile(
     re.I,
 )
 
+RECRUITER_COMPANY_RE = re.compile(
+    r"\b("
+    r"jobgether|jobot|motion recruitment|optomi|midtown group|firstpro|hirecapital|"
+    r"hackajob|partner group|vlink|net2source|lensa|dice|robert half|tek.?systems|"
+    r"insight global|randstad|aquent|kforce"
+    r")\b",
+    re.I,
+)
+
+RELATIONSHIP_COMPANY_RE = re.compile(
+    # Validation-only seed list from the 24h sample. The daily engine should replace
+    # this with portfolio/funding/source provenance once startup sources are wired.
+    r"\b("
+    r"anthropic|atticus|fractional ai|daloopa|foundation health|alma|seer|stripe|"
+    r"robinhood|mdcalc|luma financial|limbic|early media|spotio|fingercheck|hudl"
+    r")\b",
+    re.I,
+)
+
+RELATIONSHIP_TITLE_SIGNAL_RE = re.compile(
+    r"\b("
+    r"ai|genai|claude|machine learning|ml|llm|developer tool|devtool|"
+    r"healthtech|fintech|robotics|marketplace|forward deployed|terminal device|"
+    r"founder|founding"
+    r")\b",
+    re.I,
+)
+
+RELATIONSHIP_BODY_SIGNAL_RE = re.compile(
+    r"\b("
+    r"early-stage|venture-backed|seed stage|series [abc]|yc|y combinator|a16z|"
+    r"founder-led|founding team"
+    r")\b",
+    re.I,
+)
+
+LARGE_COMPANY_GENERIC_RE = re.compile(
+    r"\b("
+    r"google|amazon|aws|netflix|adobe|nike|toyota|bloomberg|morgan stanley|"
+    r"american express|fiserv|global payments|delta air lines|lazard"
+    r")\b",
+    re.I,
+)
+
 NOISE_TITLE_RE = re.compile(
     r"\b("
     r"product marketing manager|marketing manager|sales manager|account executive|"
     r"customer success|recruiter|talent acquisition|software engineer|data scientist|"
-    r"solutions architect|legal|counsel"
+    r"solutions architect|legal|counsel|human resources|hr intern"
     r")\b",
     re.I,
 )
@@ -110,6 +160,20 @@ def target_signals(text: str) -> list[str]:
     return hits
 
 
+def relationship_signals(title: str, company: str, jd_head: str) -> list[str]:
+    """Signals that a non-internship role is still useful for startup/company outreach."""
+    signals: list[str] = []
+    if RELATIONSHIP_COMPANY_RE.search(company):
+        signals.append("high-signal company")
+    if RELATIONSHIP_TITLE_SIGNAL_RE.search(f"{company}\n{title}"):
+        signals.append("startup/AI/domain title signal")
+    if RELATIONSHIP_BODY_SIGNAL_RE.search(jd_head):
+        signals.append("startup/funding body signal")
+    if re.search(r"\bforward deployed product manager\b", title, re.I):
+        signals.append("operator-style product role")
+    return signals
+
+
 def classify_job(job: dict[str, Any], source_bucket: str) -> ClassifiedJob:
     title = str(job.get("role_title") or job.get("title") or "").strip()
     company = str(job.get("company") or "").strip()
@@ -117,6 +181,9 @@ def classify_job(job: dict[str, Any], source_bucket: str) -> ClassifiedJob:
     jd_head = jd_text[:1200]
     combined = f"{title}\n{jd_head}"
     reasons: list[str] = []
+
+    if RECRUITER_COMPANY_RE.search(company):
+        return _classified("skip_noise", source_bucket, job, ["Recruiter/aggregator posting"])
 
     role_reject, role_reason = pre_filter_role_type(title)
     if role_reject:
@@ -133,6 +200,7 @@ def classify_job(job: dict[str, Any], source_bucket: str) -> ClassifiedJob:
     title_signals = target_signals(title)
     body_signals = target_signals(jd_head)
     signals = list(dict.fromkeys([*title_signals, *body_signals]))
+    outreach_signals = relationship_signals(title, company, jd_head)
 
     if NOISE_TITLE_RE.search(title):
         return _classified("skip_noise", source_bucket, job, ["Noisy non-target title pattern"])
@@ -149,18 +217,29 @@ def classify_job(job: dict[str, Any], source_bucket: str) -> ClassifiedJob:
         reasons.append("Early-career/intern/MBA signal in title")
     elif body_early_signal:
         reasons.append("Early-career/intern/MBA signal in JD body")
+    if outreach_signals:
+        reasons.extend(f"Relationship signal: {signal}" for signal in outreach_signals)
 
     if title_signals and title_early_signal:
-        return _classified("score_now", source_bucket, job, reasons)
+        return _classified("app_score_now", source_bucket, job, reasons)
 
-    if title_early_signal and body_signals:
-        return _classified("review", source_bucket, job, [*reasons, "Early-career title with target signal from JD body"])
+    if early_signal and (body_signals or title_signals or EARLY_ADJACENT_RE.search(combined)):
+        detail = (
+            "Early-career title with target signal from JD body"
+            if title_early_signal and body_signals
+            else "Early-career business/product-adjacent signal"
+        )
+        return _classified("app_review", source_bucket, job, [*reasons, detail])
+
+    if title_signals and outreach_signals:
+        if LARGE_COMPANY_GENERIC_RE.search(company) and not RELATIONSHIP_COMPANY_RE.search(company):
+            return _classified("skip_noise", source_bucket, job, [*reasons, "Large-company full-time PM signal, not an internship or startup relationship target"])
+        return _classified("outreach_signal", source_bucket, job, [*reasons, "Target role, but no explicit early-career signal"])
 
     if title_signals and not title_early_signal:
-        return _classified("review", source_bucket, job, [*reasons, "Target-adjacent but no explicit early-career signal"])
-
-    if early_signal and re.search(r"\b(product|strategy|operations|growth|business|program|market)\b", combined, re.I):
-        return _classified("review", source_bucket, job, [*reasons, "Early-career business/product-adjacent signal"])
+        if LARGE_COMPANY_GENERIC_RE.search(company):
+            return _classified("skip_noise", source_bucket, job, [*reasons, "Large-company full-time PM signal, not an internship or startup relationship target"])
+        return _classified("skip_noise", source_bucket, job, [*reasons, "Generic full-time target role without early-career or relationship signal"])
 
     return _classified("skip_noise", source_bucket, job, ["No clear target or early-career signal"])
 
@@ -193,8 +272,9 @@ def summarize_classified(items: list[ClassifiedJob]) -> dict[str, Any]:
     return {
         "count": len(items),
         "verdict_counts": dict(verdict_counts.most_common()),
-        "score_now": [asdict(item) for item in items if item.verdict == "score_now"],
-        "review": [asdict(item) for item in items if item.verdict == "review"],
+        "app_score_now": [asdict(item) for item in items if item.verdict == "app_score_now"],
+        "app_review": [asdict(item) for item in items if item.verdict == "app_review"],
+        "outreach_signal": [asdict(item) for item in items if item.verdict == "outreach_signal"],
         "skip_noise_count": verdict_counts.get("skip_noise", 0),
     }
 
@@ -226,7 +306,7 @@ def write_markdown(path: Path, payload: dict[str, Any]) -> None:
         lines.append(f"- Total: {summary['count']}")
         lines.append(f"- Verdicts: {summary['verdict_counts']}")
         lines.append("")
-        for verdict in ("score_now", "review"):
+        for verdict in ("app_score_now", "app_review", "outreach_signal"):
             rows = summary[verdict]
             if not rows:
                 continue
@@ -244,7 +324,10 @@ def write_markdown(path: Path, payload: dict[str, Any]) -> None:
             "",
             "- Keep Playwright as the trusted visual baseline.",
             "- Add JobSpy to the daily lane only after applying these hard relevance filters before Claude scoring.",
-            "- Treat `score_now` as candidates worth scoring immediately; `review` as a manual/cheap-review queue; `skip_noise` should not spend API calls.",
+            "- Treat `app_score_now` as candidates worth scoring immediately.",
+            "- Treat `app_review` as a bounded manual or cheap-review queue.",
+            "- Treat `outreach_signal` as relationship/company discovery, not normal application scoring.",
+            "- Never spend API calls on `skip_noise`.",
         ]
     )
     path.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")

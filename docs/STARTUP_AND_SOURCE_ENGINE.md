@@ -49,7 +49,7 @@ Purpose:
 
 - Test what JobSpy finds that Playwright misses.
 - Apply hard relevance filters before any Claude scoring or tracker writes.
-- Separate `score_now`, `review`, and `skip_noise`.
+- Separate application scoring candidates from startup/company relationship signals.
 
 Rule:
 
@@ -61,17 +61,18 @@ Initial 24h validation on 2026-05-27:
 - Playwright extract-only: 32 jobs.
 - JobSpy LinkedIn-equivalent raw: 106 jobs.
 - Overlap: 8.
-- Playwright-only after stricter filters: 8 `score_now`, 12 `review`, 1 `skip_noise`.
-- JobSpy-only after stricter filters: 2 `score_now`, 57 `review`, 39 `skip_noise`.
-- Overlap after stricter filters: 6 `score_now`, 2 `review`.
+- Playwright-only after stricter filters: 8 `app_score_now`, 12 `app_review`, 1 `skip_noise`.
+- JobSpy-only after stricter filters: 2 `app_score_now`, 2 `app_review`, 16 `outreach_signal`, 78 `skip_noise`.
+- Overlap after stricter filters: 6 `app_score_now`, 2 `app_review`.
 
 Interpretation:
 
 - Hybrid is likely valuable.
 - Playwright remains the trusted baseline.
-- JobSpy can add breadth, but most incremental jobs need review/triage before they deserve normal scoring or tracker writes.
-- `score_now` is intentionally high precision: the title itself must carry both a target-role signal and an early-career signal.
-- `review` can be scored with a cheap bounded triage pass when coverage matters, but should not write directly into `jobs.xlsx`.
+- JobSpy can add breadth, but most incremental jobs are not application candidates.
+- `app_score_now` is intentionally high precision: the title itself must carry both a target-role signal and an early-career signal.
+- `app_review` is for early-career or internship-ish roles that need cheap/manual triage before normal scoring.
+- `outreach_signal` is for full-time/non-internship roles at high-signal companies or domains that may be valuable for relationship building, not immediate application scoring.
 
 ### Startup Apply Lane
 
@@ -173,8 +174,9 @@ Recommended daily policy once the source engine is wired:
 
 - Always run Playwright 24h as the trusted application baseline.
 - Run JobSpy 24h as a filtered breadth add-on.
-- Automatically score JobSpy `score_now`.
-- Either cap JobSpy `review` scoring, or run it through a cheaper triage-only prompt before normal scoring.
+- Automatically score JobSpy `app_score_now`.
+- Either cap JobSpy `app_review` scoring, or run it through a cheaper triage-only prompt before normal scoring.
+- Send JobSpy `outreach_signal` to the relationship lane instead of the resume/cover-letter lane.
 - Run startup apply sources in the application lane, because those produce actual apply URLs and JDs.
 - Run startup relationship sources in the relationship lane, because those produce company/person targets even without a posted internship.
 
@@ -183,6 +185,7 @@ Recommended daily policy once the source engine is wired:
 - Do not write to `jobs.xlsx` from new source experiments until source validation reports look sane.
 - Do not mutate `apps/Apply queues/current_apply_queue` from validation scripts.
 - Keep raw artifacts for every extraction.
-- Score only `score_now` by default.
-- Keep `review` as a bounded manual or cheap-review queue.
+- Score only `app_score_now` by default.
+- Keep `app_review` as a bounded manual or cheap-review queue.
+- Keep `outreach_signal` out of the normal application scoring path.
 - Never spend Claude calls on `skip_noise`.

@@ -225,8 +225,10 @@ venv/bin/python discovery/scripts/validate_source_breadth.py \
   --jobspy-raw discovery/auto/logs/jobspy_linkedin_equiv_raw_24h_YYYY-MM-DD_HHMMSS.json
 ```
 
-Output goes to `discovery/source_validation/` with `score_now`, `review`, and `skip_noise`
-buckets. Only `score_now` should be considered for automatic scoring by default.
+Output goes to `discovery/source_validation/` with `app_score_now`, `app_review`,
+`outreach_signal`, and `skip_noise` buckets. Only `app_score_now` should be
+considered for automatic application scoring by default; `outreach_signal` belongs
+in the relationship lane.
 
 For the broader source-engine plan, see `docs/STARTUP_AND_SOURCE_ENGINE.md`.
 

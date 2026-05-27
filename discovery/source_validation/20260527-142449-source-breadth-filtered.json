@@ -1,0 +1,697 @@
+{
+  "generated_at": "2026-05-27T14:24:49",
+  "inputs": {
+    "playwright_raw": "discovery/auto/logs/linkedin_live_raw_2026-05-27_123321.json",
+    "jobspy_raw": "discovery/auto/logs/jobspy_linkedin_equiv_raw_24h_2026-05-27_122759.json"
+  },
+  "raw_counts": {
+    "playwright": 32,
+    "jobspy": 106,
+    "overlap": 8,
+    "playwright_only": 21,
+    "jobspy_only": 98
+  },
+  "classified": {
+    "overlap": {
+      "count": 8,
+      "verdict_counts": {
+        "app_score_now": 6,
+        "app_review": 2
+      },
+      "app_score_now": [
+        {
+          "verdict": "app_score_now",
+          "source_bucket": "overlap",
+          "company": "TikTok",
+          "role_title": "AI Product Manager Intern (TikTok-Product-Social and Creation)- 2026 Summer (BS/MS)",
+          "url": "https://www.linkedin.com/jobs/view/4287588499/",
+          "source": "linkedin_live_jobs_v1",
+          "reasons": [
+            "Target signal: product_intern",
+            "Target signal: ai_product",
+            "Target signal: strategy_ops",
+            "Early-career/intern/MBA signal in title",
+            "Relationship signal: startup/AI/domain title signal"
+          ]
+        },
+        {
+          "verdict": "app_score_now",
+          "source_bucket": "overlap",
+          "company": "TikTok",
+          "role_title": "Product Manager Project Intern (Brand Innovation - Monetization Product) 2026 Start (BS/ MS)",
+          "url": "https://www.linkedin.com/jobs/view/4408946826/",
+          "source": "linkedin_live_jobs_v1",
+          "reasons": [
+            "Target signal: product_intern",
+            "Early-career/intern/MBA signal in title"
+          ]
+        },
+        {
+          "verdict": "app_score_now",
+          "source_bucket": "overlap",
+          "company": "TikTok",
+          "role_title": "Global Sports Strategy and Operations Project Intern (TikTok-Operations-Sports Creators and Athletes) - 2026 Start (MBA)",
+          "url": "https://www.linkedin.com/jobs/view/4408949860/",
+          "source": "linkedin_live_jobs_v1",
+          "reasons": [
+            "Target signal: strategy_ops",
+            "Target signal: program_ops",
+            "Early-career/intern/MBA signal in title"
+          ]
+        },
+        {
+          "verdict": "app_score_now",
+          "source_bucket": "overlap",
+          "company": "FlairX",
+          "role_title": "Product Manager Intern (AI Products)",
+          "url": "https://www.linkedin.com/jobs/view/4417579331/",
+          "source": "linkedin_live_jobs_v1",
+          "reasons": [
+            "Target signal: product_intern",
+            "Target signal: ai_product",
+            "Target signal: strategy_ops",
+            "Early-career/intern/MBA signal in title",
+            "Relationship signal: startup/AI/domain title signal"
+          ]
+        },
+        {
+          "verdict": "app_score_now",
+          "source_bucket": "overlap",
+          "company": "Pebl",
+          "role_title": "Product Manager Intern - Alfie (Conversational AI)",
+          "url": "https://www.linkedin.com/jobs/view/4418511510/",
+          "source": "linkedin_live_jobs_v1",
+          "reasons": [
+            "Target signal: product_intern",
+            "Target signal: ai_product",
+            "Target signal: strategy_ops",
+            "Early-career/intern/MBA signal in title",
+            "Relationship signal: startup/AI/domain title signal"
+          ]
+        },
+        {
+          "verdict": "app_score_now",
+          "source_bucket": "overlap",
+          "company": "Pebl",
+          "role_title": "Product Management Intern - Talent Solutions",
+          "url": "https://www.linkedin.com/jobs/view/4418512489/",
+          "source": "linkedin_live_jobs_v1",
+          "reasons": [
+            "Target signal: product_intern",
+            "Target signal: strategy_ops",
+            "Early-career/intern/MBA signal in title"
+          ]
+        }
+      ],
+      "app_review": [
+        {
+          "verdict": "app_review",
+          "source_bucket": "overlap",
+          "company": "Monogram Health",
+          "role_title": "Operations Internship",
+          "url": "https://www.linkedin.com/jobs/view/4407799742/",
+          "source": "linkedin_live_jobs_v1",
+          "reasons": [
+            "Target signal: strategy_ops",
+            "Early-career/intern/MBA signal in title",
+            "Early-career title with target signal from JD body"
+          ]
+        },
+        {
+          "verdict": "app_review",
+          "source_bucket": "overlap",
+          "company": "Mercedes-Benz USA",
+          "role_title": "Fleet & Alternate Sales (Projects) Junior Associate Consultant (Intern)",
+          "url": "https://www.linkedin.com/jobs/view/4411639400/",
+          "source": "linkedin_live_jobs_v1",
+          "reasons": [
+            "Target signal: strategy_ops",
+            "Early-career/intern/MBA signal in title",
+            "Early-career title with target signal from JD body"
+          ]
+        }
+      ],
+      "outreach_signal": [],
+      "skip_noise_count": 0
+    },
+    "playwright_only": {
+      "count": 21,
+      "verdict_counts": {
+        "app_review": 12,
+        "app_score_now": 8,
+        "skip_noise": 1
+      },
+      "app_score_now": [
+        {
+          "verdict": "app_score_now",
+          "source_bucket": "playwright_only",
+          "company": "TikTok",
+          "role_title": "Product Manager Intern (Measurement Product) - 2026 Start (PhD)",
+          "url": "https://www.linkedin.com/jobs/view/4369307668/",
+          "source": "linkedin_live_jobs_v1",
+          "reasons": [
+            "Target signal: product_intern",
+            "Early-career/intern/MBA signal in title"
+          ]
+        },
+        {
+          "verdict": "app_score_now",
+          "source_bucket": "playwright_only",
+          "company": "8am",
+          "role_title": "Business Operations Intern",
+          "url": "https://www.linkedin.com/jobs/view/4400011939/",
+          "source": "linkedin_live_jobs_v1",
+          "reasons": [
+            "Target signal: strategy_ops",
+            "Early-career/intern/MBA signal in title"
+          ]
+        },
+        {
+          "verdict": "app_score_now",
+          "source_bucket": "playwright_only",
+          "company": "Vertex Pharmaceuticals",
+          "role_title": "Vertex Fall Co-op 2026, Strategic Operations, Innovation & Change Management",
+          "url": "https://www.linkedin.com/jobs/view/4414727469/",
+          "source": "linkedin_live_jobs_v1",
+          "reasons": [
+            "Target signal: strategy_ops",
+            "Early-career/intern/MBA signal in title"
+          ]
+        },
+        {
+          "verdict": "app_score_now",
+          "source_bucket": "playwright_only",
+          "company": "DevRabbit IT Solutions",
+          "role_title": "Strategic Partnerships Intern",
+          "url": "https://www.linkedin.com/jobs/view/4418265691/",
+          "source": "linkedin_live_jobs_v1",
+          "reasons": [
+            "Target signal: strategy_ops",
+            "Early-career/intern/MBA signal in title"
+          ]
+        },
+        {
+          "verdict": "app_score_now",
+          "source_bucket": "playwright_only",
+          "company": "Katsby",
+          "role_title": "Business Development & Market Strategy Intern",
+          "url": "https://www.linkedin.com/jobs/view/4418558900/",
+          "source": "linkedin_live_jobs_v1",
+          "reasons": [
+            "Target signal: strategy_ops",
+            "Early-career/intern/MBA signal in title",
+            "Relationship signal: startup/funding body signal"
+          ]
+        },
+        {
+          "verdict": "app_score_now",
+          "source_bucket": "playwright_only",
+          "company": "UMB Bank",
+          "role_title": "Data Product Management Intern",
+          "url": "https://www.linkedin.com/jobs/view/4419427976/",
+          "source": "linkedin_live_jobs_v1",
+          "reasons": [
+            "Target signal: product_intern",
+            "Target signal: ai_product",
+            "Early-career/intern/MBA signal in title"
+          ]
+        },
+        {
+          "verdict": "app_score_now",
+          "source_bucket": "playwright_only",
+          "company": "BENCHMADE",
+          "role_title": "Global Value Chain Strategy Analyst - Intern",
+          "url": "https://www.linkedin.com/jobs/view/4419515186/",
+          "source": "linkedin_live_jobs_v1",
+          "reasons": [
+            "Target signal: strategy_ops",
+            "Early-career/intern/MBA signal in title"
+          ]
+        },
+        {
+          "verdict": "app_score_now",
+          "source_bucket": "playwright_only",
+          "company": "Boston Medical Center (BMC)",
+          "role_title": "Strategy Intern",
+          "url": "https://www.linkedin.com/jobs/view/4419528496/",
+          "source": "linkedin_live_jobs_v1",
+          "reasons": [
+            "Target signal: strategy_ops",
+            "Early-career/intern/MBA signal in title"
+          ]
+        }
+      ],
+      "app_review": [
+        {
+          "verdict": "app_review",
+          "source_bucket": "playwright_only",
+          "company": "BNP Paribas",
+          "role_title": "2027 Summer Associate Internship \u2013 Global Markets, Quantitative Research & Trading",
+          "url": "https://www.linkedin.com/jobs/view/4408130391/",
+          "source": "linkedin_live_jobs_v1",
+          "reasons": [
+            "Early-career/intern/MBA signal in title",
+            "Early-career business/product-adjacent signal"
+          ]
+        },
+        {
+          "verdict": "app_review",
+          "source_bucket": "playwright_only",
+          "company": "Mitsubishi Power Americas",
+          "role_title": "Product Line Management Associate (Internship)",
+          "url": "https://www.linkedin.com/jobs/view/4410075115/",
+          "source": "linkedin_live_jobs_v1",
+          "reasons": [
+            "Target signal: ai_product",
+            "Early-career/intern/MBA signal in title",
+            "Early-career title with target signal from JD body"
+          ]
+        },
+        {
+          "verdict": "app_review",
+          "source_bucket": "playwright_only",
+          "company": "LVMH Perfumes & Cosmetics",
+          "role_title": "Supply Chain Planning Intern",
+          "url": "https://www.linkedin.com/jobs/view/4413755436/",
+          "source": "linkedin_live_jobs_v1",
+          "reasons": [
+            "Early-career/intern/MBA signal in title",
+            "Early-career business/product-adjacent signal"
+          ]
+        },
+        {
+          "verdict": "app_review",
+          "source_bucket": "playwright_only",
+          "company": "Vertex Pharmaceuticals",
+          "role_title": "Vertex Fall Co-op 2026, DTE Commercial Technology",
+          "url": "https://www.linkedin.com/jobs/view/4414722495/",
+          "source": "linkedin_live_jobs_v1",
+          "reasons": [
+            "Target signal: strategy_ops",
+            "Early-career/intern/MBA signal in title",
+            "Early-career title with target signal from JD body"
+          ]
+        },
+        {
+          "verdict": "app_review",
+          "source_bucket": "playwright_only",
+          "company": "Haleon",
+          "role_title": "RTM Intern",
+          "url": "https://www.linkedin.com/jobs/view/4418238471/",
+          "source": "linkedin_live_jobs_v1",
+          "reasons": [
+            "Target signal: strategy_ops",
+            "Early-career/intern/MBA signal in title",
+            "Early-career title with target signal from JD body"
+          ]
+        },
+        {
+          "verdict": "app_review",
+          "source_bucket": "playwright_only",
+          "company": "Enterprise",
+          "role_title": "Management Trainee Fall Internship",
+          "url": "https://www.linkedin.com/jobs/view/4418512671/",
+          "source": "linkedin_live_jobs_v1",
+          "reasons": [
+            "Early-career/intern/MBA signal in title",
+            "Early-career business/product-adjacent signal"
+          ]
+        },
+        {
+          "verdict": "app_review",
+          "source_bucket": "playwright_only",
+          "company": "American Management Association",
+          "role_title": "American Management Association Intern",
+          "url": "https://www.linkedin.com/jobs/view/4418522422/",
+          "source": "linkedin_live_jobs_v1",
+          "reasons": [
+            "Target signal: strategy_ops",
+            "Early-career/intern/MBA signal in title",
+            "Early-career title with target signal from JD body"
+          ]
+        },
+        {
+          "verdict": "app_review",
+          "source_bucket": "playwright_only",
+          "company": "Draper",
+          "role_title": "Market Intelligence Intern",
+          "url": "https://www.linkedin.com/jobs/view/4418535363/",
+          "source": "linkedin_live_jobs_v1",
+          "reasons": [
+            "Target signal: ai_product",
+            "Target signal: strategy_ops",
+            "Early-career/intern/MBA signal in title",
+            "Early-career title with target signal from JD body"
+          ]
+        },
+        {
+          "verdict": "app_review",
+          "source_bucket": "playwright_only",
+          "company": "Draper",
+          "role_title": "Market Intelligence Intern",
+          "url": "https://www.linkedin.com/jobs/view/4418544123/",
+          "source": "linkedin_live_jobs_v1",
+          "reasons": [
+            "Target signal: ai_product",
+            "Target signal: strategy_ops",
+            "Early-career/intern/MBA signal in title",
+            "Early-career title with target signal from JD body"
+          ]
+        },
+        {
+          "verdict": "app_review",
+          "source_bucket": "playwright_only",
+          "company": "SGS",
+          "role_title": "Summer Internship",
+          "url": "https://www.linkedin.com/jobs/view/4419499065/",
+          "source": "linkedin_live_jobs_v1",
+          "reasons": [
+            "Early-career/intern/MBA signal in title",
+            "Early-career business/product-adjacent signal"
+          ]
+        },
+        {
+          "verdict": "app_review",
+          "source_bucket": "playwright_only",
+          "company": "Sallie Mae",
+          "role_title": "Business Analysis Intern",
+          "url": "https://www.linkedin.com/jobs/view/4419552222/",
+          "source": "linkedin_live_jobs_v1",
+          "reasons": [
+            "Early-career/intern/MBA signal in title",
+            "Early-career business/product-adjacent signal"
+          ]
+        },
+        {
+          "verdict": "app_review",
+          "source_bucket": "playwright_only",
+          "company": "Revvity",
+          "role_title": "Enterprise Operations Intern (Summer 2026)",
+          "url": "https://www.linkedin.com/jobs/view/4419564163/",
+          "source": "linkedin_live_jobs_v1",
+          "reasons": [
+            "Target signal: strategy_ops",
+            "Early-career/intern/MBA signal in title",
+            "Early-career title with target signal from JD body"
+          ]
+        }
+      ],
+      "outreach_signal": [],
+      "skip_noise_count": 1
+    },
+    "jobspy_only": {
+      "count": 98,
+      "verdict_counts": {
+        "skip_noise": 78,
+        "outreach_signal": 16,
+        "app_score_now": 2,
+        "app_review": 2
+      },
+      "app_score_now": [
+        {
+          "verdict": "app_score_now",
+          "source_bucket": "jobspy_only",
+          "company": "TikTok",
+          "role_title": "Special Project Strategist Intern (TikTok Shop - Operations) - 2026 Summer (BS/ MS)",
+          "url": "https://www.linkedin.com/jobs/view/4369877294",
+          "source": "linkedin",
+          "reasons": [
+            "Target signal: program_ops",
+            "Target signal: strategy_ops",
+            "Early-career/intern/MBA signal in title"
+          ]
+        },
+        {
+          "verdict": "app_score_now",
+          "source_bucket": "jobspy_only",
+          "company": "Jobright.ai",
+          "role_title": "Product Manager, Entry Level",
+          "url": "https://www.linkedin.com/jobs/view/4418521398",
+          "source": "linkedin",
+          "reasons": [
+            "Target signal: product_intern",
+            "Target signal: ai_product",
+            "Early-career/intern/MBA signal in title",
+            "Relationship signal: startup/AI/domain title signal"
+          ]
+        }
+      ],
+      "app_review": [
+        {
+          "verdict": "app_review",
+          "source_bucket": "jobspy_only",
+          "company": "Delta Air Lines",
+          "role_title": "Co-op, Customer Engagement and Loyalty (Fall 2026)",
+          "url": "https://www.linkedin.com/jobs/view/4418528579",
+          "source": "linkedin",
+          "reasons": [
+            "Target signal: strategy_ops",
+            "Early-career/intern/MBA signal in title",
+            "Early-career title with target signal from JD body"
+          ]
+        },
+        {
+          "verdict": "app_review",
+          "source_bucket": "jobspy_only",
+          "company": "Wildflower LTD",
+          "role_title": "MBA Associate Intern - Acquisitions",
+          "url": "https://www.linkedin.com/jobs/view/4419560485",
+          "source": "linkedin",
+          "reasons": [
+            "Early-career/intern/MBA signal in title",
+            "Early-career business/product-adjacent signal"
+          ]
+        }
+      ],
+      "outreach_signal": [
+        {
+          "verdict": "outreach_signal",
+          "source_bucket": "jobspy_only",
+          "company": "Atticus",
+          "role_title": "Product Manager",
+          "url": "https://www.linkedin.com/jobs/view/4317462255",
+          "source": "linkedin",
+          "reasons": [
+            "Target signal: product_intern",
+            "Relationship signal: high-signal company",
+            "Relationship signal: startup/funding body signal",
+            "Target role, but no explicit early-career signal"
+          ]
+        },
+        {
+          "verdict": "outreach_signal",
+          "source_bucket": "jobspy_only",
+          "company": "Anthropic",
+          "role_title": "Product Manager, Claude Code",
+          "url": "https://www.linkedin.com/jobs/view/4322179993",
+          "source": "linkedin",
+          "reasons": [
+            "Target signal: product_intern",
+            "Target signal: ai_product",
+            "Relationship signal: high-signal company",
+            "Relationship signal: startup/AI/domain title signal",
+            "Target role, but no explicit early-career signal"
+          ]
+        },
+        {
+          "verdict": "outreach_signal",
+          "source_bucket": "jobspy_only",
+          "company": "Fractional AI",
+          "role_title": "Forward Deployed Product Manager",
+          "url": "https://www.linkedin.com/jobs/view/4408920981",
+          "source": "linkedin",
+          "reasons": [
+            "Target signal: product_intern",
+            "Relationship signal: high-signal company",
+            "Relationship signal: startup/AI/domain title signal",
+            "Relationship signal: operator-style product role",
+            "Target role, but no explicit early-career signal"
+          ]
+        },
+        {
+          "verdict": "outreach_signal",
+          "source_bucket": "jobspy_only",
+          "company": "MDCalc",
+          "role_title": "Product Manager (User Product)",
+          "url": "https://www.linkedin.com/jobs/view/4408948350",
+          "source": "linkedin",
+          "reasons": [
+            "Target signal: product_intern",
+            "Target signal: strategy_ops",
+            "Relationship signal: high-signal company",
+            "Target role, but no explicit early-career signal"
+          ]
+        },
+        {
+          "verdict": "outreach_signal",
+          "source_bucket": "jobspy_only",
+          "company": "Daloopa",
+          "role_title": "Product Manager - AI",
+          "url": "https://www.linkedin.com/jobs/view/4410087014",
+          "source": "linkedin",
+          "reasons": [
+            "Target signal: product_intern",
+            "Target signal: ai_product",
+            "Target signal: strategy_ops",
+            "Relationship signal: high-signal company",
+            "Relationship signal: startup/AI/domain title signal",
+            "Target role, but no explicit early-career signal"
+          ]
+        },
+        {
+          "verdict": "outreach_signal",
+          "source_bucket": "jobspy_only",
+          "company": "Foundation Health",
+          "role_title": "Product Manager",
+          "url": "https://www.linkedin.com/jobs/view/4414619264",
+          "source": "linkedin",
+          "reasons": [
+            "Target signal: product_intern",
+            "Relationship signal: high-signal company",
+            "Target role, but no explicit early-career signal"
+          ]
+        },
+        {
+          "verdict": "outreach_signal",
+          "source_bucket": "jobspy_only",
+          "company": "Robinhood",
+          "role_title": "Product Manager, Brokerage",
+          "url": "https://www.linkedin.com/jobs/view/4416843581",
+          "source": "linkedin",
+          "reasons": [
+            "Target signal: product_intern",
+            "Relationship signal: high-signal company",
+            "Target role, but no explicit early-career signal"
+          ]
+        },
+        {
+          "verdict": "outreach_signal",
+          "source_bucket": "jobspy_only",
+          "company": "Early Media",
+          "role_title": "Product Manager, Clipping",
+          "url": "https://www.linkedin.com/jobs/view/4418271985",
+          "source": "linkedin",
+          "reasons": [
+            "Target signal: product_intern",
+            "Target signal: strategy_ops",
+            "Relationship signal: high-signal company",
+            "Target role, but no explicit early-career signal"
+          ]
+        },
+        {
+          "verdict": "outreach_signal",
+          "source_bucket": "jobspy_only",
+          "company": "Luma Financial Technologies",
+          "role_title": "Product Manager \u2013 Capital Markets",
+          "url": "https://www.linkedin.com/jobs/view/4418281417",
+          "source": "linkedin",
+          "reasons": [
+            "Target signal: product_intern",
+            "Relationship signal: high-signal company",
+            "Target role, but no explicit early-career signal"
+          ]
+        },
+        {
+          "verdict": "outreach_signal",
+          "source_bucket": "jobspy_only",
+          "company": "Alma",
+          "role_title": "Product Manager",
+          "url": "https://www.linkedin.com/jobs/view/4418504321",
+          "source": "linkedin",
+          "reasons": [
+            "Target signal: product_intern",
+            "Target signal: ai_product",
+            "Relationship signal: high-signal company",
+            "Target role, but no explicit early-career signal"
+          ]
+        },
+        {
+          "verdict": "outreach_signal",
+          "source_bucket": "jobspy_only",
+          "company": "Fingercheck",
+          "role_title": "Product Manager",
+          "url": "https://www.linkedin.com/jobs/view/4418512202",
+          "source": "linkedin",
+          "reasons": [
+            "Target signal: product_intern",
+            "Target signal: ai_product",
+            "Target signal: strategy_ops",
+            "Relationship signal: high-signal company",
+            "Target role, but no explicit early-career signal"
+          ]
+        },
+        {
+          "verdict": "outreach_signal",
+          "source_bucket": "jobspy_only",
+          "company": "Hudl",
+          "role_title": "Product Manager",
+          "url": "https://www.linkedin.com/jobs/view/4418518840",
+          "source": "linkedin",
+          "reasons": [
+            "Target signal: product_intern",
+            "Target signal: ai_product",
+            "Relationship signal: high-signal company",
+            "Target role, but no explicit early-career signal"
+          ]
+        },
+        {
+          "verdict": "outreach_signal",
+          "source_bucket": "jobspy_only",
+          "company": "Stripe",
+          "role_title": "Product Manager, Terminal Device Expansion",
+          "url": "https://www.linkedin.com/jobs/view/4418541785",
+          "source": "linkedin",
+          "reasons": [
+            "Target signal: product_intern",
+            "Relationship signal: high-signal company",
+            "Relationship signal: startup/AI/domain title signal",
+            "Target role, but no explicit early-career signal"
+          ]
+        },
+        {
+          "verdict": "outreach_signal",
+          "source_bucket": "jobspy_only",
+          "company": "Seer",
+          "role_title": "Product Manager",
+          "url": "https://www.linkedin.com/jobs/view/4419437676",
+          "source": "linkedin",
+          "reasons": [
+            "Target signal: product_intern",
+            "Target signal: ai_product",
+            "Relationship signal: high-signal company",
+            "Target role, but no explicit early-career signal"
+          ]
+        },
+        {
+          "verdict": "outreach_signal",
+          "source_bucket": "jobspy_only",
+          "company": "SPOTIO",
+          "role_title": "Product Manager",
+          "url": "https://www.linkedin.com/jobs/view/4419515178",
+          "source": "linkedin",
+          "reasons": [
+            "Target signal: product_intern",
+            "Target signal: ai_product",
+            "Target signal: strategy_ops",
+            "Relationship signal: high-signal company",
+            "Target role, but no explicit early-career signal"
+          ]
+        },
+        {
+          "verdict": "outreach_signal",
+          "source_bucket": "jobspy_only",
+          "company": "Limbic",
+          "role_title": "Product Manager",
+          "url": "https://www.linkedin.com/jobs/view/4419562869",
+          "source": "linkedin",
+          "reasons": [
+            "Target signal: product_intern",
+            "Relationship signal: high-signal company",
+            "Target role, but no explicit early-career signal"
+          ]
+        }
+      ],
+      "skip_noise_count": 78
+    }
+  }
+}
