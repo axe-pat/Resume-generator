@@ -213,6 +213,23 @@ Recommended staged pattern for reliability:
 - Replay scoring later with `--score-from-raw ...`
 - If scoring fails, rerun scoring from the raw artifact instead of redoing LinkedIn extraction
 
+### Source breadth validation
+
+Use this before promoting JobSpy or startup-source experiments into the daily write path.
+It compares a trusted Playwright raw artifact against a JobSpy raw artifact and applies
+hard relevance filters before any Claude scoring or `jobs.xlsx` writes.
+
+```bash
+venv/bin/python discovery/scripts/validate_source_breadth.py \
+  --playwright-raw discovery/auto/logs/linkedin_live_raw_YYYY-MM-DD_HHMMSS.json \
+  --jobspy-raw discovery/auto/logs/jobspy_linkedin_equiv_raw_24h_YYYY-MM-DD_HHMMSS.json
+```
+
+Output goes to `discovery/source_validation/` with `score_now`, `review`, and `skip_noise`
+buckets. Only `score_now` should be considered for automatic scoring by default.
+
+For the broader source-engine plan, see `docs/STARTUP_AND_SOURCE_ENGINE.md`.
+
 ### Queue / apply surfaces
 
 Current steady-state structure:
