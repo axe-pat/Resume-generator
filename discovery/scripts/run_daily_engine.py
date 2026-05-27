@@ -27,9 +27,9 @@ def _cmd_text(cmd: Iterable[object]) -> str:
     return " ".join(str(part) for part in cmd)
 
 
-def run(cmd: list[object], *, cwd: Path = ROOT) -> None:
+def run(cmd: list[object], *, cwd: Path = ROOT, check: bool = True) -> subprocess.CompletedProcess:
     print(f"\n$ {_cmd_text(cmd)}")
-    subprocess.run([str(part) for part in cmd], cwd=cwd, check=True)
+    return subprocess.run([str(part) for part in cmd], cwd=cwd, check=check)
 
 
 def start(cmd: list[object], *, cwd: Path = ROOT) -> subprocess.Popen:
@@ -108,6 +108,7 @@ def run_outreach_from_action_queue(args: argparse.Namespace, action_queue_path: 
         relationship_limit=max(args.relationship_outreach_limit, 0),
     )
     print(f"\nOutreach companies selected from {action_queue_path.name}: {companies}")
+    failures: list[str] = []
     for company in companies:
         cmd: list[object] = [
             OUTREACH_PYTHON,
@@ -128,7 +129,12 @@ def run_outreach_from_action_queue(args: argparse.Namespace, action_queue_path: 
                     str(args.send_min_score),
                 ]
             )
-        run(cmd, cwd=OUTREACH_ROOT)
+        result = run(cmd, cwd=OUTREACH_ROOT, check=False)
+        if result.returncode != 0:
+            failures.append(company)
+            print(f"[warn] Outreach artifact generation failed for {company}; continuing.")
+    if failures:
+        print(f"[warn] Outreach failures: {failures}")
 
 
 def parse_args() -> argparse.Namespace:
@@ -266,8 +272,18 @@ def main() -> int:
             relationship_limit=max(args.relationship_outreach_limit, 0),
         )
         print(f"\nOutreach companies selected from {action_queue_path.name}: {companies}")
+        failures: list[str] = []
         for company in companies:
-            run([OUTREACH_PYTHON, "main.py", "run", "--company", company, "--company-mode", "startup"], cwd=OUTREACH_ROOT)
+            result = run(
+                [OUTREACH_PYTHON, "main.py", "run", "--company", company, "--company-mode", "startup"],
+                cwd=OUTREACH_ROOT,
+                check=False,
+            )
+            if result.returncode != 0:
+                failures.append(company)
+                print(f"[warn] Outreach artifact generation failed for {company}; continuing.")
+        if failures:
+            print(f"[warn] Outreach failures: {failures}")
     else:
         if args.run_generation:
             run([PYTHON, "jobs.py", "--no-color", "generate", "--queue", "--parallel", args.resume_parallel])
