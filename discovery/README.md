@@ -134,6 +134,7 @@ What it gates against:
 
 - `discovery/blocklist.txt` through the same blocklist helper used by `jobs.py`
 - existing rows in `discovery/jobs.xlsx`
+- terminal `Reject` / `Deprioritize` entries in the `ReviewCache` sheet
 - the live queue at `apps/Apply queues/current_apply_queue/priority_order.json`
 - existing Outreach organizations, contacts, and touchpoints
 
@@ -146,6 +147,10 @@ Output goes to `discovery/source_validation/*-daily-action-queue.{json,md,html}`
 - `relationship_buffer`: valid relationship targets held for later days
 - `follow_up`: companies with existing touchpoints
 - `skipped_internal`: blocklisted, duplicate, terminal, or low-fit records
+
+Run it before scoring as a pre-score intake view. Run it again after the
+application scoring/write lanes refresh `current_apply_queue`; that second HTML
+is the final daily operating queue.
 
 ### Screenshot scoring (LinkedIn PDF screenshots)
 

@@ -1,12 +1,15 @@
 {
-  "generated_at": "2026-05-27T17:07:08",
+  "generated_at": "2026-05-27T17:16:37",
+  "report_stage": "pre_score",
+  "report_title": "Daily Action Queue - Pre-Score Intake",
   "inputs": {
     "source_breadth": "/Users/akshat/Desktop/Claude Projects/ResumeGenerator v1/discovery/source_validation/20260527-142449-source-breadth-filtered.json",
     "startup_source_report": "/Users/akshat/Desktop/Claude Projects/ResumeGenerator v1/discovery/source_validation/20260527-150343-startup-source-report.json",
     "current_apply_queue": "/Users/akshat/Desktop/Claude Projects/ResumeGenerator v1/apps/Apply queues/current_apply_queue/priority_order.json",
     "outreach_workspace": "/Users/akshat/Desktop/Claude Projects/Outreach/workspace",
     "relationship_today_limit": 8,
-    "relationship_max_per_source": 4
+    "relationship_max_per_source": 4,
+    "report_stage": "pre_score"
   },
   "counts": {
     "score_for_application": 12,

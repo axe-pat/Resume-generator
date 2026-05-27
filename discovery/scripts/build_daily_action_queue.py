@@ -56,6 +56,16 @@ class ExistingJobState:
     source: str
 
 
+@dataclass(frozen=True)
+class ReviewCacheState:
+    company: str
+    role_title: str
+    decision: str
+    fit_score: str
+    url: str
+    source: str
+
+
 def _clean(value: Any) -> str:
     return " ".join(str(value or "").split()).strip()
 
@@ -119,7 +129,52 @@ def _load_jobs_state() -> tuple[dict[str, ExistingJobState], dict[str, ExistingJ
     return by_hash, by_url, by_company_role
 
 
+def _load_review_cache_state() -> tuple[dict[str, ReviewCacheState], dict[str, ReviewCacheState], dict[str, ReviewCacheState]]:
+    try:
+        df = resume_jobs.pd.read_excel(JOBS_XLSX, sheet_name="ReviewCache", dtype=str).fillna("")
+    except Exception:
+        return {}, {}, {}
+
+    by_hash: dict[str, ReviewCacheState] = {}
+    by_url: dict[str, ReviewCacheState] = {}
+    by_company_role: dict[str, ReviewCacheState] = {}
+    for _, row in df.iterrows():
+        decision = _norm(row.get("decision"))
+        if decision not in {"reject", "deprioritize"}:
+            continue
+        state = ReviewCacheState(
+            company=_clean(row.get("company")),
+            role_title=_clean(row.get("role_title")),
+            decision=decision,
+            fit_score=_clean(row.get("fit_score")),
+            url=_clean(row.get("url")),
+            source=_clean(row.get("source")),
+        )
+        url_hash = _clean(row.get("url_hash"))
+        if url_hash:
+            by_hash[url_hash.lower()] = state
+        if state.url:
+            by_url[_norm_url(state.url)] = state
+        if state.company and state.role_title:
+            by_company_role[f"{_norm(state.company)}|{_norm(state.role_title)}"] = state
+    return by_hash, by_url, by_company_role
+
+
 def _find_existing_job(item: dict[str, Any], indexes: tuple[dict[str, ExistingJobState], ...]) -> ExistingJobState | None:
+    by_hash, by_url, by_company_role = indexes
+    url = _clean(item.get("url"))
+    if url:
+        state = by_hash.get(_url_hash(url))
+        if state:
+            return state
+        state = by_url.get(_norm_url(url))
+        if state:
+            return state
+    key = f"{_norm(item.get('company'))}|{_norm(item.get('role_title'))}"
+    return by_company_role.get(key)
+
+
+def _find_review_cache(item: dict[str, Any], indexes: tuple[dict[str, ReviewCacheState], ...]) -> ReviewCacheState | None:
     by_hash, by_url, by_company_role = indexes
     url = _clean(item.get("url"))
     if url:
@@ -348,6 +403,7 @@ def _bucket_source_app_candidates(
     *,
     app_candidates: list[dict[str, Any]],
     job_indexes: tuple[dict[str, ExistingJobState], ...],
+    review_cache_indexes: tuple[dict[str, ReviewCacheState], ...],
     outreach_by_company: dict[str, dict[str, Any]],
     blocklist: list[str],
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
@@ -363,6 +419,22 @@ def _bucket_source_app_candidates(
         lane_source = _clean(item.get("lane_source"))
         if _is_blocklisted(company, blocklist):
             skipped.append(_app_item(company, role, url, lane_source, ["blocklisted_company"], {"skip_reason": "blocklisted_company"}))
+            continue
+        cached_review = _find_review_cache(item, review_cache_indexes)
+        if cached_review:
+            skipped.append(
+                _app_item(
+                    company,
+                    role,
+                    url,
+                    lane_source,
+                    [f"review_cache_decision={cached_review.decision}", *item.get("reasons", [])],
+                    {
+                        "skip_reason": "review_cache_terminal_decision",
+                        "cached_fit_score": cached_review.fit_score,
+                    },
+                )
+            )
             continue
         existing = _find_existing_job(item, job_indexes)
         outreach_state = outreach_by_company.get(_norm(company), {})
@@ -488,10 +560,12 @@ def _bucket_relationship_targets(
 
 
 def _write_markdown(path: Path, payload: dict[str, Any]) -> None:
+    report_title = _clean(payload.get("report_title")) or "Daily Action Queue"
     lines = [
-        "# Daily Action Queue",
+        f"# {report_title}",
         "",
         f"Generated: {payload['generated_at']}",
+        f"Stage: {payload.get('report_stage', '')}",
         "",
         "## Counts",
         "",
@@ -612,6 +686,7 @@ def _source_mix(payload: dict[str, Any]) -> str:
 
 
 def _write_html(path: Path, payload: dict[str, Any]) -> None:
+    report_title = _clean(payload.get("report_title")) or "Daily Action Queue"
     counts = payload.get("counts") or {}
     sections = [
         ("Score For Application", "score_for_application"),
@@ -649,7 +724,7 @@ def _write_html(path: Path, payload: dict[str, Any]) -> None:
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Daily Action Queue</title>
+  <title>{_esc(report_title)}</title>
   <style>
     :root {{
       --paper: #fbfaf7;
@@ -808,7 +883,7 @@ def _write_html(path: Path, payload: dict[str, Any]) -> None:
 </head>
 <body>
   <header>
-    <h1>Daily Action Queue</h1>
+    <h1>{_esc(report_title)}</h1>
     <p class="generated">Generated {_esc(payload.get('generated_at'))}</p>
     <div class="stats">{count_cards}</div>
   </header>
@@ -840,6 +915,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--current-apply-queue", type=Path, default=CURRENT_APPLY_QUEUE_JSON)
     parser.add_argument("--relationship-today", type=int, default=8)
     parser.add_argument("--relationship-max-per-source", type=int, default=4)
+    parser.add_argument(
+        "--report-stage",
+        choices=("auto", "pre_score", "post_score"),
+        default="auto",
+        help="Label the report as a pre-score intake queue or a post-score final queue.",
+    )
     parser.add_argument("--out-dir", type=Path, default=SOURCE_VALIDATION_DIR)
     return parser.parse_args()
 
@@ -857,12 +938,14 @@ def main() -> int:
     relationship_targets = _collect_relationship_targets(source_breadth, startup_report)
     current_queue = _load_current_apply_queue(args.current_apply_queue)
     job_indexes = _load_jobs_state()
+    review_cache_indexes = _load_review_cache_state()
     outreach_by_company = _outreach_state()
     blocklist = resume_jobs._load_blocklist()
 
     source_score_for_application, source_app_plus_outreach, source_follow_up, source_skipped = _bucket_source_app_candidates(
         app_candidates=app_candidates,
         job_indexes=job_indexes,
+        review_cache_indexes=review_cache_indexes,
         outreach_by_company=outreach_by_company,
         blocklist=blocklist,
     )
@@ -900,8 +983,15 @@ def main() -> int:
             f"cd ../Outreach && ./.venv/bin/python main.py run --company {json.dumps(company)} --company-mode startup"
         )
 
+    stage = args.report_stage
+    if stage == "auto":
+        stage = "pre_score" if source_score_for_application else "post_score"
+    report_title = "Daily Action Queue - Pre-Score Intake" if stage == "pre_score" else "Daily Action Queue - Post-Score Final"
+
     payload = {
         "generated_at": datetime.now().isoformat(timespec="seconds"),
+        "report_stage": stage,
+        "report_title": report_title,
         "inputs": {
             "source_breadth": str(source_breadth_path),
             "startup_source_report": str(startup_report_path),
@@ -909,6 +999,7 @@ def main() -> int:
             "outreach_workspace": str(OUTREACH_WORKSPACE),
             "relationship_today_limit": args.relationship_today,
             "relationship_max_per_source": args.relationship_max_per_source,
+            "report_stage": args.report_stage,
         },
         "counts": {
             "score_for_application": len(source_score_for_application),
