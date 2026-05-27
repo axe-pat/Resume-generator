@@ -1,0 +1,545 @@
+{
+  "generated_at": "2026-05-27T15:36:07",
+  "inputs": {
+    "source_breadth": "/Users/akshat/Desktop/Claude Projects/ResumeGenerator v1/discovery/source_validation/20260527-142449-source-breadth-filtered.json",
+    "startup_source_report": "/Users/akshat/Desktop/Claude Projects/ResumeGenerator v1/discovery/source_validation/20260527-150343-startup-source-report.json"
+  },
+  "summary": {
+    "app_score_now": 18,
+    "app_review": 16,
+    "relationship_targets": 76,
+    "skip_noise": 79
+  },
+  "application_lane": {
+    "score_now_count": 18,
+    "review_count": 16,
+    "score_now_by_source": {
+      "linkedin_breadth:playwright_only": 8,
+      "linkedin_breadth:overlap": 6,
+      "linkedin_breadth:jobspy_only": 2,
+      "startup_apply:builtin_la_job_lists": 1,
+      "startup_apply:a16z_job_board": 1
+    },
+    "review_by_source": {
+      "linkedin_breadth:playwright_only": 12,
+      "linkedin_breadth:overlap": 2,
+      "linkedin_breadth:jobspy_only": 2
+    },
+    "score_now": [
+      {
+        "company": "TikTok",
+        "role_title": "AI Product Manager Intern (TikTok-Product-Social and Creation)- 2026 Summer (BS/MS)",
+        "url": "https://www.linkedin.com/jobs/view/4287588499/",
+        "lane_source": "linkedin_breadth:overlap",
+        "reasons": "Target signal: product_intern; Target signal: ai_product; Target signal: strategy_ops; Early-career/intern/MBA signal in title; Relationship signal: startup/AI/domain title signal"
+      },
+      {
+        "company": "TikTok",
+        "role_title": "Product Manager Project Intern (Brand Innovation - Monetization Product) 2026 Start (BS/ MS)",
+        "url": "https://www.linkedin.com/jobs/view/4408946826/",
+        "lane_source": "linkedin_breadth:overlap",
+        "reasons": "Target signal: product_intern; Early-career/intern/MBA signal in title"
+      },
+      {
+        "company": "TikTok",
+        "role_title": "Global Sports Strategy and Operations Project Intern (TikTok-Operations-Sports Creators and Athletes) - 2026 Start (MBA)",
+        "url": "https://www.linkedin.com/jobs/view/4408949860/",
+        "lane_source": "linkedin_breadth:overlap",
+        "reasons": "Target signal: strategy_ops; Target signal: program_ops; Early-career/intern/MBA signal in title"
+      },
+      {
+        "company": "FlairX",
+        "role_title": "Product Manager Intern (AI Products)",
+        "url": "https://www.linkedin.com/jobs/view/4417579331/",
+        "lane_source": "linkedin_breadth:overlap",
+        "reasons": "Target signal: product_intern; Target signal: ai_product; Target signal: strategy_ops; Early-career/intern/MBA signal in title; Relationship signal: startup/AI/domain title signal"
+      },
+      {
+        "company": "Pebl",
+        "role_title": "Product Manager Intern - Alfie (Conversational AI)",
+        "url": "https://www.linkedin.com/jobs/view/4418511510/",
+        "lane_source": "linkedin_breadth:overlap",
+        "reasons": "Target signal: product_intern; Target signal: ai_product; Target signal: strategy_ops; Early-career/intern/MBA signal in title; Relationship signal: startup/AI/domain title signal"
+      },
+      {
+        "company": "Pebl",
+        "role_title": "Product Management Intern - Talent Solutions",
+        "url": "https://www.linkedin.com/jobs/view/4418512489/",
+        "lane_source": "linkedin_breadth:overlap",
+        "reasons": "Target signal: product_intern; Target signal: strategy_ops; Early-career/intern/MBA signal in title"
+      },
+      {
+        "company": "TikTok",
+        "role_title": "Product Manager Intern (Measurement Product) - 2026 Start (PhD)",
+        "url": "https://www.linkedin.com/jobs/view/4369307668/",
+        "lane_source": "linkedin_breadth:playwright_only",
+        "reasons": "Target signal: product_intern; Early-career/intern/MBA signal in title"
+      },
+      {
+        "company": "8am",
+        "role_title": "Business Operations Intern",
+        "url": "https://www.linkedin.com/jobs/view/4400011939/",
+        "lane_source": "linkedin_breadth:playwright_only",
+        "reasons": "Target signal: strategy_ops; Early-career/intern/MBA signal in title"
+      },
+      {
+        "company": "Vertex Pharmaceuticals",
+        "role_title": "Vertex Fall Co-op 2026, Strategic Operations, Innovation & Change Management",
+        "url": "https://www.linkedin.com/jobs/view/4414727469/",
+        "lane_source": "linkedin_breadth:playwright_only",
+        "reasons": "Target signal: strategy_ops; Early-career/intern/MBA signal in title"
+      },
+      {
+        "company": "DevRabbit IT Solutions",
+        "role_title": "Strategic Partnerships Intern",
+        "url": "https://www.linkedin.com/jobs/view/4418265691/",
+        "lane_source": "linkedin_breadth:playwright_only",
+        "reasons": "Target signal: strategy_ops; Early-career/intern/MBA signal in title"
+      },
+      {
+        "company": "Katsby",
+        "role_title": "Business Development & Market Strategy Intern",
+        "url": "https://www.linkedin.com/jobs/view/4418558900/",
+        "lane_source": "linkedin_breadth:playwright_only",
+        "reasons": "Target signal: strategy_ops; Early-career/intern/MBA signal in title; Relationship signal: startup/funding body signal"
+      },
+      {
+        "company": "UMB Bank",
+        "role_title": "Data Product Management Intern",
+        "url": "https://www.linkedin.com/jobs/view/4419427976/",
+        "lane_source": "linkedin_breadth:playwright_only",
+        "reasons": "Target signal: product_intern; Target signal: ai_product; Early-career/intern/MBA signal in title"
+      },
+      {
+        "company": "BENCHMADE",
+        "role_title": "Global Value Chain Strategy Analyst - Intern",
+        "url": "https://www.linkedin.com/jobs/view/4419515186/",
+        "lane_source": "linkedin_breadth:playwright_only",
+        "reasons": "Target signal: strategy_ops; Early-career/intern/MBA signal in title"
+      },
+      {
+        "company": "Boston Medical Center (BMC)",
+        "role_title": "Strategy Intern",
+        "url": "https://www.linkedin.com/jobs/view/4419528496/",
+        "lane_source": "linkedin_breadth:playwright_only",
+        "reasons": "Target signal: strategy_ops; Early-career/intern/MBA signal in title"
+      },
+      {
+        "company": "TikTok",
+        "role_title": "Special Project Strategist Intern (TikTok Shop - Operations) - 2026 Summer (BS/ MS)",
+        "url": "https://www.linkedin.com/jobs/view/4369877294",
+        "lane_source": "linkedin_breadth:jobspy_only",
+        "reasons": "Target signal: program_ops; Target signal: strategy_ops; Early-career/intern/MBA signal in title"
+      },
+      {
+        "company": "Jobright.ai",
+        "role_title": "Product Manager, Entry Level",
+        "url": "https://www.linkedin.com/jobs/view/4418521398",
+        "lane_source": "linkedin_breadth:jobspy_only",
+        "reasons": "Target signal: product_intern; Target signal: ai_product; Early-career/intern/MBA signal in title; Relationship signal: startup/AI/domain title signal"
+      },
+      {
+        "company": "Senior plc",
+        "role_title": "Program Manager Intern",
+        "url": "https://builtin.com/job/program-manager-intern/9220687",
+        "lane_source": "startup_apply:builtin_la_job_lists",
+        "reasons": "Target signal: program_ops; Early-career/intern/MBA signal in title"
+      },
+      {
+        "company": "Shield AI",
+        "role_title": "2026 Summer Intern - Strategy & Operations (R5065)",
+        "url": "https://jobs.lever.co/shieldai/1721f9b3-b098-4988-bbb6-2d0382936be5?lever-source%5B%5D=jobs.a16z.com",
+        "lane_source": "startup_apply:a16z_job_board",
+        "reasons": "Target signal: strategy_ops; Target signal: ai_product; Target signal: startup_operator; Early-career/intern/MBA signal in title; Relationship signal: startup/AI/domain title signal; Relationship signal: startup/funding body signal"
+      }
+    ],
+    "review": [
+      {
+        "company": "Monogram Health",
+        "role_title": "Operations Internship",
+        "url": "https://www.linkedin.com/jobs/view/4407799742/",
+        "lane_source": "linkedin_breadth:overlap",
+        "reasons": "Target signal: strategy_ops; Early-career/intern/MBA signal in title; Early-career title with target signal from JD body"
+      },
+      {
+        "company": "Mercedes-Benz USA",
+        "role_title": "Fleet & Alternate Sales (Projects) Junior Associate Consultant (Intern)",
+        "url": "https://www.linkedin.com/jobs/view/4411639400/",
+        "lane_source": "linkedin_breadth:overlap",
+        "reasons": "Target signal: strategy_ops; Early-career/intern/MBA signal in title; Early-career title with target signal from JD body"
+      },
+      {
+        "company": "BNP Paribas",
+        "role_title": "2027 Summer Associate Internship \u2013 Global Markets, Quantitative Research & Trading",
+        "url": "https://www.linkedin.com/jobs/view/4408130391/",
+        "lane_source": "linkedin_breadth:playwright_only",
+        "reasons": "Early-career/intern/MBA signal in title; Early-career business/product-adjacent signal"
+      },
+      {
+        "company": "Mitsubishi Power Americas",
+        "role_title": "Product Line Management Associate (Internship)",
+        "url": "https://www.linkedin.com/jobs/view/4410075115/",
+        "lane_source": "linkedin_breadth:playwright_only",
+        "reasons": "Target signal: ai_product; Early-career/intern/MBA signal in title; Early-career title with target signal from JD body"
+      },
+      {
+        "company": "LVMH Perfumes & Cosmetics",
+        "role_title": "Supply Chain Planning Intern",
+        "url": "https://www.linkedin.com/jobs/view/4413755436/",
+        "lane_source": "linkedin_breadth:playwright_only",
+        "reasons": "Early-career/intern/MBA signal in title; Early-career business/product-adjacent signal"
+      },
+      {
+        "company": "Vertex Pharmaceuticals",
+        "role_title": "Vertex Fall Co-op 2026, DTE Commercial Technology",
+        "url": "https://www.linkedin.com/jobs/view/4414722495/",
+        "lane_source": "linkedin_breadth:playwright_only",
+        "reasons": "Target signal: strategy_ops; Early-career/intern/MBA signal in title; Early-career title with target signal from JD body"
+      },
+      {
+        "company": "Haleon",
+        "role_title": "RTM Intern",
+        "url": "https://www.linkedin.com/jobs/view/4418238471/",
+        "lane_source": "linkedin_breadth:playwright_only",
+        "reasons": "Target signal: strategy_ops; Early-career/intern/MBA signal in title; Early-career title with target signal from JD body"
+      },
+      {
+        "company": "Enterprise",
+        "role_title": "Management Trainee Fall Internship",
+        "url": "https://www.linkedin.com/jobs/view/4418512671/",
+        "lane_source": "linkedin_breadth:playwright_only",
+        "reasons": "Early-career/intern/MBA signal in title; Early-career business/product-adjacent signal"
+      },
+      {
+        "company": "American Management Association",
+        "role_title": "American Management Association Intern",
+        "url": "https://www.linkedin.com/jobs/view/4418522422/",
+        "lane_source": "linkedin_breadth:playwright_only",
+        "reasons": "Target signal: strategy_ops; Early-career/intern/MBA signal in title; Early-career title with target signal from JD body"
+      },
+      {
+        "company": "Draper",
+        "role_title": "Market Intelligence Intern",
+        "url": "https://www.linkedin.com/jobs/view/4418535363/",
+        "lane_source": "linkedin_breadth:playwright_only",
+        "reasons": "Target signal: ai_product; Target signal: strategy_ops; Early-career/intern/MBA signal in title; Early-career title with target signal from JD body"
+      },
+      {
+        "company": "Draper",
+        "role_title": "Market Intelligence Intern",
+        "url": "https://www.linkedin.com/jobs/view/4418544123/",
+        "lane_source": "linkedin_breadth:playwright_only",
+        "reasons": "Target signal: ai_product; Target signal: strategy_ops; Early-career/intern/MBA signal in title; Early-career title with target signal from JD body"
+      },
+      {
+        "company": "SGS",
+        "role_title": "Summer Internship",
+        "url": "https://www.linkedin.com/jobs/view/4419499065/",
+        "lane_source": "linkedin_breadth:playwright_only",
+        "reasons": "Early-career/intern/MBA signal in title; Early-career business/product-adjacent signal"
+      },
+      {
+        "company": "Sallie Mae",
+        "role_title": "Business Analysis Intern",
+        "url": "https://www.linkedin.com/jobs/view/4419552222/",
+        "lane_source": "linkedin_breadth:playwright_only",
+        "reasons": "Early-career/intern/MBA signal in title; Early-career business/product-adjacent signal"
+      },
+      {
+        "company": "Revvity",
+        "role_title": "Enterprise Operations Intern (Summer 2026)",
+        "url": "https://www.linkedin.com/jobs/view/4419564163/",
+        "lane_source": "linkedin_breadth:playwright_only",
+        "reasons": "Target signal: strategy_ops; Early-career/intern/MBA signal in title; Early-career title with target signal from JD body"
+      },
+      {
+        "company": "Delta Air Lines",
+        "role_title": "Co-op, Customer Engagement and Loyalty (Fall 2026)",
+        "url": "https://www.linkedin.com/jobs/view/4418528579",
+        "lane_source": "linkedin_breadth:jobspy_only",
+        "reasons": "Target signal: strategy_ops; Early-career/intern/MBA signal in title; Early-career title with target signal from JD body"
+      },
+      {
+        "company": "Wildflower LTD",
+        "role_title": "MBA Associate Intern - Acquisitions",
+        "url": "https://www.linkedin.com/jobs/view/4419560485",
+        "lane_source": "linkedin_breadth:jobspy_only",
+        "reasons": "Early-career/intern/MBA signal in title; Early-career business/product-adjacent signal"
+      }
+    ]
+  },
+  "relationship_lane": {
+    "target_count": 76,
+    "targets_by_source": {
+      "linkedin_breadth:jobspy_only": 16,
+      "startup_org:yc_sf_bay_hiring": 15,
+      "startup_org:builtin_sf_companies": 15,
+      "startup_org:yc_los_angeles": 15,
+      "startup_org:builtin_la_companies": 15
+    },
+    "top_targets": [
+      {
+        "organization_name": "Tasklet",
+        "relationship_score": 14,
+        "lane_source": "startup_org:yc_sf_bay_hiring",
+        "city": "San Francisco",
+        "company_url": "https://www.ycombinator.com/companies/tasklet-2",
+        "signal_title": "",
+        "reasons": "YC-backed/source-quality signal; active hiring/jobs signal; target geography signal; domain fit signal; small-team founder/operator access"
+      },
+      {
+        "organization_name": "Mount",
+        "relationship_score": 14,
+        "lane_source": "startup_org:yc_sf_bay_hiring",
+        "city": "San Francisco",
+        "company_url": "https://www.ycombinator.com/companies/mount",
+        "signal_title": "",
+        "reasons": "YC-backed/source-quality signal; active hiring/jobs signal; target geography signal; domain fit signal; small-team founder/operator access"
+      },
+      {
+        "organization_name": "Intelligence Factory",
+        "relationship_score": 14,
+        "lane_source": "startup_org:yc_sf_bay_hiring",
+        "city": "San Francisco",
+        "company_url": "https://www.ycombinator.com/companies/intelligence-factory",
+        "signal_title": "",
+        "reasons": "YC-backed/source-quality signal; active hiring/jobs signal; target geography signal; domain fit signal; small-team founder/operator access"
+      },
+      {
+        "organization_name": "Hedge",
+        "relationship_score": 14,
+        "lane_source": "startup_org:yc_sf_bay_hiring",
+        "city": "San Francisco",
+        "company_url": "https://www.ycombinator.com/companies/hedge",
+        "signal_title": "",
+        "reasons": "YC-backed/source-quality signal; active hiring/jobs signal; target geography signal; domain fit signal; small-team founder/operator access"
+      },
+      {
+        "organization_name": "Eden Robotics",
+        "relationship_score": 14,
+        "lane_source": "startup_org:yc_sf_bay_hiring",
+        "city": "San Francisco",
+        "company_url": "https://www.ycombinator.com/companies/eden-robotics",
+        "signal_title": "",
+        "reasons": "YC-backed/source-quality signal; active hiring/jobs signal; target geography signal; domain fit signal; small-team founder/operator access"
+      },
+      {
+        "organization_name": "Deep Interactions",
+        "relationship_score": 14,
+        "lane_source": "startup_org:yc_sf_bay_hiring",
+        "city": "San Francisco",
+        "company_url": "https://www.ycombinator.com/companies/deep-interactions",
+        "signal_title": "",
+        "reasons": "YC-backed/source-quality signal; active hiring/jobs signal; target geography signal; domain fit signal; small-team founder/operator access"
+      },
+      {
+        "organization_name": "Bloom",
+        "relationship_score": 14,
+        "lane_source": "startup_org:yc_sf_bay_hiring",
+        "city": "San Francisco",
+        "company_url": "https://www.ycombinator.com/companies/trybloom",
+        "signal_title": "",
+        "reasons": "YC-backed/source-quality signal; active hiring/jobs signal; target geography signal; domain fit signal; small-team founder/operator access"
+      },
+      {
+        "organization_name": "Arlo Industries",
+        "relationship_score": 14,
+        "lane_source": "startup_org:yc_sf_bay_hiring",
+        "city": "San Francisco",
+        "company_url": "https://www.ycombinator.com/companies/arlo-industries",
+        "signal_title": "",
+        "reasons": "YC-backed/source-quality signal; active hiring/jobs signal; target geography signal; domain fit signal; small-team founder/operator access"
+      },
+      {
+        "organization_name": "ANORIA",
+        "relationship_score": 14,
+        "lane_source": "startup_org:yc_sf_bay_hiring",
+        "city": "San Francisco",
+        "company_url": "https://www.ycombinator.com/companies/anoria",
+        "signal_title": "",
+        "reasons": "YC-backed/source-quality signal; active hiring/jobs signal; target geography signal; domain fit signal; small-team founder/operator access"
+      },
+      {
+        "organization_name": "Webflow",
+        "relationship_score": 13,
+        "lane_source": "startup_org:yc_sf_bay_hiring",
+        "city": "San Francisco",
+        "company_url": "https://www.ycombinator.com/companies/webflow",
+        "signal_title": "",
+        "reasons": "YC-backed/source-quality signal; active hiring/jobs signal; target geography signal; domain fit signal; mid-size startup access"
+      },
+      {
+        "organization_name": "Scale AI",
+        "relationship_score": 13,
+        "lane_source": "startup_org:yc_sf_bay_hiring",
+        "city": "San Francisco",
+        "company_url": "https://www.ycombinator.com/companies/scale-ai",
+        "signal_title": "",
+        "reasons": "YC-backed/source-quality signal; active hiring/jobs signal; target geography signal; domain fit signal; mid-size startup access"
+      },
+      {
+        "organization_name": "Mixpanel",
+        "relationship_score": 13,
+        "lane_source": "startup_org:yc_sf_bay_hiring",
+        "city": "San Francisco",
+        "company_url": "https://www.ycombinator.com/companies/mixpanel",
+        "signal_title": "",
+        "reasons": "YC-backed/source-quality signal; active hiring/jobs signal; target geography signal; domain fit signal; mid-size startup access"
+      },
+      {
+        "organization_name": "Faire",
+        "relationship_score": 13,
+        "lane_source": "startup_org:yc_sf_bay_hiring",
+        "city": "San Francisco",
+        "company_url": "https://www.ycombinator.com/companies/faire",
+        "signal_title": "",
+        "reasons": "YC-backed/source-quality signal; active hiring/jobs signal; target geography signal; domain fit signal; mid-size startup access"
+      },
+      {
+        "organization_name": "Clipboard",
+        "relationship_score": 13,
+        "lane_source": "startup_org:yc_sf_bay_hiring",
+        "city": "San Francisco",
+        "company_url": "https://www.ycombinator.com/companies/clipboard",
+        "signal_title": "",
+        "reasons": "YC-backed/source-quality signal; active hiring/jobs signal; target geography signal; domain fit signal; mid-size startup access"
+      },
+      {
+        "organization_name": "Checkr",
+        "relationship_score": 13,
+        "lane_source": "startup_org:yc_sf_bay_hiring",
+        "city": "San Francisco",
+        "company_url": "https://www.ycombinator.com/companies/checkr",
+        "signal_title": "",
+        "reasons": "YC-backed/source-quality signal; active hiring/jobs signal; target geography signal; domain fit signal; mid-size startup access"
+      },
+      {
+        "organization_name": "WorkWhile",
+        "relationship_score": 10,
+        "lane_source": "startup_org:builtin_sf_companies",
+        "city": "San Francisco",
+        "company_url": "https://www.builtinsf.com/company/workwhile",
+        "signal_title": "",
+        "reasons": "active hiring/jobs signal; target geography signal; domain fit signal; small-team founder/operator access"
+      },
+      {
+        "organization_name": "Voker",
+        "relationship_score": 10,
+        "lane_source": "startup_org:yc_los_angeles",
+        "city": "Los Angeles",
+        "company_url": "https://www.ycombinator.com/companies/voker",
+        "signal_title": "",
+        "reasons": "YC-backed/source-quality signal; target geography signal; domain fit signal; small-team founder/operator access"
+      },
+      {
+        "organization_name": "Vassar Robotics",
+        "relationship_score": 10,
+        "lane_source": "startup_org:yc_los_angeles",
+        "city": "Los Angeles",
+        "company_url": "https://www.ycombinator.com/companies/vassar-robotics",
+        "signal_title": "",
+        "reasons": "YC-backed/source-quality signal; target geography signal; domain fit signal; small-team founder/operator access"
+      },
+      {
+        "organization_name": "Surtr Defense Systems",
+        "relationship_score": 10,
+        "lane_source": "startup_org:yc_los_angeles",
+        "city": "Los Angeles",
+        "company_url": "https://www.ycombinator.com/companies/surtr-defense-systems",
+        "signal_title": "",
+        "reasons": "YC-backed/source-quality signal; target geography signal; domain fit signal; small-team founder/operator access"
+      },
+      {
+        "organization_name": "Splash Inc.",
+        "relationship_score": 10,
+        "lane_source": "startup_org:yc_los_angeles",
+        "city": "Los Angeles",
+        "company_url": "https://www.ycombinator.com/companies/splash-inc",
+        "signal_title": "",
+        "reasons": "YC-backed/source-quality signal; target geography signal; domain fit signal; small-team founder/operator access"
+      },
+      {
+        "organization_name": "Product.ai",
+        "relationship_score": 10,
+        "lane_source": "startup_org:builtin_la_companies",
+        "city": "Los Angeles",
+        "company_url": "https://www.builtinla.com/company/productai",
+        "signal_title": "",
+        "reasons": "active hiring/jobs signal; target geography signal; domain fit signal; small-team founder/operator access"
+      },
+      {
+        "organization_name": "Primer",
+        "relationship_score": 10,
+        "lane_source": "startup_org:yc_los_angeles",
+        "city": "Los Angeles",
+        "company_url": "https://www.ycombinator.com/companies/primer",
+        "signal_title": "",
+        "reasons": "YC-backed/source-quality signal; target geography signal; domain fit signal; small-team founder/operator access"
+      },
+      {
+        "organization_name": "Pixley AI",
+        "relationship_score": 10,
+        "lane_source": "startup_org:yc_los_angeles",
+        "city": "Los Angeles",
+        "company_url": "https://www.ycombinator.com/companies/pixley-ai",
+        "signal_title": "",
+        "reasons": "YC-backed/source-quality signal; target geography signal; domain fit signal; small-team founder/operator access"
+      },
+      {
+        "organization_name": "PARES AI",
+        "relationship_score": 10,
+        "lane_source": "startup_org:yc_los_angeles",
+        "city": "Los Angeles",
+        "company_url": "https://www.ycombinator.com/companies/pares-ai",
+        "signal_title": "",
+        "reasons": "YC-backed/source-quality signal; target geography signal; domain fit signal; small-team founder/operator access"
+      },
+      {
+        "organization_name": "Ornadyne",
+        "relationship_score": 10,
+        "lane_source": "startup_org:yc_los_angeles",
+        "city": "Los Angeles",
+        "company_url": "https://www.ycombinator.com/companies/ornadyne",
+        "signal_title": "",
+        "reasons": "YC-backed/source-quality signal; target geography signal; domain fit signal; small-team founder/operator access"
+      }
+    ]
+  },
+  "source_health": {
+    "linkedin_breadth_raw_counts": {
+      "playwright": 32,
+      "jobspy": 106,
+      "overlap": 8,
+      "playwright_only": 21,
+      "jobspy_only": 98
+    },
+    "linkedin_breadth_jobspy_only": {
+      "skip_noise": 78,
+      "outreach_signal": 16,
+      "app_score_now": 2,
+      "app_review": 2
+    },
+    "startup_apply_discovered": {
+      "yc_sf_bay_hiring": 0,
+      "yc_los_angeles": 0,
+      "builtin_la_job_lists": 1,
+      "builtin_sf_job_lists": 0,
+      "a16z_job_board": 1
+    },
+    "startup_apply_verdicts": {
+      "app_score_now": 2
+    },
+    "relationship_source_counts": {
+      "yc_sf_bay_hiring": 15,
+      "builtin_sf_companies": 15,
+      "yc_los_angeles": 15,
+      "builtin_la_companies": 15
+    }
+  },
+  "policy": [
+    "Score app_score_now candidates in the application lane.",
+    "Triage app_review before normal scoring.",
+    "Send relationship_targets to Outreach/contact enrichment.",
+    "Do not spend API calls on skip_noise."
+  ]
+}

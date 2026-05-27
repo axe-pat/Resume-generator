@@ -105,6 +105,20 @@ venv/bin/python discovery/scripts/build_startup_source_report.py \
 
 Use `--ignore-existing` when checking source health instead of only net-new tracker additions.
 
+### Daily Source Dashboard
+
+Command:
+
+```bash
+venv/bin/python discovery/scripts/build_daily_source_dashboard.py
+```
+
+Purpose:
+
+- Combines the latest LinkedIn/JobSpy source breadth validation with the latest startup source report.
+- Shows one no-write dashboard for `app_score_now`, `app_review`, relationship targets, and skipped noise.
+- Keeps execution separate: ResumeGenerator still owns resume/cover-letter generation, Outreach still owns contact enrichment and messaging.
+
 ### Outreach Organization Discovery Lane
 
 Commands:

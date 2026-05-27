@@ -104,6 +104,23 @@ Output goes to `discovery/source_validation/` with:
 - startup apply items classified as `app_score_now`, `app_review`, `outreach_signal`, or `skip_noise`
 - relationship org targets ranked from the latest no-write Outreach discovery artifacts
 
+### Daily source dashboard
+
+No-write dashboard that combines the latest LinkedIn/JobSpy breadth validation and
+startup source report into one daily application + relationship view.
+
+```bash
+venv/bin/python discovery/scripts/build_daily_source_dashboard.py
+```
+
+Use explicit artifacts when you want a reproducible dashboard from a specific run:
+
+```bash
+venv/bin/python discovery/scripts/build_daily_source_dashboard.py \
+  --source-breadth discovery/source_validation/20260527-142449-source-breadth-filtered.json \
+  --startup-source-report discovery/source_validation/20260527-150343-startup-source-report.json
+```
+
 ### Screenshot scoring (LinkedIn PDF screenshots)
 
 **Run from your Mac terminal, not the Cowork VM** — the VM has SSL issues that break the Anthropic API.
