@@ -174,7 +174,7 @@ Keep or strengthen:
 
 Add next:
 
-- Wellfound jobs and company pages.
+- Wellfound jobs and company pages. Quick probe on 2026-05-27 showed public pages are indexed and high-value, but direct HTTP plus headed/headless Playwright receive a DataDome/Cloudflare 403 challenge. Treat this as a browser/session-backed or external-API source, not a quick static scraper.
 - Techstars portfolio jobs.
 - Contrary portfolio/jobs if accessible.
 - Founder-post signal capture from X/LinkedIn posts.
