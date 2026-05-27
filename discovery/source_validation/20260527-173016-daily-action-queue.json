@@ -1,0 +1,2115 @@
+{
+  "generated_at": "2026-05-27T17:30:16",
+  "report_stage": "post_score",
+  "report_title": "Daily Action Queue - Post-Score Final",
+  "inputs": {
+    "source_breadth": "/Users/akshat/Desktop/Claude Projects/ResumeGenerator v1/discovery/source_validation/20260527-142449-source-breadth-filtered.json",
+    "startup_source_report": "/Users/akshat/Desktop/Claude Projects/ResumeGenerator v1/discovery/source_validation/20260527-150343-startup-source-report.json",
+    "current_apply_queue": "/Users/akshat/Desktop/Claude Projects/ResumeGenerator v1/apps/Apply queues/current_apply_queue/priority_order.json",
+    "outreach_workspace": "/Users/akshat/Desktop/Claude Projects/Outreach/workspace",
+    "relationship_today_limit": 8,
+    "relationship_max_per_source": 4,
+    "report_stage": "post_score"
+  },
+  "counts": {
+    "score_for_application": 1,
+    "application_plus_outreach": 12,
+    "application_only": 0,
+    "outreach_only_today": 8,
+    "relationship_buffer": 51,
+    "follow_up": 2,
+    "skipped_internal": 29
+  },
+  "source_counts": {
+    "score_for_application": {
+      "linkedin_breadth:jobspy_only": 1
+    },
+    "application_plus_outreach": {
+      "current_apply_queue": 12
+    },
+    "outreach_only_today": {
+      "startup_org:yc_sf_bay_hiring": 4,
+      "startup_org:yc_los_angeles": 3,
+      "linkedin_breadth:jobspy_only": 1
+    },
+    "relationship_buffer": {
+      "linkedin_breadth:jobspy_only": 15,
+      "startup_org:yc_los_angeles": 12,
+      "startup_org:yc_sf_bay_hiring": 10,
+      "startup_org:builtin_la_companies": 7,
+      "startup_org:builtin_sf_companies": 7
+    }
+  },
+  "score_for_application": [
+    {
+      "company": "Jobright.ai",
+      "role_title": "Product Manager, Entry Level",
+      "url": "https://www.linkedin.com/jobs/view/4418521398",
+      "source": "linkedin_breadth:jobspy_only",
+      "reasons": [
+        "Target signal: product_intern",
+        "Target signal: ai_product",
+        "Early-career/intern/MBA signal in title",
+        "Relationship signal: startup/AI/domain title signal"
+      ],
+      "recommended_action": "score_then_route"
+    }
+  ],
+  "application_plus_outreach": [
+    {
+      "company": "FlairX",
+      "role_title": "Product Manager Intern (AI Products)",
+      "url": "https://www.linkedin.com/jobs/view/4417579331/",
+      "source": "current_apply_queue",
+      "reasons": [
+        "active_application_needs_outreach"
+      ],
+      "queue_rank": 1,
+      "fit_score": "8.2",
+      "status": "generated",
+      "folder_path": "/Users/akshat/Desktop/Claude Projects/ResumeGenerator v1/apps/Apply queues/current_apply_queue/jobs/01_05-27_NEW_82_FlairX/Product_Manager_Intern_AI_Products",
+      "outreach_contact_count": 0,
+      "outreach_touchpoint_count": 0
+    },
+    {
+      "company": "Pebl",
+      "role_title": "Product Manager Intern - Alfie (Conversational AI)",
+      "url": "https://www.linkedin.com/jobs/view/4418511510/",
+      "source": "current_apply_queue",
+      "reasons": [
+        "active_application_needs_outreach"
+      ],
+      "queue_rank": 2,
+      "fit_score": "8.2",
+      "status": "generated",
+      "folder_path": "/Users/akshat/Desktop/Claude Projects/ResumeGenerator v1/apps/Apply queues/current_apply_queue/jobs/02_05-27_NEW_82_Pebl/Product_Manager_Intern_-_Alfie_Conversational_AI",
+      "outreach_contact_count": 0,
+      "outreach_touchpoint_count": 0
+    },
+    {
+      "company": "Pebl",
+      "role_title": "Product Management Intern - Talent Solutions",
+      "url": "https://www.linkedin.com/jobs/view/4418512489/",
+      "source": "current_apply_queue",
+      "reasons": [
+        "active_application_needs_outreach"
+      ],
+      "queue_rank": 3,
+      "fit_score": "8.2",
+      "status": "generated",
+      "folder_path": "/Users/akshat/Desktop/Claude Projects/ResumeGenerator v1/apps/Apply queues/current_apply_queue/jobs/02_05-27_NEW_82_Pebl/Product_Management_Intern_-_Talent_Solutions",
+      "outreach_contact_count": 0,
+      "outreach_touchpoint_count": 0
+    },
+    {
+      "company": "Etched",
+      "role_title": "GTM Intern - Summer 2027",
+      "url": "https://www.linkedin.com/jobs/view/4416977860/",
+      "source": "current_apply_queue",
+      "reasons": [
+        "active_application_needs_outreach"
+      ],
+      "queue_rank": 4,
+      "fit_score": "8.2",
+      "status": "generated",
+      "folder_path": "/Users/akshat/Desktop/Claude Projects/ResumeGenerator v1/apps/Apply queues/current_apply_queue/jobs/04_05-25_CARRY_82_Etched/GTM_Intern_-_Summer_2027",
+      "outreach_contact_count": 0,
+      "outreach_touchpoint_count": 0
+    },
+    {
+      "company": "Etched",
+      "role_title": "GTM Intern",
+      "url": "https://www.linkedin.com/jobs/view/4385501287/",
+      "source": "current_apply_queue",
+      "reasons": [
+        "active_application_needs_outreach"
+      ],
+      "queue_rank": 5,
+      "fit_score": "8.2",
+      "status": "generated",
+      "folder_path": "/Users/akshat/Desktop/Claude Projects/ResumeGenerator v1/apps/Apply queues/current_apply_queue/jobs/04_05-25_CARRY_82_Etched/GTM_Intern",
+      "outreach_contact_count": 0,
+      "outreach_touchpoint_count": 0
+    },
+    {
+      "company": "Coupang",
+      "role_title": "Summer Intern",
+      "url": "https://www.linkedin.com/jobs/view/4416374847/",
+      "source": "current_apply_queue",
+      "reasons": [
+        "active_application_needs_outreach"
+      ],
+      "queue_rank": 6,
+      "fit_score": "8.2",
+      "status": "generated",
+      "folder_path": "/Users/akshat/Desktop/Claude Projects/ResumeGenerator v1/apps/Apply queues/current_apply_queue/jobs/06_05-25_CARRY_82_Coupang/Summer_Intern",
+      "outreach_contact_count": 0,
+      "outreach_touchpoint_count": 0
+    },
+    {
+      "company": "Lovart AI",
+      "role_title": "AI PM Intern",
+      "url": "https://www.linkedin.com/jobs/view/4418927504/",
+      "source": "current_apply_queue",
+      "reasons": [
+        "active_application_needs_outreach"
+      ],
+      "queue_rank": 7,
+      "fit_score": "8.2",
+      "status": "generated",
+      "folder_path": "/Users/akshat/Desktop/Claude Projects/ResumeGenerator v1/apps/Apply queues/current_apply_queue/jobs/07_05-25_CARRY_82_Lovart_AI/AI_PM_Intern",
+      "outreach_contact_count": 0,
+      "outreach_touchpoint_count": 0
+    },
+    {
+      "company": "Shield AI",
+      "role_title": "2026 Summer Intern - Strategy & Operations (R5065)",
+      "url": "https://www.linkedin.com/jobs/view/4418485210/",
+      "source": "current_apply_queue",
+      "reasons": [
+        "active_application_needs_outreach"
+      ],
+      "queue_rank": 8,
+      "fit_score": "8.2",
+      "status": "generated",
+      "folder_path": "/Users/akshat/Desktop/Claude Projects/ResumeGenerator v1/apps/Apply queues/current_apply_queue/jobs/08_05-25_CARRY_82_Shield_AI/2026_Summer_Intern_-_Strategy_Operations_R5065",
+      "outreach_contact_count": 0,
+      "outreach_touchpoint_count": 0
+    },
+    {
+      "company": "Nova Sky Stories",
+      "role_title": "MBA Internship - Strategic Initiatives & Global Growth",
+      "url": "https://www.linkedin.com/jobs/view/4417476131/",
+      "source": "current_apply_queue",
+      "reasons": [
+        "active_application_needs_outreach"
+      ],
+      "queue_rank": 9,
+      "fit_score": "8.1",
+      "status": "generated",
+      "folder_path": "/Users/akshat/Desktop/Claude Projects/ResumeGenerator v1/apps/Apply queues/current_apply_queue/jobs/09_05-25_CARRY_81_Nova_Sky_Stories/MBA_Internship_-_Strategic_Initiatives_Global_Growth",
+      "outreach_contact_count": 0,
+      "outreach_touchpoint_count": 0
+    },
+    {
+      "company": "Dassault Syst\u00e8mes",
+      "role_title": "INTERNSHIP - SOLIDWORKS AI & Robotics Product Management",
+      "url": "https://www.linkedin.com/jobs/view/4408074071/",
+      "source": "current_apply_queue",
+      "reasons": [
+        "active_application_needs_outreach"
+      ],
+      "queue_rank": 10,
+      "fit_score": "7.6",
+      "status": "generated",
+      "folder_path": "/Users/akshat/Desktop/Claude Projects/ResumeGenerator v1/apps/Apply queues/current_apply_queue/jobs/10_05-25_CARRY_76_Dassault_Systmes/INTERNSHIP_-_SOLIDWORKS_AI_Robotics_Product_Management",
+      "outreach_contact_count": 0,
+      "outreach_touchpoint_count": 0
+    },
+    {
+      "company": "DoubleVerify",
+      "role_title": "Intern - Product Operations",
+      "url": "https://www.linkedin.com/jobs/view/4416923730/",
+      "source": "current_apply_queue",
+      "reasons": [
+        "active_application_needs_outreach"
+      ],
+      "queue_rank": 11,
+      "fit_score": "6.2",
+      "status": "generated",
+      "folder_path": "/Users/akshat/Desktop/Claude Projects/ResumeGenerator v1/apps/Apply queues/current_apply_queue/jobs/11_05-25_CARRY_62_DoubleVerify/Intern_-_Product_Operations",
+      "outreach_contact_count": 0,
+      "outreach_touchpoint_count": 0
+    },
+    {
+      "company": "Fox Entertainment",
+      "role_title": "Fall 2026 FOX Entertainment Internship Program - MBA \u2013 Los Angeles, CA",
+      "url": "https://www.linkedin.com/jobs/view/4417012341/",
+      "source": "current_apply_queue",
+      "reasons": [
+        "active_application_needs_outreach"
+      ],
+      "queue_rank": 12,
+      "fit_score": "6.2",
+      "status": "generated",
+      "folder_path": "/Users/akshat/Desktop/Claude Projects/ResumeGenerator v1/apps/Apply queues/current_apply_queue/jobs/12_05-25_CARRY_62_Fox_Entertainment/Fall_2026_FOX_Entertainment_Internship_Program_-_MBA_Los_Angeles_CA",
+      "outreach_contact_count": 0,
+      "outreach_touchpoint_count": 0
+    }
+  ],
+  "application_only": [],
+  "outreach_only_today": [
+    {
+      "company": "Tasklet",
+      "relationship_score": 10.0,
+      "company_url": "https://www.ycombinator.com/companies/tasklet-2",
+      "city": "San Francisco",
+      "source": "startup_org:yc_sf_bay_hiring",
+      "signal_title": "",
+      "reasons": [
+        "YC-backed/source-quality signal",
+        "active hiring/jobs signal",
+        "target geography signal",
+        "domain fit signal",
+        "small-team founder/operator access",
+        "domain/profile fit",
+        "very small-team access",
+        "recent YC batch"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "recommended_action": "run_linkedin_company_pipeline"
+    },
+    {
+      "company": "Intelligence Factory",
+      "relationship_score": 10.0,
+      "company_url": "https://www.ycombinator.com/companies/intelligence-factory",
+      "city": "San Francisco",
+      "source": "startup_org:yc_sf_bay_hiring",
+      "signal_title": "",
+      "reasons": [
+        "YC-backed/source-quality signal",
+        "active hiring/jobs signal",
+        "target geography signal",
+        "domain fit signal",
+        "small-team founder/operator access",
+        "domain/profile fit",
+        "very small-team access",
+        "recent YC batch"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "recommended_action": "run_linkedin_company_pipeline"
+    },
+    {
+      "company": "Hedge",
+      "relationship_score": 10.0,
+      "company_url": "https://www.ycombinator.com/companies/hedge",
+      "city": "San Francisco",
+      "source": "startup_org:yc_sf_bay_hiring",
+      "signal_title": "",
+      "reasons": [
+        "YC-backed/source-quality signal",
+        "active hiring/jobs signal",
+        "target geography signal",
+        "domain fit signal",
+        "small-team founder/operator access",
+        "domain/profile fit",
+        "very small-team access",
+        "recent YC batch"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "recommended_action": "run_linkedin_company_pipeline"
+    },
+    {
+      "company": "Eden Robotics",
+      "relationship_score": 10.0,
+      "company_url": "https://www.ycombinator.com/companies/eden-robotics",
+      "city": "San Francisco",
+      "source": "startup_org:yc_sf_bay_hiring",
+      "signal_title": "",
+      "reasons": [
+        "YC-backed/source-quality signal",
+        "active hiring/jobs signal",
+        "target geography signal",
+        "domain fit signal",
+        "small-team founder/operator access",
+        "domain/profile fit",
+        "very small-team access",
+        "recent YC batch"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "recommended_action": "run_linkedin_company_pipeline"
+    },
+    {
+      "company": "Fractional AI",
+      "relationship_score": 8.5,
+      "company_url": "https://www.linkedin.com/jobs/view/4408920981",
+      "city": "",
+      "source": "linkedin_breadth:jobspy_only",
+      "signal_title": "Forward Deployed Product Manager",
+      "reasons": [
+        "Target signal: product_intern",
+        "Relationship signal: high-signal company",
+        "Relationship signal: startup/AI/domain title signal",
+        "Relationship signal: operator-style product role",
+        "Target role, but no explicit early-career signal",
+        "domain/profile fit",
+        "job-signal adjacency"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "recommended_action": "run_linkedin_company_pipeline"
+    },
+    {
+      "company": "Vassar Robotics",
+      "relationship_score": 8.0,
+      "company_url": "https://www.ycombinator.com/companies/vassar-robotics",
+      "city": "Los Angeles",
+      "source": "startup_org:yc_los_angeles",
+      "signal_title": "",
+      "reasons": [
+        "YC-backed/source-quality signal",
+        "target geography signal",
+        "domain fit signal",
+        "small-team founder/operator access",
+        "domain/profile fit",
+        "very small-team access",
+        "recent YC batch"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "recommended_action": "run_linkedin_company_pipeline"
+    },
+    {
+      "company": "Surtr Defense Systems",
+      "relationship_score": 8.0,
+      "company_url": "https://www.ycombinator.com/companies/surtr-defense-systems",
+      "city": "Los Angeles",
+      "source": "startup_org:yc_los_angeles",
+      "signal_title": "",
+      "reasons": [
+        "YC-backed/source-quality signal",
+        "target geography signal",
+        "domain fit signal",
+        "small-team founder/operator access",
+        "domain/profile fit",
+        "very small-team access",
+        "recent YC batch"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "recommended_action": "run_linkedin_company_pipeline"
+    },
+    {
+      "company": "Splash Inc.",
+      "relationship_score": 8.0,
+      "company_url": "https://www.ycombinator.com/companies/splash-inc",
+      "city": "Los Angeles",
+      "source": "startup_org:yc_los_angeles",
+      "signal_title": "",
+      "reasons": [
+        "YC-backed/source-quality signal",
+        "target geography signal",
+        "domain fit signal",
+        "small-team founder/operator access",
+        "domain/profile fit",
+        "very small-team access",
+        "recent YC batch"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "recommended_action": "run_linkedin_company_pipeline"
+    }
+  ],
+  "relationship_buffer": [
+    {
+      "company": "Deep Interactions",
+      "relationship_score": 10.0,
+      "company_url": "https://www.ycombinator.com/companies/deep-interactions",
+      "city": "San Francisco",
+      "source": "startup_org:yc_sf_bay_hiring",
+      "signal_title": "",
+      "reasons": [
+        "YC-backed/source-quality signal",
+        "active hiring/jobs signal",
+        "target geography signal",
+        "domain fit signal",
+        "small-team founder/operator access",
+        "domain/profile fit",
+        "very small-team access",
+        "recent YC batch"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "recommended_action": "buffer_for_later"
+    },
+    {
+      "company": "Bloom",
+      "relationship_score": 10.0,
+      "company_url": "https://www.ycombinator.com/companies/trybloom",
+      "city": "San Francisco",
+      "source": "startup_org:yc_sf_bay_hiring",
+      "signal_title": "",
+      "reasons": [
+        "YC-backed/source-quality signal",
+        "active hiring/jobs signal",
+        "target geography signal",
+        "domain fit signal",
+        "small-team founder/operator access",
+        "domain/profile fit",
+        "very small-team access",
+        "recent YC batch"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "recommended_action": "buffer_for_later"
+    },
+    {
+      "company": "Arlo Industries",
+      "relationship_score": 10.0,
+      "company_url": "https://www.ycombinator.com/companies/arlo-industries",
+      "city": "San Francisco",
+      "source": "startup_org:yc_sf_bay_hiring",
+      "signal_title": "",
+      "reasons": [
+        "YC-backed/source-quality signal",
+        "active hiring/jobs signal",
+        "target geography signal",
+        "domain fit signal",
+        "small-team founder/operator access",
+        "domain/profile fit",
+        "very small-team access",
+        "recent YC batch"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "recommended_action": "buffer_for_later"
+    },
+    {
+      "company": "ANORIA",
+      "relationship_score": 10.0,
+      "company_url": "https://www.ycombinator.com/companies/anoria",
+      "city": "San Francisco",
+      "source": "startup_org:yc_sf_bay_hiring",
+      "signal_title": "",
+      "reasons": [
+        "YC-backed/source-quality signal",
+        "active hiring/jobs signal",
+        "target geography signal",
+        "domain fit signal",
+        "small-team founder/operator access",
+        "domain/profile fit",
+        "very small-team access",
+        "recent YC batch"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "recommended_action": "buffer_for_later"
+    },
+    {
+      "company": "Primer",
+      "relationship_score": 8.0,
+      "company_url": "https://www.ycombinator.com/companies/primer",
+      "city": "Los Angeles",
+      "source": "startup_org:yc_los_angeles",
+      "signal_title": "",
+      "reasons": [
+        "YC-backed/source-quality signal",
+        "target geography signal",
+        "domain fit signal",
+        "small-team founder/operator access",
+        "domain/profile fit",
+        "very small-team access",
+        "recent YC batch"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "recommended_action": "buffer_for_later"
+    },
+    {
+      "company": "Pixley AI",
+      "relationship_score": 8.0,
+      "company_url": "https://www.ycombinator.com/companies/pixley-ai",
+      "city": "Los Angeles",
+      "source": "startup_org:yc_los_angeles",
+      "signal_title": "",
+      "reasons": [
+        "YC-backed/source-quality signal",
+        "target geography signal",
+        "domain fit signal",
+        "small-team founder/operator access",
+        "domain/profile fit",
+        "very small-team access",
+        "recent YC batch"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "recommended_action": "buffer_for_later"
+    },
+    {
+      "company": "PARES AI",
+      "relationship_score": 8.0,
+      "company_url": "https://www.ycombinator.com/companies/pares-ai",
+      "city": "Los Angeles",
+      "source": "startup_org:yc_los_angeles",
+      "signal_title": "",
+      "reasons": [
+        "YC-backed/source-quality signal",
+        "target geography signal",
+        "domain fit signal",
+        "small-team founder/operator access",
+        "domain/profile fit",
+        "very small-team access",
+        "recent YC batch"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "recommended_action": "buffer_for_later"
+    },
+    {
+      "company": "Ornadyne",
+      "relationship_score": 8.0,
+      "company_url": "https://www.ycombinator.com/companies/ornadyne",
+      "city": "Los Angeles",
+      "source": "startup_org:yc_los_angeles",
+      "signal_title": "",
+      "reasons": [
+        "YC-backed/source-quality signal",
+        "target geography signal",
+        "domain fit signal",
+        "small-team founder/operator access",
+        "domain/profile fit",
+        "very small-team access",
+        "recent YC batch"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "recommended_action": "buffer_for_later"
+    },
+    {
+      "company": "Notus Autonomous Systems",
+      "relationship_score": 8.0,
+      "company_url": "https://www.ycombinator.com/companies/notus-autonomous-systems",
+      "city": "Los Angeles",
+      "source": "startup_org:yc_los_angeles",
+      "signal_title": "",
+      "reasons": [
+        "YC-backed/source-quality signal",
+        "target geography signal",
+        "domain fit signal",
+        "small-team founder/operator access",
+        "domain/profile fit",
+        "very small-team access",
+        "recent YC batch"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "recommended_action": "buffer_for_later"
+    },
+    {
+      "company": "MindFort",
+      "relationship_score": 8.0,
+      "company_url": "https://www.ycombinator.com/companies/mindfort",
+      "city": "Los Angeles",
+      "source": "startup_org:yc_los_angeles",
+      "signal_title": "",
+      "reasons": [
+        "YC-backed/source-quality signal",
+        "target geography signal",
+        "domain fit signal",
+        "small-team founder/operator access",
+        "domain/profile fit",
+        "very small-team access",
+        "recent YC batch"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "recommended_action": "buffer_for_later"
+    },
+    {
+      "company": "chrt",
+      "relationship_score": 8.0,
+      "company_url": "https://www.ycombinator.com/companies/chrt",
+      "city": "Los Angeles",
+      "source": "startup_org:yc_los_angeles",
+      "signal_title": "",
+      "reasons": [
+        "YC-backed/source-quality signal",
+        "target geography signal",
+        "domain fit signal",
+        "small-team founder/operator access",
+        "domain/profile fit",
+        "very small-team access",
+        "recent YC batch"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "recommended_action": "buffer_for_later"
+    },
+    {
+      "company": "Alt-X",
+      "relationship_score": 8.0,
+      "company_url": "https://www.ycombinator.com/companies/alt-x",
+      "city": "Los Angeles",
+      "source": "startup_org:yc_los_angeles",
+      "signal_title": "",
+      "reasons": [
+        "YC-backed/source-quality signal",
+        "target geography signal",
+        "domain fit signal",
+        "small-team founder/operator access",
+        "domain/profile fit",
+        "very small-team access",
+        "recent YC batch"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "recommended_action": "buffer_for_later"
+    },
+    {
+      "company": "Advanced Metal Research",
+      "relationship_score": 8.0,
+      "company_url": "https://www.ycombinator.com/companies/advanced-metal-research",
+      "city": "Los Angeles",
+      "source": "startup_org:yc_los_angeles",
+      "signal_title": "",
+      "reasons": [
+        "YC-backed/source-quality signal",
+        "target geography signal",
+        "domain fit signal",
+        "small-team founder/operator access",
+        "domain/profile fit",
+        "very small-team access",
+        "recent YC batch"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "recommended_action": "buffer_for_later"
+    },
+    {
+      "company": "Absurd",
+      "relationship_score": 8.0,
+      "company_url": "https://www.ycombinator.com/companies/absurd",
+      "city": "Los Angeles",
+      "source": "startup_org:yc_los_angeles",
+      "signal_title": "",
+      "reasons": [
+        "YC-backed/source-quality signal",
+        "target geography signal",
+        "domain fit signal",
+        "small-team founder/operator access",
+        "domain/profile fit",
+        "very small-team access",
+        "recent YC batch"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "recommended_action": "buffer_for_later"
+    },
+    {
+      "company": "Product.ai",
+      "relationship_score": 7.8,
+      "company_url": "https://www.builtinla.com/company/productai",
+      "city": "Los Angeles",
+      "source": "startup_org:builtin_la_companies",
+      "signal_title": "",
+      "reasons": [
+        "active hiring/jobs signal",
+        "target geography signal",
+        "domain fit signal",
+        "small-team founder/operator access",
+        "domain/profile fit",
+        "very small-team access"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "recommended_action": "buffer_for_later"
+    },
+    {
+      "company": "Bellagent",
+      "relationship_score": 7.8,
+      "company_url": "https://www.builtinla.com/company/bellagent",
+      "city": "Los Angeles",
+      "source": "startup_org:builtin_la_companies",
+      "signal_title": "",
+      "reasons": [
+        "active hiring/jobs signal",
+        "target geography signal",
+        "domain fit signal",
+        "small-team founder/operator access",
+        "domain/profile fit",
+        "very small-team access"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "recommended_action": "buffer_for_later"
+    },
+    {
+      "company": "WorkWhile",
+      "relationship_score": 7.3,
+      "company_url": "https://www.builtinsf.com/company/workwhile",
+      "city": "San Francisco",
+      "source": "startup_org:builtin_sf_companies",
+      "signal_title": "",
+      "reasons": [
+        "active hiring/jobs signal",
+        "target geography signal",
+        "domain fit signal",
+        "small-team founder/operator access",
+        "domain/profile fit"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "recommended_action": "buffer_for_later"
+    },
+    {
+      "company": "Onshore",
+      "relationship_score": 7.3,
+      "company_url": "https://www.builtinla.com/company/onshore",
+      "city": "Los Angeles",
+      "source": "startup_org:builtin_la_companies",
+      "signal_title": "",
+      "reasons": [
+        "active hiring/jobs signal",
+        "target geography signal",
+        "domain fit signal",
+        "small-team founder/operator access",
+        "domain/profile fit"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "recommended_action": "buffer_for_later"
+    },
+    {
+      "company": "Hex",
+      "relationship_score": 7.3,
+      "company_url": "https://www.builtinsf.com/company/hex",
+      "city": "San Francisco",
+      "source": "startup_org:builtin_sf_companies",
+      "signal_title": "",
+      "reasons": [
+        "active hiring/jobs signal",
+        "target geography signal",
+        "domain fit signal",
+        "small-team founder/operator access",
+        "domain/profile fit"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "recommended_action": "buffer_for_later"
+    },
+    {
+      "company": "Freed",
+      "relationship_score": 7.3,
+      "company_url": "https://www.builtinsf.com/company/freed-ai",
+      "city": "San Francisco",
+      "source": "startup_org:builtin_sf_companies",
+      "signal_title": "",
+      "reasons": [
+        "active hiring/jobs signal",
+        "target geography signal",
+        "domain fit signal",
+        "small-team founder/operator access",
+        "domain/profile fit"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "recommended_action": "buffer_for_later"
+    },
+    {
+      "company": "Foundation Health",
+      "relationship_score": 7.3,
+      "company_url": "https://www.linkedin.com/jobs/view/4414619264",
+      "city": "",
+      "source": "linkedin_breadth:jobspy_only",
+      "signal_title": "Product Manager",
+      "reasons": [
+        "Target signal: product_intern",
+        "Relationship signal: high-signal company",
+        "Target role, but no explicit early-career signal",
+        "domain/profile fit",
+        "job-signal adjacency"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "recommended_action": "buffer_for_later"
+    },
+    {
+      "company": "Daloopa",
+      "relationship_score": 7.3,
+      "company_url": "https://www.linkedin.com/jobs/view/4410087014",
+      "city": "",
+      "source": "linkedin_breadth:jobspy_only",
+      "signal_title": "Product Manager - AI",
+      "reasons": [
+        "Target signal: product_intern",
+        "Target signal: ai_product",
+        "Target signal: strategy_ops",
+        "Relationship signal: high-signal company",
+        "Relationship signal: startup/AI/domain title signal",
+        "Target role, but no explicit early-career signal",
+        "domain/profile fit",
+        "job-signal adjacency"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "recommended_action": "buffer_for_later"
+    },
+    {
+      "company": "Alchemy",
+      "relationship_score": 7.3,
+      "company_url": "https://www.builtinsf.com/company/alchemy",
+      "city": "San Francisco",
+      "source": "startup_org:builtin_sf_companies",
+      "signal_title": "",
+      "reasons": [
+        "active hiring/jobs signal",
+        "target geography signal",
+        "domain fit signal",
+        "small-team founder/operator access",
+        "domain/profile fit"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "recommended_action": "buffer_for_later"
+    },
+    {
+      "company": "Webflow",
+      "relationship_score": 7.1,
+      "company_url": "https://www.ycombinator.com/companies/webflow",
+      "city": "San Francisco",
+      "source": "startup_org:yc_sf_bay_hiring",
+      "signal_title": "",
+      "reasons": [
+        "YC-backed/source-quality signal",
+        "active hiring/jobs signal",
+        "target geography signal",
+        "domain fit signal",
+        "mid-size startup access",
+        "domain/profile fit",
+        "larger startup but still reachable",
+        "older YC batch"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "recommended_action": "buffer_for_later"
+    },
+    {
+      "company": "Scale AI",
+      "relationship_score": 7.1,
+      "company_url": "https://www.ycombinator.com/companies/scale-ai",
+      "city": "San Francisco",
+      "source": "startup_org:yc_sf_bay_hiring",
+      "signal_title": "",
+      "reasons": [
+        "YC-backed/source-quality signal",
+        "active hiring/jobs signal",
+        "target geography signal",
+        "domain fit signal",
+        "mid-size startup access",
+        "domain/profile fit",
+        "larger startup but still reachable",
+        "older YC batch"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "recommended_action": "buffer_for_later"
+    },
+    {
+      "company": "Mixpanel",
+      "relationship_score": 7.1,
+      "company_url": "https://www.ycombinator.com/companies/mixpanel",
+      "city": "San Francisco",
+      "source": "startup_org:yc_sf_bay_hiring",
+      "signal_title": "",
+      "reasons": [
+        "YC-backed/source-quality signal",
+        "active hiring/jobs signal",
+        "target geography signal",
+        "domain fit signal",
+        "mid-size startup access",
+        "domain/profile fit",
+        "larger startup but still reachable",
+        "older YC batch"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "recommended_action": "buffer_for_later"
+    },
+    {
+      "company": "Faire",
+      "relationship_score": 7.1,
+      "company_url": "https://www.ycombinator.com/companies/faire",
+      "city": "San Francisco",
+      "source": "startup_org:yc_sf_bay_hiring",
+      "signal_title": "",
+      "reasons": [
+        "YC-backed/source-quality signal",
+        "active hiring/jobs signal",
+        "target geography signal",
+        "domain fit signal",
+        "mid-size startup access",
+        "domain/profile fit",
+        "larger startup but still reachable",
+        "older YC batch"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "recommended_action": "buffer_for_later"
+    },
+    {
+      "company": "Clipboard",
+      "relationship_score": 7.1,
+      "company_url": "https://www.ycombinator.com/companies/clipboard",
+      "city": "San Francisco",
+      "source": "startup_org:yc_sf_bay_hiring",
+      "signal_title": "",
+      "reasons": [
+        "YC-backed/source-quality signal",
+        "active hiring/jobs signal",
+        "target geography signal",
+        "domain fit signal",
+        "mid-size startup access",
+        "domain/profile fit",
+        "larger startup but still reachable",
+        "older YC batch"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "recommended_action": "buffer_for_later"
+    },
+    {
+      "company": "Voker",
+      "relationship_score": 6.9,
+      "company_url": "https://www.ycombinator.com/companies/voker",
+      "city": "Los Angeles",
+      "source": "startup_org:yc_los_angeles",
+      "signal_title": "",
+      "reasons": [
+        "YC-backed/source-quality signal",
+        "target geography signal",
+        "domain fit signal",
+        "small-team founder/operator access",
+        "domain/profile fit",
+        "very small-team access"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "recommended_action": "buffer_for_later"
+    },
+    {
+      "company": "Endstack",
+      "relationship_score": 6.9,
+      "company_url": "https://www.ycombinator.com/companies/endstack",
+      "city": "Los Angeles",
+      "source": "startup_org:yc_los_angeles",
+      "signal_title": "",
+      "reasons": [
+        "YC-backed/source-quality signal",
+        "target geography signal",
+        "domain fit signal",
+        "small-team founder/operator access",
+        "domain/profile fit",
+        "very small-team access"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "recommended_action": "buffer_for_later"
+    },
+    {
+      "company": "Headway",
+      "relationship_score": 6.5,
+      "company_url": "https://www.builtinsf.com/company/headway",
+      "city": "San Francisco",
+      "source": "startup_org:builtin_sf_companies",
+      "signal_title": "",
+      "reasons": [
+        "active hiring/jobs signal",
+        "target geography signal",
+        "domain fit signal",
+        "mid-size startup access",
+        "domain/profile fit",
+        "larger startup but still reachable"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "recommended_action": "buffer_for_later"
+    },
+    {
+      "company": "Grow Therapy",
+      "relationship_score": 6.5,
+      "company_url": "https://www.builtinsf.com/company/grow-therapy",
+      "city": "San Francisco",
+      "source": "startup_org:builtin_sf_companies",
+      "signal_title": "",
+      "reasons": [
+        "active hiring/jobs signal",
+        "target geography signal",
+        "domain fit signal",
+        "mid-size startup access",
+        "domain/profile fit",
+        "larger startup but still reachable"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "recommended_action": "buffer_for_later"
+    },
+    {
+      "company": "Golden Hippo",
+      "relationship_score": 6.5,
+      "company_url": "https://www.builtinla.com/company/golden-hippo",
+      "city": "Los Angeles",
+      "source": "startup_org:builtin_la_companies",
+      "signal_title": "",
+      "reasons": [
+        "active hiring/jobs signal",
+        "target geography signal",
+        "domain fit signal",
+        "mid-size startup access",
+        "domain/profile fit",
+        "larger startup but still reachable"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "recommended_action": "buffer_for_later"
+    },
+    {
+      "company": "FloQast",
+      "relationship_score": 6.5,
+      "company_url": "https://www.builtinla.com/company/floqast",
+      "city": "Los Angeles",
+      "source": "startup_org:builtin_la_companies",
+      "signal_title": "",
+      "reasons": [
+        "active hiring/jobs signal",
+        "target geography signal",
+        "domain fit signal",
+        "mid-size startup access",
+        "domain/profile fit",
+        "larger startup but still reachable"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "recommended_action": "buffer_for_later"
+    },
+    {
+      "company": "Doximity",
+      "relationship_score": 6.5,
+      "company_url": "https://www.builtinsf.com/company/doximity",
+      "city": "San Francisco",
+      "source": "startup_org:builtin_sf_companies",
+      "signal_title": "",
+      "reasons": [
+        "active hiring/jobs signal",
+        "target geography signal",
+        "domain fit signal",
+        "mid-size startup access",
+        "domain/profile fit",
+        "larger startup but still reachable"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "recommended_action": "buffer_for_later"
+    },
+    {
+      "company": "First Entertainment Credit Union",
+      "relationship_score": 6.1,
+      "company_url": "https://www.builtinla.com/company/first-entertainment-credit-union",
+      "city": "Los Angeles",
+      "source": "startup_org:builtin_la_companies",
+      "signal_title": "",
+      "reasons": [
+        "active hiring/jobs signal",
+        "target geography signal",
+        "domain fit signal",
+        "small-team founder/operator access",
+        "domain/profile fit",
+        "less founder-led relationship fit"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "recommended_action": "buffer_for_later"
+    },
+    {
+      "company": "Stripe",
+      "relationship_score": 5.6,
+      "company_url": "https://www.linkedin.com/jobs/view/4418541785",
+      "city": "",
+      "source": "linkedin_breadth:jobspy_only",
+      "signal_title": "Product Manager, Terminal Device Expansion",
+      "reasons": [
+        "Target signal: product_intern",
+        "Relationship signal: high-signal company",
+        "Relationship signal: startup/AI/domain title signal",
+        "Target role, but no explicit early-career signal",
+        "job-signal adjacency"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "recommended_action": "buffer_for_later"
+    },
+    {
+      "company": "SPOTIO",
+      "relationship_score": 5.6,
+      "company_url": "https://www.linkedin.com/jobs/view/4419515178",
+      "city": "",
+      "source": "linkedin_breadth:jobspy_only",
+      "signal_title": "Product Manager",
+      "reasons": [
+        "Target signal: product_intern",
+        "Target signal: ai_product",
+        "Target signal: strategy_ops",
+        "Relationship signal: high-signal company",
+        "Target role, but no explicit early-career signal",
+        "job-signal adjacency"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "recommended_action": "buffer_for_later"
+    },
+    {
+      "company": "Seer",
+      "relationship_score": 5.6,
+      "company_url": "https://www.linkedin.com/jobs/view/4419437676",
+      "city": "",
+      "source": "linkedin_breadth:jobspy_only",
+      "signal_title": "Product Manager",
+      "reasons": [
+        "Target signal: product_intern",
+        "Target signal: ai_product",
+        "Relationship signal: high-signal company",
+        "Target role, but no explicit early-career signal",
+        "job-signal adjacency"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "recommended_action": "buffer_for_later"
+    },
+    {
+      "company": "Robinhood",
+      "relationship_score": 5.6,
+      "company_url": "https://www.linkedin.com/jobs/view/4416843581",
+      "city": "",
+      "source": "linkedin_breadth:jobspy_only",
+      "signal_title": "Product Manager, Brokerage",
+      "reasons": [
+        "Target signal: product_intern",
+        "Relationship signal: high-signal company",
+        "Target role, but no explicit early-career signal",
+        "job-signal adjacency"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "recommended_action": "buffer_for_later"
+    },
+    {
+      "company": "MDCalc",
+      "relationship_score": 5.6,
+      "company_url": "https://www.linkedin.com/jobs/view/4408948350",
+      "city": "",
+      "source": "linkedin_breadth:jobspy_only",
+      "signal_title": "Product Manager (User Product)",
+      "reasons": [
+        "Target signal: product_intern",
+        "Target signal: strategy_ops",
+        "Relationship signal: high-signal company",
+        "Target role, but no explicit early-career signal",
+        "job-signal adjacency"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "recommended_action": "buffer_for_later"
+    },
+    {
+      "company": "Luma Financial Technologies",
+      "relationship_score": 5.6,
+      "company_url": "https://www.linkedin.com/jobs/view/4418281417",
+      "city": "",
+      "source": "linkedin_breadth:jobspy_only",
+      "signal_title": "Product Manager \u2013 Capital Markets",
+      "reasons": [
+        "Target signal: product_intern",
+        "Relationship signal: high-signal company",
+        "Target role, but no explicit early-career signal",
+        "job-signal adjacency"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "recommended_action": "buffer_for_later"
+    },
+    {
+      "company": "Limbic",
+      "relationship_score": 5.6,
+      "company_url": "https://www.linkedin.com/jobs/view/4419562869",
+      "city": "",
+      "source": "linkedin_breadth:jobspy_only",
+      "signal_title": "Product Manager",
+      "reasons": [
+        "Target signal: product_intern",
+        "Relationship signal: high-signal company",
+        "Target role, but no explicit early-career signal",
+        "job-signal adjacency"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "recommended_action": "buffer_for_later"
+    },
+    {
+      "company": "Hudl",
+      "relationship_score": 5.6,
+      "company_url": "https://www.linkedin.com/jobs/view/4418518840",
+      "city": "",
+      "source": "linkedin_breadth:jobspy_only",
+      "signal_title": "Product Manager",
+      "reasons": [
+        "Target signal: product_intern",
+        "Target signal: ai_product",
+        "Relationship signal: high-signal company",
+        "Target role, but no explicit early-career signal",
+        "job-signal adjacency"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "recommended_action": "buffer_for_later"
+    },
+    {
+      "company": "Fingercheck",
+      "relationship_score": 5.6,
+      "company_url": "https://www.linkedin.com/jobs/view/4418512202",
+      "city": "",
+      "source": "linkedin_breadth:jobspy_only",
+      "signal_title": "Product Manager",
+      "reasons": [
+        "Target signal: product_intern",
+        "Target signal: ai_product",
+        "Target signal: strategy_ops",
+        "Relationship signal: high-signal company",
+        "Target role, but no explicit early-career signal",
+        "job-signal adjacency"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "recommended_action": "buffer_for_later"
+    },
+    {
+      "company": "Early Media",
+      "relationship_score": 5.6,
+      "company_url": "https://www.linkedin.com/jobs/view/4418271985",
+      "city": "",
+      "source": "linkedin_breadth:jobspy_only",
+      "signal_title": "Product Manager, Clipping",
+      "reasons": [
+        "Target signal: product_intern",
+        "Target signal: strategy_ops",
+        "Relationship signal: high-signal company",
+        "Target role, but no explicit early-career signal",
+        "job-signal adjacency"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "recommended_action": "buffer_for_later"
+    },
+    {
+      "company": "Atticus",
+      "relationship_score": 5.6,
+      "company_url": "https://www.linkedin.com/jobs/view/4317462255",
+      "city": "",
+      "source": "linkedin_breadth:jobspy_only",
+      "signal_title": "Product Manager",
+      "reasons": [
+        "Target signal: product_intern",
+        "Relationship signal: high-signal company",
+        "Relationship signal: startup/funding body signal",
+        "Target role, but no explicit early-career signal",
+        "job-signal adjacency"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "recommended_action": "buffer_for_later"
+    },
+    {
+      "company": "Anthropic",
+      "relationship_score": 5.6,
+      "company_url": "https://www.linkedin.com/jobs/view/4322179993",
+      "city": "",
+      "source": "linkedin_breadth:jobspy_only",
+      "signal_title": "Product Manager, Claude Code",
+      "reasons": [
+        "Target signal: product_intern",
+        "Target signal: ai_product",
+        "Relationship signal: high-signal company",
+        "Relationship signal: startup/AI/domain title signal",
+        "Target role, but no explicit early-career signal",
+        "job-signal adjacency"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "recommended_action": "buffer_for_later"
+    },
+    {
+      "company": "Alma",
+      "relationship_score": 5.6,
+      "company_url": "https://www.linkedin.com/jobs/view/4418504321",
+      "city": "",
+      "source": "linkedin_breadth:jobspy_only",
+      "signal_title": "Product Manager",
+      "reasons": [
+        "Target signal: product_intern",
+        "Target signal: ai_product",
+        "Relationship signal: high-signal company",
+        "Target role, but no explicit early-career signal",
+        "job-signal adjacency"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "recommended_action": "buffer_for_later"
+    },
+    {
+      "company": "Checkr",
+      "relationship_score": 5.4,
+      "company_url": "https://www.ycombinator.com/companies/checkr",
+      "city": "San Francisco",
+      "source": "startup_org:yc_sf_bay_hiring",
+      "signal_title": "",
+      "reasons": [
+        "YC-backed/source-quality signal",
+        "active hiring/jobs signal",
+        "target geography signal",
+        "domain fit signal",
+        "mid-size startup access",
+        "larger startup but still reachable",
+        "older YC batch"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "recommended_action": "buffer_for_later"
+    },
+    {
+      "company": "Magnite",
+      "relationship_score": 5.3,
+      "company_url": "https://www.builtinla.com/company/magnite",
+      "city": "Los Angeles",
+      "source": "startup_org:builtin_la_companies",
+      "signal_title": "",
+      "reasons": [
+        "active hiring/jobs signal",
+        "target geography signal",
+        "domain fit signal",
+        "mid-size startup access",
+        "domain/profile fit",
+        "larger startup but still reachable",
+        "less founder-led relationship fit"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "recommended_action": "buffer_for_later"
+    }
+  ],
+  "follow_up": [
+    {
+      "company": "Mount",
+      "relationship_score": 10.0,
+      "company_url": "https://www.ycombinator.com/companies/mount",
+      "city": "San Francisco",
+      "source": "startup_org:yc_sf_bay_hiring",
+      "signal_title": "",
+      "reasons": [
+        "YC-backed/source-quality signal",
+        "active hiring/jobs signal",
+        "target geography signal",
+        "domain fit signal",
+        "small-team founder/operator access",
+        "domain/profile fit",
+        "very small-team access",
+        "recent YC batch"
+      ],
+      "existing_contacts": 15,
+      "existing_linkedin_contacts": 13,
+      "existing_touchpoints": 13,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "recommended_action": "follow_up_or_skip_recent"
+    },
+    {
+      "company": "Doodle Labs",
+      "relationship_score": 7.8,
+      "company_url": "https://www.builtinla.com/company/doodle-labs",
+      "city": "Los Angeles",
+      "source": "startup_org:builtin_la_companies",
+      "signal_title": "",
+      "reasons": [
+        "active hiring/jobs signal",
+        "target geography signal",
+        "domain fit signal",
+        "small-team founder/operator access",
+        "domain/profile fit",
+        "very small-team access"
+      ],
+      "existing_contacts": 12,
+      "existing_linkedin_contacts": 12,
+      "existing_touchpoints": 24,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "recommended_action": "follow_up_or_skip_recent"
+    }
+  ],
+  "skipped_internal": [
+    {
+      "company": "TikTok",
+      "role_title": "AI Product Manager Intern (TikTok-Product-Social and Creation)- 2026 Summer (BS/MS)",
+      "url": "https://www.linkedin.com/jobs/view/4287588499/",
+      "source": "linkedin_breadth:overlap",
+      "reasons": [
+        "blocklisted_company"
+      ],
+      "skip_reason": "blocklisted_company"
+    },
+    {
+      "company": "TikTok",
+      "role_title": "Product Manager Project Intern (Brand Innovation - Monetization Product) 2026 Start (BS/ MS)",
+      "url": "https://www.linkedin.com/jobs/view/4408946826/",
+      "source": "linkedin_breadth:overlap",
+      "reasons": [
+        "blocklisted_company"
+      ],
+      "skip_reason": "blocklisted_company"
+    },
+    {
+      "company": "TikTok",
+      "role_title": "Global Sports Strategy and Operations Project Intern (TikTok-Operations-Sports Creators and Athletes) - 2026 Start (MBA)",
+      "url": "https://www.linkedin.com/jobs/view/4408949860/",
+      "source": "linkedin_breadth:overlap",
+      "reasons": [
+        "blocklisted_company"
+      ],
+      "skip_reason": "blocklisted_company"
+    },
+    {
+      "company": "TikTok",
+      "role_title": "Product Manager Intern (Measurement Product) - 2026 Start (PhD)",
+      "url": "https://www.linkedin.com/jobs/view/4369307668/",
+      "source": "linkedin_breadth:playwright_only",
+      "reasons": [
+        "blocklisted_company"
+      ],
+      "skip_reason": "blocklisted_company"
+    },
+    {
+      "company": "8am",
+      "role_title": "Business Operations Intern",
+      "url": "https://www.linkedin.com/jobs/view/4400011939/",
+      "source": "linkedin_breadth:playwright_only",
+      "reasons": [
+        "review_cache_decision=deprioritize",
+        "Target signal: strategy_ops",
+        "Early-career/intern/MBA signal in title"
+      ],
+      "skip_reason": "review_cache_terminal_decision",
+      "cached_fit_score": "5.2"
+    },
+    {
+      "company": "Vertex Pharmaceuticals",
+      "role_title": "Vertex Fall Co-op 2026, Strategic Operations, Innovation & Change Management",
+      "url": "https://www.linkedin.com/jobs/view/4414727469/",
+      "source": "linkedin_breadth:playwright_only",
+      "reasons": [
+        "review_cache_decision=reject",
+        "Target signal: strategy_ops",
+        "Early-career/intern/MBA signal in title"
+      ],
+      "skip_reason": "review_cache_terminal_decision",
+      "cached_fit_score": ""
+    },
+    {
+      "company": "DevRabbit IT Solutions",
+      "role_title": "Strategic Partnerships Intern",
+      "url": "https://www.linkedin.com/jobs/view/4418265691/",
+      "source": "linkedin_breadth:playwright_only",
+      "reasons": [
+        "review_cache_decision=deprioritize",
+        "Target signal: strategy_ops",
+        "Early-career/intern/MBA signal in title"
+      ],
+      "skip_reason": "review_cache_terminal_decision",
+      "cached_fit_score": "4.2"
+    },
+    {
+      "company": "Katsby",
+      "role_title": "Business Development & Market Strategy Intern",
+      "url": "https://www.linkedin.com/jobs/view/4418558900/",
+      "source": "linkedin_breadth:playwright_only",
+      "reasons": [
+        "review_cache_decision=deprioritize",
+        "Target signal: strategy_ops",
+        "Early-career/intern/MBA signal in title",
+        "Relationship signal: startup/funding body signal"
+      ],
+      "skip_reason": "review_cache_terminal_decision",
+      "cached_fit_score": "4.8"
+    },
+    {
+      "company": "UMB Bank",
+      "role_title": "Data Product Management Intern",
+      "url": "https://www.linkedin.com/jobs/view/4419427976/",
+      "source": "linkedin_breadth:playwright_only",
+      "reasons": [
+        "review_cache_decision=reject",
+        "Target signal: product_intern",
+        "Target signal: ai_product",
+        "Early-career/intern/MBA signal in title"
+      ],
+      "skip_reason": "review_cache_terminal_decision",
+      "cached_fit_score": ""
+    },
+    {
+      "company": "BENCHMADE",
+      "role_title": "Global Value Chain Strategy Analyst - Intern",
+      "url": "https://www.linkedin.com/jobs/view/4419515186/",
+      "source": "linkedin_breadth:playwright_only",
+      "reasons": [
+        "review_cache_decision=deprioritize",
+        "Target signal: strategy_ops",
+        "Early-career/intern/MBA signal in title"
+      ],
+      "skip_reason": "review_cache_terminal_decision",
+      "cached_fit_score": "4.8"
+    },
+    {
+      "company": "Boston Medical Center (BMC)",
+      "role_title": "Strategy Intern",
+      "url": "https://www.linkedin.com/jobs/view/4419528496/",
+      "source": "linkedin_breadth:playwright_only",
+      "reasons": [
+        "review_cache_decision=deprioritize",
+        "Target signal: strategy_ops",
+        "Early-career/intern/MBA signal in title"
+      ],
+      "skip_reason": "review_cache_terminal_decision",
+      "cached_fit_score": "4.6"
+    },
+    {
+      "company": "TikTok",
+      "role_title": "Special Project Strategist Intern (TikTok Shop - Operations) - 2026 Summer (BS/ MS)",
+      "url": "https://www.linkedin.com/jobs/view/4369877294",
+      "source": "linkedin_breadth:jobspy_only",
+      "reasons": [
+        "blocklisted_company"
+      ],
+      "skip_reason": "blocklisted_company"
+    },
+    {
+      "company": "Senior plc",
+      "role_title": "Program Manager Intern",
+      "url": "https://builtin.com/job/program-manager-intern/9220687",
+      "source": "startup_apply:builtin_la_job_lists",
+      "reasons": [
+        "existing_terminal_status=skipped"
+      ],
+      "existing_job_id": "1827",
+      "existing_status": "skipped",
+      "existing_fit_score": "4.5"
+    },
+    {
+      "company": "Shield AI",
+      "role_title": "2026 Summer Intern - Strategy & Operations (R5065)",
+      "url": "https://jobs.lever.co/shieldai/1721f9b3-b098-4988-bbb6-2d0382936be5?lever-source%5B%5D=jobs.a16z.com",
+      "source": "startup_apply:a16z_job_board",
+      "reasons": [
+        "existing_terminal_status=skipped"
+      ],
+      "existing_job_id": "1828",
+      "existing_status": "skipped",
+      "existing_fit_score": "8.2"
+    },
+    {
+      "company": "Wells Fargo",
+      "relationship_score": 2.4,
+      "company_url": "https://www.builtinsf.com/company/wells-fargo",
+      "city": "San Francisco",
+      "source": "startup_org:builtin_sf_companies",
+      "signal_title": "",
+      "reasons": [
+        "active hiring/jobs signal",
+        "target geography signal",
+        "domain fit signal",
+        "domain/profile fit",
+        "enterprise-size penalty",
+        "less founder-led relationship fit"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "skip_reason": "low_relationship_fit"
+    },
+    {
+      "company": "Toast",
+      "relationship_score": 2.4,
+      "company_url": "https://www.builtinsf.com/company/toast",
+      "city": "San Francisco",
+      "source": "startup_org:builtin_sf_companies",
+      "signal_title": "",
+      "reasons": [
+        "active hiring/jobs signal",
+        "target geography signal",
+        "domain fit signal",
+        "domain/profile fit",
+        "enterprise-size penalty",
+        "less founder-led relationship fit"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "skip_reason": "low_relationship_fit"
+    },
+    {
+      "company": "Taboola",
+      "relationship_score": 2.4,
+      "company_url": "https://www.builtinla.com/company/taboola",
+      "city": "Los Angeles",
+      "source": "startup_org:builtin_la_companies",
+      "signal_title": "",
+      "reasons": [
+        "active hiring/jobs signal",
+        "target geography signal",
+        "domain fit signal",
+        "domain/profile fit",
+        "enterprise-size penalty",
+        "less founder-led relationship fit"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "skip_reason": "low_relationship_fit"
+    },
+    {
+      "company": "Square",
+      "relationship_score": 2.4,
+      "company_url": "https://www.builtinla.com/company/square",
+      "city": "Los Angeles",
+      "source": "startup_org:builtin_la_companies",
+      "signal_title": "",
+      "reasons": [
+        "active hiring/jobs signal",
+        "target geography signal",
+        "domain fit signal",
+        "domain/profile fit",
+        "enterprise-size penalty",
+        "less founder-led relationship fit"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "skip_reason": "low_relationship_fit"
+    },
+    {
+      "company": "SoFi",
+      "relationship_score": 2.4,
+      "company_url": "https://www.builtinsf.com/company/sofi",
+      "city": "San Francisco",
+      "source": "startup_org:builtin_sf_companies",
+      "signal_title": "",
+      "reasons": [
+        "active hiring/jobs signal",
+        "target geography signal",
+        "domain fit signal",
+        "domain/profile fit",
+        "enterprise-size penalty",
+        "less founder-led relationship fit"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "skip_reason": "low_relationship_fit"
+    },
+    {
+      "company": "Motive",
+      "relationship_score": 3.6,
+      "company_url": "https://www.builtinsf.com/company/motive",
+      "city": "San Francisco",
+      "source": "startup_org:builtin_sf_companies",
+      "signal_title": "",
+      "reasons": [
+        "active hiring/jobs signal",
+        "target geography signal",
+        "domain fit signal",
+        "domain/profile fit",
+        "enterprise-size penalty"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "skip_reason": "low_relationship_fit"
+    },
+    {
+      "company": "LogicMonitor",
+      "relationship_score": 3.6,
+      "company_url": "https://www.builtinsf.com/company/logicmonitor",
+      "city": "San Francisco",
+      "source": "startup_org:builtin_sf_companies",
+      "signal_title": "",
+      "reasons": [
+        "active hiring/jobs signal",
+        "target geography signal",
+        "domain fit signal",
+        "domain/profile fit",
+        "enterprise-size penalty"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "skip_reason": "low_relationship_fit"
+    },
+    {
+      "company": "Gusto",
+      "relationship_score": 3.6,
+      "company_url": "https://www.builtinsf.com/company/gusto",
+      "city": "San Francisco",
+      "source": "startup_org:builtin_sf_companies",
+      "signal_title": "",
+      "reasons": [
+        "active hiring/jobs signal",
+        "target geography signal",
+        "domain fit signal",
+        "domain/profile fit",
+        "enterprise-size penalty"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "skip_reason": "low_relationship_fit"
+    },
+    {
+      "company": "Genius Sports",
+      "relationship_score": 3.6,
+      "company_url": "https://www.builtinla.com/company/genius-sports",
+      "city": "Los Angeles",
+      "source": "startup_org:builtin_la_companies",
+      "signal_title": "",
+      "reasons": [
+        "active hiring/jobs signal",
+        "target geography signal",
+        "domain fit signal",
+        "domain/profile fit",
+        "enterprise-size penalty"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "skip_reason": "low_relationship_fit"
+    },
+    {
+      "company": "Cloudflare",
+      "relationship_score": 3.6,
+      "company_url": "https://www.builtinsf.com/company/cloudflare",
+      "city": "San Francisco",
+      "source": "startup_org:builtin_sf_companies",
+      "signal_title": "",
+      "reasons": [
+        "active hiring/jobs signal",
+        "target geography signal",
+        "domain fit signal",
+        "domain/profile fit",
+        "enterprise-size penalty"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "skip_reason": "low_relationship_fit"
+    },
+    {
+      "company": "Cloudflare",
+      "relationship_score": 3.6,
+      "company_url": "https://www.builtinla.com/company/cloudflare",
+      "city": "Los Angeles",
+      "source": "startup_org:builtin_la_companies",
+      "signal_title": "",
+      "reasons": [
+        "active hiring/jobs signal",
+        "target geography signal",
+        "domain fit signal",
+        "domain/profile fit",
+        "enterprise-size penalty"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "skip_reason": "low_relationship_fit"
+    },
+    {
+      "company": "Chime",
+      "relationship_score": 3.6,
+      "company_url": "https://www.builtinsf.com/company/chime",
+      "city": "San Francisco",
+      "source": "startup_org:builtin_sf_companies",
+      "signal_title": "",
+      "reasons": [
+        "active hiring/jobs signal",
+        "target geography signal",
+        "domain fit signal",
+        "domain/profile fit",
+        "enterprise-size penalty"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "skip_reason": "low_relationship_fit"
+    },
+    {
+      "company": "Cash App",
+      "relationship_score": 3.6,
+      "company_url": "https://www.builtinla.com/company/cash-app",
+      "city": "Los Angeles",
+      "source": "startup_org:builtin_la_companies",
+      "signal_title": "",
+      "reasons": [
+        "active hiring/jobs signal",
+        "target geography signal",
+        "domain fit signal",
+        "domain/profile fit",
+        "enterprise-size penalty"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "skip_reason": "low_relationship_fit"
+    },
+    {
+      "company": "Block",
+      "relationship_score": 3.6,
+      "company_url": "https://www.builtinla.com/company/block-inc",
+      "city": "Los Angeles",
+      "source": "startup_org:builtin_la_companies",
+      "signal_title": "",
+      "reasons": [
+        "active hiring/jobs signal",
+        "target geography signal",
+        "domain fit signal",
+        "domain/profile fit",
+        "enterprise-size penalty"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "skip_reason": "low_relationship_fit"
+    },
+    {
+      "company": "BAE Systems, Inc.",
+      "relationship_score": 3.6,
+      "company_url": "https://www.builtinla.com/company/bae-systems",
+      "city": "Los Angeles",
+      "source": "startup_org:builtin_la_companies",
+      "signal_title": "",
+      "reasons": [
+        "active hiring/jobs signal",
+        "target geography signal",
+        "domain fit signal",
+        "domain/profile fit",
+        "enterprise-size penalty"
+      ],
+      "existing_contacts": 0,
+      "existing_linkedin_contacts": 0,
+      "existing_touchpoints": 0,
+      "recommended_people_to_find": 15,
+      "recommended_channel": "linkedin_first_email_second",
+      "skip_reason": "low_relationship_fit"
+    }
+  ],
+  "suggested_commands": [
+    "./discovery/scripts/run_linkedin_discovery.sh 24h",
+    "venv/bin/python discovery/auto/startup_apply_pipeline.py",
+    "python jobs.py --no-color generate --queue --parallel 3",
+    "cd ../Outreach && ./.venv/bin/python main.py import-resume-jobs --jobs-xlsx \"../ResumeGenerator v1/discovery/jobs.xlsx\"",
+    "cd ../Outreach && ./.venv/bin/python main.py build-linkedin-company-queue --limit 8",
+    "cd ../Outreach && ./.venv/bin/python main.py run --company \"Tasklet\" --company-mode startup",
+    "cd ../Outreach && ./.venv/bin/python main.py run --company \"Intelligence Factory\" --company-mode startup",
+    "cd ../Outreach && ./.venv/bin/python main.py run --company \"Hedge\" --company-mode startup"
+  ]
+}
