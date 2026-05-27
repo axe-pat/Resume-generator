@@ -729,16 +729,17 @@ def _scroll_results_list(page: Page) -> int:
         'ul[class*="semantic-search-results-list"]',
         '.jobs-search-results-list',
         '.scaffold-layout__list ul',
+        '[componentkey^="job-card-component-ref-"]',
       ];
       const container =
         selectors.map(sel => document.querySelector(sel)).find(Boolean) ||
         document.querySelector('ul:has([data-job-id])');
       if (!container) {
         window.scrollBy(0, 2200);
-        return document.querySelectorAll('[data-job-id]').length;
+        return document.querySelectorAll('[data-job-id], [componentkey^="job-card-component-ref-"]').length;
       }
       container.scrollTop = container.scrollHeight;
-      return document.querySelectorAll('[data-job-id]').length;
+      return document.querySelectorAll('[data-job-id], [componentkey^="job-card-component-ref-"]').length;
     }
     """
     try:
@@ -1426,6 +1427,7 @@ def _wait_for_search_results_hydration(page: Page) -> None:
     """
     for selector in (
         "[data-job-id]",
+        "[componentkey^='job-card-component-ref-']",
         "a[href*='/jobs/view/']",
         "ul.jobs-search-results__list",
         "ul.semantic-search-results-list",
@@ -1504,10 +1506,40 @@ def _extract_visible_cards(page: Page) -> list[dict]:
           !/(ago|applicant|applicants|clicked apply|viewed|easy apply|promoted|response|benefit|school alum|company alumni|connections? work here)/i.test(text)
         ) || '';
         const listedAt = metaTexts.find(text =>
-          /(ago|today|yesterday|viewed|reposted|within the past)/i.test(text)
+          /(\bago\b|\btoday\b|\byesterday\b|\bviewed\b|\breposted\b|within the past)/i.test(text)
         ) || '';
         const title = titleNode ? titleNode.textContent : '';
         const company = companyNode ? companyNode.textContent : '';
+        pushCard(url, title, company, location, listedAt);
+      }
+      if (cards.length) return cards;
+
+      const semanticCardNodes = Array.from(
+        document.querySelectorAll('[componentkey^="job-card-component-ref-"]')
+      );
+      for (const node of semanticCardNodes) {
+        const key = node.getAttribute('componentkey') || '';
+        const m = key.match(/job-card-component-ref-(\\d+)/);
+        if (!m) continue;
+        const url = `https://www.linkedin.com/jobs/view/${m[1]}/`;
+        const lines = (node.innerText || node.textContent || '')
+          .split(/\\r?\\n/)
+          .map(normalize)
+          .filter(Boolean)
+          .filter(text => text !== '·');
+        let titleIdx = 0;
+        let title = lines[0] || '';
+        const firstTitle = (lines[0] || '').replace(/\\s+\\(Verified job\\)$/i, '');
+        if (firstTitle && lines[1] && firstTitle === lines[1]) {
+          titleIdx = 1;
+          title = lines[1];
+        }
+        title = title.replace(/\\s+\\(Verified job\\)$/i, '');
+        const company = lines[titleIdx + 1] || '';
+        const location = lines[titleIdx + 2] || '';
+        const listedAt = lines.find(text =>
+          /(\bposted\b|\bago\b|\btoday\b|\byesterday\b|\breposted\b|within the past)/i.test(text)
+        ) || '';
         pushCard(url, title, company, location, listedAt);
       }
       if (cards.length) return cards;
@@ -1543,7 +1575,7 @@ def _extract_visible_cards(page: Page) -> list[dict]:
           text.length < 80
         ) || '';
         const listedAt = metas.find(text =>
-          /(ago|today|yesterday|reposted|within the past)/i.test(text)
+          /(\bago\b|\btoday\b|\byesterday\b|\breposted\b|within the past)/i.test(text)
         ) || '';
         pushCard(url, title, company, location, listedAt);
       }
@@ -1593,6 +1625,41 @@ def _company_from_list_or_detail(list_company: str, detail_company: str) -> str:
     if d and (not s or s.lower() == "unknown"):
         return d
     return s or d or ""
+
+
+def _company_from_insight(insight_text: str, title: str) -> str:
+    """
+    LinkedIn's search-results detail pane still exposes a reliable top-card line
+    even when company-specific nodes disappear:
+      "{Company} {Title} {Location} · {posted} ..."
+    """
+    insight = re.sub(r"\s+", " ", (insight_text or "").strip())
+    clean_title = re.sub(r"\s+", " ", (title or "").strip())
+    if not insight or not clean_title:
+        return ""
+
+    idx = insight.lower().find(clean_title.lower())
+    if idx <= 0:
+        return ""
+
+    company = insight[:idx].strip(" -–—|·")
+    if not company or len(company) > 90:
+        return ""
+    if re.search(
+        r"\b(apply|save|promoted|applicant|clicked|response|reposted|viewed|easy apply)\b",
+        company,
+        flags=re.I,
+    ):
+        return ""
+    return company
+
+
+def _best_company(list_company: str, detail_company: str, insight_text: str, title: str) -> str:
+    direct_company = _company_from_list_or_detail(list_company, detail_company)
+    if direct_company and direct_company.lower() != "unknown":
+        return direct_company
+    insight_company = _company_from_insight(insight_text, title)
+    return insight_company or direct_company
 
 
 def _open_job_details(page: Page, job_url: str, detail_page: Page | None = None) -> tuple[str, str, str]:
@@ -1724,7 +1791,7 @@ def _repair_scraped_cards(
         card.jd_text = jd_text
         if insight_text.strip():
             card.insight = insight_text.strip()
-        merged_co = _company_from_list_or_detail(card.company, detail_co)
+        merged_co = _best_company(card.company, detail_co, insight_text, card.title)
         if merged_co:
             card.company = merged_co
         repaired += 1
@@ -1879,7 +1946,12 @@ def scrape_search(
                                 jd_text, insight_text, detail_co = "", "", ""
 
                         seen_urls.add(job_url)
-                        merged_company = _company_from_list_or_detail(str(summary.get("company") or ""), detail_co)
+                        merged_company = _best_company(
+                            str(summary.get("company") or ""),
+                            detail_co,
+                            insight_text,
+                            _clean_title(summary["title"]),
+                        )
                         cards.append(
                             LinkedInJobCard(
                                 search_term=search_term,
@@ -1937,6 +2009,8 @@ def scrape_search(
                 # LinkedIn semantic pages can show "N results" but return an empty list
                 # for offset URLs like start=25 when N is small. Only advance offset when
                 # we have evidence there are still unseen rows.
+                if observed_ui_count is None:
+                    break
                 if observed_ui_count is not None and len(seen_urls) >= observed_ui_count:
                     break
                 if observed_ui_count is not None and start + page_size >= observed_ui_count:
@@ -1994,7 +2068,12 @@ def scrape_search(
                             jd_text, insight_text, detail_co = "", "", ""
 
                     seen_urls.add(job_url)
-                    merged_company = _company_from_list_or_detail(str(summary.get("company") or ""), detail_co)
+                    merged_company = _best_company(
+                        str(summary.get("company") or ""),
+                        detail_co,
+                        insight_text,
+                        _clean_title(summary["title"]),
+                    )
                     cards.append(
                         LinkedInJobCard(
                             search_term=search_term,

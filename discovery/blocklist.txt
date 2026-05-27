@@ -20,8 +20,9 @@
 TikTok
 Nvidia
 IBM
+ByteDance
 
-# ByteDance          # parent company, if you want to block all their brands
+# (TikTok is listed above; ByteDance blocks non-TikTok ByteDance postings.)
 # tik*               # catches TikTok, Tiktok Inc, etc.
 # *staffing*         # skip all staffing/recruiting agencies
 # *consulting*       # skip consulting firms
