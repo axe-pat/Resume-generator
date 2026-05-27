@@ -106,8 +106,8 @@ Output goes to `discovery/source_validation/` with:
 
 ### Daily source dashboard
 
-No-write dashboard that combines the latest LinkedIn/JobSpy breadth validation and
-startup source report into one daily application + relationship view.
+Internal no-write source-health dashboard that combines the latest LinkedIn/JobSpy
+breadth validation and startup source report before the central gates run.
 
 ```bash
 venv/bin/python discovery/scripts/build_daily_source_dashboard.py
@@ -120,6 +120,32 @@ venv/bin/python discovery/scripts/build_daily_source_dashboard.py \
   --source-breadth discovery/source_validation/20260527-142449-source-breadth-filtered.json \
   --startup-source-report discovery/source_validation/20260527-150343-startup-source-report.json
 ```
+
+### Daily action queue
+
+User-facing no-write queue that runs after the source-health layer. This is the
+thing to inspect before doing applications or relationship outreach.
+
+```bash
+venv/bin/python discovery/scripts/build_daily_action_queue.py
+```
+
+What it gates against:
+
+- `discovery/blocklist.txt` through the same blocklist helper used by `jobs.py`
+- existing rows in `discovery/jobs.xlsx`
+- the live queue at `apps/Apply queues/current_apply_queue/priority_order.json`
+- existing Outreach organizations, contacts, and touchpoints
+
+Output goes to `discovery/source_validation/*-daily-action-queue.{json,md}` with:
+
+- `score_for_application`: net-new application candidates worth sending through the scorer
+- `application_plus_outreach`: active application targets that also need contact work
+- `application_only`: active application targets that already have enough relationship coverage
+- `outreach_only_today`: the rationed relationship batch for today
+- `relationship_buffer`: valid relationship targets held for later days
+- `follow_up`: companies with existing touchpoints
+- `skipped_internal`: blocklisted, duplicate, terminal, or low-fit records
 
 ### Screenshot scoring (LinkedIn PDF screenshots)
 

@@ -116,8 +116,35 @@ venv/bin/python discovery/scripts/build_daily_source_dashboard.py
 Purpose:
 
 - Combines the latest LinkedIn/JobSpy source breadth validation with the latest startup source report.
-- Shows one no-write dashboard for `app_score_now`, `app_review`, relationship targets, and skipped noise.
+- Shows an internal no-write source-health dashboard for `app_score_now`, `app_review`, relationship targets, and skipped noise.
+- Runs before blocklist, `jobs.xlsx`, live apply queue, and Outreach-history gates, so it is not the operator-facing queue.
 - Keeps execution separate: ResumeGenerator still owns resume/cover-letter generation, Outreach still owns contact enrichment and messaging.
+
+### Daily Action Queue
+
+Command:
+
+```bash
+venv/bin/python discovery/scripts/build_daily_action_queue.py
+```
+
+Purpose:
+
+- Builds the operator-facing daily queue after central gates.
+- Reuses `jobs.py` blocklist behavior instead of copying a second blocklist implementation.
+- Cross-pollinates active application targets into Outreach via `application_plus_outreach`.
+- Rations relationship-only work into `outreach_only_today` and keeps the rest in `relationship_buffer`.
+- Penalizes enterprise-sized Built In results and separately scores JobSpy-only role signals as relationship targets.
+
+Outputs:
+
+- `score_for_application`: score these through the ResumeGenerator application lane.
+- `application_plus_outreach`: generate/apply normally, but also run Outreach for the company.
+- `application_only`: application execution is enough for now.
+- `outreach_only_today`: run the LinkedIn company/contact pipeline today.
+- `relationship_buffer`: keep valid targets for later batches.
+- `follow_up`: existing-touchpoint companies.
+- `skipped_internal`: blocklisted, terminal, duplicate, or low-fit internal rows.
 
 ### Outreach Organization Discovery Lane
 
