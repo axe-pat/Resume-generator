@@ -16,6 +16,7 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE_VALIDATION_DIR = ROOT / "discovery" / "source_validation"
+LOGS_DIR = ROOT / "discovery" / "auto" / "logs"
 JOBS_XLSX = ROOT / "discovery" / "jobs.xlsx"
 CURRENT_APPLY_QUEUE_JSON = ROOT / "apps" / "Apply queues" / "current_apply_queue" / "priority_order.json"
 OUTREACH_WORKSPACE = ROOT.parent / "Outreach" / "workspace"
@@ -92,6 +93,13 @@ def _parse_int(value: Any) -> int | None:
         return None
 
 
+def _parse_float(value: Any) -> float | None:
+    try:
+        return float(str(value).strip())
+    except (TypeError, ValueError):
+        return None
+
+
 def _parse_batch_year(value: Any) -> int | None:
     match = re.search(r"(20\d{2})", str(value or ""))
     return int(match.group(1)) if match else None
@@ -102,6 +110,25 @@ def _latest_daily_artifacts() -> tuple[Path, Path]:
         _latest_file("*source-breadth-filtered.json", SOURCE_VALIDATION_DIR),
         _latest_file("*startup-source-report.json", SOURCE_VALIDATION_DIR),
     )
+
+
+def _latest_scored_artifacts() -> list[Path]:
+    artifacts: list[Path] = []
+    linkedin_matches = sorted(LOGS_DIR.glob("linkedin_live_scored_*.json"), key=lambda path: path.stat().st_mtime, reverse=True)
+    for path in linkedin_matches:
+        try:
+            payload = _load_json(path)
+        except Exception:
+            continue
+        raw_inputs = " ".join(str(item) for item in payload.get("source_raw_artifacts") or [])
+        if "linkedin_live_raw" in raw_inputs:
+            artifacts.append(path)
+            break
+
+    jobspy_matches = sorted(LOGS_DIR.glob("jobspy_filtered_scored_*.json"), key=lambda path: path.stat().st_mtime, reverse=True)
+    if jobspy_matches:
+        artifacts.append(jobspy_matches[0])
+    return artifacts
 
 
 def _load_jobs_state() -> tuple[dict[str, ExistingJobState], dict[str, ExistingJobState], dict[str, ExistingJobState]]:
@@ -504,6 +531,98 @@ def _bucket_current_apply_queue(
     return application_only, application_plus_outreach, skipped
 
 
+def _score_write_gate(job: dict[str, Any]) -> tuple[str, str]:
+    has_jd = bool(_clean(job.get("jd_text")))
+    decision = _norm(job.get("decision"))
+    company = _clean(job.get("company"))
+    if not has_jd:
+        return "dropped", "missing_jd"
+    if decision != "proceed":
+        return "dropped", decision or "not_proceed"
+    if not company or company.lower() == "unknown":
+        return "dropped", "company_missing"
+    return "accepted", "proceed"
+
+
+def _load_scored_application_sections(
+    *,
+    scored_artifact_paths: list[Path],
+    job_indexes: tuple[dict[str, ExistingJobState], ...],
+    blocklist: list[str],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], dict[str, Any]]:
+    scored_artifact_paths = [path for path in scored_artifact_paths if path and path.exists()]
+    if not scored_artifact_paths:
+        return [], [], {}
+
+    selected: list[dict[str, Any]] = []
+    not_selected: list[dict[str, Any]] = []
+    summaries: list[dict[str, Any]] = []
+    for scored_artifact_path in scored_artifact_paths:
+        payload = _load_json(scored_artifact_path)
+        for job in payload.get("jobs") or []:
+            company = _clean(job.get("company"))
+            role = _clean(job.get("role_title") or job.get("title"))
+            url = _clean(job.get("url"))
+            gate, gate_reason = _score_write_gate(job)
+            existing = _find_existing_job(job, job_indexes)
+            score = _parse_float(job.get("fit_score"))
+            reasons = [
+                f"decision={_clean(job.get('decision')) or 'unknown'}",
+                f"write_gate={gate}",
+            ]
+            if gate_reason and gate_reason != "proceed":
+                reasons.append(f"reason={gate_reason}")
+            if existing:
+                reasons.append(f"jobs_xlsx_status={existing.status}")
+            if _is_blocklisted(company, blocklist):
+                reasons.append("blocklisted_company")
+
+            row = _app_item(
+                company,
+                role,
+                url,
+                _clean(job.get("source")) or scored_artifact_path.stem,
+                reasons,
+                {
+                    "fit_score": "" if score is None else f"{score:.1f}",
+                    "decision": _clean(job.get("decision")),
+                    "category": _clean(job.get("category")),
+                    "write_gate": gate,
+                    "write_gate_reason": gate_reason,
+                    "post_score_status": existing.status if existing else _clean(job.get("status")),
+                    "scored_artifact": str(scored_artifact_path),
+                },
+            )
+            if gate == "accepted" and not _is_blocklisted(company, blocklist):
+                selected.append(row)
+            else:
+                not_selected.append(row)
+        summaries.append(
+            {
+                "path": str(scored_artifact_path),
+                "extracted": payload.get("extracted"),
+                "scored": payload.get("scored"),
+                "reviewed": payload.get("reviewed"),
+                "accepted_for_write": payload.get("accepted_for_write"),
+                "dropped_before_write": payload.get("dropped_before_write"),
+                "new_after_dedup": payload.get("new_after_dedup"),
+            }
+        )
+
+    selected.sort(key=lambda row: (_parse_float(row.get("fit_score")) or -1.0, _clean(row.get("company"))), reverse=True)
+    not_selected.sort(key=lambda row: (_parse_float(row.get("fit_score")) or -1.0, _clean(row.get("company"))), reverse=True)
+    summary = {
+        "artifacts": summaries,
+        "total_extracted": sum(int(item.get("extracted") or 0) for item in summaries),
+        "total_scored": sum(int(item.get("scored") or 0) for item in summaries),
+        "total_reviewed": sum(int(item.get("reviewed") or 0) for item in summaries),
+        "total_accepted_for_write": sum(int(item.get("accepted_for_write") or 0) for item in summaries),
+        "total_dropped_before_write": sum(int(item.get("dropped_before_write") or 0) for item in summaries),
+        "total_new_after_dedup": sum(int(item.get("new_after_dedup") or 0) for item in summaries),
+    }
+    return selected, not_selected, summary
+
+
 def _bucket_relationship_targets(
     *,
     relationship_targets: list[dict[str, Any]],
@@ -577,15 +696,7 @@ def _write_markdown(path: Path, payload: dict[str, Any]) -> None:
     for key, counts in payload.get("source_counts", {}).items():
         lines.append(f"- {key}: {counts}")
 
-    sections = [
-        ("Score For Application", "score_for_application"),
-        ("Application Plus Outreach", "application_plus_outreach"),
-        ("Application Only", "application_only"),
-        ("Outreach Only Today", "outreach_only_today"),
-        ("Follow Up", "follow_up"),
-        ("Relationship Buffer", "relationship_buffer"),
-        ("Skipped/Internal", "skipped_internal"),
-    ]
+    sections = _report_sections(payload)
     for title, key in sections:
         items = payload[key]
         lines.extend(["", f"## {title}", ""])
@@ -633,6 +744,9 @@ def _app_card(item: dict[str, Any]) -> str:
         _esc(item.get("source")),
         f"rank {item.get('queue_rank')}" if item.get("queue_rank") else "",
         f"fit {item.get('fit_score')}" if item.get("fit_score") else "",
+        f"decision {item.get('decision')}" if item.get("decision") else "",
+        f"gate {item.get('write_gate')}" if item.get("write_gate") else "",
+        f"status {item.get('post_score_status') or item.get('status')}" if item.get("post_score_status") or item.get("status") else "",
         f"contacts {item.get('outreach_contact_count')}" if item.get("outreach_contact_count") not in (None, "") else "",
         f"touches {item.get('outreach_touchpoint_count')}" if item.get("outreach_touchpoint_count") not in (None, "") else "",
     ]
@@ -675,6 +789,31 @@ def _render_items(payload: dict[str, Any], key: str) -> str:
     return "\n".join(renderer(item) for item in items)
 
 
+def _report_sections(payload: dict[str, Any]) -> list[tuple[str, str]]:
+    stage = _clean(payload.get("report_stage"))
+    if stage == "post_score":
+        return [
+            ("Scored Application Selected", "scored_application_selected"),
+            ("Application Plus Outreach", "application_plus_outreach"),
+            ("Application Only", "application_only"),
+            ("Outreach Only Today", "outreach_only_today"),
+            ("Unscored Coverage Candidates", "unscored_coverage_candidates"),
+            ("Scored Application Not Selected", "scored_application_not_selected"),
+            ("Follow Up", "follow_up"),
+            ("Relationship Buffer", "relationship_buffer"),
+            ("Skipped/Internal", "skipped_internal"),
+        ]
+    return [
+        ("Score For Application", "unscored_coverage_candidates"),
+        ("Application Plus Outreach", "application_plus_outreach"),
+        ("Application Only", "application_only"),
+        ("Outreach Only Today", "outreach_only_today"),
+        ("Follow Up", "follow_up"),
+        ("Relationship Buffer", "relationship_buffer"),
+        ("Skipped/Internal", "skipped_internal"),
+    ]
+
+
 def _source_mix(payload: dict[str, Any]) -> str:
     rows: list[str] = []
     for bucket, counts in (payload.get("source_counts") or {}).items():
@@ -688,15 +827,7 @@ def _source_mix(payload: dict[str, Any]) -> str:
 def _write_html(path: Path, payload: dict[str, Any]) -> None:
     report_title = _clean(payload.get("report_title")) or "Daily Action Queue"
     counts = payload.get("counts") or {}
-    sections = [
-        ("Score For Application", "score_for_application"),
-        ("Application Plus Outreach", "application_plus_outreach"),
-        ("Application Only", "application_only"),
-        ("Outreach Only Today", "outreach_only_today"),
-        ("Follow Up", "follow_up"),
-        ("Relationship Buffer", "relationship_buffer"),
-        ("Skipped/Internal", "skipped_internal"),
-    ]
+    sections = _report_sections(payload)
     count_cards = "\n".join(
         f'<div class="stat"><span>{_esc(value)}</span><small>{_esc(key.replace("_", " "))}</small></div>'
         for key, value in counts.items()
@@ -814,7 +945,9 @@ def _write_html(path: Path, payload: dict[str, Any]) -> None:
     }}
     .relationship-item {{ grid-template-columns: 72px minmax(0, 1fr) auto; border-left-color: var(--gold); }}
     #skipped_internal .item {{ border-left-color: var(--rose); }}
-    #score_for_application .item {{ border-left-color: var(--blue); }}
+    #unscored_coverage_candidates .item {{ border-left-color: var(--blue); }}
+    #scored_application_selected .item {{ border-left-color: var(--teal); }}
+    #scored_application_not_selected .item {{ border-left-color: var(--rose); }}
     .score {{
       font-size: 22px;
       font-weight: 800;
@@ -913,6 +1046,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--source-breadth", type=Path)
     parser.add_argument("--startup-source-report", type=Path)
     parser.add_argument("--current-apply-queue", type=Path, default=CURRENT_APPLY_QUEUE_JSON)
+    parser.add_argument(
+        "--scored-artifact",
+        type=Path,
+        action="append",
+        default=None,
+        help="Latest application scoring artifact to summarize in post-score reports.",
+    )
     parser.add_argument("--relationship-today", type=int, default=8)
     parser.add_argument("--relationship-max-per-source", type=int, default=4)
     parser.add_argument(
@@ -941,6 +1081,7 @@ def main() -> int:
     review_cache_indexes = _load_review_cache_state()
     outreach_by_company = _outreach_state()
     blocklist = resume_jobs._load_blocklist()
+    scored_artifact_paths = args.scored_artifact or _latest_scored_artifacts()
 
     source_score_for_application, source_app_plus_outreach, source_follow_up, source_skipped = _bucket_source_app_candidates(
         app_candidates=app_candidates,
@@ -963,6 +1104,11 @@ def main() -> int:
     )
 
     application_plus_outreach = _dedupe_app_items([*queue_app_plus_outreach, *source_app_plus_outreach])
+    scored_selected, scored_not_selected, scored_summary = _load_scored_application_sections(
+        scored_artifact_paths=scored_artifact_paths,
+        job_indexes=job_indexes,
+        blocklist=blocklist,
+    )
     follow_up = [*source_follow_up, *[item for item in relationship_not_now if item.get("recommended_action") == "follow_up_or_skip_recent"]]
     skipped_internal = [
         *source_skipped,
@@ -974,7 +1120,7 @@ def main() -> int:
     suggested_commands = [
         "./discovery/scripts/run_linkedin_discovery.sh 24h",
         "venv/bin/python discovery/auto/startup_apply_pipeline.py",
-        "python jobs.py --no-color generate --queue --parallel 3",
+        "venv/bin/python jobs.py --no-color generate --queue --parallel 3",
         "cd ../Outreach && ./.venv/bin/python main.py import-resume-jobs --jobs-xlsx \"../ResumeGenerator v1/discovery/jobs.xlsx\"",
         "cd ../Outreach && ./.venv/bin/python main.py build-linkedin-company-queue --limit 8",
     ]
@@ -996,13 +1142,16 @@ def main() -> int:
             "source_breadth": str(source_breadth_path),
             "startup_source_report": str(startup_report_path),
             "current_apply_queue": str(args.current_apply_queue),
+            "scored_artifacts": [str(path) for path in scored_artifact_paths],
             "outreach_workspace": str(OUTREACH_WORKSPACE),
             "relationship_today_limit": args.relationship_today,
             "relationship_max_per_source": args.relationship_max_per_source,
             "report_stage": args.report_stage,
         },
         "counts": {
-            "score_for_application": len(source_score_for_application),
+            "scored_application_selected": len(scored_selected) if stage == "post_score" else 0,
+            "unscored_coverage_candidates": len(source_score_for_application),
+            "scored_application_not_selected": len(scored_not_selected) if stage == "post_score" else 0,
             "application_plus_outreach": len(application_plus_outreach),
             "application_only": len(application_only),
             "outreach_only_today": len(outreach_today),
@@ -1011,11 +1160,17 @@ def main() -> int:
             "skipped_internal": len(skipped_internal),
         },
         "source_counts": {
-            "score_for_application": _source_label_counts(source_score_for_application),
+            "scored_application_selected": _source_label_counts(scored_selected) if stage == "post_score" else {},
+            "unscored_coverage_candidates": _source_label_counts(source_score_for_application),
+            "scored_application_not_selected": _source_label_counts(scored_not_selected) if stage == "post_score" else {},
             "application_plus_outreach": _source_label_counts(application_plus_outreach),
             "outreach_only_today": _source_label_counts(outreach_today),
             "relationship_buffer": _source_label_counts(relationship_buffer),
         },
+        "scored_artifact_summary": scored_summary,
+        "scored_application_selected": scored_selected if stage == "post_score" else [],
+        "scored_application_not_selected": scored_not_selected if stage == "post_score" else [],
+        "unscored_coverage_candidates": source_score_for_application,
         "score_for_application": source_score_for_application,
         "application_plus_outreach": application_plus_outreach,
         "application_only": application_only,

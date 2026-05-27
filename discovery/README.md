@@ -140,7 +140,9 @@ What it gates against:
 
 Output goes to `discovery/source_validation/*-daily-action-queue.{json,md,html}` with:
 
-- `score_for_application`: net-new application candidates worth sending through the scorer
+- `scored_application_selected`: scored roles accepted by the application write gate and still usable after blocklist/status checks
+- `scored_application_not_selected`: scored roles rejected, deprioritized, blocklisted, or otherwise dropped
+- `unscored_coverage_candidates`: filtered candidates still needing an application scoring lane
 - `application_plus_outreach`: active application targets that also need contact work
 - `application_only`: active application targets that already have enough relationship coverage
 - `outreach_only_today`: the rationed relationship batch for today
@@ -151,6 +153,43 @@ Output goes to `discovery/source_validation/*-daily-action-queue.{json,md,html}`
 Run it before scoring as a pre-score intake view. Run it again after the
 application scoring/write lanes refresh `current_apply_queue`; that second HTML
 is the final daily operating queue.
+
+### Filtered JobSpy scoring lane
+
+JobSpy is a breadth radar, not a direct write path. Fetch raw results, validate
+against the trusted LinkedIn raw artifact, then score only filtered survivors.
+
+```bash
+venv/bin/python discovery/scripts/fetch_jobspy_breadth.py --hours-old 24
+
+venv/bin/python discovery/scripts/validate_source_breadth.py \
+  --playwright-raw discovery/auto/logs/linkedin_live_raw_YYYY-MM-DD_HHMMSS.json \
+  --jobspy-raw discovery/auto/logs/jobspy_breadth_raw_24h_YYYY-MM-DD_HHMMSS.json
+
+venv/bin/python discovery/scripts/run_jobspy_scoring_lane.py \
+  --source-breadth discovery/source_validation/YYYYMMDD-HHMMSS-source-breadth-filtered.json \
+  --jobspy-raw discovery/auto/logs/jobspy_breadth_raw_24h_YYYY-MM-DD_HHMMSS.json
+```
+
+The scoring lane skips blocklisted companies before spending tokens and reuses
+the normal application scorer, write gate, `jobs.xlsx` dedupe, and `ReviewCache`.
+
+### Supervised daily engine
+
+The first unified wrapper deliberately keeps sends off unless explicitly enabled.
+
+```bash
+venv/bin/python discovery/scripts/run_daily_engine.py \
+  --window 24h \
+  --run-generation \
+  --prepare-outreach \
+  --app-outreach-limit 3 \
+  --relationship-outreach-limit 2
+```
+
+Use `--parallel-generation-outreach` to run resume/CL generation while Outreach
+builds LinkedIn artifacts. Shared writes still run serially; real sends require
+the explicit `--execute-sends` flag and stay separate from the parallel mode.
 
 ### Screenshot scoring (LinkedIn PDF screenshots)
 

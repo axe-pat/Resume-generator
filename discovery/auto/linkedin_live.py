@@ -1373,6 +1373,7 @@ def _render_report_html(
 def _write_batch_report(
     *,
     run_label: str,
+    artifact_prefix: str = "linkedin_live",
     searches: list[tuple[str, str]],
     search_runs: list[dict],
     scored_jobs: list[dict],
@@ -1385,7 +1386,7 @@ def _write_batch_report(
     cache_hits_count: int,
 ) -> tuple[Path, Path]:
     stamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
-    base = f"linkedin_live_report_{stamp}_{_slug(run_label)}"
+    base = f"{artifact_prefix}_report_{stamp}_{_slug(run_label)}"
     md_path = _ensure_logs_dir() / f"{base}.md"
     html_path = _ensure_logs_dir() / f"{base}.html"
     md = _render_report_markdown(
@@ -2294,6 +2295,7 @@ def _run_post_extract_pipeline(
     quiet: bool,
     max_workers: int,
     source_raw_artifacts: list[str] | None = None,
+    artifact_prefix: str = "linkedin_live",
 ) -> int:
     df_existing = load_jobs()
     jobs_unseen, existing_hits = _split_existing_jobs(jobs, df_existing)
@@ -2317,7 +2319,7 @@ def _run_post_extract_pipeline(
     cache_rows = _terminal_cache_rows(scored_new)
 
     score_artifact = _write_run_artifact(
-        "linkedin_live_scored",
+        f"{artifact_prefix}_scored",
         {
             "extracted": extracted_count,
             "scored": len(scored_new),
@@ -2342,6 +2344,7 @@ def _run_post_extract_pipeline(
 
     md_report, html_report = _write_batch_report(
         run_label=run_label,
+        artifact_prefix=artifact_prefix,
         searches=searches,
         search_runs=search_runs,
         scored_jobs=reviewed_jobs,

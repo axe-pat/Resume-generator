@@ -37,12 +37,24 @@ Why it stays:
 
 ### JobSpy Breadth Lane
 
-Current validation command:
+Raw fetch and validation commands:
+
+```bash
+venv/bin/python discovery/scripts/fetch_jobspy_breadth.py --hours-old 24
+```
 
 ```bash
 venv/bin/python discovery/scripts/validate_source_breadth.py \
   --playwright-raw discovery/auto/logs/linkedin_live_raw_YYYY-MM-DD_HHMMSS.json \
-  --jobspy-raw discovery/auto/logs/jobspy_linkedin_equiv_raw_24h_YYYY-MM-DD_HHMMSS.json
+  --jobspy-raw discovery/auto/logs/jobspy_breadth_raw_24h_YYYY-MM-DD_HHMMSS.json
+```
+
+Filtered scoring command:
+
+```bash
+venv/bin/python discovery/scripts/run_jobspy_scoring_lane.py \
+  --source-breadth discovery/source_validation/YYYYMMDD-HHMMSS-source-breadth-filtered.json \
+  --jobspy-raw discovery/auto/logs/jobspy_breadth_raw_24h_YYYY-MM-DD_HHMMSS.json
 ```
 
 Purpose:
@@ -73,6 +85,13 @@ Interpretation:
 - `app_score_now` is intentionally high precision: the title itself must carry both a target-role signal and an early-career signal.
 - `app_review` is for early-career or internship-ish roles that need cheap/manual triage before normal scoring.
 - `outreach_signal` is for full-time/non-internship roles at high-signal companies or domains that may be valuable for relationship building, not immediate application scoring.
+
+Scoring-lane check on 2026-05-27:
+
+- Blocklist preflight skipped the TikTok survivor before any Claude call.
+- Jobright.ai was the only non-blocklisted JobSpy-only `app_score_now` survivor.
+- The normal application scorer rejected Jobright.ai as a full-time/level mismatch, wrote no app row, and added the terminal decision to `ReviewCache`.
+- Net result: JobSpy added useful validation coverage but no new application package in that 24h sample.
 
 ### Startup Apply Lane
 
@@ -138,7 +157,9 @@ Purpose:
 
 Outputs:
 
-- `score_for_application`: score these through the ResumeGenerator application lane.
+- `scored_application_selected`: scored roles accepted by the application write gate and still usable after blocklist/status checks.
+- `scored_application_not_selected`: scored roles rejected, deprioritized, blocklisted, or otherwise dropped.
+- `unscored_coverage_candidates`: filtered candidates still needing an application scoring lane.
 - `application_plus_outreach`: generate/apply normally, but also run Outreach for the company.
 - `application_only`: application execution is enough for now.
 - `outreach_only_today`: run the LinkedIn company/contact pipeline today.
@@ -190,6 +211,27 @@ Execution
   ResumeGenerator: resumes, cover letters, apply queue
   Outreach: contacts, messages, touchpoints, follow-ups
 ```
+
+## Supervised Orchestrator
+
+Command:
+
+```bash
+venv/bin/python discovery/scripts/run_daily_engine.py \
+  --window 24h \
+  --run-generation \
+  --prepare-outreach \
+  --app-outreach-limit 3 \
+  --relationship-outreach-limit 2
+```
+
+Behavior:
+
+- Runs the trusted LinkedIn lane, filtered JobSpy lane, startup apply lane, relationship source discovery, startup source report, and final daily action queue.
+- Reads the final post-score action queue JSON to pick application-plus-outreach and outreach-only companies.
+- Keeps `jobs.xlsx`, queue refreshes, and Outreach workbook writes serial.
+- Allows `--parallel-generation-outreach` so resume/CL generation can run while Outreach builds LinkedIn artifacts.
+- Does not send invites unless `--execute-sends` is explicitly passed.
 
 ## Startup Signal Ranking
 
