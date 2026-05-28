@@ -191,6 +191,28 @@ Use `--parallel-generation-outreach` to run resume/CL generation while Outreach
 builds LinkedIn artifacts. Shared writes still run serially; real sends require
 the explicit `--execute-sends` flag and stay separate from the parallel mode.
 
+For an unattended real-send run, keep `--parallel-generation-outreach` off and
+use the global send target. The default target is 25 sends; the engine keeps
+moving through application-plus-outreach, relationship-today, and relationship
+buffer companies until it hits that target or runs out of safe candidates.
+
+```bash
+venv/bin/python discovery/scripts/run_daily_engine.py \
+  --window 24h \
+  --run-generation \
+  --prepare-outreach \
+  --execute-sends
+```
+
+Useful controls:
+
+```bash
+--target-sends 25
+--per-company-send-limit 15
+--max-outreach-companies 24
+--send-min-score 20
+```
+
 ### Screenshot scoring (LinkedIn PDF screenshots)
 
 **Run from your Mac terminal, not the Cowork VM** — the VM has SSL issues that break the Anthropic API.

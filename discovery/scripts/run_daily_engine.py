@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import argparse
+from datetime import datetime
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -22,6 +24,24 @@ RELATIONSHIP_SOURCES = (
     "builtin_sf_companies",
 )
 
+COMMON_COMPANY_TOKENS = {
+    "ai",
+    "and",
+    "co",
+    "company",
+    "corp",
+    "corporation",
+    "defense",
+    "group",
+    "inc",
+    "industries",
+    "labs",
+    "systems",
+    "technologies",
+    "technology",
+    "the",
+}
+
 
 def _cmd_text(cmd: Iterable[object]) -> str:
     return " ".join(str(part) for part in cmd)
@@ -30,6 +50,18 @@ def _cmd_text(cmd: Iterable[object]) -> str:
 def run(cmd: list[object], *, cwd: Path = ROOT, check: bool = True) -> subprocess.CompletedProcess:
     print(f"\n$ {_cmd_text(cmd)}")
     return subprocess.run([str(part) for part in cmd], cwd=cwd, check=check)
+
+
+def run_capture(cmd: list[object], *, cwd: Path = ROOT, check: bool = True) -> subprocess.CompletedProcess:
+    print(f"\n$ {_cmd_text(cmd)}")
+    result = subprocess.run([str(part) for part in cmd], cwd=cwd, check=False, text=True, capture_output=True)
+    if result.stdout:
+        print(result.stdout, end="")
+    if result.stderr:
+        print(result.stderr, end="", file=sys.stderr)
+    if check and result.returncode != 0:
+        raise subprocess.CalledProcessError(result.returncode, result.args, result.stdout, result.stderr)
+    return result
 
 
 def start(cmd: list[object], *, cwd: Path = ROOT) -> subprocess.Popen:
@@ -66,6 +98,22 @@ def build_action_queue(args: argparse.Namespace) -> Path:
     return latest("*daily-action-queue.json", SOURCE_VALIDATION_DIR)
 
 
+def _company_key(company: str) -> str:
+    return " ".join(company.lower().split())
+
+
+def _append_company(companies: list[str], seen: set[str], company: str) -> bool:
+    company = company.strip()
+    if not company:
+        return False
+    key = _company_key(company)
+    if key in seen:
+        return False
+    companies.append(company)
+    seen.add(key)
+    return True
+
+
 def selected_outreach_companies(action_queue_path: Path, *, app_limit: int, relationship_limit: int) -> list[str]:
     payload = json.loads(action_queue_path.read_text(encoding="utf-8"))
     companies: list[str] = []
@@ -73,25 +121,204 @@ def selected_outreach_companies(action_queue_path: Path, *, app_limit: int, rela
 
     for item in payload.get("application_plus_outreach") or []:
         company = str(item.get("company") or "").strip()
-        if company and company.lower() not in seen:
-            companies.append(company)
-            seen.add(company.lower())
+        _append_company(companies, seen, company)
         if len(companies) >= app_limit:
             break
 
     relationship_added = 0
     for item in payload.get("outreach_only_today") or []:
         company = str(item.get("company") or "").strip()
-        if company and company.lower() not in seen:
-            companies.append(company)
-            seen.add(company.lower())
+        if _append_company(companies, seen, company):
             relationship_added += 1
         if relationship_added >= relationship_limit:
             break
     return companies
 
 
+def target_outreach_companies(action_queue_path: Path, *, company_limit: int) -> list[str]:
+    payload = json.loads(action_queue_path.read_text(encoding="utf-8"))
+    companies: list[str] = []
+    seen: set[str] = set()
+    for bucket in ("application_plus_outreach", "outreach_only_today", "relationship_buffer"):
+        for item in payload.get(bucket) or []:
+            _append_company(companies, seen, str(item.get("company") or ""))
+            if len(companies) >= company_limit:
+                return companies
+    return companies
+
+
+def _artifact_from_output(output: str) -> Path | None:
+    for line in output.splitlines():
+        if line.startswith("Artifact: "):
+            raw = line.split("Artifact: ", 1)[1].strip()
+            path = Path(raw)
+            return path if path.is_absolute() else OUTREACH_ROOT / path
+    return None
+
+
+def _company_tokens(company: str) -> list[str]:
+    tokens = re.findall(r"[a-z0-9]+", company.lower())
+    return [token for token in tokens if len(token) >= 3 and token not in COMMON_COMPANY_TOKENS]
+
+
+def _candidate_mentions_company(company: str, candidate: dict) -> bool:
+    text = " ".join(
+        str(candidate.get(field) or "")
+        for field in ("title", "subtitle", "snippet", "raw_text", "company")
+    ).lower()
+    return any(token in text for token in _company_tokens(company))
+
+
+def _candidate_score(candidate: dict) -> int:
+    try:
+        return int(candidate.get("score"))
+    except (TypeError, ValueError):
+        return -999
+
+
+def _note_is_sendable(candidate: dict) -> bool:
+    qc = candidate.get("polished_note_qc") or candidate.get("note_qc") or {}
+    return qc.get("verdict") == "send"
+
+
+def _safe_unattended_candidate(company: str, candidate: dict, *, min_score: int) -> bool:
+    if not candidate.get("linkedin_url") or candidate.get("existing_connection"):
+        return False
+    if not _note_is_sendable(candidate):
+        return False
+    score = _candidate_score(candidate)
+    if score < min_score:
+        return False
+    if _candidate_mentions_company(company, candidate):
+        return True
+    if str(candidate.get("connection_degree") or "") == "2nd" and score >= max(min_score, 35):
+        return True
+    return score >= 70
+
+
+def _filtered_send_artifact(source_artifact: Path, *, company: str, min_score: int, limit: int) -> tuple[Path | None, int]:
+    payload = json.loads(source_artifact.read_text(encoding="utf-8"))
+    safe_results = [
+        item
+        for item in payload.get("results") or []
+        if _safe_unattended_candidate(company, item, min_score=min_score)
+    ]
+    if limit > 0:
+        safe_results = safe_results[:limit]
+    if not safe_results:
+        return None, 0
+    filtered_payload = {**payload, "results": safe_results, "target_send_filter": {
+        "source_artifact": str(source_artifact),
+        "min_score": min_score,
+        "limit": limit,
+        "safe_count": len(safe_results),
+    }}
+    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    slug = re.sub(r"[^a-z0-9]+", "-", company.lower()).strip("-") or "company"
+    out_path = OUTREACH_ROOT / "artifacts" / f"{stamp}-target-send-{slug}.json"
+    out_path.write_text(json.dumps(filtered_payload, indent=2, ensure_ascii=False), encoding="utf-8")
+    return out_path, len(safe_results)
+
+
+def _sent_count_from_batch(batch_artifact: Path | None) -> int:
+    if not batch_artifact or not batch_artifact.exists():
+        return 0
+    payload = json.loads(batch_artifact.read_text(encoding="utf-8"))
+    return sum(1 for item in payload.get("results") or [] if str(item.get("status") or "").lower() == "sent")
+
+
+def run_targeted_outreach_from_action_queue(args: argparse.Namespace, action_queue_path: Path) -> None:
+    run(
+        [
+            OUTREACH_PYTHON,
+            "main.py",
+            "import-resume-jobs",
+            "--jobs-xlsx",
+            "../ResumeGenerator v1/discovery/jobs.xlsx",
+        ],
+        cwd=OUTREACH_ROOT,
+    )
+    companies = target_outreach_companies(action_queue_path, company_limit=max(args.max_outreach_companies, 1))
+    print(f"\nTargeted outreach companies selected from {action_queue_path.name}: {companies}")
+    target_sends = max(args.target_sends, 0)
+    sent_total = 0
+    failures: list[str] = []
+    skipped: list[str] = []
+    for company in companies:
+        if sent_total >= target_sends:
+            break
+        prep = run_capture(
+            [
+                OUTREACH_PYTHON,
+                "main.py",
+                "run",
+                "--company",
+                company,
+                "--company-mode",
+                "startup",
+            ],
+            cwd=OUTREACH_ROOT,
+            check=False,
+        )
+        if prep.returncode != 0:
+            failures.append(company)
+            print(f"[warn] Outreach artifact generation failed for {company}; continuing.")
+            continue
+        artifact = _artifact_from_output(prep.stdout)
+        if not artifact or not artifact.exists():
+            failures.append(company)
+            print(f"[warn] Could not resolve outreach artifact for {company}; continuing.")
+            continue
+        remaining = target_sends - sent_total
+        per_company_limit = args.send_limit or args.per_company_send_limit
+        send_limit = min(remaining, per_company_limit) if per_company_limit > 0 else remaining
+        filtered_artifact, safe_count = _filtered_send_artifact(
+            artifact,
+            company=company,
+            min_score=args.send_min_score,
+            limit=send_limit,
+        )
+        if not filtered_artifact:
+            skipped.append(company)
+            print(f"[info] No safe unattended invite candidates for {company}; continuing.")
+            continue
+        print(f"[info] Sending up to {safe_count} safe candidates for {company}; target remaining={remaining}.")
+        send = run_capture(
+            [
+                OUTREACH_PYTHON,
+                "main.py",
+                "send-invites",
+                "--artifact-path",
+                filtered_artifact,
+                "--limit",
+                send_limit,
+                "--min-score",
+                args.send_min_score,
+                "--no-adaptive-min-score",
+                "--execute",
+            ],
+            cwd=OUTREACH_ROOT,
+            check=False,
+        )
+        if send.returncode != 0:
+            failures.append(company)
+            print(f"[warn] Invite send failed for {company}; continuing.")
+            continue
+        batch_artifact = _artifact_from_output(send.stdout)
+        sent_now = _sent_count_from_batch(batch_artifact)
+        sent_total += sent_now
+        print(f"[info] {company}: sent_now={sent_now}; sent_total={sent_total}/{target_sends}.")
+    print(f"\nTargeted outreach send total: {sent_total}/{target_sends}")
+    if skipped:
+        print(f"[info] Companies skipped with no safe unattended candidates: {skipped}")
+    if failures:
+        print(f"[warn] Outreach failures: {failures}")
+
+
 def run_outreach_from_action_queue(args: argparse.Namespace, action_queue_path: Path) -> None:
+    if args.execute_sends and args.target_sends > 0:
+        run_targeted_outreach_from_action_queue(args, action_queue_path)
+        return
     run(
         [
             OUTREACH_PYTHON,
@@ -155,10 +382,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--prepare-outreach", action="store_true")
     parser.add_argument("--app-outreach-limit", type=int, default=3)
     parser.add_argument("--relationship-outreach-limit", type=int, default=2)
+    parser.add_argument("--max-outreach-companies", type=int, default=24)
     parser.add_argument("--parallel-generation-outreach", action="store_true")
     parser.add_argument("--execute-sends", action="store_true", help="Actually send LinkedIn invites after artifact generation.")
+    parser.add_argument("--target-sends", type=int, default=25, help="Global send target for unattended --execute-sends runs.")
+    parser.add_argument("--per-company-send-limit", type=int, default=15, help="Per-company cap while filling --target-sends.")
     parser.add_argument("--send-limit", type=int, default=0)
-    parser.add_argument("--send-min-score", type=int, default=35)
+    parser.add_argument("--send-min-score", type=int, default=20)
     return parser.parse_args()
 
 
