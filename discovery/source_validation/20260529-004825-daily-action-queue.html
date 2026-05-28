@@ -1,0 +1,1469 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Daily Action Queue - Post-Score Final</title>
+  <style>
+    :root {
+      --paper: #fbfaf7;
+      --panel: #ffffff;
+      --ink: #1d2525;
+      --muted: #66706d;
+      --line: #d9dfda;
+      --teal: #0f766e;
+      --gold: #9a6700;
+      --rose: #b4235a;
+      --blue: #2563eb;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    header {
+      padding: 28px clamp(18px, 4vw, 48px) 18px;
+      border-bottom: 1px solid var(--line);
+      background: #fffefa;
+    }
+    h1, h2, h3, p { margin: 0; }
+    h1 { font-size: 30px; line-height: 1.1; letter-spacing: 0; }
+    .generated { color: var(--muted); margin-top: 8px; }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+      gap: 10px;
+      margin-top: 22px;
+      max-width: 1180px;
+    }
+    .stat {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      border-radius: 8px;
+      padding: 12px;
+    }
+    .stat span { display: block; font-size: 24px; font-weight: 750; }
+    .stat small { color: var(--muted); text-transform: capitalize; }
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding: 10px clamp(18px, 4vw, 48px);
+      border-bottom: 1px solid var(--line);
+      background: rgba(251, 250, 247, .96);
+      backdrop-filter: blur(10px);
+    }
+    nav a {
+      white-space: nowrap;
+      color: var(--ink);
+      text-decoration: none;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 7px 11px;
+      background: var(--panel);
+    }
+    nav span { color: var(--teal); font-weight: 700; }
+    main { padding: 22px clamp(18px, 4vw, 48px) 48px; }
+    section { max-width: 1180px; margin: 0 auto 30px; }
+    .section-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 10px;
+    }
+    .section-head h2 { font-size: 20px; }
+    .section-head span { color: var(--muted); font-weight: 700; }
+    .items { display: grid; gap: 10px; }
+    .item {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 16px;
+      align-items: start;
+      border: 1px solid var(--line);
+      border-left: 4px solid var(--teal);
+      border-radius: 8px;
+      background: var(--panel);
+      padding: 14px;
+    }
+    .relationship-item { grid-template-columns: 72px minmax(0, 1fr) auto; border-left-color: var(--gold); }
+    #skipped_internal .item { border-left-color: var(--rose); }
+    #unscored_coverage_candidates .item { border-left-color: var(--blue); }
+    #scored_application_selected .item { border-left-color: var(--teal); }
+    #scored_application_not_selected .item { border-left-color: var(--rose); }
+    .score {
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--gold);
+      line-height: 1;
+    }
+    .score span { font-size: 12px; color: var(--muted); font-weight: 650; }
+    h3 { font-size: 16px; line-height: 1.25; }
+    .role { margin-top: 3px; color: var(--ink); }
+    .meta { margin-top: 5px; color: var(--muted); font-size: 12px; }
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+    .chip {
+      border: 1px solid #dfe6e0;
+      background: #f5f7f2;
+      color: #35413d;
+      border-radius: 999px;
+      padding: 4px 8px;
+      font-size: 12px;
+    }
+    .item-actions a {
+      display: inline-flex;
+      min-width: 74px;
+      justify-content: center;
+      color: #0f5f57;
+      text-decoration: none;
+      border: 1px solid #abcfc8;
+      border-radius: 7px;
+      padding: 7px 10px;
+      font-weight: 700;
+    }
+    .empty {
+      border: 1px dashed var(--line);
+      border-radius: 8px;
+      padding: 18px;
+      color: var(--muted);
+      background: rgba(255, 255, 255, .55);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+    th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); }
+    th { color: var(--muted); font-size: 12px; }
+    .commands { display: grid; gap: 8px; }
+    code {
+      display: block;
+      white-space: pre-wrap;
+      word-break: break-word;
+      background: #eff3ee;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px;
+      color: #21302d;
+    }
+    @media (max-width: 720px) {
+      h1 { font-size: 24px; }
+      .item, .relationship-item { grid-template-columns: 1fr; }
+      .score { font-size: 18px; }
+      .item-actions a { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Daily Action Queue - Post-Score Final</h1>
+    <p class="generated">Generated 2026-05-29T00:48:25</p>
+    <div class="stats"><div class="stat"><span>2</span><small>scored application selected</small></div>
+<div class="stat"><span>0</span><small>unscored coverage candidates</small></div>
+<div class="stat"><span>8</span><small>scored application not selected</small></div>
+<div class="stat"><span>4</span><small>application plus outreach</small></div>
+<div class="stat"><span>1</span><small>application only</small></div>
+<div class="stat"><span>8</span><small>outreach only today</small></div>
+<div class="stat"><span>46</span><small>relationship buffer</small></div>
+<div class="stat"><span>10</span><small>follow up</small></div>
+<div class="stat"><span>28</span><small>skipped internal</small></div></div>
+  </header>
+  <nav><a href="#scored_application_selected">Scored Application Selected <span>2</span></a>
+<a href="#application_plus_outreach">Application Plus Outreach <span>4</span></a>
+<a href="#application_only">Application Only <span>1</span></a>
+<a href="#outreach_only_today">Outreach Only Today <span>8</span></a>
+<a href="#unscored_coverage_candidates">Unscored Coverage Candidates <span>0</span></a>
+<a href="#scored_application_not_selected">Scored Application Not Selected <span>8</span></a>
+<a href="#follow_up">Follow Up <span>10</span></a>
+<a href="#relationship_buffer">Relationship Buffer <span>46</span></a>
+<a href="#skipped_internal">Skipped/Internal <span>28</span></a></nav>
+  <main>
+    
+        <section id="scored_application_selected">
+          <div class="section-head">
+            <h2>Scored Application Selected</h2>
+            <span>2</span>
+          </div>
+          <div class="items">
+      <article class="item app-item">
+        <div class="item-main">
+          <h3>Parrative AI</h3>
+          <p class="role">Product Owner Intern</p>
+          <p class="meta">linkedin_live_jobs_v1 / fit 8.2 / decision Proceed / gate accepted / status generated</p>
+          <div class="chips"><span class="chip">decision=Proceed</span><span class="chip">write_gate=accepted</span><span class="chip">jobs_xlsx_status=generated</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.linkedin.com/jobs/view/4420471614/">Job</a></div>
+      </article>
+    
+
+      <article class="item app-item">
+        <div class="item-main">
+          <h3>Keysight Technologies</h3>
+          <p class="role">Product Owner Intern</p>
+          <p class="meta">linkedin_live_jobs_v1 / fit 6.2 / decision Proceed / gate accepted / status generated</p>
+          <div class="chips"><span class="chip">decision=Proceed</span><span class="chip">write_gate=accepted</span><span class="chip">jobs_xlsx_status=generated</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.linkedin.com/jobs/view/4417282294/">Job</a></div>
+      </article>
+    </div>
+        </section>
+        
+
+        <section id="application_plus_outreach">
+          <div class="section-head">
+            <h2>Application Plus Outreach</h2>
+            <span>4</span>
+          </div>
+          <div class="items">
+      <article class="item app-item">
+        <div class="item-main">
+          <h3>Revolut</h3>
+          <p class="role">Internship Programme 2027: Product Owner (Technical)</p>
+          <p class="meta">current_apply_queue / rank 2 / fit 8.2 / status queued / contacts 0 / touches 0</p>
+          <div class="chips"><span class="chip">active_application_needs_outreach</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.revolut.com/en-US/careers/position/9bb26c86-9461-4e89-a460-7dc9a067b018/">Job</a></div>
+      </article>
+    
+
+      <article class="item app-item">
+        <div class="item-main">
+          <h3>Revolut</h3>
+          <p class="role">Graduate Programme 2027: Product Owner (UX)</p>
+          <p class="meta">current_apply_queue / rank 3 / fit 8.2 / status queued / contacts 0 / touches 0</p>
+          <div class="chips"><span class="chip">active_application_needs_outreach</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.revolut.com/en-US/careers/position/48244271-6656-42f9-ab2c-caf4531593d3/">Job</a></div>
+      </article>
+    
+
+      <article class="item app-item">
+        <div class="item-main">
+          <h3>Revolut</h3>
+          <p class="role">Internship Programme 2027: Product Owner (UX)</p>
+          <p class="meta">current_apply_queue / rank 4 / fit 7.8 / status queued / contacts 0 / touches 0</p>
+          <div class="chips"><span class="chip">active_application_needs_outreach</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.revolut.com/en-US/careers/position/d19156aa-506a-4cf5-bea2-2f4c999a1c41/">Job</a></div>
+      </article>
+    
+
+      <article class="item app-item">
+        <div class="item-main">
+          <h3>Keysight Technologies</h3>
+          <p class="role">Product Owner Intern</p>
+          <p class="meta">current_apply_queue / rank 5 / fit 6.2 / status generated / contacts 0 / touches 0</p>
+          <div class="chips"><span class="chip">active_application_needs_outreach</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.linkedin.com/jobs/view/4417282294/">Job</a></div>
+      </article>
+    </div>
+        </section>
+        
+
+        <section id="application_only">
+          <div class="section-head">
+            <h2>Application Only</h2>
+            <span>1</span>
+          </div>
+          <div class="items">
+      <article class="item app-item">
+        <div class="item-main">
+          <h3>Parrative AI</h3>
+          <p class="role">Product Owner Intern</p>
+          <p class="meta">current_apply_queue / rank 1 / fit 8.2 / status generated / contacts 1 / touches 1</p>
+          <div class="chips"><span class="chip">application_ready</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.linkedin.com/jobs/view/4420471614/">Job</a></div>
+      </article>
+    </div>
+        </section>
+        
+
+        <section id="outreach_only_today">
+          <div class="section-head">
+            <h2>Outreach Only Today</h2>
+            <span>8</span>
+          </div>
+          <div class="items">
+      <article class="item relationship-item">
+        <div class="score">10.0<span>/10</span></div>
+        <div class="item-main">
+          <h3>Hedge</h3>
+          <p class="meta">startup_org:yc_sf_bay_hiring / San Francisco</p>
+          <div class="chips"><span class="chip">YC-backed/source-quality signal</span><span class="chip">active hiring/jobs signal</span><span class="chip">target geography signal</span><span class="chip">domain fit signal</span><span class="chip">small-team founder/operator access</span><span class="chip">domain/profile fit</span><span class="chip">very small-team access</span><span class="chip">recent YC batch</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.ycombinator.com/companies/hedge">Company</a></div>
+      </article>
+    
+
+      <article class="item relationship-item">
+        <div class="score">10.0<span>/10</span></div>
+        <div class="item-main">
+          <h3>Gojiberry AI</h3>
+          <p class="meta">startup_org:yc_sf_bay_hiring / San Francisco</p>
+          <div class="chips"><span class="chip">YC-backed/source-quality signal</span><span class="chip">active hiring/jobs signal</span><span class="chip">target geography signal</span><span class="chip">domain fit signal</span><span class="chip">small-team founder/operator access</span><span class="chip">domain/profile fit</span><span class="chip">very small-team access</span><span class="chip">recent YC batch</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.ycombinator.com/companies/gojiberry-ai">Company</a></div>
+      </article>
+    
+
+      <article class="item relationship-item">
+        <div class="score">10.0<span>/10</span></div>
+        <div class="item-main">
+          <h3>Bloom</h3>
+          <p class="meta">startup_org:yc_sf_bay_hiring / San Francisco</p>
+          <div class="chips"><span class="chip">YC-backed/source-quality signal</span><span class="chip">active hiring/jobs signal</span><span class="chip">target geography signal</span><span class="chip">domain fit signal</span><span class="chip">small-team founder/operator access</span><span class="chip">domain/profile fit</span><span class="chip">very small-team access</span><span class="chip">recent YC batch</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.ycombinator.com/companies/trybloom">Company</a></div>
+      </article>
+    
+
+      <article class="item relationship-item">
+        <div class="score">10.0<span>/10</span></div>
+        <div class="item-main">
+          <h3>Arlo Industries</h3>
+          <p class="meta">startup_org:yc_sf_bay_hiring / San Francisco</p>
+          <div class="chips"><span class="chip">YC-backed/source-quality signal</span><span class="chip">active hiring/jobs signal</span><span class="chip">target geography signal</span><span class="chip">domain fit signal</span><span class="chip">small-team founder/operator access</span><span class="chip">domain/profile fit</span><span class="chip">very small-team access</span><span class="chip">recent YC batch</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.ycombinator.com/companies/arlo-industries">Company</a></div>
+      </article>
+    
+
+      <article class="item relationship-item">
+        <div class="score">8.0<span>/10</span></div>
+        <div class="item-main">
+          <h3>Surtr Defense Systems</h3>
+          <p class="meta">startup_org:yc_los_angeles / Los Angeles</p>
+          <div class="chips"><span class="chip">YC-backed/source-quality signal</span><span class="chip">target geography signal</span><span class="chip">domain fit signal</span><span class="chip">small-team founder/operator access</span><span class="chip">domain/profile fit</span><span class="chip">very small-team access</span><span class="chip">recent YC batch</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.ycombinator.com/companies/surtr-defense-systems">Company</a></div>
+      </article>
+    
+
+      <article class="item relationship-item">
+        <div class="score">8.0<span>/10</span></div>
+        <div class="item-main">
+          <h3>Primer</h3>
+          <p class="meta">startup_org:yc_los_angeles / Los Angeles</p>
+          <div class="chips"><span class="chip">YC-backed/source-quality signal</span><span class="chip">target geography signal</span><span class="chip">domain fit signal</span><span class="chip">small-team founder/operator access</span><span class="chip">domain/profile fit</span><span class="chip">very small-team access</span><span class="chip">recent YC batch</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.ycombinator.com/companies/primer">Company</a></div>
+      </article>
+    
+
+      <article class="item relationship-item">
+        <div class="score">8.0<span>/10</span></div>
+        <div class="item-main">
+          <h3>Pixley AI</h3>
+          <p class="meta">startup_org:yc_los_angeles / Los Angeles</p>
+          <div class="chips"><span class="chip">YC-backed/source-quality signal</span><span class="chip">target geography signal</span><span class="chip">domain fit signal</span><span class="chip">small-team founder/operator access</span><span class="chip">domain/profile fit</span><span class="chip">very small-team access</span><span class="chip">recent YC batch</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.ycombinator.com/companies/pixley-ai">Company</a></div>
+      </article>
+    
+
+      <article class="item relationship-item">
+        <div class="score">8.0<span>/10</span></div>
+        <div class="item-main">
+          <h3>PARES AI</h3>
+          <p class="meta">startup_org:yc_los_angeles / Los Angeles</p>
+          <div class="chips"><span class="chip">YC-backed/source-quality signal</span><span class="chip">target geography signal</span><span class="chip">domain fit signal</span><span class="chip">small-team founder/operator access</span><span class="chip">domain/profile fit</span><span class="chip">very small-team access</span><span class="chip">recent YC batch</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.ycombinator.com/companies/pares-ai">Company</a></div>
+      </article>
+    </div>
+        </section>
+        
+
+        <section id="unscored_coverage_candidates">
+          <div class="section-head">
+            <h2>Unscored Coverage Candidates</h2>
+            <span>0</span>
+          </div>
+          <div class="items"><p class="empty">None</p></div>
+        </section>
+        
+
+        <section id="scored_application_not_selected">
+          <div class="section-head">
+            <h2>Scored Application Not Selected</h2>
+            <span>8</span>
+          </div>
+          <div class="items">
+      <article class="item app-item">
+        <div class="item-main">
+          <h3>TikTok 2</h3>
+          <p class="role">Product Operations Intern (TikTok Shop Apps and API) - 2026 Summer (BS/MS)</p>
+          <p class="meta">linkedin_live_jobs_v1 / fit 8.2 / decision Proceed / gate accepted / status skipped</p>
+          <div class="chips"><span class="chip">decision=Proceed</span><span class="chip">write_gate=accepted</span><span class="chip">jobs_xlsx_status=skipped</span><span class="chip">blocklisted_company</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.linkedin.com/jobs/view/4273513976/">Job</a></div>
+      </article>
+    
+
+      <article class="item app-item">
+        <div class="item-main">
+          <h3>Tesla</h3>
+          <p class="role">Internship, Technical Program Manager, Cell Manufacturing (Summer 2026)</p>
+          <p class="meta">linkedin_live_jobs_v1 / fit 4.2 / decision Deprioritize / gate dropped / status queued</p>
+          <div class="chips"><span class="chip">decision=Deprioritize</span><span class="chip">write_gate=dropped</span><span class="chip">reason=deprioritize</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.linkedin.com/jobs/view/4420203984/">Job</a></div>
+      </article>
+    
+
+      <article class="item app-item">
+        <div class="item-main">
+          <h3>Tesla</h3>
+          <p class="role">Internship, Vehicle Accessories &amp; Merchandise Product Intern, Global Merchandise (Fall 2026)</p>
+          <p class="meta">linkedin_live_jobs_v1 / fit 4.2 / decision Deprioritize / gate dropped / status queued</p>
+          <div class="chips"><span class="chip">decision=Deprioritize</span><span class="chip">write_gate=dropped</span><span class="chip">reason=deprioritize</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.linkedin.com/jobs/view/4420278900/">Job</a></div>
+      </article>
+    
+
+      <article class="item app-item">
+        <div class="item-main">
+          <h3>Yieldmo</h3>
+          <p class="role">Product Management Intern</p>
+          <p class="meta">linkedin_live_jobs_v1 / fit 0.0 / decision Reject / gate dropped / status skipped</p>
+          <div class="chips"><span class="chip">decision=Reject</span><span class="chip">write_gate=dropped</span><span class="chip">reason=reject</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.linkedin.com/jobs/view/4418215089/">Job</a></div>
+      </article>
+    
+
+      <article class="item app-item">
+        <div class="item-main">
+          <h3>Tesla</h3>
+          <p class="role">Internship, Engineering Program Manager Charging Products, Energy Engineering (Fall 2026)</p>
+          <p class="meta">linkedin_live_jobs_v1 / fit 0.0 / decision Reject / gate dropped / status skipped</p>
+          <div class="chips"><span class="chip">decision=Reject</span><span class="chip">write_gate=dropped</span><span class="chip">reason=reject</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.linkedin.com/jobs/view/4420202983/">Job</a></div>
+      </article>
+    
+
+      <article class="item app-item">
+        <div class="item-main">
+          <h3>Tesla</h3>
+          <p class="role">Internship, Engineering Program Manager, Residential Energy Engineering (Fall 2026)</p>
+          <p class="meta">linkedin_live_jobs_v1 / fit 0.0 / decision Reject / gate dropped / status skipped</p>
+          <div class="chips"><span class="chip">decision=Reject</span><span class="chip">write_gate=dropped</span><span class="chip">reason=reject</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.linkedin.com/jobs/view/4420230011/">Job</a></div>
+      </article>
+    
+
+      <article class="item app-item">
+        <div class="item-main">
+          <h3>Lightspeed</h3>
+          <p class="role">Product Management Intern, Admin Console</p>
+          <p class="meta">linkedin_live_jobs_v1 / fit 0.0 / decision Reject / gate dropped / status skipped</p>
+          <div class="chips"><span class="chip">decision=Reject</span><span class="chip">write_gate=dropped</span><span class="chip">reason=reject</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.linkedin.com/jobs/view/4418876296/">Job</a></div>
+      </article>
+    
+
+      <article class="item app-item">
+        <div class="item-main">
+          <h3>Jobright.ai</h3>
+          <p class="role">Product Manager, Entry Level</p>
+          <p class="meta">jobspy_filtered_v1 / fit 0.0 / decision Reject / gate dropped / status skipped</p>
+          <div class="chips"><span class="chip">decision=Reject</span><span class="chip">write_gate=dropped</span><span class="chip">reason=reject</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.linkedin.com/jobs/view/4418521398">Job</a></div>
+      </article>
+    </div>
+        </section>
+        
+
+        <section id="follow_up">
+          <div class="section-head">
+            <h2>Follow Up</h2>
+            <span>10</span>
+          </div>
+          <div class="items">
+      <article class="item app-item">
+        <div class="item-main">
+          <h3>Pebl</h3>
+          <p class="role">Product Manager Intern - Alfie (Conversational AI)</p>
+          <p class="meta">linkedin_breadth:overlap</p>
+          <div class="chips"><span class="chip">already_applied</span><span class="chip">Target signal: product_intern</span><span class="chip">Target signal: ai_product</span><span class="chip">Target signal: strategy_ops</span><span class="chip">Early-career/intern/MBA signal in title</span><span class="chip">Relationship signal: startup/AI/domain title signal</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.linkedin.com/jobs/view/4418511510/">Job</a></div>
+      </article>
+    
+
+      <article class="item app-item">
+        <div class="item-main">
+          <h3>Pebl</h3>
+          <p class="role">Product Management Intern - Talent Solutions</p>
+          <p class="meta">linkedin_breadth:overlap</p>
+          <div class="chips"><span class="chip">already_applied</span><span class="chip">Target signal: product_intern</span><span class="chip">Target signal: strategy_ops</span><span class="chip">Early-career/intern/MBA signal in title</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.linkedin.com/jobs/view/4418512489/">Job</a></div>
+      </article>
+    
+
+      <article class="item app-item">
+        <div class="item-main">
+          <h3>Tasklet</h3>
+          <p class="role"></p>
+          <p class="meta">startup_org:yc_sf_bay_hiring</p>
+          <div class="chips"><span class="chip">YC-backed/source-quality signal</span><span class="chip">active hiring/jobs signal</span><span class="chip">target geography signal</span><span class="chip">domain fit signal</span><span class="chip">small-team founder/operator access</span><span class="chip">domain/profile fit</span><span class="chip">very small-team access</span><span class="chip">recent YC batch</span></div>
+        </div>
+        <div class="item-actions"></div>
+      </article>
+    
+
+      <article class="item app-item">
+        <div class="item-main">
+          <h3>Mount</h3>
+          <p class="role"></p>
+          <p class="meta">startup_org:yc_sf_bay_hiring</p>
+          <div class="chips"><span class="chip">YC-backed/source-quality signal</span><span class="chip">active hiring/jobs signal</span><span class="chip">target geography signal</span><span class="chip">domain fit signal</span><span class="chip">small-team founder/operator access</span><span class="chip">domain/profile fit</span><span class="chip">very small-team access</span><span class="chip">recent YC batch</span></div>
+        </div>
+        <div class="item-actions"></div>
+      </article>
+    
+
+      <article class="item app-item">
+        <div class="item-main">
+          <h3>Intelligence Factory</h3>
+          <p class="role"></p>
+          <p class="meta">startup_org:yc_sf_bay_hiring</p>
+          <div class="chips"><span class="chip">YC-backed/source-quality signal</span><span class="chip">active hiring/jobs signal</span><span class="chip">target geography signal</span><span class="chip">domain fit signal</span><span class="chip">small-team founder/operator access</span><span class="chip">domain/profile fit</span><span class="chip">very small-team access</span><span class="chip">recent YC batch</span></div>
+        </div>
+        <div class="item-actions"></div>
+      </article>
+    
+
+      <article class="item app-item">
+        <div class="item-main">
+          <h3>Eden Robotics</h3>
+          <p class="role"></p>
+          <p class="meta">startup_org:yc_sf_bay_hiring</p>
+          <div class="chips"><span class="chip">YC-backed/source-quality signal</span><span class="chip">active hiring/jobs signal</span><span class="chip">target geography signal</span><span class="chip">domain fit signal</span><span class="chip">small-team founder/operator access</span><span class="chip">domain/profile fit</span><span class="chip">very small-team access</span><span class="chip">recent YC batch</span></div>
+        </div>
+        <div class="item-actions"></div>
+      </article>
+    
+
+      <article class="item app-item">
+        <div class="item-main">
+          <h3>Deep Interactions</h3>
+          <p class="role"></p>
+          <p class="meta">startup_org:yc_sf_bay_hiring</p>
+          <div class="chips"><span class="chip">YC-backed/source-quality signal</span><span class="chip">active hiring/jobs signal</span><span class="chip">target geography signal</span><span class="chip">domain fit signal</span><span class="chip">small-team founder/operator access</span><span class="chip">domain/profile fit</span><span class="chip">very small-team access</span><span class="chip">recent YC batch</span></div>
+        </div>
+        <div class="item-actions"></div>
+      </article>
+    
+
+      <article class="item app-item">
+        <div class="item-main">
+          <h3>Vassar Robotics</h3>
+          <p class="role"></p>
+          <p class="meta">startup_org:yc_los_angeles</p>
+          <div class="chips"><span class="chip">YC-backed/source-quality signal</span><span class="chip">target geography signal</span><span class="chip">domain fit signal</span><span class="chip">small-team founder/operator access</span><span class="chip">domain/profile fit</span><span class="chip">very small-team access</span><span class="chip">recent YC batch</span></div>
+        </div>
+        <div class="item-actions"></div>
+      </article>
+    
+
+      <article class="item app-item">
+        <div class="item-main">
+          <h3>Splash Inc.</h3>
+          <p class="role"></p>
+          <p class="meta">startup_org:yc_los_angeles</p>
+          <div class="chips"><span class="chip">YC-backed/source-quality signal</span><span class="chip">target geography signal</span><span class="chip">domain fit signal</span><span class="chip">small-team founder/operator access</span><span class="chip">domain/profile fit</span><span class="chip">very small-team access</span><span class="chip">recent YC batch</span></div>
+        </div>
+        <div class="item-actions"></div>
+      </article>
+    
+
+      <article class="item app-item">
+        <div class="item-main">
+          <h3>Fractional AI</h3>
+          <p class="role"></p>
+          <p class="meta">linkedin_breadth:jobspy_only</p>
+          <div class="chips"><span class="chip">Target signal: product_intern</span><span class="chip">Relationship signal: high-signal company</span><span class="chip">Relationship signal: startup/AI/domain title signal</span><span class="chip">Relationship signal: operator-style product role</span><span class="chip">Target role, but no explicit early-career signal</span><span class="chip">domain/profile fit</span><span class="chip">job-signal adjacency</span></div>
+        </div>
+        <div class="item-actions"></div>
+      </article>
+    </div>
+        </section>
+        
+
+        <section id="relationship_buffer">
+          <div class="section-head">
+            <h2>Relationship Buffer</h2>
+            <span>46</span>
+          </div>
+          <div class="items">
+      <article class="item relationship-item">
+        <div class="score">10.0<span>/10</span></div>
+        <div class="item-main">
+          <h3>ANORIA</h3>
+          <p class="meta">startup_org:yc_sf_bay_hiring / San Francisco</p>
+          <div class="chips"><span class="chip">YC-backed/source-quality signal</span><span class="chip">active hiring/jobs signal</span><span class="chip">target geography signal</span><span class="chip">domain fit signal</span><span class="chip">small-team founder/operator access</span><span class="chip">domain/profile fit</span><span class="chip">very small-team access</span><span class="chip">recent YC batch</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.ycombinator.com/companies/anoria">Company</a></div>
+      </article>
+    
+
+      <article class="item relationship-item">
+        <div class="score">8.0<span>/10</span></div>
+        <div class="item-main">
+          <h3>Ornadyne</h3>
+          <p class="meta">startup_org:yc_los_angeles / Los Angeles</p>
+          <div class="chips"><span class="chip">YC-backed/source-quality signal</span><span class="chip">target geography signal</span><span class="chip">domain fit signal</span><span class="chip">small-team founder/operator access</span><span class="chip">domain/profile fit</span><span class="chip">very small-team access</span><span class="chip">recent YC batch</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.ycombinator.com/companies/ornadyne">Company</a></div>
+      </article>
+    
+
+      <article class="item relationship-item">
+        <div class="score">8.0<span>/10</span></div>
+        <div class="item-main">
+          <h3>Notus Autonomous Systems</h3>
+          <p class="meta">startup_org:yc_los_angeles / Los Angeles</p>
+          <div class="chips"><span class="chip">YC-backed/source-quality signal</span><span class="chip">target geography signal</span><span class="chip">domain fit signal</span><span class="chip">small-team founder/operator access</span><span class="chip">domain/profile fit</span><span class="chip">very small-team access</span><span class="chip">recent YC batch</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.ycombinator.com/companies/notus-autonomous-systems">Company</a></div>
+      </article>
+    
+
+      <article class="item relationship-item">
+        <div class="score">8.0<span>/10</span></div>
+        <div class="item-main">
+          <h3>MindFort</h3>
+          <p class="meta">startup_org:yc_los_angeles / Los Angeles</p>
+          <div class="chips"><span class="chip">YC-backed/source-quality signal</span><span class="chip">target geography signal</span><span class="chip">domain fit signal</span><span class="chip">small-team founder/operator access</span><span class="chip">domain/profile fit</span><span class="chip">very small-team access</span><span class="chip">recent YC batch</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.ycombinator.com/companies/mindfort">Company</a></div>
+      </article>
+    
+
+      <article class="item relationship-item">
+        <div class="score">8.0<span>/10</span></div>
+        <div class="item-main">
+          <h3>chrt</h3>
+          <p class="meta">startup_org:yc_los_angeles / Los Angeles</p>
+          <div class="chips"><span class="chip">YC-backed/source-quality signal</span><span class="chip">target geography signal</span><span class="chip">domain fit signal</span><span class="chip">small-team founder/operator access</span><span class="chip">domain/profile fit</span><span class="chip">very small-team access</span><span class="chip">recent YC batch</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.ycombinator.com/companies/chrt">Company</a></div>
+      </article>
+    
+
+      <article class="item relationship-item">
+        <div class="score">8.0<span>/10</span></div>
+        <div class="item-main">
+          <h3>Alt-X</h3>
+          <p class="meta">startup_org:yc_los_angeles / Los Angeles</p>
+          <div class="chips"><span class="chip">YC-backed/source-quality signal</span><span class="chip">target geography signal</span><span class="chip">domain fit signal</span><span class="chip">small-team founder/operator access</span><span class="chip">domain/profile fit</span><span class="chip">very small-team access</span><span class="chip">recent YC batch</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.ycombinator.com/companies/alt-x">Company</a></div>
+      </article>
+    
+
+      <article class="item relationship-item">
+        <div class="score">8.0<span>/10</span></div>
+        <div class="item-main">
+          <h3>Advanced Metal Research</h3>
+          <p class="meta">startup_org:yc_los_angeles / Los Angeles</p>
+          <div class="chips"><span class="chip">YC-backed/source-quality signal</span><span class="chip">target geography signal</span><span class="chip">domain fit signal</span><span class="chip">small-team founder/operator access</span><span class="chip">domain/profile fit</span><span class="chip">very small-team access</span><span class="chip">recent YC batch</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.ycombinator.com/companies/advanced-metal-research">Company</a></div>
+      </article>
+    
+
+      <article class="item relationship-item">
+        <div class="score">7.8<span>/10</span></div>
+        <div class="item-main">
+          <h3>Product.ai</h3>
+          <p class="meta">startup_org:builtin_la_companies / Los Angeles</p>
+          <div class="chips"><span class="chip">active hiring/jobs signal</span><span class="chip">target geography signal</span><span class="chip">domain fit signal</span><span class="chip">small-team founder/operator access</span><span class="chip">domain/profile fit</span><span class="chip">very small-team access</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.builtinla.com/company/productai">Company</a></div>
+      </article>
+    
+
+      <article class="item relationship-item">
+        <div class="score">7.8<span>/10</span></div>
+        <div class="item-main">
+          <h3>Idler</h3>
+          <p class="meta">startup_org:builtin_sf_companies / San Francisco</p>
+          <div class="chips"><span class="chip">active hiring/jobs signal</span><span class="chip">target geography signal</span><span class="chip">domain fit signal</span><span class="chip">small-team founder/operator access</span><span class="chip">domain/profile fit</span><span class="chip">very small-team access</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.builtinsf.com/company/idlersai">Company</a></div>
+      </article>
+    
+
+      <article class="item relationship-item">
+        <div class="score">7.8<span>/10</span></div>
+        <div class="item-main">
+          <h3>Bellagent</h3>
+          <p class="meta">startup_org:builtin_la_companies / Los Angeles</p>
+          <div class="chips"><span class="chip">active hiring/jobs signal</span><span class="chip">target geography signal</span><span class="chip">domain fit signal</span><span class="chip">small-team founder/operator access</span><span class="chip">domain/profile fit</span><span class="chip">very small-team access</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.builtinla.com/company/bellagent">Company</a></div>
+      </article>
+    
+
+      <article class="item relationship-item">
+        <div class="score">7.3<span>/10</span></div>
+        <div class="item-main">
+          <h3>Onshore</h3>
+          <p class="meta">startup_org:builtin_la_companies / Los Angeles</p>
+          <div class="chips"><span class="chip">active hiring/jobs signal</span><span class="chip">target geography signal</span><span class="chip">domain fit signal</span><span class="chip">small-team founder/operator access</span><span class="chip">domain/profile fit</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.builtinla.com/company/onshore">Company</a></div>
+      </article>
+    
+
+      <article class="item relationship-item">
+        <div class="score">7.3<span>/10</span></div>
+        <div class="item-main">
+          <h3>Hebbia</h3>
+          <p class="meta">startup_org:builtin_sf_companies / San Francisco</p>
+          <div class="chips"><span class="chip">active hiring/jobs signal</span><span class="chip">target geography signal</span><span class="chip">domain fit signal</span><span class="chip">small-team founder/operator access</span><span class="chip">domain/profile fit</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.builtinsf.com/company/hebbia-ai">Company</a></div>
+      </article>
+    
+
+      <article class="item relationship-item">
+        <div class="score">7.3<span>/10</span></div>
+        <div class="item-main">
+          <h3>GrayMatter Robotics</h3>
+          <p class="meta">startup_org:builtin_la_companies / Headquartered in sunny Los Angeles</p>
+          <div class="chips"><span class="chip">active hiring/jobs signal</span><span class="chip">target geography signal</span><span class="chip">domain fit signal</span><span class="chip">small-team founder/operator access</span><span class="chip">domain/profile fit</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.builtinla.com/company/graymatter-robotics">Company</a></div>
+      </article>
+    
+
+      <article class="item relationship-item">
+        <div class="score">7.3<span>/10</span></div>
+        <div class="item-main">
+          <h3>Freed</h3>
+          <p class="meta">startup_org:builtin_sf_companies / San Francisco</p>
+          <div class="chips"><span class="chip">active hiring/jobs signal</span><span class="chip">target geography signal</span><span class="chip">domain fit signal</span><span class="chip">small-team founder/operator access</span><span class="chip">domain/profile fit</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.builtinsf.com/company/freed-ai">Company</a></div>
+      </article>
+    
+
+      <article class="item relationship-item">
+        <div class="score">7.3<span>/10</span></div>
+        <div class="item-main">
+          <h3>Foundation Health</h3>
+          <p class="meta">linkedin_breadth:jobspy_only</p>
+          <div class="chips"><span class="chip">Target signal: product_intern</span><span class="chip">Relationship signal: high-signal company</span><span class="chip">Target role, but no explicit early-career signal</span><span class="chip">domain/profile fit</span><span class="chip">job-signal adjacency</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.linkedin.com/jobs/view/4414619264">Company</a></div>
+      </article>
+    
+
+      <article class="item relationship-item">
+        <div class="score">7.3<span>/10</span></div>
+        <div class="item-main">
+          <h3>Deepgram</h3>
+          <p class="meta">startup_org:builtin_sf_companies / San Francisco</p>
+          <div class="chips"><span class="chip">active hiring/jobs signal</span><span class="chip">target geography signal</span><span class="chip">domain fit signal</span><span class="chip">small-team founder/operator access</span><span class="chip">domain/profile fit</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.builtinsf.com/company/deepgram">Company</a></div>
+      </article>
+    
+
+      <article class="item relationship-item">
+        <div class="score">7.3<span>/10</span></div>
+        <div class="item-main">
+          <h3>Daloopa</h3>
+          <p class="meta">linkedin_breadth:jobspy_only</p>
+          <div class="chips"><span class="chip">Target signal: product_intern</span><span class="chip">Target signal: ai_product</span><span class="chip">Target signal: strategy_ops</span><span class="chip">Relationship signal: high-signal company</span><span class="chip">Relationship signal: startup/AI/domain title signal</span><span class="chip">Target role, but no explicit early-career signal</span><span class="chip">domain/profile fit</span><span class="chip">job-signal adjacency</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.linkedin.com/jobs/view/4410087014">Company</a></div>
+      </article>
+    
+
+      <article class="item relationship-item">
+        <div class="score">7.3<span>/10</span></div>
+        <div class="item-main">
+          <h3>Collectly</h3>
+          <p class="meta">startup_org:builtin_sf_companies / San Francisco</p>
+          <div class="chips"><span class="chip">active hiring/jobs signal</span><span class="chip">target geography signal</span><span class="chip">domain fit signal</span><span class="chip">small-team founder/operator access</span><span class="chip">domain/profile fit</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.builtinsf.com/company/collectly">Company</a></div>
+      </article>
+    
+
+      <article class="item relationship-item">
+        <div class="score">7.3<span>/10</span></div>
+        <div class="item-main">
+          <h3>Assembled</h3>
+          <p class="meta">startup_org:builtin_sf_companies / San Francisco</p>
+          <div class="chips"><span class="chip">active hiring/jobs signal</span><span class="chip">target geography signal</span><span class="chip">domain fit signal</span><span class="chip">small-team founder/operator access</span><span class="chip">domain/profile fit</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.builtinsf.com/company/assembled">Company</a></div>
+      </article>
+    
+
+      <article class="item relationship-item">
+        <div class="score">7.1<span>/10</span></div>
+        <div class="item-main">
+          <h3>Webflow</h3>
+          <p class="meta">startup_org:yc_sf_bay_hiring / San Francisco</p>
+          <div class="chips"><span class="chip">YC-backed/source-quality signal</span><span class="chip">active hiring/jobs signal</span><span class="chip">target geography signal</span><span class="chip">domain fit signal</span><span class="chip">mid-size startup access</span><span class="chip">domain/profile fit</span><span class="chip">larger startup but still reachable</span><span class="chip">older YC batch</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.ycombinator.com/companies/webflow">Company</a></div>
+      </article>
+    
+
+      <article class="item relationship-item">
+        <div class="score">7.1<span>/10</span></div>
+        <div class="item-main">
+          <h3>Scale AI</h3>
+          <p class="meta">startup_org:yc_sf_bay_hiring / San Francisco</p>
+          <div class="chips"><span class="chip">YC-backed/source-quality signal</span><span class="chip">active hiring/jobs signal</span><span class="chip">target geography signal</span><span class="chip">domain fit signal</span><span class="chip">mid-size startup access</span><span class="chip">domain/profile fit</span><span class="chip">larger startup but still reachable</span><span class="chip">older YC batch</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.ycombinator.com/companies/scale-ai">Company</a></div>
+      </article>
+    
+
+      <article class="item relationship-item">
+        <div class="score">7.1<span>/10</span></div>
+        <div class="item-main">
+          <h3>Mixpanel</h3>
+          <p class="meta">startup_org:yc_sf_bay_hiring / San Francisco</p>
+          <div class="chips"><span class="chip">YC-backed/source-quality signal</span><span class="chip">active hiring/jobs signal</span><span class="chip">target geography signal</span><span class="chip">domain fit signal</span><span class="chip">mid-size startup access</span><span class="chip">domain/profile fit</span><span class="chip">larger startup but still reachable</span><span class="chip">older YC batch</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.ycombinator.com/companies/mixpanel">Company</a></div>
+      </article>
+    
+
+      <article class="item relationship-item">
+        <div class="score">7.1<span>/10</span></div>
+        <div class="item-main">
+          <h3>Faire</h3>
+          <p class="meta">startup_org:yc_sf_bay_hiring / San Francisco</p>
+          <div class="chips"><span class="chip">YC-backed/source-quality signal</span><span class="chip">active hiring/jobs signal</span><span class="chip">target geography signal</span><span class="chip">domain fit signal</span><span class="chip">mid-size startup access</span><span class="chip">domain/profile fit</span><span class="chip">larger startup but still reachable</span><span class="chip">older YC batch</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.ycombinator.com/companies/faire">Company</a></div>
+      </article>
+    
+
+      <article class="item relationship-item">
+        <div class="score">7.1<span>/10</span></div>
+        <div class="item-main">
+          <h3>Clipboard</h3>
+          <p class="meta">startup_org:yc_sf_bay_hiring / San Francisco</p>
+          <div class="chips"><span class="chip">YC-backed/source-quality signal</span><span class="chip">active hiring/jobs signal</span><span class="chip">target geography signal</span><span class="chip">domain fit signal</span><span class="chip">mid-size startup access</span><span class="chip">domain/profile fit</span><span class="chip">larger startup but still reachable</span><span class="chip">older YC batch</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.ycombinator.com/companies/clipboard">Company</a></div>
+      </article>
+    
+
+      <article class="item relationship-item">
+        <div class="score">6.9<span>/10</span></div>
+        <div class="item-main">
+          <h3>Voker</h3>
+          <p class="meta">startup_org:yc_los_angeles / Los Angeles</p>
+          <div class="chips"><span class="chip">YC-backed/source-quality signal</span><span class="chip">target geography signal</span><span class="chip">domain fit signal</span><span class="chip">small-team founder/operator access</span><span class="chip">domain/profile fit</span><span class="chip">very small-team access</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.ycombinator.com/companies/voker">Company</a></div>
+      </article>
+    
+
+      <article class="item relationship-item">
+        <div class="score">6.9<span>/10</span></div>
+        <div class="item-main">
+          <h3>Merlin AI</h3>
+          <p class="meta">startup_org:yc_los_angeles / Los Angeles</p>
+          <div class="chips"><span class="chip">YC-backed/source-quality signal</span><span class="chip">target geography signal</span><span class="chip">domain fit signal</span><span class="chip">small-team founder/operator access</span><span class="chip">domain/profile fit</span><span class="chip">very small-team access</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.ycombinator.com/companies/merlin-ai">Company</a></div>
+      </article>
+    
+
+      <article class="item relationship-item">
+        <div class="score">6.9<span>/10</span></div>
+        <div class="item-main">
+          <h3>Endstack</h3>
+          <p class="meta">startup_org:yc_los_angeles / Los Angeles</p>
+          <div class="chips"><span class="chip">YC-backed/source-quality signal</span><span class="chip">target geography signal</span><span class="chip">domain fit signal</span><span class="chip">small-team founder/operator access</span><span class="chip">domain/profile fit</span><span class="chip">very small-team access</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.ycombinator.com/companies/endstack">Company</a></div>
+      </article>
+    
+
+      <article class="item relationship-item">
+        <div class="score">6.5<span>/10</span></div>
+        <div class="item-main">
+          <h3>Golden Hippo</h3>
+          <p class="meta">startup_org:builtin_la_companies / Los Angeles</p>
+          <div class="chips"><span class="chip">active hiring/jobs signal</span><span class="chip">target geography signal</span><span class="chip">domain fit signal</span><span class="chip">mid-size startup access</span><span class="chip">domain/profile fit</span><span class="chip">larger startup but still reachable</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.builtinla.com/company/golden-hippo">Company</a></div>
+      </article>
+    
+
+      <article class="item relationship-item">
+        <div class="score">6.5<span>/10</span></div>
+        <div class="item-main">
+          <h3>FloQast</h3>
+          <p class="meta">startup_org:builtin_la_companies / Los Angeles</p>
+          <div class="chips"><span class="chip">active hiring/jobs signal</span><span class="chip">target geography signal</span><span class="chip">domain fit signal</span><span class="chip">mid-size startup access</span><span class="chip">domain/profile fit</span><span class="chip">larger startup but still reachable</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.builtinla.com/company/floqast">Company</a></div>
+      </article>
+    
+
+      <article class="item relationship-item">
+        <div class="score">6.5<span>/10</span></div>
+        <div class="item-main">
+          <h3>EliseAI</h3>
+          <p class="meta">startup_org:builtin_sf_companies / San Francisco</p>
+          <div class="chips"><span class="chip">active hiring/jobs signal</span><span class="chip">target geography signal</span><span class="chip">domain fit signal</span><span class="chip">mid-size startup access</span><span class="chip">domain/profile fit</span><span class="chip">larger startup but still reachable</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.builtinsf.com/company/eliseai">Company</a></div>
+      </article>
+    
+
+      <article class="item relationship-item">
+        <div class="score">6.5<span>/10</span></div>
+        <div class="item-main">
+          <h3>Benchling</h3>
+          <p class="meta">startup_org:builtin_sf_companies / San Francisco</p>
+          <div class="chips"><span class="chip">active hiring/jobs signal</span><span class="chip">target geography signal</span><span class="chip">domain fit signal</span><span class="chip">mid-size startup access</span><span class="chip">domain/profile fit</span><span class="chip">larger startup but still reachable</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.builtinsf.com/company/benchling">Company</a></div>
+      </article>
+    
+
+      <article class="item relationship-item">
+        <div class="score">6.1<span>/10</span></div>
+        <div class="item-main">
+          <h3>First Entertainment Credit Union</h3>
+          <p class="meta">startup_org:builtin_la_companies / Los Angeles</p>
+          <div class="chips"><span class="chip">active hiring/jobs signal</span><span class="chip">target geography signal</span><span class="chip">domain fit signal</span><span class="chip">small-team founder/operator access</span><span class="chip">domain/profile fit</span><span class="chip">less founder-led relationship fit</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.builtinla.com/company/first-entertainment-credit-union">Company</a></div>
+      </article>
+    
+
+      <article class="item relationship-item">
+        <div class="score">5.6<span>/10</span></div>
+        <div class="item-main">
+          <h3>Stripe</h3>
+          <p class="meta">linkedin_breadth:jobspy_only</p>
+          <div class="chips"><span class="chip">Target signal: product_intern</span><span class="chip">Relationship signal: high-signal company</span><span class="chip">Relationship signal: startup/AI/domain title signal</span><span class="chip">Target role, but no explicit early-career signal</span><span class="chip">job-signal adjacency</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.linkedin.com/jobs/view/4418541785">Company</a></div>
+      </article>
+    
+
+      <article class="item relationship-item">
+        <div class="score">5.6<span>/10</span></div>
+        <div class="item-main">
+          <h3>SPOTIO</h3>
+          <p class="meta">linkedin_breadth:jobspy_only</p>
+          <div class="chips"><span class="chip">Target signal: product_intern</span><span class="chip">Target signal: ai_product</span><span class="chip">Target signal: strategy_ops</span><span class="chip">Relationship signal: high-signal company</span><span class="chip">Target role, but no explicit early-career signal</span><span class="chip">job-signal adjacency</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.linkedin.com/jobs/view/4419515178">Company</a></div>
+      </article>
+    
+
+      <article class="item relationship-item">
+        <div class="score">5.6<span>/10</span></div>
+        <div class="item-main">
+          <h3>Seer</h3>
+          <p class="meta">linkedin_breadth:jobspy_only</p>
+          <div class="chips"><span class="chip">Target signal: product_intern</span><span class="chip">Target signal: ai_product</span><span class="chip">Relationship signal: high-signal company</span><span class="chip">Target role, but no explicit early-career signal</span><span class="chip">job-signal adjacency</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.linkedin.com/jobs/view/4419437676">Company</a></div>
+      </article>
+    
+
+      <article class="item relationship-item">
+        <div class="score">5.6<span>/10</span></div>
+        <div class="item-main">
+          <h3>Robinhood</h3>
+          <p class="meta">linkedin_breadth:jobspy_only</p>
+          <div class="chips"><span class="chip">Target signal: product_intern</span><span class="chip">Relationship signal: high-signal company</span><span class="chip">Target role, but no explicit early-career signal</span><span class="chip">job-signal adjacency</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.linkedin.com/jobs/view/4416843581">Company</a></div>
+      </article>
+    
+
+      <article class="item relationship-item">
+        <div class="score">5.6<span>/10</span></div>
+        <div class="item-main">
+          <h3>MDCalc</h3>
+          <p class="meta">linkedin_breadth:jobspy_only</p>
+          <div class="chips"><span class="chip">Target signal: product_intern</span><span class="chip">Target signal: strategy_ops</span><span class="chip">Relationship signal: high-signal company</span><span class="chip">Target role, but no explicit early-career signal</span><span class="chip">job-signal adjacency</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.linkedin.com/jobs/view/4408948350">Company</a></div>
+      </article>
+    
+
+      <article class="item relationship-item">
+        <div class="score">5.6<span>/10</span></div>
+        <div class="item-main">
+          <h3>Luma Financial Technologies</h3>
+          <p class="meta">linkedin_breadth:jobspy_only</p>
+          <div class="chips"><span class="chip">Target signal: product_intern</span><span class="chip">Relationship signal: high-signal company</span><span class="chip">Target role, but no explicit early-career signal</span><span class="chip">job-signal adjacency</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.linkedin.com/jobs/view/4418281417">Company</a></div>
+      </article>
+    
+
+      <article class="item relationship-item">
+        <div class="score">5.6<span>/10</span></div>
+        <div class="item-main">
+          <h3>Limbic</h3>
+          <p class="meta">linkedin_breadth:jobspy_only</p>
+          <div class="chips"><span class="chip">Target signal: product_intern</span><span class="chip">Relationship signal: high-signal company</span><span class="chip">Target role, but no explicit early-career signal</span><span class="chip">job-signal adjacency</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.linkedin.com/jobs/view/4419562869">Company</a></div>
+      </article>
+    
+
+      <article class="item relationship-item">
+        <div class="score">5.6<span>/10</span></div>
+        <div class="item-main">
+          <h3>Hudl</h3>
+          <p class="meta">linkedin_breadth:jobspy_only</p>
+          <div class="chips"><span class="chip">Target signal: product_intern</span><span class="chip">Target signal: ai_product</span><span class="chip">Relationship signal: high-signal company</span><span class="chip">Target role, but no explicit early-career signal</span><span class="chip">job-signal adjacency</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.linkedin.com/jobs/view/4418518840">Company</a></div>
+      </article>
+    
+
+      <article class="item relationship-item">
+        <div class="score">5.6<span>/10</span></div>
+        <div class="item-main">
+          <h3>Fingercheck</h3>
+          <p class="meta">linkedin_breadth:jobspy_only</p>
+          <div class="chips"><span class="chip">Target signal: product_intern</span><span class="chip">Target signal: ai_product</span><span class="chip">Target signal: strategy_ops</span><span class="chip">Relationship signal: high-signal company</span><span class="chip">Target role, but no explicit early-career signal</span><span class="chip">job-signal adjacency</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.linkedin.com/jobs/view/4418512202">Company</a></div>
+      </article>
+    
+
+      <article class="item relationship-item">
+        <div class="score">5.6<span>/10</span></div>
+        <div class="item-main">
+          <h3>Early Media</h3>
+          <p class="meta">linkedin_breadth:jobspy_only</p>
+          <div class="chips"><span class="chip">Target signal: product_intern</span><span class="chip">Target signal: strategy_ops</span><span class="chip">Relationship signal: high-signal company</span><span class="chip">Target role, but no explicit early-career signal</span><span class="chip">job-signal adjacency</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.linkedin.com/jobs/view/4418271985">Company</a></div>
+      </article>
+    
+
+      <article class="item relationship-item">
+        <div class="score">5.6<span>/10</span></div>
+        <div class="item-main">
+          <h3>Atticus</h3>
+          <p class="meta">linkedin_breadth:jobspy_only</p>
+          <div class="chips"><span class="chip">Target signal: product_intern</span><span class="chip">Relationship signal: high-signal company</span><span class="chip">Relationship signal: startup/funding body signal</span><span class="chip">Target role, but no explicit early-career signal</span><span class="chip">job-signal adjacency</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.linkedin.com/jobs/view/4317462255">Company</a></div>
+      </article>
+    
+
+      <article class="item relationship-item">
+        <div class="score">5.6<span>/10</span></div>
+        <div class="item-main">
+          <h3>Anthropic</h3>
+          <p class="meta">linkedin_breadth:jobspy_only</p>
+          <div class="chips"><span class="chip">Target signal: product_intern</span><span class="chip">Target signal: ai_product</span><span class="chip">Relationship signal: high-signal company</span><span class="chip">Relationship signal: startup/AI/domain title signal</span><span class="chip">Target role, but no explicit early-career signal</span><span class="chip">job-signal adjacency</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.linkedin.com/jobs/view/4322179993">Company</a></div>
+      </article>
+    
+
+      <article class="item relationship-item">
+        <div class="score">5.6<span>/10</span></div>
+        <div class="item-main">
+          <h3>Alma</h3>
+          <p class="meta">linkedin_breadth:jobspy_only</p>
+          <div class="chips"><span class="chip">Target signal: product_intern</span><span class="chip">Target signal: ai_product</span><span class="chip">Relationship signal: high-signal company</span><span class="chip">Target role, but no explicit early-career signal</span><span class="chip">job-signal adjacency</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.linkedin.com/jobs/view/4418504321">Company</a></div>
+      </article>
+    
+
+      <article class="item relationship-item">
+        <div class="score">5.3<span>/10</span></div>
+        <div class="item-main">
+          <h3>Magnite</h3>
+          <p class="meta">startup_org:builtin_la_companies / Los Angeles</p>
+          <div class="chips"><span class="chip">active hiring/jobs signal</span><span class="chip">target geography signal</span><span class="chip">domain fit signal</span><span class="chip">mid-size startup access</span><span class="chip">domain/profile fit</span><span class="chip">larger startup but still reachable</span><span class="chip">less founder-led relationship fit</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.builtinla.com/company/magnite">Company</a></div>
+      </article>
+    </div>
+        </section>
+        
+
+        <section id="skipped_internal">
+          <div class="section-head">
+            <h2>Skipped/Internal</h2>
+            <span>28</span>
+          </div>
+          <div class="items">
+      <article class="item app-item">
+        <div class="item-main">
+          <h3>TikTok</h3>
+          <p class="role">AI Product Manager Intern (TikTok-Product-Social and Creation)- 2026 Summer (BS/MS)</p>
+          <p class="meta">linkedin_breadth:overlap</p>
+          <div class="chips"><span class="chip">blocklisted_company</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.linkedin.com/jobs/view/4287588499/">Job</a></div>
+      </article>
+    
+
+      <article class="item app-item">
+        <div class="item-main">
+          <h3>TikTok</h3>
+          <p class="role">Product Manager Project Intern (Brand Innovation - Monetization Product) 2026 Start (BS/ MS)</p>
+          <p class="meta">linkedin_breadth:overlap</p>
+          <div class="chips"><span class="chip">blocklisted_company</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.linkedin.com/jobs/view/4408946826/">Job</a></div>
+      </article>
+    
+
+      <article class="item app-item">
+        <div class="item-main">
+          <h3>TikTok</h3>
+          <p class="role">Global Sports Strategy and Operations Project Intern (TikTok-Operations-Sports Creators and Athletes) - 2026 Start (MBA)</p>
+          <p class="meta">linkedin_breadth:overlap</p>
+          <div class="chips"><span class="chip">blocklisted_company</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.linkedin.com/jobs/view/4408949860/">Job</a></div>
+      </article>
+    
+
+      <article class="item app-item">
+        <div class="item-main">
+          <h3>FlairX</h3>
+          <p class="role">Product Manager Intern (AI Products)</p>
+          <p class="meta">linkedin_breadth:overlap</p>
+          <div class="chips"><span class="chip">existing_terminal_status=closed</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.linkedin.com/jobs/view/4417579331/">Job</a></div>
+      </article>
+    
+
+      <article class="item app-item">
+        <div class="item-main">
+          <h3>TikTok</h3>
+          <p class="role">Product Manager Intern (Measurement Product) - 2026 Start (PhD)</p>
+          <p class="meta">linkedin_breadth:playwright_only</p>
+          <div class="chips"><span class="chip">blocklisted_company</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.linkedin.com/jobs/view/4369307668/">Job</a></div>
+      </article>
+    
+
+      <article class="item app-item">
+        <div class="item-main">
+          <h3>8am</h3>
+          <p class="role">Business Operations Intern</p>
+          <p class="meta">linkedin_breadth:playwright_only</p>
+          <div class="chips"><span class="chip">review_cache_decision=deprioritize</span><span class="chip">Target signal: strategy_ops</span><span class="chip">Early-career/intern/MBA signal in title</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.linkedin.com/jobs/view/4400011939/">Job</a></div>
+      </article>
+    
+
+      <article class="item app-item">
+        <div class="item-main">
+          <h3>Vertex Pharmaceuticals</h3>
+          <p class="role">Vertex Fall Co-op 2026, Strategic Operations, Innovation &amp; Change Management</p>
+          <p class="meta">linkedin_breadth:playwright_only</p>
+          <div class="chips"><span class="chip">review_cache_decision=reject</span><span class="chip">Target signal: strategy_ops</span><span class="chip">Early-career/intern/MBA signal in title</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.linkedin.com/jobs/view/4414727469/">Job</a></div>
+      </article>
+    
+
+      <article class="item app-item">
+        <div class="item-main">
+          <h3>DevRabbit IT Solutions</h3>
+          <p class="role">Strategic Partnerships Intern</p>
+          <p class="meta">linkedin_breadth:playwright_only</p>
+          <div class="chips"><span class="chip">review_cache_decision=deprioritize</span><span class="chip">Target signal: strategy_ops</span><span class="chip">Early-career/intern/MBA signal in title</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.linkedin.com/jobs/view/4418265691/">Job</a></div>
+      </article>
+    
+
+      <article class="item app-item">
+        <div class="item-main">
+          <h3>Katsby</h3>
+          <p class="role">Business Development &amp; Market Strategy Intern</p>
+          <p class="meta">linkedin_breadth:playwright_only</p>
+          <div class="chips"><span class="chip">review_cache_decision=deprioritize</span><span class="chip">Target signal: strategy_ops</span><span class="chip">Early-career/intern/MBA signal in title</span><span class="chip">Relationship signal: startup/funding body signal</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.linkedin.com/jobs/view/4418558900/">Job</a></div>
+      </article>
+    
+
+      <article class="item app-item">
+        <div class="item-main">
+          <h3>UMB Bank</h3>
+          <p class="role">Data Product Management Intern</p>
+          <p class="meta">linkedin_breadth:playwright_only</p>
+          <div class="chips"><span class="chip">review_cache_decision=reject</span><span class="chip">Target signal: product_intern</span><span class="chip">Target signal: ai_product</span><span class="chip">Early-career/intern/MBA signal in title</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.linkedin.com/jobs/view/4419427976/">Job</a></div>
+      </article>
+    
+
+      <article class="item app-item">
+        <div class="item-main">
+          <h3>BENCHMADE</h3>
+          <p class="role">Global Value Chain Strategy Analyst - Intern</p>
+          <p class="meta">linkedin_breadth:playwright_only</p>
+          <div class="chips"><span class="chip">review_cache_decision=deprioritize</span><span class="chip">Target signal: strategy_ops</span><span class="chip">Early-career/intern/MBA signal in title</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.linkedin.com/jobs/view/4419515186/">Job</a></div>
+      </article>
+    
+
+      <article class="item app-item">
+        <div class="item-main">
+          <h3>Boston Medical Center (BMC)</h3>
+          <p class="role">Strategy Intern</p>
+          <p class="meta">linkedin_breadth:playwright_only</p>
+          <div class="chips"><span class="chip">review_cache_decision=deprioritize</span><span class="chip">Target signal: strategy_ops</span><span class="chip">Early-career/intern/MBA signal in title</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.linkedin.com/jobs/view/4419528496/">Job</a></div>
+      </article>
+    
+
+      <article class="item app-item">
+        <div class="item-main">
+          <h3>TikTok</h3>
+          <p class="role">Special Project Strategist Intern (TikTok Shop - Operations) - 2026 Summer (BS/ MS)</p>
+          <p class="meta">linkedin_breadth:jobspy_only</p>
+          <div class="chips"><span class="chip">blocklisted_company</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.linkedin.com/jobs/view/4369877294">Job</a></div>
+      </article>
+    
+
+      <article class="item app-item">
+        <div class="item-main">
+          <h3>Jobright.ai</h3>
+          <p class="role">Product Manager, Entry Level</p>
+          <p class="meta">linkedin_breadth:jobspy_only</p>
+          <div class="chips"><span class="chip">review_cache_decision=reject</span><span class="chip">Target signal: product_intern</span><span class="chip">Target signal: ai_product</span><span class="chip">Early-career/intern/MBA signal in title</span><span class="chip">Relationship signal: startup/AI/domain title signal</span></div>
+        </div>
+        <div class="item-actions"><a href="https://www.linkedin.com/jobs/view/4418521398">Job</a></div>
+      </article>
+    
+
+      <article class="item app-item">
+        <div class="item-main">
+          <h3>Taboola</h3>
+          <p class="role"></p>
+          <p class="meta">startup_org:builtin_la_companies</p>
+          <div class="chips"><span class="chip">active hiring/jobs signal</span><span class="chip">target geography signal</span><span class="chip">domain fit signal</span><span class="chip">domain/profile fit</span><span class="chip">enterprise-size penalty</span><span class="chip">less founder-led relationship fit</span></div>
+        </div>
+        <div class="item-actions"></div>
+      </article>
+    
+
+      <article class="item app-item">
+        <div class="item-main">
+          <h3>Square</h3>
+          <p class="role"></p>
+          <p class="meta">startup_org:builtin_la_companies</p>
+          <div class="chips"><span class="chip">active hiring/jobs signal</span><span class="chip">target geography signal</span><span class="chip">domain fit signal</span><span class="chip">domain/profile fit</span><span class="chip">enterprise-size penalty</span><span class="chip">less founder-led relationship fit</span></div>
+        </div>
+        <div class="item-actions"></div>
+      </article>
+    
+
+      <article class="item app-item">
+        <div class="item-main">
+          <h3>SoFi</h3>
+          <p class="role"></p>
+          <p class="meta">startup_org:builtin_sf_companies</p>
+          <div class="chips"><span class="chip">active hiring/jobs signal</span><span class="chip">target geography signal</span><span class="chip">domain fit signal</span><span class="chip">domain/profile fit</span><span class="chip">enterprise-size penalty</span><span class="chip">less founder-led relationship fit</span></div>
+        </div>
+        <div class="item-actions"></div>
+      </article>
+    
+
+      <article class="item app-item">
+        <div class="item-main">
+          <h3>ServiceNow</h3>
+          <p class="role"></p>
+          <p class="meta">startup_org:builtin_sf_companies</p>
+          <div class="chips"><span class="chip">active hiring/jobs signal</span><span class="chip">target geography signal</span><span class="chip">domain fit signal</span><span class="chip">domain/profile fit</span><span class="chip">enterprise-size penalty</span></div>
+        </div>
+        <div class="item-actions"></div>
+      </article>
+    
+
+      <article class="item app-item">
+        <div class="item-main">
+          <h3>PwC</h3>
+          <p class="role"></p>
+          <p class="meta">startup_org:builtin_la_companies</p>
+          <div class="chips"><span class="chip">active hiring/jobs signal</span><span class="chip">target geography signal</span><span class="chip">domain fit signal</span><span class="chip">domain/profile fit</span><span class="chip">enterprise-size penalty</span></div>
+        </div>
+        <div class="item-actions"></div>
+      </article>
+    
+
+      <article class="item app-item">
+        <div class="item-main">
+          <h3>PwC</h3>
+          <p class="role"></p>
+          <p class="meta">startup_org:builtin_sf_companies</p>
+          <div class="chips"><span class="chip">active hiring/jobs signal</span><span class="chip">target geography signal</span><span class="chip">domain fit signal</span><span class="chip">domain/profile fit</span><span class="chip">enterprise-size penalty</span></div>
+        </div>
+        <div class="item-actions"></div>
+      </article>
+    
+
+      <article class="item app-item">
+        <div class="item-main">
+          <h3>PagerDuty</h3>
+          <p class="role"></p>
+          <p class="meta">startup_org:builtin_sf_companies</p>
+          <div class="chips"><span class="chip">active hiring/jobs signal</span><span class="chip">target geography signal</span><span class="chip">domain fit signal</span><span class="chip">domain/profile fit</span><span class="chip">enterprise-size penalty</span></div>
+        </div>
+        <div class="item-actions"></div>
+      </article>
+    
+
+      <article class="item app-item">
+        <div class="item-main">
+          <h3>Opendoor</h3>
+          <p class="role"></p>
+          <p class="meta">startup_org:builtin_sf_companies</p>
+          <div class="chips"><span class="chip">active hiring/jobs signal</span><span class="chip">target geography signal</span><span class="chip">domain fit signal</span><span class="chip">domain/profile fit</span><span class="chip">enterprise-size penalty</span></div>
+        </div>
+        <div class="item-actions"></div>
+      </article>
+    
+
+      <article class="item app-item">
+        <div class="item-main">
+          <h3>Genius Sports</h3>
+          <p class="role"></p>
+          <p class="meta">startup_org:builtin_la_companies</p>
+          <div class="chips"><span class="chip">active hiring/jobs signal</span><span class="chip">target geography signal</span><span class="chip">domain fit signal</span><span class="chip">domain/profile fit</span><span class="chip">enterprise-size penalty</span></div>
+        </div>
+        <div class="item-actions"></div>
+      </article>
+    
+
+      <article class="item app-item">
+        <div class="item-main">
+          <h3>Cloudflare</h3>
+          <p class="role"></p>
+          <p class="meta">startup_org:builtin_la_companies</p>
+          <div class="chips"><span class="chip">active hiring/jobs signal</span><span class="chip">target geography signal</span><span class="chip">domain fit signal</span><span class="chip">domain/profile fit</span><span class="chip">enterprise-size penalty</span></div>
+        </div>
+        <div class="item-actions"></div>
+      </article>
+    
+
+      <article class="item app-item">
+        <div class="item-main">
+          <h3>Cisco ThousandEyes</h3>
+          <p class="role"></p>
+          <p class="meta">startup_org:builtin_sf_companies</p>
+          <div class="chips"><span class="chip">active hiring/jobs signal</span><span class="chip">target geography signal</span><span class="chip">domain fit signal</span><span class="chip">domain/profile fit</span><span class="chip">enterprise-size penalty</span></div>
+        </div>
+        <div class="item-actions"></div>
+      </article>
+    
+
+      <article class="item app-item">
+        <div class="item-main">
+          <h3>Celonis</h3>
+          <p class="role"></p>
+          <p class="meta">startup_org:builtin_la_companies</p>
+          <div class="chips"><span class="chip">active hiring/jobs signal</span><span class="chip">target geography signal</span><span class="chip">domain fit signal</span><span class="chip">domain/profile fit</span><span class="chip">enterprise-size penalty</span></div>
+        </div>
+        <div class="item-actions"></div>
+      </article>
+    
+
+      <article class="item app-item">
+        <div class="item-main">
+          <h3>Cash App</h3>
+          <p class="role"></p>
+          <p class="meta">startup_org:builtin_sf_companies</p>
+          <div class="chips"><span class="chip">active hiring/jobs signal</span><span class="chip">target geography signal</span><span class="chip">domain fit signal</span><span class="chip">domain/profile fit</span><span class="chip">enterprise-size penalty</span></div>
+        </div>
+        <div class="item-actions"></div>
+      </article>
+    
+
+      <article class="item app-item">
+        <div class="item-main">
+          <h3>Block</h3>
+          <p class="role"></p>
+          <p class="meta">startup_org:builtin_la_companies</p>
+          <div class="chips"><span class="chip">active hiring/jobs signal</span><span class="chip">target geography signal</span><span class="chip">domain fit signal</span><span class="chip">domain/profile fit</span><span class="chip">enterprise-size penalty</span></div>
+        </div>
+        <div class="item-actions"></div>
+      </article>
+    </div>
+        </section>
+        
+    <section id="source-mix">
+      <div class="section-head"><h2>Source Mix</h2></div>
+      <table>
+        <thead><tr><th>Bucket</th><th>Source</th><th>Count</th></tr></thead>
+        <tbody><tr><td>scored_application_selected</td><td>linkedin_live_jobs_v1</td><td>2</td></tr>
+<tr><td>scored_application_not_selected</td><td>linkedin_live_jobs_v1</td><td>7</td></tr>
+<tr><td>scored_application_not_selected</td><td>jobspy_filtered_v1</td><td>1</td></tr>
+<tr><td>application_plus_outreach</td><td>current_apply_queue</td><td>4</td></tr>
+<tr><td>outreach_only_today</td><td>startup_org:yc_sf_bay_hiring</td><td>4</td></tr>
+<tr><td>outreach_only_today</td><td>startup_org:yc_los_angeles</td><td>4</td></tr>
+<tr><td>relationship_buffer</td><td>linkedin_breadth:jobspy_only</td><td>15</td></tr>
+<tr><td>relationship_buffer</td><td>startup_org:yc_los_angeles</td><td>9</td></tr>
+<tr><td>relationship_buffer</td><td>startup_org:builtin_la_companies</td><td>8</td></tr>
+<tr><td>relationship_buffer</td><td>startup_org:builtin_sf_companies</td><td>8</td></tr>
+<tr><td>relationship_buffer</td><td>startup_org:yc_sf_bay_hiring</td><td>6</td></tr></tbody>
+      </table>
+    </section>
+    <section id="commands">
+      <div class="section-head"><h2>Suggested Commands</h2></div>
+      <div class="commands"><code>./discovery/scripts/run_linkedin_discovery.sh 24h</code>
+<code>venv/bin/python discovery/auto/startup_apply_pipeline.py</code>
+<code>venv/bin/python jobs.py --no-color generate --queue --parallel 3</code>
+<code>cd ../Outreach &amp;&amp; ./.venv/bin/python main.py import-resume-jobs --jobs-xlsx &quot;../ResumeGenerator v1/discovery/jobs.xlsx&quot;</code>
+<code>cd ../Outreach &amp;&amp; ./.venv/bin/python main.py build-linkedin-company-queue --limit 8</code>
+<code>cd ../Outreach &amp;&amp; ./.venv/bin/python main.py run --company &quot;Hedge&quot; --company-mode startup</code>
+<code>cd ../Outreach &amp;&amp; ./.venv/bin/python main.py run --company &quot;Gojiberry AI&quot; --company-mode startup</code>
+<code>cd ../Outreach &amp;&amp; ./.venv/bin/python main.py run --company &quot;Bloom&quot; --company-mode startup</code></div>
+    </section>
+  </main>
+</body>
+</html>

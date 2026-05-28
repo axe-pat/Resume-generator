@@ -1,0 +1,1651 @@
+{
+  "generated_at": "2026-05-29T00:31:15",
+  "inputs": {
+    "limit_companies": 12,
+    "limit_jobs": 30,
+    "sources": "all",
+    "ignore_existing": false,
+    "relationship_artifacts_dir": "/Users/akshat/Desktop/Claude Projects/Outreach/artifacts"
+  },
+  "startup_apply": {
+    "discovered_counts": {
+      "yc_sf_bay_hiring": 0,
+      "yc_los_angeles": 0,
+      "builtin_la_job_lists": 0,
+      "builtin_sf_job_lists": 0,
+      "a16z_job_board": 5
+    },
+    "new_counts": {},
+    "verdict_counts": {},
+    "source_verdict_counts": {},
+    "items": []
+  },
+  "relationship_lane": {
+    "artifacts": {
+      "yc_sf_bay_hiring": {
+        "artifact": "/Users/akshat/Desktop/Claude Projects/Outreach/artifacts/20260529-003016-discover-yc_sf_bay_hiring.json",
+        "count": 25,
+        "status": "loaded"
+      },
+      "yc_los_angeles": {
+        "artifact": "/Users/akshat/Desktop/Claude Projects/Outreach/artifacts/20260529-003017-discover-yc_los_angeles.json",
+        "count": 25,
+        "status": "loaded"
+      },
+      "builtin_la_companies": {
+        "artifact": "/Users/akshat/Desktop/Claude Projects/Outreach/artifacts/20260529-003018-discover-builtin_la_companies.json",
+        "count": 20,
+        "status": "loaded"
+      },
+      "builtin_sf_companies": {
+        "artifact": "/Users/akshat/Desktop/Claude Projects/Outreach/artifacts/20260529-003019-discover-builtin_sf_companies.json",
+        "count": 20,
+        "status": "loaded"
+      }
+    },
+    "source_counts": {
+      "yc_sf_bay_hiring": 15,
+      "yc_los_angeles": 15,
+      "builtin_la_companies": 15,
+      "builtin_sf_companies": 15
+    },
+    "items": [
+      {
+        "verdict": "outreach_signal",
+        "source_id": "yc_sf_bay_hiring",
+        "relationship_score": 14,
+        "reasons": [
+          "YC-backed/source-quality signal",
+          "active hiring/jobs signal",
+          "target geography signal",
+          "domain fit signal",
+          "small-team founder/operator access"
+        ],
+        "organization_name": "Tasklet",
+        "company_url": "https://www.ycombinator.com/companies/tasklet-2",
+        "jobs_url": "https://www.ycombinator.com/companies/tasklet-2/jobs",
+        "website": "",
+        "city": "San Francisco",
+        "location": "San Francisco",
+        "team_size": "8 employees",
+        "batch": "P2026",
+        "tags": [],
+        "description": "AI chatbots can answer questions, but they can't do your work \u2014 they aren't connected to your tools, can't take actions, and stop running when you close the tab. Meanwhile, knowledge workers are still spending most of their day switching between dozens of SaaS apps, manually stitching together workflows that should be automated. Tasklet is the AI agent that actually does the work. It connects to every tool you use \u2014 via thousands of built-in integrations, any HTTP API, or MCP servers \u2014 and takes real actions on your behalf: pulling reports, updating CRMs, triaging emails, processing data, and more. When it needs a UI, it generates one on the fly. When it needs to crunch numbers or do bulk operations, it writes and runs code in a cloud sandbox. When it needs to interact with a website that doesn't have an API, it uses a real browser. And because it runs in the cloud 24/7, you can set up triggers to have it take ongoing responsibility for workflows \u2014 not just do something once, but handle it going forward. The product is deliberately simple: a chat interface where you talk to an extremely capable agent. But underneath that simplicity is a cloud-native agent runtime, best-in-class context engineering, a universal connections layer, and multi-model support that keeps us on the frontier as AI improves. We think legacy SaaS is being unbundled by agents, and Tasklet is the operating system that ties it all together.",
+        "source_item_url": "https://www.ycombinator.com/companies/tasklet-2"
+      },
+      {
+        "verdict": "outreach_signal",
+        "source_id": "yc_sf_bay_hiring",
+        "relationship_score": 14,
+        "reasons": [
+          "YC-backed/source-quality signal",
+          "active hiring/jobs signal",
+          "target geography signal",
+          "domain fit signal",
+          "small-team founder/operator access"
+        ],
+        "organization_name": "Mount",
+        "company_url": "https://www.ycombinator.com/companies/mount",
+        "jobs_url": "https://www.ycombinator.com/companies/mount/jobs",
+        "website": "",
+        "city": "San Francisco",
+        "location": "San Francisco",
+        "team_size": "2 employees",
+        "batch": "P2026",
+        "tags": [],
+        "description": "TLDR: Mount is building the AI-Agent insurance carrier, starting with liability coverage for deployed AI agents. As everyone moves AI Agents into production and gives them more responsibility, we help businesses insure and secure them. Whenever responsibility shifts from human operators to autonomous systems, so too does the liability that accompanies it. The systems also introduce new risks: agentic software failures, prompt injection attacks, autonomous workflow errors, data leaks, and more. Legacy insurance was not built for this. Existing policies are often silent, ambiguous, or exclude autonomous software, and traditional insurers lack the data and technical capability to assess deployed AI Systems. Our first product, the Mount AI Liability Policy, is built for mid-market and enterprise companies deploying autonomous AI agents in real business processes. We scan and red-team AI deployments, quantify operational risk, help fix vulnerabilities, and insure the residual risk with purpose-built AI liability coverage. Mount is best thought of as a highly automated version of today's commercial insurance carriers, which run on manual workflows, layers of intermediaries, and tens of thousands of employees. AI enables automation of underwriting, pricing, policy issuance, claims, fraud detection, customer support, and distribution. We believe that the best way to use this opportunity is to rebuild those processes from the ground up.",
+        "source_item_url": "https://www.ycombinator.com/companies/mount"
+      },
+      {
+        "verdict": "outreach_signal",
+        "source_id": "yc_sf_bay_hiring",
+        "relationship_score": 14,
+        "reasons": [
+          "YC-backed/source-quality signal",
+          "active hiring/jobs signal",
+          "target geography signal",
+          "domain fit signal",
+          "small-team founder/operator access"
+        ],
+        "organization_name": "Intelligence Factory",
+        "company_url": "https://www.ycombinator.com/companies/intelligence-factory",
+        "jobs_url": "https://www.ycombinator.com/companies/intelligence-factory/jobs",
+        "website": "",
+        "city": "San Francisco",
+        "location": "San Francisco, CA, USA",
+        "team_size": "5 employees",
+        "batch": "P2026",
+        "tags": [
+          "robotics",
+          "ai"
+        ],
+        "description": "Robotics is the new paradigm. With hardware converging, Intelligence is the biggest bottleneck. Our world was built for humans and we're giving robots the ability to reason and act like us. The way we learn any task - by seeing, doing, and feeling - is how we train robots. We're building general intelligence that works on any robot and fits seamlessly within our world.",
+        "source_item_url": "https://www.ycombinator.com/companies/intelligence-factory"
+      },
+      {
+        "verdict": "outreach_signal",
+        "source_id": "yc_sf_bay_hiring",
+        "relationship_score": 14,
+        "reasons": [
+          "YC-backed/source-quality signal",
+          "active hiring/jobs signal",
+          "target geography signal",
+          "domain fit signal",
+          "small-team founder/operator access"
+        ],
+        "organization_name": "Hedge",
+        "company_url": "https://www.ycombinator.com/companies/hedge",
+        "jobs_url": "https://www.ycombinator.com/companies/hedge/jobs",
+        "website": "",
+        "city": "San Francisco",
+        "location": "San Francisco, CA, USA",
+        "team_size": "2 employees",
+        "batch": "P2026",
+        "tags": [
+          "insurance",
+          "fintech",
+          "artificial-intelligence"
+        ],
+        "description": "Hedge is an AI-Native specialty insurance company. We help insurance brokers find faster, cheaper, and better coverage for their customers. b2b",
+        "source_item_url": "https://www.ycombinator.com/companies/hedge"
+      },
+      {
+        "verdict": "outreach_signal",
+        "source_id": "yc_sf_bay_hiring",
+        "relationship_score": 14,
+        "reasons": [
+          "YC-backed/source-quality signal",
+          "active hiring/jobs signal",
+          "target geography signal",
+          "domain fit signal",
+          "small-team founder/operator access"
+        ],
+        "organization_name": "Gojiberry AI",
+        "company_url": "https://www.ycombinator.com/companies/gojiberry-ai",
+        "jobs_url": "https://www.ycombinator.com/companies/gojiberry-ai/jobs",
+        "website": "",
+        "city": "San Francisco",
+        "location": "San Francisco",
+        "team_size": "7 employees",
+        "batch": "P2026",
+        "tags": [
+          "artificial-intelligence",
+          "sales"
+        ],
+        "description": "Gojiberry is building the AI GTM team for B2B companies. We start with outbound: Gojiberry finds buyers showing intent, enriches them, reaches out, follows up, handles replies, and books qualified meetings. Companies use Gojiberry to replace the old way of doing outbound: buying tools, hiring SDRs & agencies, testing lists, writing messages, and guessing what works. Gojiberry turns it into one AI team that finds buyers and books meetings. Every campaign makes Gojiberry smarter. It learns which buyers convert, which signals matter, which messages get replies, and which actions create revenue. Over time, Gojiberry uses what works across similar companies and industries to help every new customer get better results from day one. Long term, Gojiberry will become the system that finds every revenue opportunity and acts on it: outbound leads, website visitors, inbound leads, old CRM leads, replies, meetings, CRM updates, new campaign ideas, and account expansion. The goal is to make every B2B company able to run a high-performing GTM team without hiring one. We grew from $0 to $2.5M ARR in 10 months, are growing 35% MoM, profitable, and used by 2,000+ customers. Customers get 2-5x more positive replies than traditional outbound. b2b",
+        "source_item_url": "https://www.ycombinator.com/companies/gojiberry-ai"
+      },
+      {
+        "verdict": "outreach_signal",
+        "source_id": "yc_sf_bay_hiring",
+        "relationship_score": 14,
+        "reasons": [
+          "YC-backed/source-quality signal",
+          "active hiring/jobs signal",
+          "target geography signal",
+          "domain fit signal",
+          "small-team founder/operator access"
+        ],
+        "organization_name": "Eden Robotics",
+        "company_url": "https://www.ycombinator.com/companies/eden-robotics",
+        "jobs_url": "https://www.ycombinator.com/companies/eden-robotics/jobs",
+        "website": "",
+        "city": "San Francisco",
+        "location": "San Francisco, CA, USA",
+        "team_size": "4 employees",
+        "batch": "P2026",
+        "tags": [
+          "automation",
+          "robotics",
+          "robotic-process-automation",
+          "ai"
+        ],
+        "description": "We're building robots that just work and use them to deliver autonomous services at scale. Our first use case is semi-humanoid robots for manufacturing and logistics. Unlike traditional robotics companies, we don't sell robots, we provide physical agents for hire where companies pay for the robots based on usage, decreasing the barrier to entry and expanding the robotics market as a whole.",
+        "source_item_url": "https://www.ycombinator.com/companies/eden-robotics"
+      },
+      {
+        "verdict": "outreach_signal",
+        "source_id": "yc_sf_bay_hiring",
+        "relationship_score": 14,
+        "reasons": [
+          "YC-backed/source-quality signal",
+          "active hiring/jobs signal",
+          "target geography signal",
+          "domain fit signal",
+          "small-team founder/operator access"
+        ],
+        "organization_name": "Deep Interactions",
+        "company_url": "https://www.ycombinator.com/companies/deep-interactions",
+        "jobs_url": "https://www.ycombinator.com/companies/deep-interactions/jobs",
+        "website": "",
+        "city": "San Francisco",
+        "location": "San Francisco, CA, USA",
+        "team_size": "4 employees",
+        "batch": "P2026",
+        "tags": [
+          "artificial-intelligence",
+          "team-collaboration",
+          "saas",
+          "generative-ai",
+          "developer-tools"
+        ],
+        "description": "Deep Interactions is a humans-in-the-loop AI builder. We don't leave you with a spaghetti mess of a code. We bring product intelligence and power the context layer that enables your team to build in sync - saving companies tokens, time, and nerves. You give us a problem and we ship a working AI product in the same afternoon.",
+        "source_item_url": "https://www.ycombinator.com/companies/deep-interactions"
+      },
+      {
+        "verdict": "outreach_signal",
+        "source_id": "yc_sf_bay_hiring",
+        "relationship_score": 14,
+        "reasons": [
+          "YC-backed/source-quality signal",
+          "active hiring/jobs signal",
+          "target geography signal",
+          "domain fit signal",
+          "small-team founder/operator access"
+        ],
+        "organization_name": "Bloom",
+        "company_url": "https://www.ycombinator.com/companies/trybloom",
+        "jobs_url": "https://www.ycombinator.com/companies/trybloom/jobs",
+        "website": "",
+        "city": "San Francisco",
+        "location": "San Francisco",
+        "team_size": "3 employees",
+        "batch": "P2026",
+        "tags": [],
+        "description": "Bloom is the brand layer for agents - a system that holds your brand and makes it callable from any agent, app, or platform. Ingest your brand from anywhere - decks, websites, social, Figma, and more. Bloom systemises your brand, enabling the creation of on-brand outputs like images, video, video, copy, and more, through the web app, the API, or MCP. We're building brand-as-infrastructure for the AI era.",
+        "source_item_url": "https://www.ycombinator.com/companies/trybloom"
+      },
+      {
+        "verdict": "outreach_signal",
+        "source_id": "yc_sf_bay_hiring",
+        "relationship_score": 14,
+        "reasons": [
+          "YC-backed/source-quality signal",
+          "active hiring/jobs signal",
+          "target geography signal",
+          "domain fit signal",
+          "small-team founder/operator access"
+        ],
+        "organization_name": "Arlo Industries",
+        "company_url": "https://www.ycombinator.com/companies/arlo-industries",
+        "jobs_url": "https://www.ycombinator.com/companies/arlo-industries/jobs",
+        "website": "",
+        "city": "San Francisco",
+        "location": "San Francisco",
+        "team_size": "3 employees",
+        "batch": "P2026",
+        "tags": [
+          "aerospace",
+          "security",
+          "drones",
+          "hard-tech",
+          "radar"
+        ],
+        "description": "Arlo Industries is building a network of sensors that precisely tracks stealthy drones and aerial threats better than radars. This capability does not exist yet because traditional radars are built on past war doctrines designed to protect single, centralised assets. Modern warfare, however, demands wide-area, persistent coverage that is both passive and economically scalable. By utilising a mesh architecture, Arlo Industries unlocks unprecedented asymmetric economics. The network is fundamentally built to scale: the cost of adding sensors grows linearly, but the tracking accuracy increases exponentially, delivering highly resilient, persistent coverage for a fraction of the cost of legacy systems. Deo founded Arlo Industries after spending over 6 years in the Israeli defence ecosystem, where he lived through multiple conflicts and experienced the Iron Dome and other systems in action against ICBMs and the infamous Shahed drones. Learning exactly how these defence systems could be improved after a Shahed exploded close to his apartment, he built Arlo Industries around the core philosophy that conflict should be concise & precise. The people behind Arlo1 includes a PhD in drones and autonomy and military experts. Arlo Industries has actively showcased this technology directly to Ukrainian militaries on the frontlines, as well as to operators across Europe and the USA.",
+        "source_item_url": "https://www.ycombinator.com/companies/arlo-industries"
+      },
+      {
+        "verdict": "outreach_signal",
+        "source_id": "yc_sf_bay_hiring",
+        "relationship_score": 14,
+        "reasons": [
+          "YC-backed/source-quality signal",
+          "active hiring/jobs signal",
+          "target geography signal",
+          "domain fit signal",
+          "small-team founder/operator access"
+        ],
+        "organization_name": "ANORIA",
+        "company_url": "https://www.ycombinator.com/companies/anoria",
+        "jobs_url": "https://www.ycombinator.com/companies/anoria/jobs",
+        "website": "",
+        "city": "San Francisco",
+        "location": "San Francisco",
+        "team_size": "5 employees",
+        "batch": "P2026",
+        "tags": [
+          "artificial-intelligence",
+          "consumer-products",
+          "consumer-health-services",
+          "hardware",
+          "mental-health-tech"
+        ],
+        "description": "We've spent decades tracking everything. Sleep. Recovery. Steps. All proxies for how we feel. Performance is 90% mental. And yet no one has built the feedback loop for our emotions. We close that loop by designing a device that understands how you feel, tells you why, and what you can do about it. Emotional intelligence becomes trainable, so you can better connect and create with those around you.",
+        "source_item_url": "https://www.ycombinator.com/companies/anoria"
+      },
+      {
+        "verdict": "outreach_signal",
+        "source_id": "yc_sf_bay_hiring",
+        "relationship_score": 13,
+        "reasons": [
+          "YC-backed/source-quality signal",
+          "active hiring/jobs signal",
+          "target geography signal",
+          "domain fit signal",
+          "mid-size startup access"
+        ],
+        "organization_name": "Webflow",
+        "company_url": "https://www.ycombinator.com/companies/webflow",
+        "jobs_url": "https://www.ycombinator.com/companies/webflow/jobs",
+        "website": "",
+        "city": "San Francisco",
+        "location": "San Francisco, CA, USA",
+        "team_size": "600 employees",
+        "batch": "S2013",
+        "tags": [
+          "saas",
+          "marketing",
+          "design"
+        ],
+        "description": "Webflow is the leading no-code visual web development platform. It seamlessly generates sophisticated code so anyone can build powerful web-based businesses and adapt to changes without developers or months of building. From entrepreneurs and creative agencies to Fortune 500 companies, Webflow makes the internet a more inclusive place by making the tools to build on it more accessible to more people, fueling business growth. Webflow powers websites for innovators like Discord, Monday.com, IDEO, Orange Theory Fitness, TED, and Dropbox. Webflow is backed by Y Combinator, Accel, CapitalG, Silversmith, and other awesome investors.",
+        "source_item_url": "https://www.ycombinator.com/companies/webflow"
+      },
+      {
+        "verdict": "outreach_signal",
+        "source_id": "yc_sf_bay_hiring",
+        "relationship_score": 13,
+        "reasons": [
+          "YC-backed/source-quality signal",
+          "active hiring/jobs signal",
+          "target geography signal",
+          "domain fit signal",
+          "mid-size startup access"
+        ],
+        "organization_name": "Scale AI",
+        "company_url": "https://www.ycombinator.com/companies/scale-ai",
+        "jobs_url": "https://www.ycombinator.com/companies/scale-ai/jobs",
+        "website": "",
+        "city": "San Francisco",
+        "location": "San Francisco, CA, USA",
+        "team_size": "500 employees",
+        "batch": "S2016",
+        "tags": [
+          "artificial-intelligence",
+          "machine-learning"
+        ],
+        "description": "Scale accelerates the development of AI within organizations of any size to deliver critical business insights and operational efficiency. Its data-centric infrastructure platform leverages RLHF (Reinforced Learning with Human Feedback) to help organizations build the strongest AI models that supercharge their business, with customers across industries including Meta, Microsoft, U.S. Army, DoD\u2019s Defense Innovation Unit, Open AI, General Motors, Toyota Research Institute, Brex, Instacart and Flexport.",
+        "source_item_url": "https://www.ycombinator.com/companies/scale-ai"
+      },
+      {
+        "verdict": "outreach_signal",
+        "source_id": "yc_sf_bay_hiring",
+        "relationship_score": 13,
+        "reasons": [
+          "YC-backed/source-quality signal",
+          "active hiring/jobs signal",
+          "target geography signal",
+          "domain fit signal",
+          "mid-size startup access"
+        ],
+        "organization_name": "Mixpanel",
+        "company_url": "https://www.ycombinator.com/companies/mixpanel",
+        "jobs_url": "https://www.ycombinator.com/companies/mixpanel/jobs",
+        "website": "",
+        "city": "San Francisco",
+        "location": "San Francisco, CA, USA",
+        "team_size": "410 employees",
+        "batch": "S2009",
+        "tags": [
+          "analytics",
+          "databases",
+          "cloud-computing",
+          "data-visualization"
+        ],
+        "description": "Mixpanel is analytics for builders that need answers from their data at their fingertips. When everyone in the organization can see \u2014 and learn from \u2014 the impact of their work, they are poised to make better decisions. Companies like OpenAI, Netflix, Pinterest, sweetgreen, CNN, samsara, Uber, and Yelp use Mixpanel to understand their customers, measure progress, and endeavor to make better decisions. b2b",
+        "source_item_url": "https://www.ycombinator.com/companies/mixpanel"
+      },
+      {
+        "verdict": "outreach_signal",
+        "source_id": "yc_sf_bay_hiring",
+        "relationship_score": 13,
+        "reasons": [
+          "YC-backed/source-quality signal",
+          "active hiring/jobs signal",
+          "target geography signal",
+          "domain fit signal",
+          "mid-size startup access"
+        ],
+        "organization_name": "Faire",
+        "company_url": "https://www.ycombinator.com/companies/faire",
+        "jobs_url": "https://www.ycombinator.com/companies/faire/jobs",
+        "website": "",
+        "city": "San Francisco",
+        "location": "San Francisco, CA, USA",
+        "team_size": "900 employees",
+        "batch": "W2017",
+        "tags": [
+          "marketplace",
+          "retail"
+        ],
+        "description": "Faire is an innovative online marketplace that uses machine learning to match local retailers with the brands and products that uniquely fit their stores. We are using the power of technology to connect brands and independent retailers from all over the world, building a thriving community of hundreds of thousands of retailers, which has resulted in over 7 million new connections to date. Faire was founded on the belief that the future of retail is local. Our mission is to empower brands and retailers to strengthen the unique character of local communities. Our data-driven approach unburdens retailers from decades-old obstacles by helping find the right products for their shop. Plus, our straight-forward financial terms level the playing field by eliminating inventory risk and providing access to capital\u2014key offerings previously only available to big box chains. For brands, our platform provides powerful sales, marketing, and analytics tools that simplify their business and allow them to focus on what they love: making great products.",
+        "source_item_url": "https://www.ycombinator.com/companies/faire"
+      },
+      {
+        "verdict": "outreach_signal",
+        "source_id": "yc_sf_bay_hiring",
+        "relationship_score": 13,
+        "reasons": [
+          "YC-backed/source-quality signal",
+          "active hiring/jobs signal",
+          "target geography signal",
+          "domain fit signal",
+          "mid-size startup access"
+        ],
+        "organization_name": "Clipboard",
+        "company_url": "https://www.ycombinator.com/companies/clipboard",
+        "jobs_url": "https://www.ycombinator.com/companies/clipboard/jobs",
+        "website": "",
+        "city": "San Francisco",
+        "location": "San Francisco, CA, USA",
+        "team_size": "1,000 employees",
+        "batch": "W2017",
+        "tags": [
+          "health-tech",
+          "healthcare",
+          "consumer-health-services",
+          "marketplace"
+        ],
+        "description": "Our Why At Clipboard, our mission is to uplift as many communities as possible. We do this by connecting professionals with the workplaces that need amazing workers, helping people achieve financial stability for themselves and their families all across the U.S. Our How Clipboard is an app-based marketplace where workplaces post calls for help and workers answer. Every year, we help hundreds of thousands of workers fill millions of shifts across the U.S. We\u2019re the leader in Long-Term Care staffing and are rapidly expanding into Home Health, Hospitals, and more. Our Team Founded in 2016, we are a remote-first team of over 1,000 people working to uplift communities across the country.",
+        "source_item_url": "https://www.ycombinator.com/companies/clipboard"
+      },
+      {
+        "verdict": "outreach_signal",
+        "source_id": "yc_los_angeles",
+        "relationship_score": 10,
+        "reasons": [
+          "YC-backed/source-quality signal",
+          "target geography signal",
+          "domain fit signal",
+          "small-team founder/operator access"
+        ],
+        "organization_name": "Voker",
+        "company_url": "https://www.ycombinator.com/companies/voker",
+        "jobs_url": "",
+        "website": "",
+        "city": "Los Angeles",
+        "location": "Los Angeles, CA, USA",
+        "team_size": "6 employees",
+        "batch": "S2024",
+        "tags": [
+          "analytics",
+          "big-data",
+          "developer-tools",
+          "ai",
+          "generative-ai"
+        ],
+        "description": "Voker is the Agent Analytics Platform for monitoring and improving your AI agents. Companies like Dutch.com use our SDK to build better agents. Alex and Tyler met at a high-growth E-Commerce startup where Tyler was running Technology & Data. Together, they built AI products that bootstrapped the company profitably to $100MM in Revenue.",
+        "source_item_url": "https://www.ycombinator.com/companies/voker"
+      },
+      {
+        "verdict": "outreach_signal",
+        "source_id": "yc_los_angeles",
+        "relationship_score": 10,
+        "reasons": [
+          "YC-backed/source-quality signal",
+          "target geography signal",
+          "domain fit signal",
+          "small-team founder/operator access"
+        ],
+        "organization_name": "Vassar Robotics",
+        "company_url": "https://www.ycombinator.com/companies/vassar-robotics",
+        "jobs_url": "",
+        "website": "",
+        "city": "Los Angeles",
+        "location": "Los Angeles",
+        "team_size": "3 employees",
+        "batch": "P2025",
+        "tags": [],
+        "description": "We build home humanoids the practical way\u2014an open, mass-produced developer kit powering a real-home teleop data flywheel to autonomy, giving families back 20 hours/week.",
+        "source_item_url": "https://www.ycombinator.com/companies/vassar-robotics"
+      },
+      {
+        "verdict": "outreach_signal",
+        "source_id": "yc_los_angeles",
+        "relationship_score": 10,
+        "reasons": [
+          "YC-backed/source-quality signal",
+          "target geography signal",
+          "domain fit signal",
+          "small-team founder/operator access"
+        ],
+        "organization_name": "Surtr Defense Systems",
+        "company_url": "https://www.ycombinator.com/companies/surtr-defense-systems",
+        "jobs_url": "",
+        "website": "",
+        "city": "Los Angeles",
+        "location": "Los Angeles, CA, USA",
+        "team_size": "2 employees",
+        "batch": "P2026",
+        "tags": [
+          "computer-vision"
+        ],
+        "description": "Surtr builds ParallaxOS, the open operating system for counter-UAS. It takes sensor data from any radar, RF detector, camera, or acoustic array and fuses it into a single unified picture with AI-driven threat classification and engagement recommendations. One interface, any hardware, human in the loop.",
+        "source_item_url": "https://www.ycombinator.com/companies/surtr-defense-systems"
+      },
+      {
+        "verdict": "outreach_signal",
+        "source_id": "yc_los_angeles",
+        "relationship_score": 10,
+        "reasons": [
+          "YC-backed/source-quality signal",
+          "target geography signal",
+          "domain fit signal",
+          "small-team founder/operator access"
+        ],
+        "organization_name": "Splash Inc.",
+        "company_url": "https://www.ycombinator.com/companies/splash-inc",
+        "jobs_url": "",
+        "website": "",
+        "city": "Los Angeles",
+        "location": "Los Angeles",
+        "team_size": "9 employees",
+        "batch": "W2025",
+        "tags": [],
+        "description": "Splash is developing the next generation of autonomous surface vessels (ASVs) to provide National Security and defend critical assets such as oil rigs and shipping terminals. Our long-term vision is to make traditional naval vessels obsolete by creating a fleet of low-cost and versatile boats which will be able to dominate the seas. Our expertise in mass manufacturing, engineering and quickly scaling operations will make this vision a reality.",
+        "source_item_url": "https://www.ycombinator.com/companies/splash-inc"
+      },
+      {
+        "verdict": "outreach_signal",
+        "source_id": "builtin_la_companies",
+        "relationship_score": 10,
+        "reasons": [
+          "active hiring/jobs signal",
+          "target geography signal",
+          "domain fit signal",
+          "small-team founder/operator access"
+        ],
+        "organization_name": "Product.ai",
+        "company_url": "https://www.builtinla.com/company/productai",
+        "jobs_url": "https://www.builtinla.com/company/productai/jobs",
+        "website": "",
+        "city": "Los Angeles",
+        "location": "Los Angeles",
+        "team_size": "25 Employees",
+        "batch": "",
+        "tags": [
+          "artificial intelligence",
+          "big data",
+          "consumer web",
+          "ecommerce"
+        ],
+        "description": "Product.ai (formerly Demand.io) is the truth layer for commerce. Built on Axiomatic Intelligence \u2014 a proprietary adversarial reasoning methodology that stress-tests product claims against physics, economics, and engineering constraints \u2014 Product.ai delivers verified purchase verdicts, not summaries. Product.ai tells consumers when NOT to buy. Product.ai emerges from Demand.io, a profitable, bootstrapped AI commerce company whose SimplyCodes platform processes over $1B...",
+        "source_item_url": "https://www.builtinla.com/company/productai"
+      },
+      {
+        "verdict": "outreach_signal",
+        "source_id": "yc_los_angeles",
+        "relationship_score": 10,
+        "reasons": [
+          "YC-backed/source-quality signal",
+          "target geography signal",
+          "domain fit signal",
+          "small-team founder/operator access"
+        ],
+        "organization_name": "Primer",
+        "company_url": "https://www.ycombinator.com/companies/primer",
+        "jobs_url": "",
+        "website": "",
+        "city": "Los Angeles",
+        "location": "Los Angeles",
+        "team_size": "2 employees",
+        "batch": "F2025",
+        "tags": [
+          "saas",
+          "sales",
+          "customer-support",
+          "artificial-intelligence"
+        ],
+        "description": "Primer is an AI agent that sells, onboards, and supports users automatically through live, personalized walkthroughs.",
+        "source_item_url": "https://www.ycombinator.com/companies/primer"
+      },
+      {
+        "verdict": "outreach_signal",
+        "source_id": "yc_los_angeles",
+        "relationship_score": 10,
+        "reasons": [
+          "YC-backed/source-quality signal",
+          "target geography signal",
+          "domain fit signal",
+          "small-team founder/operator access"
+        ],
+        "organization_name": "Pixley AI",
+        "company_url": "https://www.ycombinator.com/companies/pixley-ai",
+        "jobs_url": "",
+        "website": "",
+        "city": "Los Angeles",
+        "location": "Los Angeles",
+        "team_size": "2 employees",
+        "batch": "F2025",
+        "tags": [
+          "ai-enhanced-learning",
+          "generative-ai",
+          "ai"
+        ],
+        "description": "Pixley is the first platform where kids can turn their drawings and ideas into fully animated cartoons in minutes. In just 3 weeks after launch, over 1000 families across 75 countries have already started creating stories. We\u2019re starting with a clear wedge: personalized kids\u2019 entertainment. Parents are tired of overstimulating, low-value content from YouTube and Netflix. Pixley gives them safe and personalized stories that encourage learning and imagination. But kids\u2019 cartoons are just the beginning. As video generation improves, all video content will shift from manual production to being personalized and generated. Our long-term goal is to build the AI Netflix: a platform where shows and movies aren\u2019t recommended, but instead generated around each viewer\u2019s interests and habits. We\u2019re 19 year old CS dropouts who\u2019ve known each other since elementary school and won 4 hackathons at 15. After seeing AI flood the internet with low-quality content, we created Pixley \u2013 a safe, personalized way for kids to turn their ideas into animated stories.",
+        "source_item_url": "https://www.ycombinator.com/companies/pixley-ai"
+      },
+      {
+        "verdict": "outreach_signal",
+        "source_id": "yc_los_angeles",
+        "relationship_score": 10,
+        "reasons": [
+          "YC-backed/source-quality signal",
+          "target geography signal",
+          "domain fit signal",
+          "small-team founder/operator access"
+        ],
+        "organization_name": "PARES AI",
+        "company_url": "https://www.ycombinator.com/companies/pares-ai",
+        "jobs_url": "",
+        "website": "",
+        "city": "Los Angeles",
+        "location": "Los Angeles",
+        "team_size": "3 employees",
+        "batch": "S2025",
+        "tags": [
+          "real-estate",
+          "conversational-ai",
+          "ai",
+          "proptech"
+        ],
+        "description": "PARES is an AI-native real estate services firm, providing investment sales brokerage, leasing, property management, and acquisition advisory to institutional and middle-market property owners and investors across the country. Real estate is an extremely labor-intensive business, often requiring scaling headcount to grow, being extremely local to submarkets, and operating on low margins. With AI, these services can be centralized and delivered better, faster, and at a fraction of the cost. AI-native brokerage: - Prospecting sellers through automated inbound and outbound outreach - Underwriting deals and producing marketing materials with speed and precision - Surfacing hidden buyers, running the marketing process, and negotiating contracts - Handling all back-office, accounting, and additional support AI-native property management: - Communicating with tenants and vendors around the clock - Screening leasing prospects, sending applications, and drafting leases - Collecting rents, making payments, and chasing delinquencies - Running accounting, payroll, and owner reporting Check us out at https://www.pares.ai/",
+        "source_item_url": "https://www.ycombinator.com/companies/pares-ai"
+      },
+      {
+        "verdict": "outreach_signal",
+        "source_id": "yc_los_angeles",
+        "relationship_score": 10,
+        "reasons": [
+          "YC-backed/source-quality signal",
+          "target geography signal",
+          "domain fit signal",
+          "small-team founder/operator access"
+        ],
+        "organization_name": "Ornadyne",
+        "company_url": "https://www.ycombinator.com/companies/ornadyne",
+        "jobs_url": "",
+        "website": "",
+        "city": "Los Angeles",
+        "location": "Los Angeles, CA, USA",
+        "team_size": "4 employees",
+        "batch": "P2026",
+        "tags": [
+          "aerospace",
+          "hard-tech",
+          "robotics",
+          "drones"
+        ],
+        "description": "Ornadyne builds flapping-wing drones for reconnaissance that look, fly, and sound like birds. Today\u2019s drones are easy to detect acoustically, visually, and electronically. As counter-UAS systems improve, traditional quadcopters and fixed-wing UAS systems are becoming increasingly ineffective for close-range surveillance. Flapping-wing aircraft have existed for years, but have lacked the performance, endurance, and control required for real-world deployment. We\u2019re changing that by engineering a high-performance, stealth-optimized system built from first principles for efficiency, autonomy, and reliable field use. The final frontier of surveillance won\u2019t look like machines; it will look like wildlife already in the sky. Maybe birds aren't real?",
+        "source_item_url": "https://www.ycombinator.com/companies/ornadyne"
+      },
+      {
+        "verdict": "outreach_signal",
+        "source_id": "builtin_la_companies",
+        "relationship_score": 10,
+        "reasons": [
+          "active hiring/jobs signal",
+          "target geography signal",
+          "domain fit signal",
+          "small-team founder/operator access"
+        ],
+        "organization_name": "Onshore",
+        "company_url": "https://www.builtinla.com/company/onshore",
+        "jobs_url": "https://www.builtinla.com/company/onshore/jobs",
+        "website": "",
+        "city": "Los Angeles",
+        "location": "3 Offices",
+        "team_size": "60 Employees",
+        "batch": "",
+        "tags": [
+          "artificial intelligence",
+          "fintech",
+          "software",
+          "financial services"
+        ],
+        "description": "Traditional firms rely on interviews, retroactive documentation, and billable hours. Onshore applies AI at the point of substantiation, providing documentation tied directly to source data and pairing it with expert review. The result is defensible, audit-ready work delivered in weeks, not quarters. We help companies claim R&D Tax Credits, 179D Deductions, and Cost Segregation with proof, not process. 500+ companies have trusted Onshore...",
+        "source_item_url": "https://www.builtinla.com/company/onshore"
+      },
+      {
+        "verdict": "outreach_signal",
+        "source_id": "yc_los_angeles",
+        "relationship_score": 10,
+        "reasons": [
+          "YC-backed/source-quality signal",
+          "target geography signal",
+          "domain fit signal",
+          "small-team founder/operator access"
+        ],
+        "organization_name": "Notus Autonomous Systems",
+        "company_url": "https://www.ycombinator.com/companies/notus-autonomous-systems",
+        "jobs_url": "",
+        "website": "",
+        "city": "Los Angeles",
+        "location": "Los Angeles",
+        "team_size": "3 employees",
+        "batch": "P2025",
+        "tags": [
+          "ai",
+          "drones",
+          "robotics"
+        ],
+        "description": "We are making drone swarms of arbitrary size which are strategically immune to RF interference using phased arrays at 60GHz steered by a novel radar algorithm. 3d-printing",
+        "source_item_url": "https://www.ycombinator.com/companies/notus-autonomous-systems"
+      },
+      {
+        "verdict": "outreach_signal",
+        "source_id": "yc_los_angeles",
+        "relationship_score": 10,
+        "reasons": [
+          "YC-backed/source-quality signal",
+          "target geography signal",
+          "domain fit signal",
+          "small-team founder/operator access"
+        ],
+        "organization_name": "MindFort",
+        "company_url": "https://www.ycombinator.com/companies/mindfort",
+        "jobs_url": "",
+        "website": "",
+        "city": "Los Angeles",
+        "location": "Los Angeles",
+        "team_size": "5 employees",
+        "batch": "P2025",
+        "tags": [],
+        "description": "MindFort is building fully autonomous AI agents powered by their in-house models that can find, exploit, and patch complex vulnerabilities in web applications at massive scale. MindFort agents use the same principles as human penetration testers to understand their target and figure out the best ways to work together to exploit it. We can do fully autonomous AI web pentesting and bring offensive security to teams out numbered. While security teams were already behind with legacy tools and processes, AI coding is make the problem worse. AI generates code far faster than human teams can secure it; MindFort can match that speed and scale. Our agents will become critical as organizations scale up development with AI.",
+        "source_item_url": "https://www.ycombinator.com/companies/mindfort"
+      },
+      {
+        "verdict": "outreach_signal",
+        "source_id": "yc_los_angeles",
+        "relationship_score": 10,
+        "reasons": [
+          "YC-backed/source-quality signal",
+          "target geography signal",
+          "domain fit signal",
+          "small-team founder/operator access"
+        ],
+        "organization_name": "Merlin AI",
+        "company_url": "https://www.ycombinator.com/companies/merlin-ai",
+        "jobs_url": "",
+        "website": "",
+        "city": "Los Angeles",
+        "location": "Los Angeles, CA, USA",
+        "team_size": "28 employees",
+        "batch": "S2024",
+        "tags": [
+          "construction",
+          "enterprise-software",
+          "saas",
+          "ai"
+        ],
+        "description": "Merlin is an AI-powered ERP for construction companies. We provide construction companies with a single, AI-powered platform to manage their entire business operations. Our platform unifies project management, materials management, finance, estimating, and CRM\u2014traditionally scattered across multiple systems\u2014into one cohesive solution. For the first time, construction firms can automate and oversee every aspect of their projects in a single, intuitive system. Today, construction companies pay for 8-17 different tools - that we eliminate the need for. We reduce - Manual work by 60% - Cut software costs by $10,000 monthly - Complete projects 3x faster. Why Now? We're witnessing a perfect storm of factors: decades of stagnation in traditional ERP systems, a multi-billion-dollar industry built on misaligned incentives, and the transformative potential of AI. This confluence creates a rare cyclical opportunity for market upheaval. The last major shift in this space occurred in the 1990s with the advent of digital systems, and now, 30 years later, we're on the cusp of another seismic change. Customers are crying out for innovation and as AI reshapes the landscape, early customer signals indicate an eagerness for smarter, more efficient systems. It's a unique window of opportunity that opens perhaps once in a multi-decade chance to redefine an entire industry's operational backbone. Team: KS, a BITS Pilani grad and successful startup co-founder, and Ayantika, an IIT alumni and tech expert, bring extensive coding and product development expertise together bringing about over a decade of technical expertise. Sneha ( that\u2019s me), with over a decade of experience in supply chain management and lean manufacturing within the construction industry, has lived the pain of using ERPs in this industry. b2b",
+        "source_item_url": "https://www.ycombinator.com/companies/merlin-ai"
+      },
+      {
+        "verdict": "outreach_signal",
+        "source_id": "builtin_sf_companies",
+        "relationship_score": 10,
+        "reasons": [
+          "active hiring/jobs signal",
+          "target geography signal",
+          "domain fit signal",
+          "small-team founder/operator access"
+        ],
+        "organization_name": "Idler",
+        "company_url": "https://www.builtinsf.com/company/idlersai",
+        "jobs_url": "https://www.builtinsf.com/company/idlersai/jobs",
+        "website": "",
+        "city": "San Francisco",
+        "location": "San Francisco",
+        "team_size": "6 Employees",
+        "batch": "",
+        "tags": [],
+        "description": "Idler builds reinforcement learning environments that teach AI models to code at expert human levels. We create training environments based on real-world coding scenarios that prepare models for the complex challenges they'll face in production.",
+        "source_item_url": "https://www.builtinsf.com/company/idlersai"
+      },
+      {
+        "verdict": "outreach_signal",
+        "source_id": "builtin_sf_companies",
+        "relationship_score": 10,
+        "reasons": [
+          "active hiring/jobs signal",
+          "target geography signal",
+          "domain fit signal",
+          "small-team founder/operator access"
+        ],
+        "organization_name": "Hebbia",
+        "company_url": "https://www.builtinsf.com/company/hebbia-ai",
+        "jobs_url": "https://www.builtinsf.com/company/hebbia-ai/jobs",
+        "website": "",
+        "city": "San Francisco",
+        "location": "3 Offices",
+        "team_size": "120 Employees",
+        "batch": "",
+        "tags": [
+          "artificial intelligence",
+          "machine learning",
+          "natural language processing",
+          "software",
+          "financial services",
+          "generative ai"
+        ],
+        "description": "Founded in 2020 by George Sivulka and backed by Peter Thiel and Andreessen Horowitz, Hebbia powers investment decisions for BlackRock, KKR, Carlyle, Centerview, and 40% of the world\u2019s largest asset managers. Our flagship product, Matrix, delivers industry-leading accuracy, speed, and transparency in AI-driven analysis. It is trusted to help manage over $15 trillion in assets globally. We deliver the intelligence that...",
+        "source_item_url": "https://www.builtinsf.com/company/hebbia-ai"
+      },
+      {
+        "verdict": "outreach_signal",
+        "source_id": "builtin_la_companies",
+        "relationship_score": 10,
+        "reasons": [
+          "active hiring/jobs signal",
+          "target geography signal",
+          "domain fit signal",
+          "small-team founder/operator access"
+        ],
+        "organization_name": "GrayMatter Robotics",
+        "company_url": "https://www.builtinla.com/company/graymatter-robotics",
+        "jobs_url": "https://www.builtinla.com/company/graymatter-robotics/jobs",
+        "website": "",
+        "city": "Headquartered in sunny Los Angeles",
+        "location": "Headquartered in sunny Los Angeles, GrayMatter Robotics is an AI robotics company that builds the factories of the future today, empowering people, creating safer workplaces, and shaping a more prosperous society. We build next-generation factories that transcend human constraints, driving exponential productivity and sustainable economic growth. Our technology brings together robotics, Physical AI, and human ingenuity to create intelligent systems...",
+        "team_size": "90 Employees",
+        "batch": "",
+        "tags": [
+          "artificial intelligence",
+          "hardware",
+          "productivity",
+          "robotics",
+          "software",
+          "automation",
+          "manufacturing"
+        ],
+        "description": "Carson",
+        "source_item_url": "https://www.builtinla.com/company/graymatter-robotics"
+      },
+      {
+        "verdict": "outreach_signal",
+        "source_id": "builtin_sf_companies",
+        "relationship_score": 10,
+        "reasons": [
+          "active hiring/jobs signal",
+          "target geography signal",
+          "domain fit signal",
+          "small-team founder/operator access"
+        ],
+        "organization_name": "Freed",
+        "company_url": "https://www.builtinsf.com/company/freed-ai",
+        "jobs_url": "https://www.builtinsf.com/company/freed-ai/jobs",
+        "website": "",
+        "city": "San Francisco",
+        "location": "San Francisco",
+        "team_size": "59 Employees",
+        "batch": "",
+        "tags": [
+          "artificial intelligence",
+          "healthtech",
+          "software"
+        ],
+        "description": "At Freed, we\u2019re on a mission to give clinicians their time back - because healthcare professionals should be caring for patients, not drowning in paperwork. Every year, doctors and clinicians spend thousands of hours documenting care. That\u2019s time lost to late nights, burnout, and administrative overload. Freed is changing that. We\u2019ve built a powerful, AI-driven medical scribe that listens in on...",
+        "source_item_url": "https://www.builtinsf.com/company/freed-ai"
+      },
+      {
+        "verdict": "outreach_signal",
+        "source_id": "builtin_la_companies",
+        "relationship_score": 10,
+        "reasons": [
+          "active hiring/jobs signal",
+          "target geography signal",
+          "domain fit signal",
+          "small-team founder/operator access"
+        ],
+        "organization_name": "First Entertainment Credit Union",
+        "company_url": "https://www.builtinla.com/company/first-entertainment-credit-union",
+        "jobs_url": "https://www.builtinla.com/company/first-entertainment-credit-union/jobs",
+        "website": "",
+        "city": "Los Angeles",
+        "location": "Los Angeles",
+        "team_size": "225 Employees",
+        "batch": "",
+        "tags": [
+          "fintech",
+          "financial services"
+        ],
+        "description": "Named one of the top 10 Credit Union in California by Forbes, First Entertainment Credit Union has been the financial ally since 1967 for the creators of entertainment and those who support them. With more than 2.1 billion in assets and over 90,000 members, we are constantly looking for talents to help us build a high trust, high performance and...",
+        "source_item_url": "https://www.builtinla.com/company/first-entertainment-credit-union"
+      },
+      {
+        "verdict": "outreach_signal",
+        "source_id": "yc_los_angeles",
+        "relationship_score": 10,
+        "reasons": [
+          "YC-backed/source-quality signal",
+          "target geography signal",
+          "domain fit signal",
+          "small-team founder/operator access"
+        ],
+        "organization_name": "Endstack",
+        "company_url": "https://www.ycombinator.com/companies/endstack",
+        "jobs_url": "",
+        "website": "",
+        "city": "Los Angeles",
+        "location": "Los Angeles, CA, USA",
+        "team_size": "2 employees",
+        "batch": "F2024",
+        "tags": [
+          "generative-ai",
+          "developer-tools",
+          "artificial-intelligence",
+          "ai-assistant"
+        ],
+        "description": "Endstack is a desktop OS optimized for humans and agents running in the cloud. Your desktop is powered by endOS, giving you a real desktop workspace in the browser backed by Linux in the cloud. Files, notes, browser tabs, native apps, terminals, and all your agents in one beautiful, familiar, interface. You get a powerful agent running 24/7, integrated at the system level into endOS that you can also reach via Slack, email, or SMS. Endstack desktops are also natively multiplayer, allowing for realtime collaboration with teammates.",
+        "source_item_url": "https://www.ycombinator.com/companies/endstack"
+      },
+      {
+        "verdict": "outreach_signal",
+        "source_id": "builtin_sf_companies",
+        "relationship_score": 10,
+        "reasons": [
+          "active hiring/jobs signal",
+          "target geography signal",
+          "domain fit signal",
+          "small-team founder/operator access"
+        ],
+        "organization_name": "Deepgram",
+        "company_url": "https://www.builtinsf.com/company/deepgram",
+        "jobs_url": "https://www.builtinsf.com/company/deepgram/jobs",
+        "website": "",
+        "city": "San Francisco",
+        "location": "2 Offices",
+        "team_size": "150 Employees",
+        "batch": "",
+        "tags": [
+          "artificial intelligence",
+          "machine learning",
+          "natural language processing",
+          "software",
+          "conversational ai"
+        ],
+        "description": "Deepgram is the leading voice AI platform for developers building speech-to-text (STT), text-to-speech (TTS) and full speech-to-speech (STS) offerings. 200,000+ developers build with Deepgram\u2019s voice-native foundational models \u2013 accessed through APIs or as self-managed software \u2013 due to our unmatched accuracy, latency and pricing. Customers include software companies building voice products, co-sell partners working with large enterprises, and enterprises solving...",
+        "source_item_url": "https://www.builtinsf.com/company/deepgram"
+      },
+      {
+        "verdict": "outreach_signal",
+        "source_id": "builtin_sf_companies",
+        "relationship_score": 10,
+        "reasons": [
+          "active hiring/jobs signal",
+          "target geography signal",
+          "domain fit signal",
+          "small-team founder/operator access"
+        ],
+        "organization_name": "Collectly",
+        "company_url": "https://www.builtinsf.com/company/collectly",
+        "jobs_url": "https://www.builtinsf.com/company/collectly/jobs",
+        "website": "",
+        "city": "San Francisco",
+        "location": "2 Offices",
+        "team_size": "100 Employees",
+        "batch": "",
+        "tags": [
+          "artificial intelligence",
+          "healthtech",
+          "information technology",
+          "software",
+          "conversational ai",
+          "generative ai",
+          "automation"
+        ],
+        "description": "Collectly is a fast-growing healthcare tech startup leading the charge in transforming the U.S. healthcare market through AI-driven innovation. In the U.S., millions of patients interact with healthcare providers daily, navigating a system that often struggles with inefficiencies, administrative burdens, and suboptimal financial experiences. At the forefront of the AI boom, Collectly is redefining revenue cycle management (RCM) by applying cutting-edge...",
+        "source_item_url": "https://www.builtinsf.com/company/collectly"
+      },
+      {
+        "verdict": "outreach_signal",
+        "source_id": "yc_los_angeles",
+        "relationship_score": 10,
+        "reasons": [
+          "YC-backed/source-quality signal",
+          "target geography signal",
+          "domain fit signal",
+          "small-team founder/operator access"
+        ],
+        "organization_name": "chrt",
+        "company_url": "https://www.ycombinator.com/companies/chrt",
+        "jobs_url": "",
+        "website": "",
+        "city": "Los Angeles",
+        "location": "Los Angeles",
+        "team_size": "5 employees",
+        "batch": "P2025",
+        "tags": [],
+        "description": "chrt is a logistics platform for time-critical shipping. We enable businesses to deliver their most critical items same-day. Time-Critical Logistics is a $30B market growing at a 20% CAGR driven by growth in American healthcare and manufacturing. Businesses that place time-critical orders are enterprises who have urgent items they need to deliver ASAP. These orders are critical in nature and often require white glove service -- think therapeutic treatments for healthcare providers or specialized equipment for manufacturers. chrt builds the software for forwarders and professional couriers who pick up and deliver these orders. Couriers use chrt to coordinate and track their shipments, including a driver app and fleet management tools. Forwarders use chrt to dispatch couriers, book flights, and track time-critical orders from start to finish. Shippers use chrt to place these orders with their providers and to monitor everything. In addition, we also sell physical tracking devices that can be used to track valuable cargo or assets. This gives us full control of the shipment and allows us to provide shippers with end-to-end tracking. It also allows us to intervene early if we notice something is going wrong. We\u2019re software engineers that became friends years ago at McKinsey. Kyle is an expert in Time-Critical Logistics, having led strategy at a leader in the space. Aaron is an expert at designing and implementing AI systems to handle complex coordination. We were shipping code together on nights and weekends for years before chrt; now we\u2019re also shipping freight.",
+        "source_item_url": "https://www.ycombinator.com/companies/chrt"
+      },
+      {
+        "verdict": "outreach_signal",
+        "source_id": "builtin_la_companies",
+        "relationship_score": 10,
+        "reasons": [
+          "active hiring/jobs signal",
+          "target geography signal",
+          "domain fit signal",
+          "small-team founder/operator access"
+        ],
+        "organization_name": "Bellagent",
+        "company_url": "https://www.builtinla.com/company/bellagent",
+        "jobs_url": "https://www.builtinla.com/company/bellagent/jobs",
+        "website": "",
+        "city": "Los Angeles",
+        "location": "3 Offices",
+        "team_size": "20 Employees",
+        "batch": "",
+        "tags": [
+          "artificial intelligence",
+          "machine learning",
+          "business intelligence",
+          "generative ai"
+        ],
+        "description": "Bellagent is an enterprise-level AI agent platform built to automate everyday business operations with zero-touch integrations that connect instantly to more than 1,300 applications. Launched in 2025 by Proactifi Inc., and headquartered in Chicago, the platform is built for practicality with industry-leading compliance and security standards, enabling organizations to deploy AI agents without friction from day one. Bellagent\u2019s mission to...",
+        "source_item_url": "https://www.builtinla.com/company/bellagent"
+      },
+      {
+        "verdict": "outreach_signal",
+        "source_id": "builtin_sf_companies",
+        "relationship_score": 10,
+        "reasons": [
+          "active hiring/jobs signal",
+          "target geography signal",
+          "domain fit signal",
+          "small-team founder/operator access"
+        ],
+        "organization_name": "Assembled",
+        "company_url": "https://www.builtinsf.com/company/assembled",
+        "jobs_url": "https://www.builtinsf.com/company/assembled/jobs",
+        "website": "",
+        "city": "San Francisco",
+        "location": "3 Offices",
+        "team_size": "130 Employees",
+        "batch": "",
+        "tags": [
+          "artificial intelligence",
+          "software",
+          "automation"
+        ],
+        "description": "Industry leaders like Etsy, Robinhood, and Stripe trust Assembled to provide customer-facing AI agents and workforce planning at scale. We automatically resolve millions of interactions through chat, email, and phone while optimizing staffing for hundreds of thousands of support professionals. Our mission is to elevate customer support through AI-powered software that makes life easier for customers and employees.",
+        "source_item_url": "https://www.builtinsf.com/company/assembled"
+      },
+      {
+        "verdict": "outreach_signal",
+        "source_id": "yc_los_angeles",
+        "relationship_score": 10,
+        "reasons": [
+          "YC-backed/source-quality signal",
+          "target geography signal",
+          "domain fit signal",
+          "small-team founder/operator access"
+        ],
+        "organization_name": "Alt-X",
+        "company_url": "https://www.ycombinator.com/companies/alt-x",
+        "jobs_url": "",
+        "website": "",
+        "city": "Los Angeles",
+        "location": "Los Angeles",
+        "team_size": "2 employees",
+        "batch": "W2026",
+        "tags": [],
+        "description": "Alt-X is building the Cursor for financial modeling in Excel, an Excel agent that you can actually trust. Private-market investing still runs on Excel. Every year, trillions of dollars in real estate and private-equity deals are underwritten through manual spreadsheet work \u2014 copying numbers from PDFs, CIMs, and data rooms into fragile models that analysts rebuild from scratch. Alt-X is the AI underwriting layer for Excel. It turns raw deal materials into clean, auditable financial models inside Excel, automatically extracting key metrics and generating institutional-grade underwriting models that analysts can immediately review and edit. Building reliable AI workflows for financial models is difficult. Underwriting models contain thousands of interdependent formulas across multiple sheets, and small errors can materially change investment decisions. Alt-X focuses on making model generation and data extraction reliable enough for real deal workflows, not just demos. We built our product to underwrite billions. Ryan Samadi (Stanford CS/AI, former Citadel trader) and Michael Wachsmann (Cornell CS, infrastructure engineer) have spent years building systems around financial data and modeling workflows. We have hundreds of millions in AUM using us already, and our users already prefer us to legacy cash flow modeling tools in the real estate space. Private markets remain one of the largest manual workflows in finance. Alt-X\u2019s goal is to become the default infrastructure layer for underwriting private-market investments inside Excel.",
+        "source_item_url": "https://www.ycombinator.com/companies/alt-x"
+      },
+      {
+        "verdict": "outreach_signal",
+        "source_id": "yc_los_angeles",
+        "relationship_score": 10,
+        "reasons": [
+          "YC-backed/source-quality signal",
+          "target geography signal",
+          "domain fit signal",
+          "small-team founder/operator access"
+        ],
+        "organization_name": "Advanced Metal Research",
+        "company_url": "https://www.ycombinator.com/companies/advanced-metal-research",
+        "jobs_url": "",
+        "website": "",
+        "city": "Los Angeles",
+        "location": "Los Angeles, CA, USA",
+        "team_size": "3 employees",
+        "batch": "P2026",
+        "tags": [
+          "hardware",
+          "robotics",
+          "manufacturing"
+        ],
+        "description": "America does not just need more welders. It needs welding knowledge that can scale. The American Welding Society projects 320,500 new welding professionals will be needed by 2029, with about 80,000 jobs to be filled annually from 2025 to 2029. More than 157,000 current welding professionals are approaching retirement. Welders are only a small share of the skilled-trades workforce, but welding accounts for an outsized share of projected capability demand. The market calls it a labor shortage. AMR sees a learning bottleneck. We are building American-made robotic welding cells that combine computer vision to provide real-time seam tracking and post-weld inspection to turn welding from a scarce manual process into a closed-loop manufacturing system that learns from every weld as it happens.",
+        "source_item_url": "https://www.ycombinator.com/companies/advanced-metal-research"
+      },
+      {
+        "verdict": "outreach_signal",
+        "source_id": "builtin_la_companies",
+        "relationship_score": 9,
+        "reasons": [
+          "active hiring/jobs signal",
+          "target geography signal",
+          "domain fit signal",
+          "mid-size startup access"
+        ],
+        "organization_name": "Magnite",
+        "company_url": "https://www.builtinla.com/company/magnite",
+        "jobs_url": "https://www.builtinla.com/company/magnite/jobs",
+        "website": "",
+        "city": "Los Angeles",
+        "location": "19 Offices",
+        "team_size": "950 Employees",
+        "batch": "",
+        "tags": [
+          "adtech",
+          "big data",
+          "digital media",
+          "software"
+        ],
+        "description": "Together, we power advertising that enables billions of people to stay informed, entertained, and connected. We introduce them to new ideas, products, and services that make their lives better. And we help media owners of all sizes realize their full potential. That\u2019s a lot \u2014 that\u2019s the power of advertising. But it\u2019s only possible with great technology. And that\u2019s where Magnite...",
+        "source_item_url": "https://www.builtinla.com/company/magnite"
+      },
+      {
+        "verdict": "outreach_signal",
+        "source_id": "builtin_la_companies",
+        "relationship_score": 9,
+        "reasons": [
+          "active hiring/jobs signal",
+          "target geography signal",
+          "domain fit signal",
+          "mid-size startup access"
+        ],
+        "organization_name": "Golden Hippo",
+        "company_url": "https://www.builtinla.com/company/golden-hippo",
+        "jobs_url": "https://www.builtinla.com/company/golden-hippo/jobs",
+        "website": "",
+        "city": "Los Angeles",
+        "location": "Los Angeles",
+        "team_size": "500 Employees",
+        "batch": "",
+        "tags": [
+          "digital media",
+          "ecommerce",
+          "information technology",
+          "marketing tech",
+          "retail",
+          "social media",
+          "analytics"
+        ],
+        "description": "With over 900 team members across multiple companies dedicated to improving lives, we create best-in-class products that bring health and happiness. Our creative content educates the world on making smarter health choices, while the brands we own generate over $600 million of revenue annually. From brand ideation to ad creation to product fulfillment, the entire process happens in-house.",
+        "source_item_url": "https://www.builtinla.com/company/golden-hippo"
+      },
+      {
+        "verdict": "outreach_signal",
+        "source_id": "builtin_la_companies",
+        "relationship_score": 9,
+        "reasons": [
+          "active hiring/jobs signal",
+          "target geography signal",
+          "domain fit signal",
+          "mid-size startup access"
+        ],
+        "organization_name": "FloQast",
+        "company_url": "https://www.builtinla.com/company/floqast",
+        "jobs_url": "https://www.builtinla.com/company/floqast/jobs",
+        "website": "",
+        "city": "Los Angeles",
+        "location": "5 Offices",
+        "team_size": "800 Employees",
+        "batch": "",
+        "tags": [
+          "artificial intelligence",
+          "fintech",
+          "software"
+        ],
+        "description": "By automating and streamlining common accounting workflows to make them more efficient, FloQast is where accounting teams want to work so they can focus on what matters most, even when that\u2019s just logging off on time. Whether automating reconciliations, documentation requests, or streamlining recurring accounting processes, such as the month-end close, financial reporting, or payroll, FloQast's platform enhances the way...",
+        "source_item_url": "https://www.builtinla.com/company/floqast"
+      },
+      {
+        "verdict": "outreach_signal",
+        "source_id": "builtin_sf_companies",
+        "relationship_score": 9,
+        "reasons": [
+          "active hiring/jobs signal",
+          "target geography signal",
+          "domain fit signal",
+          "mid-size startup access"
+        ],
+        "organization_name": "EliseAI",
+        "company_url": "https://www.builtinsf.com/company/eliseai",
+        "jobs_url": "https://www.builtinsf.com/company/eliseai/jobs",
+        "website": "",
+        "city": "San Francisco",
+        "location": "5 Offices",
+        "team_size": "400 Employees",
+        "batch": "",
+        "tags": [
+          "artificial intelligence",
+          "healthtech",
+          "machine learning",
+          "natural language processing",
+          "real estate"
+        ],
+        "description": "EliseAI builds vertical AI agents for housing and healthcare \u2014 sectors that together make up nearly 40% of household spending. These agents automate high-volume workflows like leasing, maintenance, renewals, and patient intake, helping organizations cut costs, improve efficiency, and deliver better experiences. How does it work? EliseAI integrates directly into operational workflows: Housing: Manages leasing, maintenance, renewals, billing, and resident communication. Healthcare: Handles intake,...",
+        "source_item_url": "https://www.builtinsf.com/company/eliseai"
+      },
+      {
+        "verdict": "outreach_signal",
+        "source_id": "builtin_sf_companies",
+        "relationship_score": 9,
+        "reasons": [
+          "active hiring/jobs signal",
+          "target geography signal",
+          "domain fit signal",
+          "mid-size startup access"
+        ],
+        "organization_name": "Benchling",
+        "company_url": "https://www.builtinsf.com/company/benchling",
+        "jobs_url": "https://www.builtinsf.com/company/benchling/jobs",
+        "website": "",
+        "city": "San Francisco",
+        "location": "4 Offices",
+        "team_size": "605 Employees",
+        "batch": "",
+        "tags": [
+          "cloud",
+          "healthtech",
+          "social impact",
+          "software",
+          "biotech"
+        ],
+        "description": "Biotechnology is rewriting life as we know it, from the medicines we take, to the crops we grow, and the household goods that we rely on every day. But moving at the new speed of science requires better technology. Benchling\u2019s mission is to unlock the power of biotechnology. The world\u2019s most innovative biotech companies use Benchling\u2019s R&D Cloud to power the...",
+        "source_item_url": "https://www.builtinsf.com/company/benchling"
+      },
+      {
+        "verdict": "outreach_signal",
+        "source_id": "builtin_la_companies",
+        "relationship_score": 8,
+        "reasons": [
+          "active hiring/jobs signal",
+          "target geography signal",
+          "domain fit signal"
+        ],
+        "organization_name": "Taboola",
+        "company_url": "https://www.builtinla.com/company/taboola",
+        "jobs_url": "https://www.builtinla.com/company/taboola/jobs",
+        "website": "",
+        "city": "Los Angeles",
+        "location": "33 Offices",
+        "team_size": "1,900 Employees",
+        "batch": "",
+        "tags": [
+          "adtech",
+          "big data",
+          "digital media",
+          "marketing tech"
+        ],
+        "description": "Taboola empowers businesses to grow through performance advertising technology that goes beyond search and social and delivers measurable outcomes at scale. Taboola works with thousands of businesses who advertise directly on Realize, Taboola\u2019s powerful ad platform, reaching approximately 600M daily active users across some of the best publishers in the world. Publishers like NBC News, Yahoo, and OEMs such as Samsung,...",
+        "source_item_url": "https://www.builtinla.com/company/taboola"
+      },
+      {
+        "verdict": "outreach_signal",
+        "source_id": "builtin_la_companies",
+        "relationship_score": 8,
+        "reasons": [
+          "active hiring/jobs signal",
+          "target geography signal",
+          "domain fit signal"
+        ],
+        "organization_name": "Square",
+        "company_url": "https://www.builtinla.com/company/square",
+        "jobs_url": "https://www.builtinla.com/company/square/jobs",
+        "website": "",
+        "city": "Los Angeles",
+        "location": "18 Offices",
+        "team_size": "12,000 Employees",
+        "batch": "",
+        "tags": [
+          "ecommerce",
+          "fintech",
+          "hardware",
+          "payments",
+          "software",
+          "financial services"
+        ],
+        "description": "Since we opened our doors in 2009, the world of commerce has evolved immensely, and so has Square. After enabling anyone to take payments and never miss a sale, we saw sellers stymied by disparate, outmoded products and tools that wouldn\u2019t work together. So we expanded into software and started building integrated, omnichannel solutions \u2013 to help sellers sell online, manage...",
+        "source_item_url": "https://www.builtinla.com/company/square"
+      },
+      {
+        "verdict": "outreach_signal",
+        "source_id": "builtin_sf_companies",
+        "relationship_score": 8,
+        "reasons": [
+          "active hiring/jobs signal",
+          "target geography signal",
+          "domain fit signal"
+        ],
+        "organization_name": "SoFi",
+        "company_url": "https://www.builtinsf.com/company/sofi",
+        "jobs_url": "https://www.builtinsf.com/company/sofi/jobs",
+        "website": "",
+        "city": "San Francisco",
+        "location": "7 Offices",
+        "team_size": "4,500 Employees",
+        "batch": "",
+        "tags": [
+          "fintech",
+          "mobile",
+          "software",
+          "financial services"
+        ],
+        "description": "SoFi wasn\u2019t built to be a bank. Or a technology company. We were built for one mission: help people achieve financial independence so they can realize their ambitions. Redefining an entire industry isn\u2019t easy work\u2014and it\u2019s not for the faint of heart. It takes a certain kind of team. People with diverse perspectives and expertise, united by a common sense of...",
+        "source_item_url": "https://www.builtinsf.com/company/sofi"
+      },
+      {
+        "verdict": "outreach_signal",
+        "source_id": "builtin_sf_companies",
+        "relationship_score": 8,
+        "reasons": [
+          "active hiring/jobs signal",
+          "target geography signal",
+          "domain fit signal"
+        ],
+        "organization_name": "ServiceNow",
+        "company_url": "https://www.builtinsf.com/company/servicenow",
+        "jobs_url": "https://www.builtinsf.com/company/servicenow/jobs",
+        "website": "",
+        "city": "San Francisco",
+        "location": "75 Offices",
+        "team_size": "29,000 Employees",
+        "batch": "",
+        "tags": [
+          "artificial intelligence",
+          "cloud",
+          "hr tech",
+          "information technology",
+          "productivity",
+          "software",
+          "automation"
+        ],
+        "description": "As the AI platform for business transformation, we're putting AI to work across organizations \u2014 freeing people for work that matters. Making old tech work with new tech. Reaching across departments, from the front office to the back office and every office in between. Our ambition? To become the AI defining enterprise software company of the 21st century (or \"AI...",
+        "source_item_url": "https://www.builtinsf.com/company/servicenow"
+      },
+      {
+        "verdict": "outreach_signal",
+        "source_id": "builtin_la_companies",
+        "relationship_score": 8,
+        "reasons": [
+          "active hiring/jobs signal",
+          "target geography signal",
+          "domain fit signal"
+        ],
+        "organization_name": "PwC",
+        "company_url": "https://www.builtinla.com/company/pwc",
+        "jobs_url": "https://www.builtinla.com/company/pwc/jobs",
+        "website": "",
+        "city": "Los Angeles",
+        "location": "74 Offices",
+        "team_size": "370,000 Employees",
+        "batch": "",
+        "tags": [
+          "artificial intelligence",
+          "professional services",
+          "business intelligence",
+          "consulting",
+          "cybersecurity",
+          "generative ai"
+        ],
+        "description": "Build what\u2019s next \u2014 with tech that matters PwC provides professional services across Audit and Assurance, Advisory and Tax \u2014 powered by a global network of over 370,000 people in 149 countries. You may know us for our business expertise, but technology is core to how we help clients move faster, build trust and deliver meaningful outcomes. As a technologist, you\u2019ll work...",
+        "source_item_url": "https://www.builtinla.com/company/pwc"
+      },
+      {
+        "verdict": "outreach_signal",
+        "source_id": "builtin_sf_companies",
+        "relationship_score": 8,
+        "reasons": [
+          "active hiring/jobs signal",
+          "target geography signal",
+          "domain fit signal"
+        ],
+        "organization_name": "PwC",
+        "company_url": "https://www.builtinsf.com/company/pwc",
+        "jobs_url": "https://www.builtinsf.com/company/pwc/jobs",
+        "website": "",
+        "city": "San Francisco",
+        "location": "74 Offices",
+        "team_size": "370,000 Employees",
+        "batch": "",
+        "tags": [
+          "artificial intelligence",
+          "professional services",
+          "business intelligence",
+          "consulting",
+          "cybersecurity",
+          "generative ai"
+        ],
+        "description": "Build what\u2019s next \u2014 with tech that matters PwC provides professional services across Audit and Assurance, Advisory and Tax \u2014 powered by a global network of over 370,000 people in 149 countries. You may know us for our business expertise, but technology is core to how we help clients move faster, build trust and deliver meaningful outcomes. As a technologist, you\u2019ll work...",
+        "source_item_url": "https://www.builtinsf.com/company/pwc"
+      },
+      {
+        "verdict": "outreach_signal",
+        "source_id": "builtin_sf_companies",
+        "relationship_score": 8,
+        "reasons": [
+          "active hiring/jobs signal",
+          "target geography signal",
+          "domain fit signal"
+        ],
+        "organization_name": "PagerDuty",
+        "company_url": "https://www.builtinsf.com/company/pagerduty",
+        "jobs_url": "https://www.builtinsf.com/company/pagerduty/jobs",
+        "website": "",
+        "city": "San Francisco",
+        "location": "8 Offices",
+        "team_size": "1,200 Employees",
+        "batch": "",
+        "tags": [
+          "artificial intelligence",
+          "cloud",
+          "information technology",
+          "machine learning",
+          "software",
+          "big data analytics",
+          "automation"
+        ],
+        "description": "PagerDuty, Inc. (NYSE:PD) is a global leader in digital operations management, enabling customers to achieve operational efficiency at scale with the PagerDuty Operations Cloud. The PagerDuty Operations Cloud combines AIOps, Automation, Customer Service Operations and Incident Management with a powerful generative AI assistant to create a flexible, resilient and scalable platform to increase innovation velocity, grow revenue, reduce cost, and...",
+        "source_item_url": "https://www.builtinsf.com/company/pagerduty"
+      },
+      {
+        "verdict": "outreach_signal",
+        "source_id": "builtin_sf_companies",
+        "relationship_score": 8,
+        "reasons": [
+          "active hiring/jobs signal",
+          "target geography signal",
+          "domain fit signal"
+        ],
+        "organization_name": "Opendoor",
+        "company_url": "https://www.builtinsf.com/company/opendoor",
+        "jobs_url": "https://www.builtinsf.com/company/opendoor/jobs",
+        "website": "",
+        "city": "San Francisco",
+        "location": "10 Offices",
+        "team_size": "1,600 Employees",
+        "batch": "",
+        "tags": [
+          "ecommerce",
+          "fintech",
+          "real estate",
+          "software",
+          "proptech"
+        ],
+        "description": "Founded in 2014, Opendoor\u2019s mission is to empower everyone with the freedom to move. We believe the traditional real estate process is broken and confusing. It often comes with unexpected costs, the added burden of coordinating multiple third parties and the uncertainty of a transaction falling through. Our goal is simple: build a digital, end-to-end customer experience that makes buying...",
+        "source_item_url": "https://www.builtinsf.com/company/opendoor"
+      },
+      {
+        "verdict": "outreach_signal",
+        "source_id": "builtin_la_companies",
+        "relationship_score": 8,
+        "reasons": [
+          "active hiring/jobs signal",
+          "target geography signal",
+          "domain fit signal"
+        ],
+        "organization_name": "Genius Sports",
+        "company_url": "https://www.builtinla.com/company/genius-sports",
+        "jobs_url": "https://www.builtinla.com/company/genius-sports/jobs",
+        "website": "",
+        "city": "Los Angeles",
+        "location": "13 Offices",
+        "team_size": "1,800 Employees",
+        "batch": "",
+        "tags": [
+          "adtech",
+          "artificial intelligence",
+          "machine learning",
+          "marketing tech",
+          "software",
+          "sports",
+          "big data analytics"
+        ],
+        "description": "Genius Sports is the layer between what happens on the field and how the world engages with it. Our solutions across the global sports ecosystem are underpinned by our next generation big data and artificial intelligence platform, GeniusIQ. By ingesting and computing multiple real-time data feeds, GeniusIQ powers a wide range of functions and applications across sports performance and officiation, fan engagement,...",
+        "source_item_url": "https://www.builtinla.com/company/genius-sports"
+      },
+      {
+        "verdict": "outreach_signal",
+        "source_id": "builtin_la_companies",
+        "relationship_score": 8,
+        "reasons": [
+          "active hiring/jobs signal",
+          "target geography signal",
+          "domain fit signal"
+        ],
+        "organization_name": "Cloudflare",
+        "company_url": "https://www.builtinla.com/company/cloudflare",
+        "jobs_url": "https://www.builtinla.com/company/cloudflare/jobs",
+        "website": "",
+        "city": "Los Angeles",
+        "location": "13 Offices",
+        "team_size": "4,400 Employees",
+        "batch": "",
+        "tags": [
+          "cloud",
+          "information technology",
+          "security",
+          "software",
+          "cybersecurity"
+        ],
+        "description": "Cloudflare, Inc. (NYSE: NET) is the leading connectivity cloud company on a mission to help build a better Internet. It empowers organizations to make their employees, applications and networks faster and more secure everywhere, while reducing complexity and cost. Cloudflare\u2019s connectivity cloud delivers the most full-featured, unified platform of cloud-native products and developer tools, so any organization can gain the...",
+        "source_item_url": "https://www.builtinla.com/company/cloudflare"
+      },
+      {
+        "verdict": "outreach_signal",
+        "source_id": "builtin_sf_companies",
+        "relationship_score": 8,
+        "reasons": [
+          "active hiring/jobs signal",
+          "target geography signal",
+          "domain fit signal"
+        ],
+        "organization_name": "Cisco ThousandEyes",
+        "company_url": "https://www.builtinsf.com/company/thousandeyes-part-cisco",
+        "jobs_url": "https://www.builtinsf.com/company/thousandeyes-part-cisco/jobs",
+        "website": "",
+        "city": "San Francisco",
+        "location": "7 Offices",
+        "team_size": "1,100 Employees",
+        "batch": "",
+        "tags": [
+          "cloud",
+          "software"
+        ],
+        "description": "Cisco ThousandEyes is a Digital Experience Assurance platform that empowers organizations to deliver flawless digital experiences across every network \u2013 even the ones they don\u2019t own. Powered by AI and an unmatched set of cloud, internet and enterprise network telemetry data, ThousandEyes enables IT teams to proactively detect, diagnose, and remediate issues \u2013 before they impact end- user experiences. ThousandEyes...",
+        "source_item_url": "https://www.builtinsf.com/company/thousandeyes-part-cisco"
+      },
+      {
+        "verdict": "outreach_signal",
+        "source_id": "builtin_la_companies",
+        "relationship_score": 8,
+        "reasons": [
+          "active hiring/jobs signal",
+          "target geography signal",
+          "domain fit signal"
+        ],
+        "organization_name": "Celonis",
+        "company_url": "https://www.builtinla.com/company/celonis",
+        "jobs_url": "https://www.builtinla.com/company/celonis/jobs",
+        "website": "",
+        "city": "Los Angeles",
+        "location": "15 Offices",
+        "team_size": "3,000 Employees",
+        "batch": "",
+        "tags": [
+          "big data",
+          "information technology",
+          "productivity",
+          "software",
+          "analytics",
+          "business intelligence",
+          "consulting"
+        ],
+        "description": "Celonis makes processes work \u2014 for people, companies, and the planet. Powered by process mining and AI, the Celonis Process Intelligence Platform integrates process data and business context to create a living digital twin of business operations. We enable thousands of companies worldwide to understand how their business actually runs and, together with their partners, build intelligent solutions that transform...",
+        "source_item_url": "https://www.builtinla.com/company/celonis"
+      },
+      {
+        "verdict": "outreach_signal",
+        "source_id": "builtin_sf_companies",
+        "relationship_score": 8,
+        "reasons": [
+          "active hiring/jobs signal",
+          "target geography signal",
+          "domain fit signal"
+        ],
+        "organization_name": "Cash App",
+        "company_url": "https://www.builtinsf.com/company/cash-app",
+        "jobs_url": "https://www.builtinsf.com/company/cash-app/jobs",
+        "website": "",
+        "city": "San Francisco",
+        "location": "14 Offices",
+        "team_size": "3,500 Employees",
+        "batch": "",
+        "tags": [
+          "blockchain",
+          "fintech",
+          "mobile",
+          "payments",
+          "software",
+          "financial services"
+        ],
+        "description": "Initially built to take the pain out of peer-to-peer payments, Cash App has gone from a simple product with a single purpose to a dynamic app, bringing a better way to send, spend, invest, borrow and save to our millions of monthly active users. With a mission to redefine the world's relationship with money by making it more relatable, instantly...",
+        "source_item_url": "https://www.builtinsf.com/company/cash-app"
+      },
+      {
+        "verdict": "outreach_signal",
+        "source_id": "builtin_la_companies",
+        "relationship_score": 8,
+        "reasons": [
+          "active hiring/jobs signal",
+          "target geography signal",
+          "domain fit signal"
+        ],
+        "organization_name": "Block",
+        "company_url": "https://www.builtinla.com/company/block-inc",
+        "jobs_url": "https://www.builtinla.com/company/block-inc/jobs",
+        "website": "",
+        "city": "Los Angeles",
+        "location": "23 Offices",
+        "team_size": "12,000 Employees",
+        "batch": "",
+        "tags": [
+          "blockchain",
+          "ecommerce",
+          "fintech",
+          "payments",
+          "software",
+          "financial services",
+          "cryptocurrency"
+        ],
+        "description": "Block, Inc. is a global technology company with a focus on financial services. Made up of Square, Cash App, Afterpay, TIDAL, Bitkey, and Proto, Block, Inc. builds technology to increase access to the global economy. Each of our brands unlocks different aspects of the economy for more people. Square makes commerce and financial services accessible to sellers. Cash App is the...",
+        "source_item_url": "https://www.builtinla.com/company/block-inc"
+      }
+    ]
+  }
+}
