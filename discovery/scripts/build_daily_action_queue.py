@@ -126,8 +126,15 @@ def _latest_scored_artifacts() -> list[Path]:
             break
 
     jobspy_matches = sorted(LOGS_DIR.glob("jobspy_filtered_scored_*.json"), key=lambda path: path.stat().st_mtime, reverse=True)
-    if jobspy_matches:
-        artifacts.append(jobspy_matches[0])
+    for path in jobspy_matches:
+        try:
+            payload = _load_json(path)
+        except Exception:
+            continue
+        if payload.get("dry_run"):
+            continue
+        artifacts.append(path)
+        break
     return artifacts
 
 

@@ -2329,6 +2329,7 @@ def _run_post_extract_pipeline(
             "accepted_for_write": len(accepted_for_write),
             "dropped_before_write": len(dropped_before_write),
             "new_after_dedup": len(fresh),
+            "dry_run": dry_run,
             "searches": [{"search_term": s, "time_filter": t} for s, t in searches],
             "search_runs": search_runs,
             "source_raw_artifacts": source_raw_artifacts or [],
