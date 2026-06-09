@@ -3,6 +3,10 @@
 Populates `jobs.xlsx` with scored job listings from LinkedIn and Indeed.
 Two input paths: automated keyword scraping (every 3h) and manual LinkedIn screenshot scoring (on demand).
 
+For the combined application + relationship workflow, use
+[`docs/RECRUITING_ENGINE.md`](../docs/RECRUITING_ENGINE.md) as the higher-level
+operating guide. This file stays focused on discovery commands and mechanics.
+
 ---
 
 ## Files
@@ -311,6 +315,11 @@ For normal day-to-day use, prefer the wrapper:
 ./discovery/scripts/run_linkedin_discovery.sh 24h
 ./discovery/scripts/run_linkedin_discovery.sh 7d
 ```
+
+Current weekly caveat: the 7-day card/count path is useful for coverage checks,
+but full 7-day JD-detail extraction can stall or produce card-only raw artifacts.
+Do not score/write card-only weekly raw files; use the 24h wrapper as the trusted
+daily application lane until weekly detail extraction is hardened.
 
 It does:
 - applied-PDF sync

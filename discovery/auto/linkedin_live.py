@@ -1430,15 +1430,38 @@ def _wait_for_search_results_hydration(page: Page) -> None:
         "[data-job-id]",
         "[componentkey^='job-card-component-ref-']",
         "a[href*='/jobs/view/']",
-        "ul.jobs-search-results__list",
-        "ul.semantic-search-results-list",
     ):
         try:
             page.locator(selector).first.wait_for(state="attached", timeout=20000)
             return
         except PlaywrightError:
             continue
+    for selector in (
+        "ul.jobs-search-results__list",
+        "ul.semantic-search-results-list",
+    ):
+        try:
+            page.locator(selector).first.wait_for(state="attached", timeout=5000)
+            return
+        except PlaywrightError:
+            continue
     page.wait_for_timeout(1500)
+
+
+def _wait_for_visible_cards(page: Page, attempts: int = 5) -> list[dict]:
+    """
+    LinkedIn can show a hydrated results shell before card nodes are attached.
+    Retry extraction with result-list scrolling so a slow first paint does not
+    collapse a weekly run into a fake zero.
+    """
+    visible: list[dict] = []
+    for attempt in range(max(attempts, 1)):
+        visible = _extract_visible_cards(page)
+        if visible:
+            return visible
+        _scroll_results_list(page)
+        page.wait_for_timeout(900 + (attempt * 300))
+    return visible
 
 
 def _looks_logged_in(page: Page) -> bool:
@@ -1668,7 +1691,6 @@ def _open_job_details(page: Page, job_url: str, detail_page: Page | None = None)
     detail_page = detail_page or page.context.new_page()
     detail_page.set_default_timeout(5000)
     try:
-        last_jd_text = ""
         last_insight_text = ""
         last_company = ""
         for attempt in range(1, 4):
@@ -1727,7 +1749,6 @@ def _open_job_details(page: Page, job_url: str, detail_page: Page | None = None)
             insight_text = (extracted or {}).get("insightText", "").strip()
             last_company = _company_from_job_detail_page(detail_page) or last_company
 
-            last_jd_text = jd_text
             last_insight_text = insight_text
             issue = _jd_quality_issue(jd_text)
             if not issue:
@@ -1917,8 +1938,22 @@ def scrape_search(
                             "cards_snapshot": cards,
                         }
                     )
-                initial_visible = _extract_visible_cards(page)
+                initial_visible = _wait_for_visible_cards(page)
                 if not initial_visible:
+                    if progress_callback is not None:
+                        progress_callback(
+                            {
+                                "event": "no_visible_cards_after_retry",
+                                "search_term": search_term,
+                                "time_filter": time_filter,
+                                "route": route_used,
+                                "page_index": page_index,
+                                "start": start,
+                                "search_extracted": len(cards),
+                                "ui_observed_count": observed_ui_count,
+                                "cards_snapshot": cards,
+                            }
+                        )
                     break
                 signature = tuple(card["url"] for card in initial_visible[:10])
                 if signature in page_signatures:
@@ -2053,7 +2088,7 @@ def scrape_search(
             stagnant_scrolls = 0
             for _ in range(20):
                 before_count = len(seen_urls)
-                visible = _extract_visible_cards(page)
+                visible = _wait_for_visible_cards(page) if page_index == 0 else _extract_visible_cards(page)
                 for summary in visible:
                     job_url = summary["url"]
                     if job_url in seen_urls:
