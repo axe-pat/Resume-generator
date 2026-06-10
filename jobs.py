@@ -7,11 +7,12 @@ Handles promotion, generation, tracking, archiving, and status management.
 
 Subcommands
 -----------
-  pipeline      Promote top-scored queued jobs + generate docs for all promoted
+  pipeline      Promote top-scored queued jobs + generate resumes for all promoted
                 (this is what the 12h cron runs)
 
   promote       Create apps/<Company>/ dirs from queued jobs in jobs.xlsx
   generate      Run run_app.py for promoted jobs, write folder_path back to xlsx
+                Defaults to resume-only; pass --with-cl to generate cover letters too.
   list          Show jobs from the xlsx filtered by status / score
   mark          Manually update status on one or more rows
   archive       Move terminal-status rows to archive sheet to keep xlsx lean
@@ -31,9 +32,9 @@ Usage examples
   python jobs.py generate --all-apps --force   # rerun even if resume already exists
   python jobs.py generate --all-apps --docx --parallel 3  # 3 jobs at once
   python jobs.py generate --companies Flexera,Lennox,Risepoint --parallel 3
-  python jobs.py generate --companies Flexera,Lennox --resume-only --parallel 2
+  python jobs.py generate --companies Flexera,Lennox --with-cl --parallel 2
   # If a dir has a CL but no resume (run was interrupted), --resume-only is auto-applied
-  python jobs.py generate --all-apps --resume-only  # force resume-only for all targets
+  python jobs.py generate --queue --budget-mode     # resume-only + cheaper low-fit pass
 
   # Review queue
   python jobs.py list --status queued --top 20
@@ -500,6 +501,7 @@ def _resolve_generate_target(df: pd.DataFrame, company_name: str | None = None, 
     target: dict = {"company": company_name, "app_dir": str(app_dir)}
     if _row is not None:
         target["id"] = str(_row.get("id", ""))
+        target["fit_score"] = str(_row.get("fit_score", ""))
     return target
 
 
@@ -555,6 +557,7 @@ def _load_queue_generate_targets(
                 "id": row_id,
                 "company": str(entry.get("company") or "").strip(),
                 "app_dir": queue_dir,
+                "fit_score": str(entry.get("fit_score") or "").strip(),
             }
             if not target["company"]:
                 try:
@@ -613,6 +616,7 @@ def _filter_existing_generate_targets(
         updated = dict(target)
         if has_cl and not has_resume and has_strat and not resume_only:
             updated["resume_only"] = True
+            updated["skip_strategy_for_resume_only"] = True
             partial.append(str(target.get("company") or app_dir.name))
         elif resume_only:
             updated["resume_only"] = True
@@ -823,7 +827,7 @@ def cmd_generate(args, promoted_jobs: list[dict] | None = None) -> list[dict]:
     Returns list of result dicts.
     """
     dry_run   = args.dry_run
-    run_flags = _build_run_app_flags(args)
+    default_resume_only = not getattr(args, "with_cl", False)
 
     # ── Determine targets ──────────────────────────────────────────────────
     if promoted_jobs is not None:
@@ -876,7 +880,7 @@ def cmd_generate(args, promoted_jobs: list[dict] | None = None) -> list[dict]:
             except ValueError as e:
                 sys.exit(f"[ERROR] {e}")
             force = getattr(args, "force", False)
-            resume_only = getattr(args, "resume_only", False)
+            resume_only = default_resume_only or getattr(args, "resume_only", False)
             targets, skipped, partial = _filter_existing_generate_targets(
                 targets, force=force, resume_only=resume_only
             )
@@ -902,7 +906,7 @@ def cmd_generate(args, promoted_jobs: list[dict] | None = None) -> list[dict]:
         elif getattr(args, "all_apps", False):
             # ── Scan every apps/ subdir that has a jd.txt ────────────────────
             force       = getattr(args, "force", False)
-            resume_only = getattr(args, "resume_only", False)
+            resume_only = default_resume_only or getattr(args, "resume_only", False)
             targets = []
             skipped = []
             partial = []  # dirs with CL but no resume (auto resume-only)
@@ -922,9 +926,11 @@ def cmd_generate(args, promoted_jobs: list[dict] | None = None) -> list[dict]:
                 entry: dict = {"company": subdir.name, "app_dir": str(subdir)}
                 if _row is not None:
                     entry["id"] = str(_row.get("id", ""))
+                    entry["fit_score"] = str(_row.get("fit_score", ""))
                 # Auto-detect resume-only: CL exists but no resume → skip CL pipeline
                 if has_cl and not has_resume and has_strat and not resume_only:
                     entry["resume_only"] = True
+                    entry["skip_strategy_for_resume_only"] = True
                     partial.append(subdir.name)
                 elif resume_only:
                     entry["resume_only"] = True
@@ -1027,8 +1033,14 @@ def cmd_generate(args, promoted_jobs: list[dict] | None = None) -> list[dict]:
                      f"({_e}) — continuing without block"))
 
         # ── Build per-job flags (may differ from global run_flags) ─────────
-        job_resume_only = job.get("resume_only", False)
-        job_flags = _build_run_app_flags(args, resume_only=job_resume_only)
+        job_resume_only = bool(job.get("resume_only", default_resume_only))
+        budget_skip_rewrite = _should_budget_skip_rewrite(job, args)
+        job_flags = _build_run_app_flags(
+            args,
+            resume_only=job_resume_only,
+            skip_strategy_for_resume_only=bool(job.get("skip_strategy_for_resume_only", False)),
+            budget_skip_rewrite=budget_skip_rewrite,
+        )
 
         cmd = [
             sys.executable,
@@ -1163,9 +1175,24 @@ def cmd_generate(args, promoted_jobs: list[dict] | None = None) -> list[dict]:
     return results
 
 
-def _build_run_app_flags(args, resume_only: bool = False) -> list[str]:
+def _should_budget_skip_rewrite(job: dict, args) -> bool:
+    if not getattr(args, "budget_mode", False):
+        return False
+    if getattr(args, "no_rewrite", False):
+        return False
+    score = _safe_float(job.get("fit_score"))
+    return score > 0 and score < 7.0
+
+
+def _build_run_app_flags(
+    args,
+    resume_only: bool = False,
+    *,
+    skip_strategy_for_resume_only: bool = False,
+    budget_skip_rewrite: bool = False,
+) -> list[str]:
     flags = []
-    if getattr(args, "no_rewrite",  False): flags.append("--no-rewrite")
+    if getattr(args, "no_rewrite",  False) or budget_skip_rewrite: flags.append("--no-rewrite")
     if getattr(args, "no_score",    False): flags.append("--no-score")
     if getattr(args, "no_qc",       False): flags.append("--no-qc")
     if getattr(args, "no_strategy", False): flags.append("--no-strategy")
@@ -1174,8 +1201,10 @@ def _build_run_app_flags(args, resume_only: bool = False) -> list[str]:
     if resume_only:
         if "--resume-only" not in flags:
             flags.append("--resume-only")
-        # strategy.json already exists for partial dirs — skip re-running Pass 0
-        if "--no-strategy" not in flags:
+        # Partial recovery dirs already have strategy.json; first-pass resume-only
+        # still runs strategy so the resume has the same planning context as the
+        # former resume+CL default.
+        if skip_strategy_for_resume_only and "--no-strategy" not in flags:
             flags.append("--no-strategy")
     return flags
 
@@ -1402,6 +1431,10 @@ def main():
     p_pipe.add_argument("--no-score",    action="store_true")
     p_pipe.add_argument("--no-qc",       action="store_true")
     p_pipe.add_argument("--no-strategy", action="store_true")
+    p_pipe.add_argument("--with-cl",     action="store_true",
+                        help="Generate cover letters too. Default is resume-only.")
+    p_pipe.add_argument("--budget-mode", action="store_true",
+                        help="For lower-fit jobs, skip resume rewrite to reduce spend.")
     p_pipe.add_argument("--docx",        action="store_true",
                         help="Deprecated no-op: docx is now generated by default")
     p_pipe.add_argument("--no-docx",     action="store_true",
@@ -1441,8 +1474,12 @@ def main():
     p_gen.add_argument("--force",        action="store_true",
                        help="With --all-apps: run even if resume_*.txt already exists")
     p_gen.add_argument("--resume-only",  action="store_true",
-                       help="Only generate the resume (skip CL). Auto-detected for dirs "
-                            "that already have a CL but no resume.")
+                       help="Only generate the resume (skip CL). This is now the default; "
+                            "kept for explicitness and partial recovery.")
+    p_gen.add_argument("--with-cl",      action="store_true",
+                       help="Also generate cover letters. Default is resume-only.")
+    p_gen.add_argument("--budget-mode",  action="store_true",
+                       help="For lower-fit jobs, skip resume rewrite to reduce spend.")
     p_gen.add_argument("--parallel",     type=int, default=1, metavar="N",
                        help="Run N jobs simultaneously (default: 1 = serial). "
                             "In parallel mode output goes to log files; "

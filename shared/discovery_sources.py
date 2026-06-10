@@ -6,10 +6,23 @@ STARTUP_APPLY_SOURCES = {
     "a16z_startup_jobs",
 }
 
+HANDSHAKE_APPLY_SOURCES = {
+    "handshake_jobs_v1",
+}
+
 APPLY_QUEUE_SOURCES = {
     "linkedin_live_jobs_v1",
+    *HANDSHAKE_APPLY_SOURCES,
     *STARTUP_APPLY_SOURCES,
 }
+
+APPLY_QUEUE_MIN_SCORE_BY_SOURCE = {
+    "handshake_jobs_v1": 3.5,
+}
+
+
+def min_apply_queue_score(source: str, default: float) -> float:
+    return APPLY_QUEUE_MIN_SCORE_BY_SOURCE.get(source.strip().lower(), default)
 
 
 def is_startup_apply_source(source: str) -> bool:

@@ -19,11 +19,12 @@ discovery/auto/score_screenshots.py   (manual, as needed)
 
 jobs.py pipeline              (cron: every 12h)
   ↓  promotes top-scored jobs → creates apps/<Company>/ dirs
-  ↓  runs run_app.py for each → resume + CL outputs
+  ↓  runs run_app.py for each → resume output by default
+     (CLs are opt-in with --with-cl or run_app.py --cl-only)
   ↓  writes folder_path + status=generated back to jobs.xlsx
 
 You                           (every ~12h)
-  ↓  open apps/<Company>/ dirs, review resume + CL, decide to apply
+  ↓  open apps/<Company>/ dirs, review resume, generate CL only if needed
   ↓  python jobs.py mark --id 42 --status applied
 ```
 
@@ -191,12 +192,15 @@ python jobs.py generate --all-apps
 python jobs.py generate --all-apps --force        # rerun even if resume already exists
 python jobs.py generate --all-apps --parallel 3   # 3 jobs at once
 python jobs.py generate --companies Flexera,Lennox,Risepoint --parallel 3
-python jobs.py generate --companies Flexera,Lennox --resume-only --parallel 2
+python jobs.py generate --companies Flexera,Lennox --with-cl --parallel 2
 python jobs.py generate --companies Flexera,Lennox --no-docx   # skip docx for debug/test runs
 
-# Auto resume-only: if a dir has cl_*.txt but no resume_*.txt (run was interrupted),
-# --resume-only --no-strategy is applied automatically per-dir. Or force it for all:
-python jobs.py generate --all-apps --resume-only
+# jobs.py generate is resume-only by default. CLs are generated only when asked:
+python jobs.py generate --queue --with-cl
+python run_app.py Stripe --cl-only
+
+# Budget mode skips resume rewrite for lower-fit batch jobs:
+python jobs.py generate --queue --budget-mode
 
 # Timeout: default 2400s (40 min). Raise for slow API runs:
 python jobs.py generate --all-apps --timeout 3600
@@ -206,10 +210,11 @@ python jobs.py generate --company Stripe
 
 # Generate for a hand-picked list of companies
 python jobs.py generate --companies Stripe,Flexera,Lennox --parallel 3
-python jobs.py generate --companies Stripe,Flexera --resume-only --parallel 2
+python jobs.py generate --companies Stripe,Flexera --with-cl --parallel 2
 
-# Full pipeline in one shot (same as what the cron does)
+# Full pipeline in one shot (same as what the cron does; resume-only by default)
 python jobs.py pipeline --min-score 8.0 --top 10
+python jobs.py pipeline --min-score 8.0 --top 10 --with-cl
 
 # Run a single application manually
 python run_app.py Stripe
@@ -308,6 +313,9 @@ To add a company mid-session: edit `discovery/blocklist.txt` directly, then run 
 | **Full pipeline**  |             | **varies by fit-score tier** |
 
 Fast mode flags: `--no-rewrite --no-score --no-qc` → ~$0.12/job
+Default batch generation is resume-only, saving roughly `$0.05/job` by
+deferring CL generation until an ATS actually asks for one. For a 50-job batch,
+that is about `$2.50-$2.70` saved before other smart-cost reductions.
 
 The pipeline prints a cost estimate before each scoring run so you can abort if the batch is unexpectedly large.
 
@@ -317,7 +325,12 @@ The pipeline prints a cost estimate before each scoring run so you can abort if 
 
 - `fit_score >= 7.8` → full mode: keep the full quality path. Strategy, rewrite, scoring, fix loop, and CL QC can all run; strategy/scoring stay on the main model.
 - `7.0 <= fit_score < 7.8` → balanced mode: keep core generation, but downgrade strategy and resume scoring to Haiku; skip Pass 4 targeted fixes and CL QC.
-- `fit_score < 7.0` → lean mode: skip strategy, rewrite, resume scoring, fix loop, and CL QC entirely. Core resume/CL generation still runs, but the expensive review/remediation passes are suppressed.
+- `fit_score < 7.0` → lean mode: skip strategy, rewrite, resume scoring, fix loop, and CL QC entirely. Core resume generation still runs; CL generation is opt-in.
+
+Batch `--budget-mode` adds one more cut: for lower-fit jobs, it skips resume
+Pass 2 rewrite even when the normal smart-cost policy would otherwise keep it.
+The current apply queue's `generate_command.sh` uses `--resume-only --budget-mode`
+by default.
 
 This is meant to preserve quality where job relevance is high while cutting spend on lower-fit applications. Use `--no-smart-cost` if you want to force the old all-on behavior.
 

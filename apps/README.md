@@ -53,8 +53,9 @@ apps/
 # Promote a job by ID — creates apps/<Company>/ and writes jd.txt
 python jobs.py promote --id 42
 
-# Then generate the resume + CL
+# Then generate the resume. Cover letters are opt-in.
 python jobs.py generate --all-promoted
+python jobs.py generate --all-promoted --with-cl
 
 # Or promote + generate in one step via pipeline
 python jobs.py pipeline --min-score 8.0 --top 10
@@ -77,10 +78,10 @@ If you batch-run manual app dirs through `jobs.py generate --all-apps`, any dir 
 
 ## Regenerating outputs
 
-You can always re-run `run_app.py` for an existing directory. It reads `jd.txt` and `intel.txt`, overwrites `strategy.json`, and appends a new dated resume + CL (old files are kept).
+You can always re-run `run_app.py` for an existing directory. It reads `jd.txt` and `intel.txt`, overwrites `strategy.json`, and appends new dated outputs (old files are kept). Batch generation through `jobs.py generate` is resume-only by default; cover letters are generated only with `--with-cl` or a later `run_app.py --cl-only`.
 
 ```bash
-python run_app.py Stripe                # full pipeline (PM track by default, includes docx)
+python run_app.py Stripe                # full single-app pipeline (PM track by default, includes CL)
 python run_app.py Stripe --resume-only  # resume only
 python run_app.py Stripe --cl-only      # CL only
 python run_app.py Stripe --no-strategy  # skip strategy step (reuses existing strategy.json)
@@ -91,8 +92,9 @@ python run_app.py Stripe --no-rewrite --no-score --no-qc  # fast mode (~$0.08)
 python run_app.py Stripe --docx-only    # regenerate .docx from latest resume_*.txt with no AI
 
 # Multi-company batch generation via jobs.py
-python jobs.py generate --companies Stripe,Flexera,Lennox --parallel 3
-python jobs.py generate --companies Stripe,Flexera --resume-only --parallel 2
+python jobs.py generate --companies Stripe,Flexera,Lennox --parallel 3      # resume-only default
+python jobs.py generate --companies Stripe,Flexera --with-cl --parallel 2
+python jobs.py generate --queue --budget-mode                               # cheaper low-fit queue pass
 python jobs.py generate --companies Stripe,Flexera --no-docx
 
 # Non-PM resume track (Strategy / Consulting / S&O / PgM / RevOps / Ops)
@@ -101,7 +103,7 @@ python run_app.py McKinsey --track nonpm --resume-only
 # Note: if --track is omitted, the runner auto-detects nonpm from role_family in strategy.json
 ```
 
-**Parallelization:** when both resume and CL are enabled (the default), `run_app.py` runs them in parallel after the shared strategy step, saving ~1–1.5 min per application. Output is buffered per-thread and printed sequentially (resume first, then CL) so the terminal is never garbled.
+**Parallelization:** when both resume and CL are enabled (`run_app.py` default, or `jobs.py generate --with-cl`), `run_app.py` runs them in parallel after the shared strategy step, saving ~1–1.5 min per application. Output is buffered per-thread and printed sequentially (resume first, then CL) so the terminal is never garbled.
 
 **Auto-logging:** every `run_app.py` run writes a plain-text log to `logs/run_app_<Company>_YYYYMMDD_HHMMSS.txt` at the project root. ANSI colour codes are stripped so logs are readable without a terminal. The path is printed at the end of each run. Resume, CL, and shared strategy API calls now also log their elapsed time, which makes slow-run diagnosis much easier.
 

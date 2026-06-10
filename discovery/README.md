@@ -560,6 +560,19 @@ Or use the seed script for bulk CSV imports:
 python discovery/auto/seed_from_csv.py path/to/linkedin_export.csv
 ```
 
+### Queue generation defaults
+
+`apps/Apply queues/current_apply_queue/generate_command.sh` is rebuilt by the
+queue refresh scripts. It now defaults to:
+
+```bash
+python jobs.py generate --queue --resume-only --budget-mode
+```
+
+That keeps resume generation as the default artifact and defers cover letters
+until an ATS actually asks for one. Use `--with-cl` on `jobs.py generate`, or
+run `python run_app.py <Company> --cl-only`, when a cover letter is needed.
+
 ---
 
 ## Log files

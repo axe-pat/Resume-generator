@@ -18,7 +18,7 @@ MIN_SCORE = 5.9
 EXCLUDED_COMPANIES = {"comcast"}
 
 import jobs
-from shared.discovery_sources import APPLY_QUEUE_SOURCES, queue_company_label
+from shared.discovery_sources import APPLY_QUEUE_SOURCES, min_apply_queue_score, queue_company_label
 
 
 def _dir_slug(text: str) -> str:
@@ -144,7 +144,8 @@ def main() -> int:
     df = df[df["source"].isin(APPLY_QUEUE_SOURCES)].copy()
     df["fit_score_num"] = pd.to_numeric(df["fit_score"], errors="coerce")
     df = df[df["status"].isin(["queued", "promoted", "generated"])]
-    df = df[df["fit_score_num"] >= MIN_SCORE]
+    df["source_min_score"] = df["source"].map(lambda value: min_apply_queue_score(str(value), MIN_SCORE))
+    df = df[df["fit_score_num"] >= df["source_min_score"]]
     df = df.sort_values(["fit_score_num", "date_found"], ascending=[False, False])
 
     blocklist = _load_blocklist()
@@ -219,7 +220,7 @@ def main() -> int:
         'cd "$(dirname "$0")/../../.."',
         "export RUN_APP_SEQUENTIAL=1",
         "",
-        f'./venv/bin/python jobs.py --no-color generate --queue --queue-path {shlex.quote(queue_priority_rel)}',
+        f'./venv/bin/python jobs.py --no-color generate --queue --resume-only --budget-mode --queue-path {shlex.quote(queue_priority_rel)}',
     ]
     command_sh.write_text("\n".join(script_lines) + "\n", encoding="utf-8")
     command_sh.chmod(0o755)
