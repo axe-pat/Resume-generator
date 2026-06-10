@@ -50,6 +50,25 @@ the saved raw artifact, writes accepted rows to `jobs.xlsx`, then refreshes the
 current apply queue. If scoring breaks, replay scoring from the raw file instead
 of reopening LinkedIn.
 
+### Handshake Saved Search
+
+Trusted application lane for the saved Handshake filter. Handshake does not
+expose a clean 24h filter in this flow, so the runner treats the newest-first
+search page as an offset feed: it scans the top page, canonicalizes job IDs,
+skips anything already in `jobs.xlsx`, and stops after a streak of already-known
+jobs.
+
+```bash
+./discovery/scripts/run_handshake_discovery.sh 24h
+```
+
+This uses the same signed-in Chrome/CDP session as browser-backed JD extraction.
+The default filter is the paid internship Handshake URL saved in
+`discovery/auto/import_handshake_csv.py`; override it with
+`HANDSHAKE_SEARCH_URL=...` after tweaking the portal filter. Rows are written
+with `source=handshake_jobs_v1`, and the queue floor for this source is `3.5`
+because this lane is already paid/internship-filtered and near-deadline.
+
 ### JobSpy
 
 Breadth radar for roles the focused LinkedIn searches may miss. It is useful, but
@@ -135,15 +154,16 @@ venv/bin/python discovery/scripts/run_daily_engine.py \
 Useful controls:
 
 ```bash
+--skip-handshake
 --target-sends 25
 --per-company-send-limit 15
 --max-outreach-companies 24
 --send-min-score 20
 ```
 
-Real sends are deliberately explicit. Generation can run in parallel with
-Outreach artifact preparation, but workbook writes and LinkedIn sends stay
-serialized.
+Handshake runs by default as part of the daily application sources. Real sends
+are deliberately explicit. Generation can run in parallel with Outreach artifact
+preparation, but workbook writes and LinkedIn sends stay serialized.
 
 ## Weekly Caveat
 

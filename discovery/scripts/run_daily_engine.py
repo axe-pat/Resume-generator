@@ -397,6 +397,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Supervised daily application + outreach engine.")
     parser.add_argument("--window", choices=("24h", "7d"), default="24h")
     parser.add_argument("--skip-linkedin", action="store_true")
+    parser.add_argument("--skip-handshake", action="store_true")
     parser.add_argument("--skip-jobspy", action="store_true")
     parser.add_argument("--skip-startup-apply", action="store_true")
     parser.add_argument("--skip-relationship-discovery", action="store_true")
@@ -436,6 +437,9 @@ def main() -> int:
 
     if not args.skip_linkedin:
         run(["./discovery/scripts/run_linkedin_discovery.sh", args.window])
+
+    if not args.skip_handshake:
+        run(["./discovery/scripts/run_handshake_discovery.sh", args.window])
 
     if not args.skip_jobspy:
         fetch_cmd: list[object] = [PYTHON, "discovery/scripts/fetch_jobspy_breadth.py", "--hours-old", hours_old]

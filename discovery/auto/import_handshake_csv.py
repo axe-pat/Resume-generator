@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-Import a manually exported Handshake CSV into the application tracker.
+Import Handshake jobs into the application tracker from a CSV export or a
+saved Handshake search URL.
 
 This is intentionally browser-backed: direct HTTP fetches to Handshake are
 Cloudflare/auth gated, so JD extraction requires a signed-in Chrome session with
@@ -22,6 +23,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+from urllib.parse import parse_qsl, urlencode, urljoin, urlsplit, urlunsplit
 
 import pandas as pd
 
@@ -40,6 +42,24 @@ from scorer import DEFAULT_MODEL, score_batch  # noqa: E402
 
 SOURCE_TAG = "handshake_jobs_v1"
 DEFAULT_CSV = Path("/Users/akshat/Downloads/-JobTitle-Company-Industry-Pay-Deadline-Status-URL.csv")
+DEFAULT_SEARCH_URL = (
+    "https://app.joinhandshake.com/job-search/11111986?"
+    "pay%5BsalaryType%5D=1&degreeLevels=2&degreeLevels=11&majors=226553&"
+    "workAuthorization=openToUSVisaSponsorship&workAuthorization=openToOptionalPracticalTraining&"
+    "workAuthorization=openToCurricularPracticalTraining&workAuthorization=workAuthNotSpecified&"
+    "jobType=3&sort=posted_date_desc&per_page=25&page=1"
+)
+HANDSHAKE_JOB_ID_RE = re.compile(r"/job-search/(\d+)")
+GENERIC_LINK_TEXT = {
+    "apply",
+    "job",
+    "open",
+    "save",
+    "view",
+    "view details",
+    "view job",
+    "view posting",
+}
 
 
 @dataclass
@@ -52,14 +72,32 @@ class CsvJob:
     deadline: str
     urgency: str
     url: str
+    origin: str = "csv"
 
 
 def _clean(value: Any) -> str:
     return str(value or "").strip()
 
 
+def _is_generic_link_text(value: str) -> bool:
+    normalized = re.sub(r"\s+", " ", _clean(value).lower())
+    return normalized in GENERIC_LINK_TEXT
+
+
+def _canonical_handshake_url(url: str) -> str:
+    raw = _clean(url)
+    if not raw:
+        return ""
+    absolute = urljoin("https://app.joinhandshake.com", raw)
+    match = HANDSHAKE_JOB_ID_RE.search(absolute)
+    if match:
+        return f"https://app.joinhandshake.com/job-search/{match.group(1)}"
+    return absolute
+
+
 def _url_hash(url: str) -> str:
-    return hashlib.md5(url.strip().lower().encode()).hexdigest() if url else ""
+    canonical = _canonical_handshake_url(url) or url
+    return hashlib.md5(canonical.strip().lower().encode()).hexdigest() if canonical else ""
 
 
 def _tc_hash(company: str, title: str) -> str:
@@ -90,9 +128,143 @@ def _load_csv(path: Path) -> list[CsvJob]:
                     deadline=_clean(row.get("Deadline")),
                     urgency=_clean(row.get("Status")),
                     url=url,
+                    origin="csv",
                 )
             )
     return rows
+
+
+def _search_url_for_page(search_url: str, page_number: int) -> str:
+    parts = urlsplit(search_url)
+    query = [(key, value) for key, value in parse_qsl(parts.query, keep_blank_values=True) if key != "page"]
+    query.append(("page", str(page_number)))
+    return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query, doseq=True), parts.fragment))
+
+
+def _parse_card_metadata(text: str, anchor_text: str = "") -> tuple[str, str]:
+    lines = [_clean(line) for line in re.split(r"\n+", text or "") if _clean(line)]
+    anchor = _clean(anchor_text)
+    if anchor and not _is_generic_link_text(anchor) and not HANDSHAKE_JOB_ID_RE.search(anchor) and len(anchor) > 3:
+        title = anchor
+        candidates = [line for line in lines if line != title]
+        company = candidates[0] if candidates else ""
+        return company, title
+
+    noise_prefixes = (
+        "save",
+        "apply",
+        "posted",
+        "expires",
+        "job",
+        "internship",
+        "full-time",
+        "part-time",
+        "$",
+    )
+    useful = [
+        line
+        for line in lines[:8]
+        if not line.lower().startswith(noise_prefixes) and len(line) <= 120
+    ]
+    if len(useful) >= 2:
+        return useful[0], useful[1]
+    if useful:
+        return "", useful[0]
+    return "", ""
+
+
+async def _discover_search_with_cdp(
+    search_url: str,
+    cdp_url: str,
+    delay_ms: int,
+    max_pages: int,
+    max_results: int,
+) -> list[CsvJob]:
+    try:
+        from playwright.async_api import async_playwright
+    except ImportError as exc:
+        raise SystemExit("Playwright is not installed in this venv.") from exc
+
+    discovered: list[CsvJob] = []
+    seen: set[str] = set()
+    async with async_playwright() as p:
+        try:
+            browser = await p.chromium.connect_over_cdp(cdp_url)
+        except Exception as exc:
+            raise SystemExit(
+                f"Could not attach to Chrome at {cdp_url}. "
+                "Launch a signed-in Handshake browser with remote debugging first."
+            ) from exc
+
+        context = browser.contexts[0] if browser.contexts else await browser.new_context()
+        page = await context.new_page()
+
+        for page_number in range(1, max_pages + 1):
+            page_url = _search_url_for_page(search_url, page_number)
+            print(f"Discovering Handshake search page {page_number}: {page_url}")
+            await page.goto(page_url, wait_until="domcontentloaded", timeout=60000)
+            await page.wait_for_timeout(delay_ms)
+            try:
+                await page.wait_for_load_state("networkidle", timeout=10000)
+            except Exception:
+                pass
+
+            body_text = await page.locator("body").inner_text(timeout=10000)
+            blocker = _looks_like_blocker(body_text, "")
+            if blocker:
+                raise SystemExit(f"Handshake search page could not be read: {blocker}")
+
+            cards = await page.evaluate(
+                """
+                () => Array.from(document.querySelectorAll('a[href*="/job-search/"]')).map((anchor) => {
+                  let node = anchor;
+                  for (let depth = 0; depth < 5 && node.parentElement; depth += 1) {
+                    node = node.parentElement;
+                    const text = (node.innerText || '').trim();
+                    if (text.split('\\n').filter(Boolean).length >= 3) break;
+                  }
+                  return {
+                    href: anchor.href,
+                    anchorText: (anchor.innerText || '').trim(),
+                    text: (node.innerText || anchor.innerText || '').trim(),
+                  };
+                })
+                """
+            )
+
+            page_new = 0
+            for card in cards:
+                raw_url = urljoin("https://app.joinhandshake.com", str(card.get("href") or ""))
+                url_key = _canonical_handshake_url(raw_url)
+                if not raw_url or not url_key or url_key in seen:
+                    continue
+                seen.add(url_key)
+                company, title = _parse_card_metadata(str(card.get("text") or ""), str(card.get("anchorText") or ""))
+                discovered.append(
+                    CsvJob(
+                        row_number=f"search-p{page_number}-{len(discovered) + 1}",
+                        company=company,
+                        role_title=title,
+                        industry="",
+                        pay="",
+                        deadline="",
+                        urgency="",
+                        url=raw_url,
+                        origin="search",
+                    )
+                )
+                page_new += 1
+                if max_results and len(discovered) >= max_results:
+                    break
+
+            print(f"  found {page_new} new job link(s) on page {page_number}")
+            if max_results and len(discovered) >= max_results:
+                break
+
+        await page.close()
+        await browser.close()
+
+    return discovered
 
 
 def _existing_keys(df: pd.DataFrame) -> tuple[set[str], set[str]]:
@@ -104,9 +276,10 @@ def _existing_keys(df: pd.DataFrame) -> tuple[set[str], set[str]]:
     return url_hashes, title_company
 
 
-def _csv_notes(job: CsvJob) -> str:
+def _source_notes(job: CsvJob) -> str:
+    import_flag = "handshake_search_import=true" if job.origin == "search" else "handshake_csv_import=true"
     parts = [
-        "handshake_csv_import=true",
+        import_flag,
         f"csv_row={job.row_number}" if job.row_number else "",
         f"industry={job.industry}" if job.industry else "",
         f"pay={job.pay}" if job.pay else "",
@@ -116,14 +289,16 @@ def _csv_notes(job: CsvJob) -> str:
     return " ".join(part for part in parts if part)
 
 
-def _candidate_dict(job: CsvJob, jd_text: str) -> dict[str, Any]:
+def _candidate_dict(job: CsvJob, jd_text: str, *, company: str = "", role_title: str = "") -> dict[str, Any]:
     today = datetime.now().strftime("%Y-%m-%d")
+    effective_company = _clean(company) or job.company or "Unknown"
+    effective_title = _clean(role_title) or job.role_title or "Unknown Handshake Role"
     return {
         "id": "",
         "date_found": today,
         "date_posted": "",
-        "company": job.company,
-        "role_title": job.role_title,
+        "company": effective_company,
+        "role_title": effective_title,
         "role_type": "",
         "location": "",
         "url": job.url,
@@ -136,7 +311,7 @@ def _candidate_dict(job: CsvJob, jd_text: str) -> dict[str, Any]:
         "folder_path": "",
         "resume_run": "",
         "jd_text": jd_text,
-        "notes": _csv_notes(job),
+        "notes": _source_notes(job),
     }
 
 
@@ -206,6 +381,54 @@ def _trim_jd_text(text: str, company: str, title: str) -> str:
     return trimmed[:12000]
 
 
+def _parse_detail_metadata(text: str, fallback_company: str = "", fallback_title: str = "") -> tuple[str, str]:
+    lines = [_clean(line) for line in re.split(r"\n+", text or "") if _clean(line)]
+    if not lines:
+        return fallback_company, fallback_title
+
+    safe_fallback_title = "" if _is_generic_link_text(fallback_title) else _clean(fallback_title)
+    safe_fallback_company = "" if _is_generic_link_text(fallback_company) else _clean(fallback_company)
+    title = safe_fallback_title
+    company = safe_fallback_company
+
+    posted_idx = -1
+    for idx, line in enumerate(lines[:80]):
+        lower = line.lower()
+        if lower.startswith("posted ") or lower.startswith("apply by") or lower.startswith("expires "):
+            posted_idx = idx
+            break
+
+    if posted_idx > 0 and not _is_generic_link_text(lines[posted_idx - 1]):
+        title = lines[posted_idx - 1]
+
+    if posted_idx > 1:
+        company_candidates = lines[max(0, posted_idx - 4) : posted_idx - 1]
+        for candidate in company_candidates:
+            lower = candidate.lower()
+            if candidate == title:
+                continue
+            if lower in {"medical devices", "computer software", "internet", "financial services"}:
+                continue
+            if not lower.startswith(("posted", "apply by", "expires", "save")):
+                company = candidate
+                break
+
+    if not company and title and title in lines:
+        title_idx = lines.index(title)
+        if title_idx >= 1:
+            company = lines[title_idx - 1]
+        if title_idx >= 2 and company.lower() in {"medical devices", "computer software", "internet", "financial services"}:
+            company = lines[title_idx - 2]
+
+    if not title:
+        for idx, line in enumerate(lines[:50]):
+            if line.lower() == "job description" and idx > 0:
+                title = lines[max(0, idx - 1)]
+                break
+
+    return company or safe_fallback_company, title or safe_fallback_title
+
+
 async def _fetch_with_cdp(candidates: list[CsvJob], cdp_url: str, delay_ms: int) -> list[dict[str, Any]]:
     try:
         from playwright.async_api import async_playwright
@@ -246,12 +469,19 @@ async def _fetch_with_cdp(candidates: list[CsvJob], cdp_url: str, delay_ms: int)
 
                 page_title = await page.title()
                 body_text = await page.locator("body").inner_text(timeout=10000)
-                blocker = _looks_like_blocker(body_text, job.role_title)
+                parsed_company, parsed_title = _parse_detail_metadata(body_text, job.company, job.role_title)
+                result["company"] = parsed_company or job.company
+                result["role_title"] = parsed_title or job.role_title
+                blocker = _looks_like_blocker(body_text, parsed_title or job.role_title)
                 if blocker:
                     result["error"] = f"{blocker}; page_title={page_title!r}"
                 else:
                     result["ok"] = True
-                    result["jd_text"] = _trim_jd_text(body_text, job.company, job.role_title)
+                    result["jd_text"] = _trim_jd_text(
+                        body_text,
+                        parsed_company or job.company,
+                        parsed_title or job.role_title,
+                    )
                     result["page_title"] = page_title
             except Exception as exc:
                 result["error"] = str(exc)
@@ -288,35 +518,59 @@ def _refresh_queue() -> None:
 
 def run(args: argparse.Namespace) -> int:
     csv_path = Path(args.csv).expanduser()
-    if not csv_path.exists():
-        raise SystemExit(f"CSV not found: {csv_path}")
+    if args.search_url:
+        import asyncio
 
-    csv_jobs = _load_csv(csv_path)
+        csv_jobs = asyncio.run(
+            _discover_search_with_cdp(
+                args.search_url,
+                args.cdp_url,
+                args.delay_ms,
+                args.max_pages,
+                args.max_search_results,
+            )
+        )
+    else:
+        if not csv_path.exists():
+            raise SystemExit(f"CSV not found: {csv_path}")
+        csv_jobs = _load_csv(csv_path)
+
     df_existing = jobs.load_jobs()
     existing_urls, existing_tc = _existing_keys(df_existing)
 
     seen_urls: set[str] = set()
     candidates: list[CsvJob] = []
     skipped: list[dict[str, str]] = []
+    consecutive_existing = 0
     for item in csv_jobs:
         url_key = _url_hash(item.url)
         title_key = _tc_hash(item.company, item.role_title)
         if url_key in existing_urls:
             skipped.append({"url": item.url, "company": item.company, "role_title": item.role_title, "reason": "duplicate_url"})
+            consecutive_existing += 1
+            if args.search_url and args.stop_after_existing and consecutive_existing >= args.stop_after_existing:
+                print(f"Stopping search intake after {consecutive_existing} consecutive known job URL(s).")
+                break
             continue
         if title_key in existing_tc:
             skipped.append({"url": item.url, "company": item.company, "role_title": item.role_title, "reason": "duplicate_company_title"})
+            consecutive_existing += 1
+            if args.search_url and args.stop_after_existing and consecutive_existing >= args.stop_after_existing:
+                print(f"Stopping search intake after {consecutive_existing} consecutive known title/company match(es).")
+                break
             continue
         if url_key in seen_urls:
             skipped.append({"url": item.url, "company": item.company, "role_title": item.role_title, "reason": "duplicate_in_csv"})
             continue
+        consecutive_existing = 0
         seen_urls.add(url_key)
         candidates.append(item)
 
     if args.limit:
         candidates = candidates[: args.limit]
 
-    print(f"CSV rows: {len(csv_jobs)}")
+    source_label = "Handshake search links" if args.search_url else "CSV rows"
+    print(f"{source_label}: {len(csv_jobs)}")
     print(f"New candidates after dedupe: {len(candidates)}")
     print(f"Skipped duplicates: {len(skipped)}")
     if not candidates:
@@ -330,7 +584,7 @@ def run(args: argparse.Namespace) -> int:
                 "role_title": item.role_title,
                 "url": item.url,
                 "ok": True,
-                "jd_text": f"{item.company}\n{item.role_title}\n\n{_csv_notes(item)}",
+                "jd_text": f"{item.company}\n{item.role_title}\n\n{_source_notes(item)}",
                 "warning": "no_fetch placeholder; not scoreable as a real JD",
             }
             for item in candidates
@@ -344,10 +598,17 @@ def run(args: argparse.Namespace) -> int:
     fetch_ok = [item for item in candidates if fetched_by_url.get(item.url, {}).get("ok")]
     fetch_failed = [fetched_by_url.get(item.url, {}) for item in candidates if not fetched_by_url.get(item.url, {}).get("ok")]
 
-    rows_to_score = [
-        _candidate_dict(item, str(fetched_by_url[item.url].get("jd_text") or ""))
-        for item in fetch_ok
-    ]
+    rows_to_score = []
+    for item in fetch_ok:
+        fetched_item = fetched_by_url[item.url]
+        rows_to_score.append(
+            _candidate_dict(
+                item,
+                str(fetched_item.get("jd_text") or ""),
+                company=str(fetched_item.get("company") or ""),
+                role_title=str(fetched_item.get("role_title") or ""),
+            )
+        )
 
     scored: list[dict[str, Any]] = []
     if rows_to_score and not args.skip_score:
@@ -368,11 +629,12 @@ def run(args: argparse.Namespace) -> int:
 
     log_payload = {
         "created_at": datetime.now().isoformat(timespec="seconds"),
-        "csv": str(csv_path),
+        "csv": "" if args.search_url else str(csv_path),
+        "search_url": args.search_url or "",
         "source": SOURCE_TAG,
         "write": bool(args.write),
         "counts": {
-            "csv_rows": len(csv_jobs),
+            "input_rows": len(csv_jobs),
             "deduped_candidates": len(candidates),
             "skipped_duplicates": len(skipped),
             "fetch_ok": len(fetch_ok),
@@ -451,8 +713,26 @@ def run(args: argparse.Namespace) -> int:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Import Handshake CSV jobs into ResumeGenerator.")
+    parser = argparse.ArgumentParser(description="Import Handshake jobs into ResumeGenerator.")
     parser.add_argument("--csv", default=str(DEFAULT_CSV), help="Handshake CSV export path.")
+    parser.add_argument(
+        "--search-url",
+        default="",
+        help="Handshake search URL to discover newest jobs from. When set, --csv is ignored.",
+    )
+    parser.add_argument(
+        "--default-search",
+        action="store_true",
+        help="Use the saved default Handshake source filter.",
+    )
+    parser.add_argument("--max-pages", type=int, default=1, help="Search result pages to inspect for --search-url.")
+    parser.add_argument("--max-search-results", type=int, default=25, help="Cap search links collected before dedupe.")
+    parser.add_argument(
+        "--stop-after-existing",
+        type=int,
+        default=8,
+        help="For --search-url, stop dedupe after this many consecutive already-known jobs.",
+    )
     parser.add_argument("--cdp-url", default="http://127.0.0.1:9222", help="Chrome DevTools endpoint.")
     parser.add_argument("--limit", type=int, default=0, help="Limit candidates for smoke tests.")
     parser.add_argument("--delay-ms", type=int, default=2500, help="Wait after page load before extracting text.")
@@ -470,6 +750,8 @@ def main() -> int:
     parser.add_argument("--no-refresh-queue", action="store_true", help="Do not refresh current_apply_queue after writing.")
     parser.add_argument("--quiet", action="store_true", help="Reduce scorer output.")
     args = parser.parse_args()
+    if args.default_search and not args.search_url:
+        args.search_url = DEFAULT_SEARCH_URL
     return run(args)
 
 

@@ -350,6 +350,46 @@ Recommended staged pattern for reliability:
 - Replay scoring later with `--score-from-raw ...`
 - If scoring fails, rerun scoring from the raw artifact instead of redoing LinkedIn extraction
 
+### Handshake saved-search discovery
+
+Uses your real logged-in Handshake session in Chrome to read the saved Handshake
+search filter, open newly discovered job pages, extract JD text, score, write
+accepted rows to `jobs.xlsx`, and refresh `current_apply_queue`.
+
+```bash
+# Daily lane: newest-first search page, dedupe against jobs.xlsx, stop after known jobs
+./discovery/scripts/run_handshake_discovery.sh 24h
+
+# Wider audit lane
+./discovery/scripts/run_handshake_discovery.sh 7d
+
+# Override the saved filter after tuning Handshake
+HANDSHAKE_SEARCH_URL="https://app.joinhandshake.com/job-search/..." \
+  ./discovery/scripts/run_handshake_discovery.sh 24h
+```
+
+Handshake search does not offer the same reliable 24h/weekly URL filter as
+LinkedIn. The runner therefore uses a bounded offset-style rule: the 24h wrapper
+looks at the newest page, canonicalizes `/job-search/<id>` URLs, skips existing
+rows, and stops after 8 consecutive known jobs by default. Tune with
+`HANDSHAKE_MAX_PAGES`, `HANDSHAKE_MAX_RESULTS`, and
+`HANDSHAKE_STOP_AFTER_EXISTING` when the portal filter changes.
+
+The underlying importer also still supports manual CSV exports:
+
+```bash
+python discovery/auto/import_handshake_csv.py \
+  --csv /Users/akshat/Downloads/-JobTitle-Company-Industry-Pay-Deadline-Status-URL.csv \
+  --min-score 3.5 \
+  --include-deprioritized \
+  --write
+```
+
+Pre-reqs:
+- Run Chrome with remote debugging enabled on port `9222`
+- Keep Handshake logged in in that Chrome profile
+- Ensure Playwright is installed in the Python env that runs the script
+
 ### Source breadth validation
 
 Use this before promoting JobSpy or startup-source experiments into the daily write path.
@@ -516,6 +556,7 @@ The `date_posted` column is set from JobSpy's `date_posted` field and reflects w
 |--------------|----------------------------------------------------------------------|
 | `linkedin`   | Automated pipeline (LinkedIn)                                        |
 | `indeed`     | Automated pipeline (Indeed)                                          |
+| `handshake_jobs_v1` | Browser-backed Handshake saved-search/CSV application lane     |
 | `yc_startup_jobs` | Startup-apply pipeline from YC startup sources                  |
 | `builtin_startup_jobs` | Startup-apply pipeline from Built In startup job-list sources |
 | `a16z_startup_jobs` | Startup-apply pipeline from a16z portfolio jobs board         |
