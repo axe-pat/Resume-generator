@@ -166,6 +166,52 @@ Handshake runs by default as part of the daily application sources. Real sends
 are deliberately explicit. Generation can run in parallel with Outreach artifact
 preparation, but workbook writes and LinkedIn sends stay serialized.
 
+## Nightly Automation
+
+Nightly automation is split into discovery, shortlist, and optional generation.
+Discovery can run unattended; resume generation is gated by a stricter cost
+policy than the apply queue.
+
+```bash
+venv/bin/python discovery/scripts/run_nightly_pipeline.py
+```
+
+Generation is opt-in:
+
+```bash
+venv/bin/python discovery/scripts/run_nightly_pipeline.py --generate
+```
+
+The generation shortlist is queue-compatible and capped at 10 by default:
+
+```bash
+venv/bin/python discovery/scripts/build_generation_shortlist.py
+python jobs.py --no-color generate \
+  --queue \
+  --queue-path "apps/Apply queues/current_apply_queue/generation_shortlist.json" \
+  --resume-only \
+  --budget-mode
+```
+
+Generation policy:
+
+- Non-Handshake roles: `fit_score >= 7.0`
+- Handshake internal apply: `fit_score >= 6.0`
+- Handshake external apply: `fit_score >= 6.5`
+- Handshake unknown flow: `fit_score >= 6.5`
+- Daily generation cap: `10`
+
+The local macOS prompt/snooze scheduler is installed separately:
+
+```bash
+./discovery/scripts/install_nightly_launch_agent.sh 20:00
+```
+
+By default the installer only writes the LaunchAgent plist. Load it explicitly
+with the command printed by the installer. The prompt can run after wake because
+the LaunchAgent checks every 5 minutes and the prompt state lives under
+`~/Library/Application Support/ResumeGenerator/`.
+
 ## Weekly Caveat
 
 The weekly LinkedIn wrapper has worked before, and weekly card capture currently

@@ -43,11 +43,19 @@ discovery/auto/*.dist-info/
 discovery/auto/async_timeout/
 discovery/auto/redis/
 discovery/playwright/chrome-data/
+discovery/source_validation/*
 
 # Generated resume and cover-letter runs
 resume/compiler/runs/
 resume/freeform/runs/
 cover_letters/runs/
+
+# Apply Assist private runtime data
+apply_assist/profile_answers.local.json
+apply_assist/tasks/*
+!apply_assist/tasks/.gitkeep
+apply_assist/results/*
+!apply_assist/results/.gitkeep
 
 # Generated application outputs and archives
 apps/*
@@ -72,3 +80,4 @@ discovery/jobs.xlsx.bak
 
 # Personal interview prep
 docs/interview_prep/
+docs/career_workbench/interview_prep/private/

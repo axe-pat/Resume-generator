@@ -39,6 +39,7 @@ App directory layout (apps/<company>/):
   resume_YYYY-MM-DD.docx← generated: formatted .docx (default; use --no-docx to skip)
   cl_YYYY-MM-DD.txt     ← generated: paste-ready cover letter
   cl_YYYY-MM-DD.json    ← generated: CL audit trail (step analysis + QC data)
+  generation_audit_*.json ← generated: machine-readable cost/quality/run audit
 
 Creating a new app directory:
   mkdir apps/Stripe
@@ -121,6 +122,7 @@ APPS_DIR  = ROOT_DIR / "apps"
 HAIKU_MODEL = "claude-haiku-4-5-20251001"
 FULL_QUALITY_SCORE_THRESHOLD = 7.8
 LEAN_MODE_SCORE_THRESHOLD = 7.0
+PREMIUM_SCORE_MODEL_THRESHOLD = 8.5
 
 # Make shared/ and both pipeline dirs importable
 sys.path.insert(0, str(ROOT_DIR))
@@ -180,6 +182,85 @@ def _extract_fit_score(intel_text: str) -> float | None:
     return None
 
 
+_NONPM_TITLE_PATTERNS = [
+    r"\b(strategy|strategic)\b",
+    r"\boperations?\b",
+    r"\bbizops\b",
+    r"\bbusiness\s+operations?\b",
+    r"\bchief\s+of\s+staff\b",
+    r"\bmarket\s+insights?\b",
+    r"\bconsumer\s+insights?\b",
+    r"\bmarketing\s+research\b",
+    r"\bcorporate\s+development\b",
+    r"\bcommercial\b",
+    r"\bgtm\b",
+    r"\bimplementation\b",
+    r"\bprogram\s+manager\b",
+]
+
+_PM_TITLE_PATTERNS = [
+    r"\bproduct\s+management\b",
+    r"\bproduct\s+manager\b",
+    r"\bproduct\s+owner\b",
+    r"\btechnical\s+product\b",
+    r"\bapm\b",
+]
+
+
+def _read_metadata_role_title(app_dir: Path) -> str:
+    metadata_path = app_dir / "metadata.json"
+    if not metadata_path.exists():
+        return ""
+    try:
+        payload = json.loads(metadata_path.read_text(encoding="utf-8"))
+    except Exception:
+        return ""
+    for key in ("role_title", "title", "job_title"):
+        value = str(payload.get(key) or "").strip()
+        if value:
+            return value
+    return ""
+
+
+def _infer_role_track(app_dir: Path, jd_text: str, intel_text: str, requested_track: str) -> dict:
+    """Cheap deterministic router used before smart-cost can skip strategy."""
+    title = _read_metadata_role_title(app_dir)
+    if not title:
+        for raw_line in str(intel_text or "").splitlines():
+            line = raw_line.strip()
+            if line.lower().startswith(("role_title=", "title=")):
+                title = line.split("=", 1)[1].strip()
+                break
+    if not title:
+        title = next((line.strip() for line in str(jd_text or "").splitlines() if line.strip()), "")
+
+    haystack = title.lower()
+    pm_match = any(re.search(pattern, haystack, re.I) for pattern in _PM_TITLE_PATTERNS)
+    nonpm_match = any(re.search(pattern, haystack, re.I) for pattern in _NONPM_TITLE_PATTERNS)
+
+    if requested_track == "nonpm":
+        track = "nonpm"
+        reason = "--track nonpm"
+    elif pm_match:
+        track = "pm"
+        reason = "title implies PM/product"
+    elif nonpm_match:
+        track = "nonpm"
+        reason = "cheap title router matched non-PM lane"
+    else:
+        track = requested_track
+        reason = "default track"
+
+    return {
+        "requested_track": requested_track,
+        "effective_track": track,
+        "title": title,
+        "reason": reason,
+        "pm_title_match": pm_match,
+        "nonpm_title_match": nonpm_match,
+    }
+
+
 def _choose_cost_policy(
     fit_score: float | None,
     requested_strategy: bool,
@@ -189,31 +270,35 @@ def _choose_cost_policy(
     requested_qc: bool,
     default_model: str,
     smart_cost: bool,
+    role_track_hint: str = "pm",
 ) -> dict:
+    keep_strategy_for_track = role_track_hint == "nonpm"
     if not smart_cost or fit_score is None:
         return {
             "tier": "full",
             "reason": "smart cost disabled" if not smart_cost else "fit score unavailable",
-            "strategy_model": default_model,
+            "strategy_model": HAIKU_MODEL if smart_cost else default_model,
             "score_model": default_model,
             "run_strategy": requested_strategy,
             "run_rewrite": requested_rewrite,
             "run_score": requested_score,
             "run_fix": requested_fix and requested_score,
             "run_qc": requested_qc,
+            "run_trim": requested_score,
         }
 
     if fit_score >= FULL_QUALITY_SCORE_THRESHOLD:
         return {
             "tier": "full",
             "reason": f"fit_score {fit_score:.1f} >= {FULL_QUALITY_SCORE_THRESHOLD:.1f}",
-            "strategy_model": default_model,
-            "score_model": default_model,
+            "strategy_model": HAIKU_MODEL,
+            "score_model": default_model if fit_score >= PREMIUM_SCORE_MODEL_THRESHOLD else HAIKU_MODEL,
             "run_strategy": requested_strategy,
             "run_rewrite": requested_rewrite,
             "run_score": requested_score,
             "run_fix": requested_fix and requested_score,
             "run_qc": requested_qc,
+            "run_trim": requested_score,
         }
 
     if fit_score >= LEAN_MODE_SCORE_THRESHOLD:
@@ -230,18 +315,23 @@ def _choose_cost_policy(
             "run_score": requested_score,
             "run_fix": False,
             "run_qc": False,
+            "run_trim": False,
         }
 
     return {
         "tier": "lean",
-        "reason": f"fit_score {fit_score:.1f} < {LEAN_MODE_SCORE_THRESHOLD:.1f}",
+        "reason": (
+            f"fit_score {fit_score:.1f} < {LEAN_MODE_SCORE_THRESHOLD:.1f}"
+            + ("; non-PM route keeps cheap strategy" if keep_strategy_for_track else "")
+        ),
         "strategy_model": HAIKU_MODEL,
         "score_model": HAIKU_MODEL,
-        "run_strategy": False,
+        "run_strategy": requested_strategy and keep_strategy_for_track,
         "run_rewrite": False,
         "run_score": False,
         "run_fix": False,
         "run_qc": False,
+        "run_trim": False,
     }
 
 
@@ -268,6 +358,86 @@ def _rename_latest(directory: Path, old_stem_fragment: str, new_stem: str, ext: 
     target = directory / f"{new_stem}{score_tag}{ext}"
     candidates[0].rename(target)
     return target
+
+
+def _rel(path: Path | str | None) -> str | None:
+    if not path:
+        return None
+    p = Path(path)
+    try:
+        return str(p.relative_to(ROOT_DIR))
+    except Exception:
+        return str(p)
+
+
+def _summarize_resume_output(resume_path: Path | None) -> dict:
+    if not resume_path or not resume_path.exists():
+        return {}
+    text = resume_path.read_text(encoding="utf-8", errors="ignore")
+    score_match = re.search(r"Holistic score:\s*([0-9.]+)", text)
+    qc_warnings = [
+        line.strip()
+        for line in text.splitlines()
+        if line.strip().startswith("[⚠]") or line.strip().startswith("[✗]")
+    ]
+    no_change_mentions = len(re.findall(
+        r"No (?:substantive )?change|already satisfies|Preserved verbatim|Preserved\.",
+        text,
+        flags=re.I,
+    ))
+    rewrite_change_lines = len(re.findall(r"^CHANGE:", text, flags=re.M))
+    return {
+        "holistic_score": float(score_match.group(1)) if score_match else None,
+        "qc_warnings": qc_warnings,
+        "qc_warning_count": len(qc_warnings),
+        "pass2_change_lines": rewrite_change_lines,
+        "pass2_no_change_mentions": no_change_mentions,
+    }
+
+
+def _write_generation_audit(
+    *,
+    app_dir: Path,
+    run_stamp: str,
+    company: str,
+    fit_score: float | None,
+    smart_cost: bool,
+    role_router: dict,
+    cost_policy: dict,
+    requested: dict,
+    artifacts: dict,
+    strategy_dict: dict,
+) -> Path:
+    audit_path = app_dir / f"generation_audit_{run_stamp}.json"
+    resume_path = Path(artifacts["resume_txt"]) if artifacts.get("resume_txt") else None
+    strategy_summary = {
+        "company": strategy_dict.get("company"),
+        "role_title": strategy_dict.get("role_title"),
+        "role_family": strategy_dict.get("role_family"),
+        "archetype": strategy_dict.get("archetype"),
+        "primary_framing_axis": strategy_dict.get("primary_framing_axis", strategy_dict.get("resume_framing_axis")),
+        "secondary_framing_axis": strategy_dict.get("secondary_framing_axis"),
+        "top_signals": strategy_dict.get("top_signals", []),
+    } if strategy_dict else {}
+    payload = {
+        "run_stamp": run_stamp,
+        "company": company,
+        "app_dir": _rel(app_dir),
+        "fit_score": fit_score,
+        "smart_cost": smart_cost,
+        "role_router": role_router,
+        "requested": requested,
+        "cost_policy": cost_policy,
+        "strategy_summary": strategy_summary,
+        "artifacts": {key: _rel(value) for key, value in artifacts.items()},
+        "resume_summary": _summarize_resume_output(resume_path),
+        "follow_ups": [
+            "Provider adapter for controlled OpenAI experiments",
+            "Story/source-material upgrade: named methods, exact decisions, direct customer/research input, attribution-safe metrics",
+        ],
+    }
+    audit_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+    return audit_path
 
 
 def resolve_company(target: str, app_dir_override: str | None = None) -> Path:
@@ -515,6 +685,9 @@ def run_app(
     jd_text    = jd_path.read_text(encoding="utf-8").strip()
     intel_text = intel_path.read_text(encoding="utf-8").strip() if intel_path.exists() else ""
     fit_score  = _extract_fit_score(intel_text)
+    role_router = _infer_role_track(app_dir, jd_text, intel_text, track)
+    if track == "pm" and role_router["effective_track"] == "nonpm":
+        track = "nonpm"
 
     if not jd_text:
         sys.exit(f"[ERROR] jd.txt is empty in {app_dir}")
@@ -535,6 +708,7 @@ def run_app(
         requested_qc=requested_qc,
         default_model=model,
         smart_cost=smart_cost,
+        role_track_hint=track,
     )
     strategy_model = cost_policy["strategy_model"]
     score_model    = cost_policy["score_model"]
@@ -543,8 +717,27 @@ def run_app(
     run_score      = cost_policy["run_score"]
     run_fix        = cost_policy["run_fix"]
     run_qc         = cost_policy["run_qc"]
+    run_trim       = cost_policy["run_trim"]
 
     today = _today()
+    run_stamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
+    artifacts = {
+        "resume_txt": None,
+        "resume_docx": None,
+        "cl_txt": None,
+        "cl_json": None,
+        "cl_docx": None,
+    }
+    requested = {
+        "strategy": requested_strategy,
+        "rewrite": requested_rewrite,
+        "score": requested_score,
+        "fix": requested_fix,
+        "qc": requested_qc,
+        "resume": run_resume,
+        "cl": run_cl,
+        "track": role_router["requested_track"],
+    }
 
     # Banner
     print()
@@ -557,10 +750,12 @@ def run_app(
         print(c(YELLOW,  "  [i] No intel.txt — running without additional context"))
     if fit_score is not None:
         print(f"  Fit score: {c(CYAN, f'{fit_score:.1f}')}")
+    if role_router["effective_track"] != role_router["requested_track"] or role_router["effective_track"] == "nonpm":
+        print(f"  Role router: {c(CYAN, role_router['effective_track'])} ({role_router['reason']}: {role_router['title'] or 'no title'})")
     print(f"  Model: {c(CYAN, model)}  |  resume={run_resume}  cl={run_cl}")
     print(f"  Cost policy: {c(CYAN, cost_policy['tier'])} ({cost_policy['reason']})")
     print(f"  Strategy model: {c(CYAN, strategy_model)}  |  Score model: {c(CYAN, score_model)}")
-    print(f"  Effective passes: strategy={run_strategy}  rewrite={run_rewrite}  score={run_score}  fix={run_fix}  qc={run_qc}")
+    print(f"  Effective passes: strategy={run_strategy}  rewrite={run_rewrite}  score={run_score}  fix={run_fix}  trim={run_trim}  qc={run_qc}")
 
     # ── Step 0: Strategy (once, shared) ──────────────────────────────────────
     strategy_dict  = {}
@@ -657,9 +852,11 @@ def run_app(
                 docx_out_dir = app_dir,
                 track        = track,
                 score_model  = score_model,
+                run_trim     = run_trim,
             )
             txt_renamed = _rename_latest(app_dir, "_jd", f"resume_{today}", ".txt")
             if txt_renamed:
+                artifacts["resume_txt"] = str(txt_renamed)
                 print(c(GREEN, f"  ✓ Resume text  → {txt_renamed.relative_to(ROOT_DIR)}"))
                 # Validate action-first constraints
                 resume_content = txt_renamed.read_text(encoding="utf-8")
@@ -677,6 +874,7 @@ def run_app(
             if make_docx:
                 docx_renamed = _rename_latest(app_dir, "_jd", f"resume_{today}", ".docx")
                 if docx_renamed:
+                    artifacts["resume_docx"] = str(docx_renamed)
                     print(c(GREEN, f"  ✓ Resume docx  → {docx_renamed.relative_to(ROOT_DIR)}"))
         finally:
             if buf is not None:
@@ -702,10 +900,13 @@ def run_app(
             cl_json = _rename_latest(app_dir, "_jd", f"cl_{today}", ".json")
             cl_docx = _rename_latest(app_dir, "_jd", f"cl_{today}", ".docx") if make_docx else None
             if cl_txt:
+                artifacts["cl_txt"] = str(cl_txt)
                 print(c(GREEN, f"  ✓ Cover letter → {cl_txt.relative_to(ROOT_DIR)}"))
             if cl_json:
+                artifacts["cl_json"] = str(cl_json)
                 print(c(CYAN,  f"       JSON audit → {cl_json.relative_to(ROOT_DIR)}"))
             if cl_docx:
+                artifacts["cl_docx"] = str(cl_docx)
                 print(c(GREEN, f"  ✓ CL docx      → {cl_docx.relative_to(ROOT_DIR)}"))
         finally:
             if buf is not None:
@@ -737,6 +938,20 @@ def run_app(
         _run_resume(None)   # no buffer — output goes straight to stdout
     elif run_cl:
         _run_cl(None)
+
+    audit_path = _write_generation_audit(
+        app_dir=app_dir,
+        run_stamp=run_stamp,
+        company=company,
+        fit_score=fit_score,
+        smart_cost=smart_cost,
+        role_router=role_router,
+        cost_policy=cost_policy,
+        requested=requested,
+        artifacts=artifacts,
+        strategy_dict=strategy_dict,
+    )
+    print(c(CYAN, f"  ✓ Generation audit → {audit_path.relative_to(ROOT_DIR)}"))
 
     # ── Final summary ─────────────────────────────────────────────────────────
     print()

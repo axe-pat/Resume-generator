@@ -158,6 +158,38 @@ Run it before scoring as a pre-score intake view. Run it again after the
 application scoring/write lanes refresh `current_apply_queue`; that second HTML
 is the final daily operating queue.
 
+### Nightly generation shortlist
+
+Cost-gated queue-compatible shortlist for unattended resume generation.
+
+```bash
+venv/bin/python discovery/scripts/build_generation_shortlist.py
+venv/bin/python discovery/scripts/run_nightly_pipeline.py --generate
+```
+
+Defaults:
+- non-Handshake generation floor: `7.0`
+- Handshake internal apply generation floor: `6.0`
+- Handshake external/unknown generation floor: `6.5`
+- daily cap: `10`
+- resume-only + budget mode when generation is enabled
+
+Outputs:
+- `discovery/source_validation/*-generation-shortlist.json`
+- `discovery/source_validation/*-generation-shortlist.md`
+- `apps/Apply queues/current_apply_queue/generation_shortlist.json`
+- `apps/Apply queues/current_apply_queue/generation_shortlist.md`
+
+Local prompt/snooze setup:
+
+```bash
+./discovery/scripts/install_nightly_launch_agent.sh 20:00
+```
+
+The installer writes the LaunchAgent but does not load it unless
+`RESUMEGEN_NIGHTLY_LOAD=1` is set. The prompt runner does not require Codex to
+stay open.
+
 ### Filtered JobSpy scoring lane
 
 JobSpy is a breadth radar, not a direct write path. Fetch raw results, validate

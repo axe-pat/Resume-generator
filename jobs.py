@@ -34,7 +34,7 @@ Usage examples
   python jobs.py generate --companies Flexera,Lennox,Risepoint --parallel 3
   python jobs.py generate --companies Flexera,Lennox --with-cl --parallel 2
   # If a dir has a CL but no resume (run was interrupted), --resume-only is auto-applied
-  python jobs.py generate --queue --budget-mode     # resume-only + cheaper low-fit pass
+  python jobs.py generate --queue --budget-mode     # resume-only + skip rewrite below 7.8
 
   # Review queue
   python jobs.py list --status queued --top 20
@@ -114,6 +114,7 @@ CURRENT_APPLY_QUEUE_PRIORITY_JSON = CURRENT_APPLY_QUEUE_DIR / "priority_order.js
 LOCK_FILE  = ROOT_DIR / "discovery" / ".jobs.lock"
 ARCHIVE_SHEET = "Archive"
 JOBS_SHEET    = "Jobs"
+BUDGET_REWRITE_SCORE_THRESHOLD = 7.8
 
 # Statuses the automation will never touch
 TERMINAL_STATUSES = {"applied", "closed", "parked", "rejected", "skip", "skipped"}
@@ -1181,7 +1182,7 @@ def _should_budget_skip_rewrite(job: dict, args) -> bool:
     if getattr(args, "no_rewrite", False):
         return False
     score = _safe_float(job.get("fit_score"))
-    return score > 0 and score < 7.0
+    return score > 0 and score < BUDGET_REWRITE_SCORE_THRESHOLD
 
 
 def _build_run_app_flags(
@@ -1479,7 +1480,7 @@ def main():
     p_gen.add_argument("--with-cl",      action="store_true",
                        help="Also generate cover letters. Default is resume-only.")
     p_gen.add_argument("--budget-mode",  action="store_true",
-                       help="For lower-fit jobs, skip resume rewrite to reduce spend.")
+                       help="For jobs below 7.8 fit score, skip resume rewrite to reduce spend.")
     p_gen.add_argument("--parallel",     type=int, default=1, metavar="N",
                        help="Run N jobs simultaneously (default: 1 = serial). "
                             "In parallel mode output goes to log files; "

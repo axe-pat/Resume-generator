@@ -2093,6 +2093,7 @@ def run_single(
     docx_out_dir: Path  | None = None,   # override docx output dir (default: out_dir.parent/docx)
     track:        str         = "pm",    # "pm" | "nonpm" — selects master prompt + QC rules
     score_model:  str  | None = None,    # override model for Pass 3 scoring/re-scoring
+    run_trim:     bool        = True,     # QC-13 AI trim; run_app disables outside full-quality mode
 ) -> bool:
     """Run full pipeline for one JD. Returns True if all structural checks pass."""
     # ── Track setup ───────────────────────────────────────────────────────────
@@ -2489,7 +2490,7 @@ Hard guidance:
         1 for line in sections["experience_section"].splitlines()
         if re.match(r"^\s*•", line) and len(line.strip().lstrip("• ")) >= _AUTO_TRIM_CHARS
     )
-    if run_score and qc13 and _qc13_over_long_count > _MAX_ALLOWED_AUTO_TRIM:
+    if run_trim and run_score and qc13 and _qc13_over_long_count > _MAX_ALLOWED_AUTO_TRIM:
         _trim_exp, _trim_log = run_length_trim(
             sections["experience_section"], score_data, jd_text, strategy_block, model,
         )

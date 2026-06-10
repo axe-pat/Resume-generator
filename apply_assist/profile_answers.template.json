@@ -1,0 +1,77 @@
+{
+  "identity": {
+    "legal_name": "",
+    "preferred_name": "",
+    "email": "",
+    "phone": "",
+    "linkedin_url": "",
+    "portfolio_url": "",
+    "github_url": ""
+  },
+  "location": {
+    "current_city": "Los Angeles",
+    "current_state": "CA",
+    "current_country": "United States",
+    "authorized_locations": [
+      "Los Angeles",
+      "San Francisco Bay Area",
+      "New York City",
+      "Remote - United States"
+    ]
+  },
+  "education": [
+    {
+      "school": "USC Marshall School of Business",
+      "degree": "MBA",
+      "status": "current",
+      "start_year": "",
+      "graduation_year": ""
+    }
+  ],
+  "work_authorization": {
+    "us_work_authorized": "",
+    "requires_sponsorship_now": "",
+    "requires_sponsorship_future": "",
+    "notes": "Fill this locally before live runs. Do not guess on sponsorship questions."
+  },
+  "preferences": {
+    "target_roles": [
+      "Product Manager Intern",
+      "MBA Product Manager Intern",
+      "Growth Product Intern",
+      "Product Operations Intern",
+      "Strategy and Operations Intern",
+      "Founder Associate",
+      "Business Operations Intern"
+    ],
+    "availability": "",
+    "desired_start_date": "",
+    "salary_expectation": "",
+    "remote_preference": ""
+  },
+  "standard_answers": {
+    "why_interested_short": "",
+    "why_startups": "",
+    "why_product": "",
+    "why_this_company_template": "",
+    "work_style": "",
+    "strengths": "",
+    "weakness_or_growth_area": "",
+    "salary_expectations": "",
+    "visa_or_sponsorship_detail": ""
+  },
+  "sensitive_answers": {
+    "eeo_gender": "",
+    "eeo_race_ethnicity": "",
+    "veteran_status": "",
+    "disability_status": ""
+  },
+  "blocked_without_human_review": [
+    "EEO questions if blank",
+    "disability questions if blank",
+    "veteran status if blank",
+    "work authorization or sponsorship if blank",
+    "salary expectations if blank",
+    "anything requiring an invented example"
+  ]
+}
