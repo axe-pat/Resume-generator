@@ -17,7 +17,7 @@ APPLY_QUEUE_SOURCES = {
 }
 
 APPLY_QUEUE_MIN_SCORE_BY_SOURCE = {
-    "handshake_jobs_v1": 3.5,
+    "handshake_jobs_v1": 4.5,
 }
 
 

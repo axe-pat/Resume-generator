@@ -276,6 +276,28 @@ def _existing_keys(df: pd.DataFrame) -> tuple[set[str], set[str]]:
     return url_hashes, title_company
 
 
+def _historical_seen_url_hashes() -> set[str]:
+    seen: set[str] = set()
+    for path in LOGS_DIR.glob("handshake_import_*.json"):
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        if payload.get("source") != SOURCE_TAG or not payload.get("write"):
+            continue
+        for item in payload.get("scored") or []:
+            decision = str(item.get("decision") or "").strip().lower()
+            fit_score = str(item.get("fit_score") or "").strip()
+            url = str(item.get("url") or "").strip()
+            if url and (decision or fit_score):
+                seen.add(_url_hash(url))
+        for item in payload.get("fetch_failed") or []:
+            url = str(item.get("url") or "").strip()
+            if url:
+                seen.add(_url_hash(url))
+    return seen
+
+
 def _source_notes(job: CsvJob) -> str:
     import_flag = "handshake_search_import=true" if job.origin == "search" else "handshake_csv_import=true"
     parts = [
@@ -537,6 +559,7 @@ def run(args: argparse.Namespace) -> int:
 
     df_existing = jobs.load_jobs()
     existing_urls, existing_tc = _existing_keys(df_existing)
+    historical_urls = set() if args.ignore_handshake_history else _historical_seen_url_hashes()
 
     seen_urls: set[str] = set()
     candidates: list[CsvJob] = []
@@ -550,6 +573,13 @@ def run(args: argparse.Namespace) -> int:
             consecutive_existing += 1
             if args.search_url and args.stop_after_existing and consecutive_existing >= args.stop_after_existing:
                 print(f"Stopping search intake after {consecutive_existing} consecutive known job URL(s).")
+                break
+            continue
+        if url_key in historical_urls:
+            skipped.append({"url": item.url, "company": item.company, "role_title": item.role_title, "reason": "previously_seen_handshake"})
+            consecutive_existing += 1
+            if args.search_url and args.stop_after_existing and consecutive_existing >= args.stop_after_existing:
+                print(f"Stopping search intake after {consecutive_existing} consecutive previously-seen Handshake job(s).")
                 break
             continue
         if title_key in existing_tc:
@@ -637,6 +667,7 @@ def run(args: argparse.Namespace) -> int:
             "input_rows": len(csv_jobs),
             "deduped_candidates": len(candidates),
             "skipped_duplicates": len(skipped),
+            "historical_seen_urls": len(historical_urls),
             "fetch_ok": len(fetch_ok),
             "fetch_failed": len(fetch_failed),
             "scored": len(scored),
@@ -746,6 +777,11 @@ def main() -> int:
     )
     parser.add_argument("--skip-score", action="store_true", help="Fetch JDs but do not call the scorer.")
     parser.add_argument("--no-fetch", action="store_true", help="Parse/dedupe only with placeholder text.")
+    parser.add_argument(
+        "--ignore-handshake-history",
+        action="store_true",
+        help="Do not dedupe against prior Handshake import logs.",
+    )
     parser.add_argument("--write", action="store_true", help="Append accepted rows to jobs.xlsx and refresh queue.")
     parser.add_argument("--no-refresh-queue", action="store_true", help="Do not refresh current_apply_queue after writing.")
     parser.add_argument("--quiet", action="store_true", help="Reduce scorer output.")

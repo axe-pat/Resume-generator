@@ -371,8 +371,9 @@ HANDSHAKE_SEARCH_URL="https://app.joinhandshake.com/job-search/..." \
 Handshake search does not offer the same reliable 24h/weekly URL filter as
 LinkedIn. The runner therefore uses a bounded offset-style rule: the 24h wrapper
 looks at the newest page, canonicalizes `/job-search/<id>` URLs, skips existing
-rows, and stops after 8 consecutive known jobs by default. Tune with
-`HANDSHAKE_MAX_PAGES`, `HANDSHAKE_MAX_RESULTS`, and
+rows plus jobs already scored in prior Handshake write logs, and stops after 8
+consecutive known jobs by default. Tune with `HANDSHAKE_MAX_PAGES`,
+`HANDSHAKE_MAX_RESULTS`, and
 `HANDSHAKE_STOP_AFTER_EXISTING` when the portal filter changes.
 
 The underlying importer also still supports manual CSV exports:
@@ -380,7 +381,7 @@ The underlying importer also still supports manual CSV exports:
 ```bash
 python discovery/auto/import_handshake_csv.py \
   --csv /Users/akshat/Downloads/-JobTitle-Company-Industry-Pay-Deadline-Status-URL.csv \
-  --min-score 3.5 \
+  --min-score 4.5 \
   --include-deprioritized \
   --write
 ```

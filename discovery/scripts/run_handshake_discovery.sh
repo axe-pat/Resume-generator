@@ -56,7 +56,7 @@ CMD=(
   --max-pages "$MAX_PAGES"
   --max-search-results "$MAX_RESULTS"
   --stop-after-existing "$STOP_AFTER_EXISTING"
-  --min-score 3.5
+  --min-score 4.5
   --include-deprioritized
   --write
   --quiet

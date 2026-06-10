@@ -55,8 +55,8 @@ of reopening LinkedIn.
 Trusted application lane for the saved Handshake filter. Handshake does not
 expose a clean 24h filter in this flow, so the runner treats the newest-first
 search page as an offset feed: it scans the top page, canonicalizes job IDs,
-skips anything already in `jobs.xlsx`, and stops after a streak of already-known
-jobs.
+skips anything already in `jobs.xlsx` or prior Handshake write logs, and stops
+after a streak of already-known jobs.
 
 ```bash
 ./discovery/scripts/run_handshake_discovery.sh 24h
@@ -66,8 +66,9 @@ This uses the same signed-in Chrome/CDP session as browser-backed JD extraction.
 The default filter is the paid internship Handshake URL saved in
 `discovery/auto/import_handshake_csv.py`; override it with
 `HANDSHAKE_SEARCH_URL=...` after tweaking the portal filter. Rows are written
-with `source=handshake_jobs_v1`, and the queue floor for this source is `3.5`
-because this lane is already paid/internship-filtered and near-deadline.
+with `source=handshake_jobs_v1`, and the standing queue floor for this source is
+`4.5` because the saved filter is relevant but still broader than LinkedIn's
+targeted search terms.
 
 ### JobSpy
 
