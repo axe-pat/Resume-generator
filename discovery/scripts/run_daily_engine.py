@@ -52,9 +52,36 @@ def run(cmd: list[object], *, cwd: Path = ROOT, check: bool = True) -> subproces
     return subprocess.run([str(part) for part in cmd], cwd=cwd, check=check)
 
 
-def run_capture(cmd: list[object], *, cwd: Path = ROOT, check: bool = True) -> subprocess.CompletedProcess:
+def run_capture(
+    cmd: list[object],
+    *,
+    cwd: Path = ROOT,
+    check: bool = True,
+    timeout: int | None = None,
+) -> subprocess.CompletedProcess:
     print(f"\n$ {_cmd_text(cmd)}")
-    result = subprocess.run([str(part) for part in cmd], cwd=cwd, check=False, text=True, capture_output=True)
+    try:
+        result = subprocess.run(
+            [str(part) for part in cmd],
+            cwd=cwd,
+            check=False,
+            text=True,
+            capture_output=True,
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired as exc:
+        print(f"[warn] Command timed out after {timeout}s: {_cmd_text(cmd)}", file=sys.stderr)
+        stdout = exc.stdout or ""
+        stderr = exc.stderr or ""
+        if isinstance(stdout, bytes):
+            stdout = stdout.decode(errors="replace")
+        if isinstance(stderr, bytes):
+            stderr = stderr.decode(errors="replace")
+        if stdout:
+            print(stdout, end="")
+        if stderr:
+            print(stderr, end="", file=sys.stderr)
+        return subprocess.CompletedProcess([str(part) for part in cmd], 124, stdout, stderr)
     if result.stdout:
         print(result.stdout, end="")
     if result.stderr:
@@ -259,6 +286,7 @@ def run_targeted_outreach_from_action_queue(args: argparse.Namespace, action_que
             ],
             cwd=OUTREACH_ROOT,
             check=False,
+            timeout=args.company_prep_timeout,
         )
         if prep.returncode != 0:
             failures.append(company)
@@ -299,6 +327,7 @@ def run_targeted_outreach_from_action_queue(args: argparse.Namespace, action_que
             ],
             cwd=OUTREACH_ROOT,
             check=False,
+            timeout=args.send_timeout,
         )
         if send.returncode != 0:
             failures.append(company)
@@ -389,6 +418,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--per-company-send-limit", type=int, default=15, help="Per-company cap while filling --target-sends.")
     parser.add_argument("--send-limit", type=int, default=0)
     parser.add_argument("--send-min-score", type=int, default=20)
+    parser.add_argument("--skip-linkedin-preflight", action="store_true")
+    parser.add_argument("--company-prep-timeout", type=int, default=420)
+    parser.add_argument("--send-timeout", type=int, default=420)
     return parser.parse_args()
 
 
@@ -397,6 +429,10 @@ def main() -> int:
     if args.execute_sends and args.parallel_generation_outreach:
         raise SystemExit("--execute-sends is intentionally not supported with --parallel-generation-outreach.")
     hours_old = window_to_hours(args.window)
+
+    needs_linkedin = (not args.skip_linkedin) or bool(args.prepare_outreach)
+    if needs_linkedin and not args.skip_linkedin_preflight:
+        run(["./discovery/scripts/check_linkedin_live.sh"])
 
     if not args.skip_linkedin:
         run(["./discovery/scripts/run_linkedin_discovery.sh", args.window])
