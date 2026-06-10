@@ -39,6 +39,7 @@ if str(HERE) not in sys.path:
 
 import jobs  # noqa: E402
 from scorer import DEFAULT_MODEL, score_batch  # noqa: E402
+from shared.discovery_sources import min_apply_queue_score_for_row  # noqa: E402
 
 SOURCE_TAG = "handshake_jobs_v1"
 DEFAULT_CSV = Path("/Users/akshat/Downloads/-JobTitle-Company-Industry-Pay-Deadline-Status-URL.csv")
@@ -73,6 +74,7 @@ class CsvJob:
     urgency: str
     url: str
     origin: str = "csv"
+    apply_flow: str = ""
 
 
 def _clean(value: Any) -> str:
@@ -298,11 +300,21 @@ def _historical_seen_url_hashes() -> set[str]:
     return seen
 
 
-def _source_notes(job: CsvJob) -> str:
+def _detect_apply_flow(text: str) -> str:
+    if re.search(r"(?im)^\s*apply externally\s*$", text or ""):
+        return "external"
+    if re.search(r"(?im)^\s*apply\s*$", text or ""):
+        return "internal"
+    return "unknown"
+
+
+def _source_notes(job: CsvJob, *, apply_flow: str = "") -> str:
     import_flag = "handshake_search_import=true" if job.origin == "search" else "handshake_csv_import=true"
+    flow = (apply_flow or job.apply_flow or "").strip().lower()
     parts = [
         import_flag,
         f"csv_row={job.row_number}" if job.row_number else "",
+        f"handshake_apply_flow={flow}" if flow else "",
         f"industry={job.industry}" if job.industry else "",
         f"pay={job.pay}" if job.pay else "",
         f"deadline={job.deadline}" if job.deadline else "",
@@ -311,7 +323,14 @@ def _source_notes(job: CsvJob) -> str:
     return " ".join(part for part in parts if part)
 
 
-def _candidate_dict(job: CsvJob, jd_text: str, *, company: str = "", role_title: str = "") -> dict[str, Any]:
+def _candidate_dict(
+    job: CsvJob,
+    jd_text: str,
+    *,
+    company: str = "",
+    role_title: str = "",
+    apply_flow: str = "",
+) -> dict[str, Any]:
     today = datetime.now().strftime("%Y-%m-%d")
     effective_company = _clean(company) or job.company or "Unknown"
     effective_title = _clean(role_title) or job.role_title or "Unknown Handshake Role"
@@ -333,7 +352,7 @@ def _candidate_dict(job: CsvJob, jd_text: str, *, company: str = "", role_title:
         "folder_path": "",
         "resume_run": "",
         "jd_text": jd_text,
-        "notes": _source_notes(job),
+        "notes": _source_notes(job, apply_flow=apply_flow),
     }
 
 
@@ -494,6 +513,7 @@ async def _fetch_with_cdp(candidates: list[CsvJob], cdp_url: str, delay_ms: int)
                 parsed_company, parsed_title = _parse_detail_metadata(body_text, job.company, job.role_title)
                 result["company"] = parsed_company or job.company
                 result["role_title"] = parsed_title or job.role_title
+                result["apply_flow"] = _detect_apply_flow(body_text)
                 blocker = _looks_like_blocker(body_text, parsed_title or job.role_title)
                 if blocker:
                     result["error"] = f"{blocker}; page_title={page_title!r}"
@@ -615,6 +635,7 @@ def run(args: argparse.Namespace) -> int:
                 "url": item.url,
                 "ok": True,
                 "jd_text": f"{item.company}\n{item.role_title}\n\n{_source_notes(item)}",
+                "apply_flow": item.apply_flow or "unknown",
                 "warning": "no_fetch placeholder; not scoreable as a real JD",
             }
             for item in candidates
@@ -637,6 +658,7 @@ def run(args: argparse.Namespace) -> int:
                 str(fetched_item.get("jd_text") or ""),
                 company=str(fetched_item.get("company") or ""),
                 role_title=str(fetched_item.get("role_title") or ""),
+                apply_flow=str(fetched_item.get("apply_flow") or ""),
             )
         )
 
@@ -649,11 +671,18 @@ def run(args: argparse.Namespace) -> int:
     allowed_decisions = {"proceed"}
     if args.include_deprioritized:
         allowed_decisions.add("deprioritize")
+    for row in scored:
+        row["queue_min_score"] = min_apply_queue_score_for_row(
+            str(row.get("source") or ""),
+            str(row.get("notes") or ""),
+            args.min_score,
+        )
+
     accepted = [
         row for row in scored
         if str(row.get("status") or "").lower() == "queued"
         and str(row.get("decision") or "").lower() in allowed_decisions
-        and pd.to_numeric(row.get("fit_score"), errors="coerce") >= args.min_score
+        and pd.to_numeric(row.get("fit_score"), errors="coerce") >= row.get("queue_min_score", args.min_score)
     ]
     rejected = [row for row in scored if row not in accepted]
 
@@ -685,6 +714,8 @@ def run(args: argparse.Namespace) -> int:
                 "decision": row.get("decision"),
                 "category": row.get("category"),
                 "url": row.get("url"),
+                "queue_min_score": row.get("queue_min_score"),
+                "notes": row.get("notes"),
                 "fit_rationale": row.get("fit_rationale"),
             }
             for row in scored
@@ -694,7 +725,9 @@ def run(args: argparse.Namespace) -> int:
                 "company": row.get("company"),
                 "role_title": row.get("role_title"),
                 "fit_score": row.get("fit_score"),
+                "queue_min_score": row.get("queue_min_score"),
                 "url": row.get("url"),
+                "notes": row.get("notes"),
                 "fit_rationale": row.get("fit_rationale"),
             }
             for row in accepted
@@ -710,12 +743,12 @@ def run(args: argparse.Namespace) -> int:
 
     if scored:
         print(f"Scored: {len(scored)}")
-        print(f"Accepted at min_score {args.min_score}: {len(accepted)}")
+        print(f"Accepted using Handshake flow-aware min scores (fallback {args.min_score}): {len(accepted)}")
         print("Top scored:")
         for row in sorted(scored, key=lambda r: float(r.get("fit_score") or 0), reverse=True)[:8]:
             print(
                 f"  [{row.get('fit_score')}] {row.get('company')} | {row.get('role_title')} | "
-                f"{row.get('decision')} / {row.get('category')}"
+                f"{row.get('decision')} / {row.get('category')} | min={row.get('queue_min_score')}"
             )
         for row in sorted(accepted, key=lambda r: float(r.get("fit_score") or 0), reverse=True):
             print(f"  [{row.get('fit_score')}] {row.get('company')} | {row.get('role_title')}")

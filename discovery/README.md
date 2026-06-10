@@ -376,6 +376,11 @@ consecutive known jobs by default. Tune with `HANDSHAKE_MAX_PAGES`,
 `HANDSHAKE_MAX_RESULTS`, and
 `HANDSHAKE_STOP_AFTER_EXISTING` when the portal filter changes.
 
+The queue floor is application-effort aware:
+- `handshake_apply_flow=internal` uses `4.0`
+- `handshake_apply_flow=external` uses `5.5`
+- `handshake_apply_flow=unknown` uses `4.5`
+
 The underlying importer also still supports manual CSV exports:
 
 ```bash

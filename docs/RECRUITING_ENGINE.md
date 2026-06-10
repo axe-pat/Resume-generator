@@ -66,9 +66,9 @@ This uses the same signed-in Chrome/CDP session as browser-backed JD extraction.
 The default filter is the paid internship Handshake URL saved in
 `discovery/auto/import_handshake_csv.py`; override it with
 `HANDSHAKE_SEARCH_URL=...` after tweaking the portal filter. Rows are written
-with `source=handshake_jobs_v1`, and the standing queue floor for this source is
-`4.5` because the saved filter is relevant but still broader than LinkedIn's
-targeted search terms.
+with `source=handshake_jobs_v1`. The standing floor is flow-aware:
+`handshake_apply_flow=internal` uses `4.0`, `external` uses `5.5`, and
+`unknown` uses `4.5`.
 
 ### JobSpy
 

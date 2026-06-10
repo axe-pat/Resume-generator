@@ -18,7 +18,7 @@ MIN_SCORE = 5.9
 EXCLUDED_COMPANIES = {"comcast"}
 
 import jobs
-from shared.discovery_sources import APPLY_QUEUE_SOURCES, min_apply_queue_score, queue_company_label
+from shared.discovery_sources import APPLY_QUEUE_SOURCES, min_apply_queue_score_for_row, queue_company_label
 
 
 def _dir_slug(text: str) -> str:
@@ -144,7 +144,10 @@ def main() -> int:
     df = df[df["source"].isin(APPLY_QUEUE_SOURCES)].copy()
     df["fit_score_num"] = pd.to_numeric(df["fit_score"], errors="coerce")
     df = df[df["status"].isin(["queued", "promoted", "generated"])]
-    df["source_min_score"] = df["source"].map(lambda value: min_apply_queue_score(str(value), MIN_SCORE))
+    df["source_min_score"] = df.apply(
+        lambda row: min_apply_queue_score_for_row(str(row.get("source") or ""), str(row.get("notes") or ""), MIN_SCORE),
+        axis=1,
+    )
     df = df[df["fit_score_num"] >= df["source_min_score"]]
     df = df.sort_values(["fit_score_num", "date_found"], ascending=[False, False])
 
