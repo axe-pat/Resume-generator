@@ -378,6 +378,21 @@ def _priority_components(row: pd.Series) -> tuple[float, dict]:
     }
 
 
+def _is_archived_generated_row(row: pd.Series) -> bool:
+    status = str(row.get("status") or "").strip().lower()
+    if status != "generated":
+        return False
+    folder_path = str(row.get("folder_path") or "").strip()
+    if not folder_path:
+        return False
+    try:
+        path = Path(folder_path).expanduser().resolve()
+    except Exception:
+        path = Path(folder_path)
+    archive_root = (ARCHIVE_DIR / "generated").resolve()
+    return path == archive_root or archive_root in path.parents
+
+
 def main() -> int:
     latest_manifest_path, latest_manifest = _latest_discovery_manifest()
     latest_run_name = latest_manifest_path.parent.name if latest_manifest_path else ""
@@ -391,6 +406,7 @@ def main() -> int:
     df = df[df["source"].isin(APPLY_QUEUE_SOURCES)].copy()
     df["fit_score_num"] = pd.to_numeric(df["fit_score"], errors="coerce")
     df = df[df["status"].isin(["queued", "promoted", "generated"])]
+    df = df[~df.apply(_is_archived_generated_row, axis=1)]
     df["source_min_score"] = df.apply(
         lambda row: min_apply_queue_score_for_row(str(row.get("source") or ""), str(row.get("notes") or ""), MIN_SCORE),
         axis=1,

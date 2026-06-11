@@ -433,7 +433,7 @@ def main() -> int:
 
     needs_linkedin = (not args.skip_linkedin) or bool(args.prepare_outreach)
     if needs_linkedin and not args.skip_linkedin_preflight:
-        run(["./discovery/scripts/check_linkedin_live.sh"])
+        run(["./discovery/scripts/ensure_chrome_9222.sh"])
 
     if not args.skip_linkedin:
         run(["./discovery/scripts/run_linkedin_discovery.sh", args.window])

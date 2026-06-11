@@ -42,13 +42,7 @@ if ! command -v "$PYTHON_BIN" >/dev/null 2>&1 && [[ ! -x "$PYTHON_BIN" ]]; then
   exit 1
 fi
 
-if ! lsof -nP -iTCP:9222 -sTCP:LISTEN >/dev/null 2>&1; then
-  cat >&2 <<'MSG'
-Chrome is not listening on port 9222.
-Launch the signed-in browser first, then rerun Handshake discovery.
-MSG
-  exit 1
-fi
+./discovery/scripts/ensure_chrome_9222.sh "https://app.joinhandshake.com/"
 
 CMD=(
   "$PYTHON_BIN"

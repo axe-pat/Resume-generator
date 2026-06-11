@@ -59,6 +59,10 @@ def _daily_engine_cmd(args: argparse.Namespace) -> list[object]:
     return cmd
 
 
+def _clear_generated_queue_cmd() -> list[object]:
+    return [PYTHON, "discovery/scripts/archive_current_generated_queue.py"]
+
+
 def _shortlist_cmd(args: argparse.Namespace) -> list[object]:
     return [
         PYTHON,
@@ -130,6 +134,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Nightly discovery + cost-gated generation wrapper.")
     parser.add_argument("--window", choices=("24h", "7d"), default="24h")
     parser.add_argument("--skip-daily-engine", action="store_true", help="Only rebuild generation shortlist from current queue.")
+    parser.add_argument("--skip-clear-generated-queue", action="store_true", help="Do not archive generated jobs from the active queue before discovery.")
     parser.add_argument("--skip-linkedin", action="store_true")
     parser.add_argument("--skip-handshake", action="store_true")
     parser.add_argument("--skip-jobspy", action="store_true")
@@ -160,9 +165,14 @@ def main() -> int:
     summary = {
         "created_at": datetime.now().isoformat(timespec="seconds"),
         "daily_engine_ran": not args.skip_daily_engine,
+        "generated_queue_cleared": False,
         "generation_ran": False,
         "generation_dry_run": bool(args.generation_dry_run),
     }
+
+    if not args.skip_clear_generated_queue:
+        run(_clear_generated_queue_cmd())
+        summary["generated_queue_cleared"] = True
 
     if not args.skip_daily_engine:
         run(_daily_engine_cmd(args))

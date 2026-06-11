@@ -54,6 +54,7 @@ trap 'rm -f "$EXTRACT_LOG"' EXIT
 
 echo
 echo "==> Pre-run queue hygiene"
+./discovery/scripts/ensure_chrome_9222.sh
 "$PYTHON_BIN" discovery/scripts/refresh_current_apply_queue.py
 "$PYTHON_BIN" discovery/scripts/refresh_forgotten_queue.py
 
