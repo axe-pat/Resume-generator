@@ -196,7 +196,7 @@ def main() -> int:
         print("No JobSpy candidates survived the scoring-lane preflight.")
         return 0
 
-    return _run_post_extract_pipeline(
+    _run_post_extract_pipeline(
         run_label="jobspy_filtered_24h",
         searches=[("JobSpy filtered app_score_now", "24h")],
         search_runs=[
@@ -216,6 +216,7 @@ def main() -> int:
         source_raw_artifacts=[str(source_breadth_path), str(jobspy_raw_path)],
         artifact_prefix="jobspy_filtered",
     )
+    return 0
 
 
 if __name__ == "__main__":

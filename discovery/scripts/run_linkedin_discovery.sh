@@ -54,7 +54,6 @@ trap 'rm -f "$EXTRACT_LOG"' EXIT
 
 echo
 echo "==> Pre-run queue hygiene"
-"$PYTHON_BIN" discovery/scripts/sync_applied_pdfs.py
 "$PYTHON_BIN" discovery/scripts/refresh_current_apply_queue.py
 "$PYTHON_BIN" discovery/scripts/refresh_forgotten_queue.py
 
