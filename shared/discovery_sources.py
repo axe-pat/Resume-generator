@@ -10,9 +10,14 @@ HANDSHAKE_APPLY_SOURCES = {
     "handshake_jobs_v1",
 }
 
+JOBSPY_APPLY_SOURCES = {
+    "jobspy_filtered_v1",
+}
+
 APPLY_QUEUE_SOURCES = {
     "linkedin_live_jobs_v1",
     *HANDSHAKE_APPLY_SOURCES,
+    *JOBSPY_APPLY_SOURCES,
     *STARTUP_APPLY_SOURCES,
 }
 
