@@ -474,7 +474,19 @@ def _resolve_generate_target(df: pd.DataFrame, company_name: str | None = None, 
     slug = _dir_slug(company_name)
     app_dir = APPS_DIR / slug
 
-    stored_folder_path = Path(str(_row.get("folder_path", "")).strip()) if _row is not None and str(_row.get("folder_path", "")).strip() else None
+    def _rebase_repo_path(path_str: str) -> Path:
+        path = Path(path_str).expanduser()
+        if path.exists():
+            return path
+        parts = path.parts
+        if "apps" in parts:
+            apps_index = parts.index("apps")
+            candidate = ROOT_DIR.joinpath(*parts[apps_index:])
+            if candidate.exists():
+                return candidate
+        return path
+
+    stored_folder_path = _rebase_repo_path(str(_row.get("folder_path", "")).strip()) if _row is not None and str(_row.get("folder_path", "")).strip() else None
     if stored_folder_path:
         if stored_folder_path.exists():
             app_dir = stored_folder_path
@@ -535,6 +547,12 @@ def _load_queue_generate_targets(
             "/Apply queues/.current_apply_queue_tmp/",
             "/Apply queues/current_apply_queue/",
         )
+        path = Path(normalized).expanduser()
+        if not path.exists() and "apps" in path.parts:
+            apps_index = path.parts.index("apps")
+            candidate = ROOT_DIR.joinpath(*path.parts[apps_index:])
+            if candidate.exists():
+                normalized = str(candidate)
         return normalized
 
     targets: list[dict] = []
