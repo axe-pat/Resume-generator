@@ -67,6 +67,9 @@ Rule:
 
 - JobSpy should not become an unfiltered write path.
 - If used daily, it must be filtered before scoring and before writing to `jobs.xlsx`.
+- Generic full-time APM/associate PM and aggregator/client-anonymous postings
+  should not consume the default score-now lane unless they carry an explicit
+  internship, MBA, student, or new-grad signal.
 
 Initial 24h validation on 2026-05-27:
 

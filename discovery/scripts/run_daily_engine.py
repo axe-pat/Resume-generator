@@ -403,6 +403,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--skip-relationship-discovery", action="store_true")
     parser.add_argument("--jobspy-results", type=int, default=None)
     parser.add_argument("--jobspy-score-limit", type=int, default=10)
+    parser.add_argument("--jobspy-fetch-timeout", type=int, default=1800, help="Seconds before skipping the JobSpy breadth scrape for this run.")
     parser.add_argument("--startup-limit-companies", type=int, default=12)
     parser.add_argument("--startup-limit-jobs", type=int, default=30)
     parser.add_argument("--relationship-source-limit", type=int, default=25)
@@ -445,32 +446,35 @@ def main() -> int:
         fetch_cmd: list[object] = [PYTHON, "discovery/scripts/fetch_jobspy_breadth.py", "--hours-old", hours_old]
         if args.jobspy_results:
             fetch_cmd.extend(["--results", args.jobspy_results])
-        run(fetch_cmd)
-        jobspy_raw = latest(f"jobspy_breadth_raw_{hours_old}h_*.json", LOGS_DIR)
-        playwright_raw = latest("linkedin_live_raw_*.json", LOGS_DIR)
-        run(
-            [
-                PYTHON,
-                "discovery/scripts/validate_source_breadth.py",
-                "--playwright-raw",
-                playwright_raw,
-                "--jobspy-raw",
-                jobspy_raw,
-            ]
-        )
-        source_breadth = latest("*source-breadth-filtered.json", SOURCE_VALIDATION_DIR)
-        run(
-            [
-                PYTHON,
-                "discovery/scripts/run_jobspy_scoring_lane.py",
-                "--source-breadth",
-                source_breadth,
-                "--jobspy-raw",
-                jobspy_raw,
-                "--limit",
-                args.jobspy_score_limit,
-            ]
-        )
+        jobspy_fetch = run_capture(fetch_cmd, check=False, timeout=args.jobspy_fetch_timeout)
+        if jobspy_fetch.returncode != 0:
+            print(f"[warn] Skipping JobSpy validation/scoring because fetch exited with {jobspy_fetch.returncode}.", file=sys.stderr)
+        else:
+            jobspy_raw = latest(f"jobspy_breadth_raw_{hours_old}h_*.json", LOGS_DIR)
+            playwright_raw = latest("linkedin_live_raw_*.json", LOGS_DIR)
+            run(
+                [
+                    PYTHON,
+                    "discovery/scripts/validate_source_breadth.py",
+                    "--playwright-raw",
+                    playwright_raw,
+                    "--jobspy-raw",
+                    jobspy_raw,
+                ]
+            )
+            source_breadth = latest("*source-breadth-filtered.json", SOURCE_VALIDATION_DIR)
+            run(
+                [
+                    PYTHON,
+                    "discovery/scripts/run_jobspy_scoring_lane.py",
+                    "--source-breadth",
+                    source_breadth,
+                    "--jobspy-raw",
+                    jobspy_raw,
+                    "--limit",
+                    args.jobspy_score_limit,
+                ]
+            )
 
     if not args.skip_startup_apply:
         run(

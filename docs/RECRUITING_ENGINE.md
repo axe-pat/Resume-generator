@@ -176,6 +176,11 @@ policy than the apply queue.
 venv/bin/python discovery/scripts/run_nightly_pipeline.py
 ```
 
+Generated-but-unapplied jobs remain in the active apply queue by default. They
+should only leave the current queue when marked applied/closed or when the
+forgotten-queue age-out rule moves them out. The old generated-archive behavior
+is now opt-in via `--archive-generated-before-run`.
+
 Generation is opt-in:
 
 ```bash
@@ -211,6 +216,11 @@ By default the installer only writes the LaunchAgent plist. Load it explicitly
 with the command printed by the installer. The prompt can run after wake because
 the LaunchAgent checks every 5 minutes and the prompt state lives under
 `~/Library/Application Support/ResumeGenerator/`.
+
+Nightly summaries include a temporary JobSpy metrics block with raw count,
+JobSpy-only count, score-now/review/outreach buckets, scorer selection count,
+cache/existing skips, and accepted writes. The JobSpy fetch has a timeout so a
+slow scrape warns and the rest of the daily engine can continue.
 
 ## Weekly Caveat
 

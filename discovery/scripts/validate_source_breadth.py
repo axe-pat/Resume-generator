@@ -60,8 +60,18 @@ RECRUITER_COMPANY_RE = re.compile(
     r"\b("
     r"jobgether|jobot|motion recruitment|optomi|midtown group|firstpro|hirecapital|"
     r"hackajob|partner group|vlink|net2source|lensa|dice|robert half|tek.?systems|"
-    r"insight global|randstad|aquent|kforce"
+    r"insight global|randstad|aquent|kforce|jobright(?:\\.ai)?|our client|confidential"
     r")\b",
+    re.I,
+)
+
+WEAK_APM_TITLE_RE = re.compile(
+    r"\b(apm|associate product manager|entry[- ]level product manager|early career product manager)\b",
+    re.I,
+)
+
+STRONG_EARLY_SIGNAL_RE = re.compile(
+    r"\b(intern|internship|co-?op|coop|summer|mba|student|campus|university|new grad|recent grad|rotational)\b",
     re.I,
 )
 
@@ -219,6 +229,14 @@ def classify_job(job: dict[str, Any], source_bucket: str) -> ClassifiedJob:
         reasons.append("Early-career/intern/MBA signal in JD body")
     if outreach_signals:
         reasons.extend(f"Relationship signal: {signal}" for signal in outreach_signals)
+
+    if WEAK_APM_TITLE_RE.search(title) and not STRONG_EARLY_SIGNAL_RE.search(combined):
+        return _classified(
+            "app_review",
+            source_bucket,
+            job,
+            [*reasons, "APM/associate PM title without explicit internship, MBA, student, or new-grad signal"],
+        )
 
     if title_signals and title_early_signal:
         return _classified("app_score_now", source_bucket, job, reasons)

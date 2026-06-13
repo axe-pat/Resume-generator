@@ -36,6 +36,7 @@ QUEUE_TMP_DIR = APPLY_QUEUES_DIR / ".current_apply_queue_tmp"
 JOBS_DIR = QUEUE_DIR / "jobs"
 MANUAL_DIR = QUEUE_DIR / "manual_review"
 JOBS_XLSX = ROOT / "discovery" / "jobs.xlsx"
+ACTIVE_GENERATED_ARCHIVE_DAYS = 10
 
 
 def _discovery_manifest_paths() -> list[Path]:
@@ -378,10 +379,8 @@ def _priority_components(row: pd.Series) -> tuple[float, dict]:
     }
 
 
-def _is_archived_generated_row(row: pd.Series) -> bool:
+def _is_inactive_queue_row(row: pd.Series) -> bool:
     status = str(row.get("status") or "").strip().lower()
-    if status != "generated":
-        return False
     folder_path = str(row.get("folder_path") or "").strip()
     if not folder_path:
         return False
@@ -390,7 +389,19 @@ def _is_archived_generated_row(row: pd.Series) -> bool:
     except Exception:
         path = Path(folder_path)
     archive_root = (ARCHIVE_DIR / "generated").resolve()
-    return path == archive_root or archive_root in path.parents
+    forgotten_root = (APPLY_QUEUES_DIR / "forgotten_queue").resolve()
+    if path == forgotten_root or forgotten_root in path.parents:
+        return True
+    if status == "generated" and (path == archive_root or archive_root in path.parents):
+        date_found = str(row.get("date_found") or "").strip()
+        if len(date_found) >= 10:
+            try:
+                days_old = max(0, (date.today() - datetime.strptime(date_found[:10], "%Y-%m-%d").date()).days)
+                return days_old > ACTIVE_GENERATED_ARCHIVE_DAYS
+            except ValueError:
+                pass
+        return True
+    return False
 
 
 def main() -> int:
@@ -406,7 +417,7 @@ def main() -> int:
     df = df[df["source"].isin(APPLY_QUEUE_SOURCES)].copy()
     df["fit_score_num"] = pd.to_numeric(df["fit_score"], errors="coerce")
     df = df[df["status"].isin(["queued", "promoted", "generated"])]
-    df = df[~df.apply(_is_archived_generated_row, axis=1)]
+    df = df[~df.apply(_is_inactive_queue_row, axis=1)]
     df["source_min_score"] = df.apply(
         lambda row: min_apply_queue_score_for_row(str(row.get("source") or ""), str(row.get("notes") or ""), MIN_SCORE),
         axis=1,
