@@ -2,9 +2,11 @@
 from __future__ import annotations
 
 import argparse
+import fcntl
 import json
 import subprocess
 import sys
+from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 from typing import Iterable
@@ -13,6 +15,8 @@ ROOT = Path(__file__).resolve().parents[2]
 PYTHON = ROOT / "venv" / "bin" / "python"
 SOURCE_VALIDATION_DIR = ROOT / "discovery" / "source_validation"
 CURRENT_SHORTLIST_JSON = ROOT / "apps" / "Apply queues" / "current_apply_queue" / "generation_shortlist.json"
+APP_SUPPORT = Path.home() / "Library" / "Application Support" / "ResumeGenerator"
+LOCK_PATH = APP_SUPPORT / "nightly_pipeline.lock"
 
 
 def _cmd_text(cmd: Iterable[object]) -> str:
@@ -27,6 +31,18 @@ def run(cmd: list[object], *, check: bool = True) -> subprocess.CompletedProcess
 def latest(pattern: str) -> Path | None:
     matches = sorted(SOURCE_VALIDATION_DIR.glob(pattern), key=lambda path: path.stat().st_mtime)
     return matches[-1] if matches else None
+
+
+@contextmanager
+def _pipeline_lock(path: Path):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w") as fh:
+        try:
+            fcntl.flock(fh, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            print(f"Nightly pipeline already running; lock held at {path}", flush=True)
+            raise SystemExit(75)
+        yield
 
 
 def _daily_engine_cmd(args: argparse.Namespace) -> list[object]:
@@ -161,42 +177,43 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> int:
-    args = parse_args()
-    summary = {
-        "created_at": datetime.now().isoformat(timespec="seconds"),
-        "daily_engine_ran": not args.skip_daily_engine,
-        "generated_queue_cleared": False,
-        "generation_ran": False,
-        "generation_dry_run": bool(args.generation_dry_run),
-    }
+    with _pipeline_lock(LOCK_PATH):
+        args = parse_args()
+        summary = {
+            "created_at": datetime.now().isoformat(timespec="seconds"),
+            "daily_engine_ran": not args.skip_daily_engine,
+            "generated_queue_cleared": False,
+            "generation_ran": False,
+            "generation_dry_run": bool(args.generation_dry_run),
+        }
 
-    if not args.skip_clear_generated_queue:
-        run(_clear_generated_queue_cmd())
-        summary["generated_queue_cleared"] = True
+        if not args.skip_clear_generated_queue:
+            run(_clear_generated_queue_cmd())
+            summary["generated_queue_cleared"] = True
 
-    if not args.skip_daily_engine:
-        run(_daily_engine_cmd(args))
-    action_queue = latest("*daily-action-queue.json")
-    if action_queue:
-        summary["action_queue"] = str(action_queue)
+        if not args.skip_daily_engine:
+            run(_daily_engine_cmd(args))
+        action_queue = latest("*daily-action-queue.json")
+        if action_queue:
+            summary["action_queue"] = str(action_queue)
 
-    run(_shortlist_cmd(args))
-    shortlist_path = CURRENT_SHORTLIST_JSON if CURRENT_SHORTLIST_JSON.exists() else latest("*generation-shortlist.json")
-    if not shortlist_path:
-        raise SystemExit("Generation shortlist was not created.")
-    selected_count = _selected_count(shortlist_path)
-    summary["generation_shortlist"] = str(shortlist_path)
-    summary["generation_selected_count"] = selected_count
+        run(_shortlist_cmd(args))
+        shortlist_path = CURRENT_SHORTLIST_JSON if CURRENT_SHORTLIST_JSON.exists() else latest("*generation-shortlist.json")
+        if not shortlist_path:
+            raise SystemExit("Generation shortlist was not created.")
+        selected_count = _selected_count(shortlist_path)
+        summary["generation_shortlist"] = str(shortlist_path)
+        summary["generation_selected_count"] = selected_count
 
-    if args.generate and selected_count > 0:
-        run(_generate_cmd(args, shortlist_path))
-        summary["generation_ran"] = True
-    elif args.generate:
-        print("\nNo jobs selected for generation; skipping jobs.py generate.", flush=True)
+        if args.generate and selected_count > 0:
+            run(_generate_cmd(args, shortlist_path))
+            summary["generation_ran"] = True
+        elif args.generate:
+            print("\nNo jobs selected for generation; skipping jobs.py generate.", flush=True)
 
-    summary_path = _write_summary(summary)
-    print(f"\nNightly summary: {summary_path}", flush=True)
-    return 0
+        summary_path = _write_summary(summary)
+        print(f"\nNightly summary: {summary_path}", flush=True)
+        return 0
 
 
 if __name__ == "__main__":
