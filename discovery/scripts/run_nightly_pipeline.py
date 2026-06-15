@@ -81,6 +81,10 @@ def _clear_generated_queue_cmd() -> list[object]:
     return [PYTHON, "discovery/scripts/archive_current_generated_queue.py"]
 
 
+def _sync_applied_pdfs_cmd() -> list[object]:
+    return [PYTHON, "discovery/scripts/sync_applied_pdfs.py"]
+
+
 def _shortlist_cmd(args: argparse.Namespace) -> list[object]:
     return [
         PYTHON,
@@ -239,11 +243,15 @@ def main() -> int:
         summary = {
             "created_at": datetime.now().isoformat(timespec="seconds"),
             "daily_engine_ran": not args.skip_daily_engine,
+            "applied_pdfs_synced": False,
             "generated_queue_cleared": False,
             "generated_queue_archived": False,
             "generation_ran": False,
             "generation_dry_run": bool(args.generation_dry_run),
         }
+
+        run(_sync_applied_pdfs_cmd())
+        summary["applied_pdfs_synced"] = True
 
         if args.archive_generated_before_run and not args.skip_clear_generated_queue:
             run(_clear_generated_queue_cmd())

@@ -96,6 +96,10 @@ def start(cmd: list[object], *, cwd: Path = ROOT) -> subprocess.Popen:
     return subprocess.Popen([str(part) for part in cmd], cwd=cwd)
 
 
+def sync_applied_pdfs() -> None:
+    run([PYTHON, "discovery/scripts/sync_applied_pdfs.py"])
+
+
 def latest(pattern: str, directory: Path) -> Path:
     matches = sorted(directory.glob(pattern), key=lambda path: path.stat().st_mtime)
     if not matches:
@@ -431,6 +435,8 @@ def main() -> int:
     if args.execute_sends and args.parallel_generation_outreach:
         raise SystemExit("--execute-sends is intentionally not supported with --parallel-generation-outreach.")
     hours_old = window_to_hours(args.window)
+
+    sync_applied_pdfs()
 
     needs_linkedin = (not args.skip_linkedin) or bool(args.prepare_outreach)
     if needs_linkedin and not args.skip_linkedin_preflight:

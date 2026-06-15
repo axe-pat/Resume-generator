@@ -22,6 +22,10 @@ def _find_resume_pdf_dirs() -> list[Path]:
     for pdf_path in APPS_DIR.rglob("Resume.pdf"):
         if "archive" in pdf_path.parts:
             continue
+        if ".current_apply_queue_prev" in pdf_path.parts:
+            continue
+        if "forgotten_queue" in pdf_path.parts:
+            continue
         dirs.append(pdf_path.parent.resolve())
     return sorted(set(dirs))
 

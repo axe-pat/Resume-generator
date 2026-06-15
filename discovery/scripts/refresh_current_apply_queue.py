@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import shutil
+import subprocess
 import sys
 from collections import defaultdict
 from datetime import date, datetime
@@ -37,6 +38,14 @@ JOBS_DIR = QUEUE_DIR / "jobs"
 MANUAL_DIR = QUEUE_DIR / "manual_review"
 JOBS_XLSX = ROOT / "discovery" / "jobs.xlsx"
 ACTIVE_GENERATED_ARCHIVE_DAYS = 10
+
+
+def _sync_applied_pdfs() -> None:
+    subprocess.run(
+        [sys.executable, "discovery/scripts/sync_applied_pdfs.py"],
+        cwd=ROOT,
+        check=True,
+    )
 
 
 def _discovery_manifest_paths() -> list[Path]:
@@ -405,6 +414,8 @@ def _is_inactive_queue_row(row: pd.Series) -> bool:
 
 
 def main() -> int:
+    _sync_applied_pdfs()
+
     latest_manifest_path, latest_manifest = _latest_discovery_manifest()
     latest_run_name = latest_manifest_path.parent.name if latest_manifest_path else ""
     latest_urls = {
