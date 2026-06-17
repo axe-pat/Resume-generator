@@ -25,10 +25,10 @@ xml_escape() {
   printf '%s' "$1" | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g'
 }
 
-COMMAND="cd $(printf '%q' "$ROOT_DIR") && RESUMEGEN_NIGHTLY_ARGS=$(printf '%q' "$PIPELINE_ARGS") $(printf '%q' "$PYTHON_BIN") discovery/scripts/nightly_prompt.py --scheduled-time $(printf '%q' "$SCHEDULED_TIME")"
-COMMAND_XML="$(xml_escape "$COMMAND")"
 STDOUT_XML="$(xml_escape "${ROOT_DIR}/logs/nightly_launchd.out.log")"
 STDERR_XML="$(xml_escape "${ROOT_DIR}/logs/nightly_launchd.err.log")"
+LAUNCHER_XML="$(xml_escape "${ROOT_DIR}/discovery/scripts/nightly_prompt_launcher.sh")"
+PIPELINE_ARGS_XML="$(xml_escape "$PIPELINE_ARGS")"
 
 cat > "$PLIST_PATH" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -39,10 +39,15 @@ cat > "$PLIST_PATH" <<PLIST
   <string>${LABEL}</string>
   <key>ProgramArguments</key>
   <array>
-    <string>/bin/zsh</string>
-    <string>-lc</string>
-    <string>${COMMAND_XML}</string>
+    <string>${LAUNCHER_XML}</string>
+    <string>--scheduled-time</string>
+    <string>${SCHEDULED_TIME}</string>
   </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>RESUMEGEN_NIGHTLY_ARGS</key>
+    <string>${PIPELINE_ARGS_XML}</string>
+  </dict>
   <key>StartInterval</key>
   <integer>300</integer>
   <key>StartCalendarInterval</key>
