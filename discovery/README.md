@@ -209,6 +209,9 @@ venv/bin/python discovery/scripts/run_jobspy_scoring_lane.py \
 
 The scoring lane skips blocklisted companies before spending tokens and reuses
 the normal application scorer, write gate, `jobs.xlsx` dedupe, and `ReviewCache`.
+Daily automation runs a narrower JobSpy breadth policy by default: PM/product
+ops/growth/strategy/APM/AI-PM query indices, about 40 results per site, and a
+10-minute fetch timeout. Weekly runs can use the broad default scraper sweep.
 
 ### Supervised daily engine
 
@@ -243,11 +246,27 @@ venv/bin/python discovery/scripts/run_daily_engine.py \
 Useful controls:
 
 ```bash
+--jobspy-results 40
+--jobspy-query-index 0 --jobspy-query-index 8
+--startup-limit-companies 20
+--startup-limit-jobs 50
 --target-sends 25
 --per-company-send-limit 15
 --max-outreach-companies 24
 --send-min-score 20
 ```
+
+Each daily engine run writes a per-run source scorecard:
+
+```text
+discovery/source_validation/*-source-run-metrics.json
+discovery/source_validation/*-source-run-metrics.md
+```
+
+Use that artifact to compare raw/discovered counts, selected/new counts, fresh
+scoring, errors, accepted writes, outreach signals, runtime, and
+accepted-per-minute across LinkedIn, Handshake, JobSpy, startup apply, and the
+startup relationship lane.
 
 ### Screenshot scoring (LinkedIn PDF screenshots)
 

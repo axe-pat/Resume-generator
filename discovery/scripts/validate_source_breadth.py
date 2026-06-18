@@ -60,7 +60,8 @@ RECRUITER_COMPANY_RE = re.compile(
     r"\b("
     r"jobgether|jobot|motion recruitment|optomi|midtown group|firstpro|hirecapital|"
     r"hackajob|partner group|vlink|net2source|lensa|dice|robert half|tek.?systems|"
-    r"insight global|randstad|aquent|kforce|jobright(?:\\.ai)?|our client|confidential"
+    r"insight global|randstad|aquent|kforce|jobright(?:\\.ai)?|remotehunter|"
+    r"onward search|culturemill recruiting|talentify|our client|confidential"
     r")\b",
     re.I,
 )
@@ -115,6 +116,17 @@ NOISE_TITLE_RE = re.compile(
     r"product marketing manager|marketing manager|sales manager|account executive|"
     r"customer success|recruiter|talent acquisition|software engineer|data scientist|"
     r"solutions architect|legal|counsel|human resources|hr intern"
+    r")\b",
+    re.I,
+)
+
+JOBSPY_NOISE_TITLE_RE = re.compile(
+    r"\b("
+    r"early career program manager|university program manager|campus program manager|"
+    r"sales\s*(?:&|and)\s*business operations|sales operations|sales strategy|"
+    r"sales\s*(?:&|and)\s*business development|business development intern|"
+    r"recruiting programs?|talent programs?|channel management specialist|"
+    r"administrative intern|summer camp"
     r")\b",
     re.I,
 )
@@ -214,6 +226,9 @@ def classify_job(job: dict[str, Any], source_bucket: str) -> ClassifiedJob:
 
     if NOISE_TITLE_RE.search(title):
         return _classified("skip_noise", source_bucket, job, ["Noisy non-target title pattern"])
+
+    if source_bucket == "jobspy_only" and JOBSPY_NOISE_TITLE_RE.search(title):
+        return _classified("skip_noise", source_bucket, job, ["JobSpy noisy title pattern"])
 
     if SENIORITY_REJECT_RE.search(title) and not early_signal:
         return _classified("skip_noise", source_bucket, job, ["Senior/full-time level signal without early-career signal"])

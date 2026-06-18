@@ -70,6 +70,12 @@ with `source=handshake_jobs_v1`. The standing floor is flow-aware:
 `handshake_apply_flow=internal` uses `4.0`, `external` uses `5.5`, and
 `unknown` uses `4.5`.
 
+Before opening each JD, the importer skips obvious non-fit titles such as
+camp/admin, HR/recruiting, channel-management, generic sales/business
+development, and social-media roles. The import log records
+`title_prefilter_skipped` so an over-aggressive filter is visible in the run
+artifact.
+
 ### JobSpy
 
 Breadth radar for roles the focused LinkedIn searches may miss. It is useful, but
@@ -87,17 +93,23 @@ venv/bin/python discovery/scripts/run_jobspy_scoring_lane.py \
 
 Default posture: score `app_score_now`, keep `outreach_signal` for relationship
 work, and avoid spending tokens on obvious full-time/senior/general-PM noise.
+The 24h daily lane is intentionally narrower than the weekly lane: it runs the
+PM/product-ops/growth/strategy/APM/AI-PM query set, uses about 40 results per
+site, and gives the scrape a 10-minute default timeout. Weekly runs can still use
+the broader sweep when coverage matters more than latency.
 
 ### Startup Apply Sources
 
 Startup job-board lane for roles that look apply-ready now. It writes through the
 same `jobs.xlsx` application gates when run for real, and can also feed the source
-report without writing.
+report without writing. This is distinct from relationship discovery: startup
+apply needs a real role/JD/apply URL, while relationship discovery can act on a
+credible company-level hiring signal.
 
 ```bash
 venv/bin/python discovery/auto/startup_apply_pipeline.py
 venv/bin/python discovery/scripts/build_startup_source_report.py \
-  --limit-companies 12 --limit-jobs 30
+  --limit-companies 20 --limit-jobs 50
 ```
 
 ### Outreach Org Discovery
@@ -124,6 +136,8 @@ Output:
 discovery/source_validation/*-daily-action-queue.json
 discovery/source_validation/*-daily-action-queue.md
 discovery/source_validation/*-daily-action-queue.html
+discovery/source_validation/*-source-run-metrics.json
+discovery/source_validation/*-source-run-metrics.md
 ```
 
 Important buckets:
@@ -156,6 +170,10 @@ Useful controls:
 
 ```bash
 --skip-handshake
+--jobspy-results 40
+--jobspy-query-index 0 --jobspy-query-index 8
+--startup-limit-companies 20
+--startup-limit-jobs 50
 --target-sends 25
 --per-company-send-limit 15
 --max-outreach-companies 24
@@ -217,10 +235,11 @@ with the command printed by the installer. The prompt can run after wake because
 the LaunchAgent checks every 5 minutes and the prompt state lives under
 `~/Library/Application Support/ResumeGenerator/`.
 
-Nightly summaries include a temporary JobSpy metrics block with raw count,
-JobSpy-only count, score-now/review/outreach buckets, scorer selection count,
-cache/existing skips, and accepted writes. The JobSpy fetch has a timeout so a
-slow scrape warns and the rest of the daily engine can continue.
+Nightly summaries link the per-run source metrics artifact and still include the
+temporary JobSpy block. The source metrics report shows raw/discovered counts,
+selected/new counts, fresh scoring, errors, accepted writes, outreach signals,
+runtime, and accepted-per-minute by source. Use it for source trend audits before
+changing filters again.
 
 ## Weekly Caveat
 

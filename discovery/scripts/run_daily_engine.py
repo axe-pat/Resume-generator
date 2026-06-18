@@ -7,6 +7,7 @@ import json
 import re
 import subprocess
 import sys
+import time
 from pathlib import Path
 from typing import Iterable
 
@@ -23,6 +24,7 @@ RELATIONSHIP_SOURCES = (
     "builtin_la_companies",
     "builtin_sf_companies",
 )
+DAILY_JOBSPY_QUERY_INDICES = (0, 1, 2, 3, 7, 8)
 
 COMMON_COMPANY_TOKENS = {
     "ai",
@@ -105,6 +107,324 @@ def latest(pattern: str, directory: Path) -> Path:
     if not matches:
         raise SystemExit(f"No files matched {directory / pattern}")
     return matches[-1]
+
+
+def latest_since(pattern: str, directory: Path, since_ts: float) -> Path | None:
+    matches = [
+        path
+        for path in directory.glob(pattern)
+        if path.stat().st_mtime >= since_ts - 2
+    ]
+    matches = sorted(matches, key=lambda path: path.stat().st_mtime)
+    return matches[-1] if matches else None
+
+
+def _load_json(path: Path | None) -> dict:
+    if not path:
+        return {}
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def _parse_count(pattern: str, text: str) -> int:
+    match = re.search(pattern, text, re.M)
+    if not match:
+        return 0
+    return int(match.group(1))
+
+
+def _decision_counts(items: list[dict]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for item in items:
+        decision = str(item.get("decision") or item.get("status") or "").strip() or "unknown"
+        counts[decision] = counts.get(decision, 0) + 1
+    return counts
+
+
+def _accepted_per_minute(accepted: int, runtime_seconds: float | int | None) -> float | None:
+    if not runtime_seconds or runtime_seconds <= 0:
+        return None
+    return round(accepted / (runtime_seconds / 60), 3)
+
+
+def _score_artifact_metrics(path: Path | None) -> dict:
+    payload = _load_json(path)
+    jobs = payload.get("jobs") or []
+    decision_counts = _decision_counts(jobs)
+    return {
+        "artifact": str(path) if path else "",
+        "raw_count": payload.get("extracted"),
+        "reviewed_count": payload.get("reviewed"),
+        "freshly_scored_count": payload.get("scored"),
+        "existing_skipped": payload.get("existing_skipped"),
+        "cache_skipped": payload.get("cache_skipped"),
+        "accepted_for_write": payload.get("accepted_for_write"),
+        "new_after_dedup": payload.get("new_after_dedup"),
+        "decision_counts": decision_counts,
+        "error_count": decision_counts.get("Error", 0),
+    }
+
+
+def _handshake_metrics(path: Path | None) -> dict:
+    payload = _load_json(path)
+    counts = payload.get("counts") or {}
+    scored = payload.get("scored") or []
+    decision_counts = _decision_counts(scored)
+    return {
+        "artifact": str(path) if path else "",
+        "raw_count": counts.get("input_rows"),
+        "deduped_candidates": counts.get("deduped_candidates"),
+        "skipped_duplicates": counts.get("skipped_duplicates"),
+        "historical_seen_urls": counts.get("historical_seen_urls"),
+        "title_prefilter_skipped": counts.get("title_prefilter_skipped"),
+        "fetch_ok": counts.get("fetch_ok"),
+        "fetch_failed": counts.get("fetch_failed"),
+        "freshly_scored_count": counts.get("scored"),
+        "accepted_for_write": counts.get("accepted_min_score"),
+        "decision_counts": decision_counts,
+        "error_count": counts.get("fetch_failed", 0),
+    }
+
+
+def _jobspy_metrics_from_artifacts(raw_path: Path | None, breadth_path: Path | None, scored_path: Path | None) -> dict:
+    raw = _load_json(raw_path)
+    breadth = _load_json(breadth_path)
+    scored = _score_artifact_metrics(scored_path)
+    jobspy_bucket = (breadth.get("classified") or {}).get("jobspy_only") or {}
+    verdict_counts = jobspy_bucket.get("verdict_counts") or {}
+    return {
+        "raw_artifact": str(raw_path) if raw_path else "",
+        "breadth_artifact": str(breadth_path) if breadth_path else "",
+        "scored_artifact": str(scored_path) if scored_path else "",
+        "raw_count": raw.get("count") or len(raw.get("jobs") or []),
+        "jobspy_only": (breadth.get("raw_counts") or {}).get("jobspy_only"),
+        "verdict_counts": verdict_counts,
+        "app_score_now": len(jobspy_bucket.get("app_score_now") or []),
+        "app_review": len(jobspy_bucket.get("app_review") or []),
+        "outreach_signal": len(jobspy_bucket.get("outreach_signal") or []),
+        "selected_for_scoring": scored.get("raw_count"),
+        "freshly_scored_count": scored.get("freshly_scored_count"),
+        "accepted_for_write": scored.get("accepted_for_write"),
+        "cache_skipped": scored.get("cache_skipped"),
+        "existing_skipped": scored.get("existing_skipped"),
+        "decision_counts": scored.get("decision_counts") or {},
+        "error_count": scored.get("error_count") or 0,
+    }
+
+
+def _startup_apply_log_metrics(path: Path | None) -> dict:
+    if not path:
+        return {"artifact": ""}
+    text = path.read_text(encoding="utf-8", errors="replace")
+    source_rows: dict[str, dict[str, int]] = {}
+    for line in text.splitlines():
+        if " | discovered=" not in line:
+            continue
+        label, _, rest = line.partition(" | ")
+        source_match = re.search(r"\[([^\]]+)\]", label)
+        source_id = source_match.group(1) if source_match else label.strip()
+        source_rows[source_id] = {
+            "discovered": _parse_count(r"discovered=(\d+)", rest),
+            "new": _parse_count(r"new=(\d+)", rest),
+            "scored": _parse_count(r"scored=(\d+)", rest),
+            "queued": _parse_count(r"queued=(\d+)", rest),
+            "review": _parse_count(r"review=(\d+)", rest),
+            "skipped": _parse_count(r"skipped=(\d+)", rest),
+        }
+    return {
+        "artifact": str(path),
+        "discovered_count": sum(item["discovered"] for item in source_rows.values()),
+        "new_count": sum(item["new"] for item in source_rows.values()),
+        "freshly_scored_count": sum(item["scored"] for item in source_rows.values()),
+        "accepted_for_write": _parse_count(r"^Queued:\s+(\d+)", text),
+        "review_count": _parse_count(r"^Review:\s+(\d+)", text),
+        "skipped_count": _parse_count(r"^Skipped:\s+(\d+)", text),
+        "source_counts": source_rows,
+    }
+
+
+def _startup_report_metrics(path: Path | None) -> dict:
+    payload = _load_json(path)
+    startup_apply = payload.get("startup_apply") or {}
+    relationship = payload.get("relationship_lane") or {}
+    return {
+        "artifact": str(path) if path else "",
+        "startup_apply_discovered": startup_apply.get("discovered_counts") or {},
+        "startup_apply_new": startup_apply.get("new_counts") or {},
+        "startup_apply_verdicts": startup_apply.get("verdict_counts") or {},
+        "startup_apply_source_verdicts": startup_apply.get("source_verdict_counts") or {},
+        "relationship_source_counts": relationship.get("source_counts") or {},
+        "relationship_targets": len(relationship.get("items") or []),
+    }
+
+
+def _action_queue_metrics(path: Path | None) -> dict:
+    payload = _load_json(path)
+    return {
+        "artifact": str(path) if path else "",
+        "counts": payload.get("counts") or {},
+        "source_counts": payload.get("source_counts") or {},
+    }
+
+
+def _source_row(
+    *,
+    stage: dict,
+    metrics: dict,
+    raw_key: str = "raw_count",
+    selected_key: str = "reviewed_count",
+    scored_key: str = "freshly_scored_count",
+    accepted_key: str = "accepted_for_write",
+    outreach_key: str = "outreach_signal",
+) -> dict:
+    runtime = stage.get("runtime_seconds")
+    accepted = int(metrics.get(accepted_key) or 0)
+    return {
+        "status": stage.get("status", "unknown"),
+        "runtime_seconds": runtime,
+        "raw_count": metrics.get(raw_key),
+        "selected_count": metrics.get(selected_key),
+        "freshly_scored_count": metrics.get(scored_key),
+        "accepted_for_write": accepted,
+        "outreach_signals": metrics.get(outreach_key),
+        "error_count": metrics.get("error_count", 0),
+        "accepted_per_minute": _accepted_per_minute(accepted, runtime),
+        "details": metrics,
+    }
+
+
+def write_source_run_metrics(
+    *,
+    args: argparse.Namespace,
+    run_started_at: str,
+    stage_metrics: dict[str, dict],
+    artifacts: dict[str, Path | None],
+    action_queue_path: Path | None,
+) -> Path:
+    linkedin = _score_artifact_metrics(artifacts.get("linkedin_scored"))
+    handshake = _handshake_metrics(artifacts.get("handshake_log"))
+    jobspy = _jobspy_metrics_from_artifacts(
+        artifacts.get("jobspy_raw"),
+        artifacts.get("source_breadth"),
+        artifacts.get("jobspy_scored"),
+    )
+    startup_apply = _startup_apply_log_metrics(artifacts.get("startup_apply_log"))
+    startup_report = _startup_report_metrics(artifacts.get("startup_report"))
+    action_queue = _action_queue_metrics(action_queue_path)
+    relationship_stage = stage_metrics.get("relationship_discovery", {})
+
+    sources = {
+        "linkedin": _source_row(stage=stage_metrics.get("linkedin", {}), metrics=linkedin),
+        "handshake": _source_row(
+            stage=stage_metrics.get("handshake", {}),
+            metrics=handshake,
+            raw_key="raw_count",
+            selected_key="deduped_candidates",
+        ),
+        "jobspy": _source_row(
+            stage=stage_metrics.get("jobspy", {}),
+            metrics=jobspy,
+            raw_key="raw_count",
+            selected_key="selected_for_scoring",
+            outreach_key="outreach_signal",
+        ),
+        "startup_apply": _source_row(
+            stage=stage_metrics.get("startup_apply", {}),
+            metrics=startup_apply,
+            raw_key="discovered_count",
+            selected_key="new_count",
+        ),
+        "startup_relationship": {
+            "status": relationship_stage.get("status", "unknown"),
+            "runtime_seconds": relationship_stage.get("runtime_seconds"),
+            "relationship_targets": startup_report.get("relationship_targets"),
+            "source_counts": startup_report.get("relationship_source_counts"),
+        },
+    }
+
+    payload = {
+        "generated_at": datetime.now().isoformat(timespec="seconds"),
+        "run_started_at": run_started_at,
+        "window": args.window,
+        "jobspy_policy": {
+            "query_indices": artifacts.get("jobspy_query_indices", []),
+            "results_per_site": artifacts.get("jobspy_results"),
+            "fetch_timeout_seconds": artifacts.get("jobspy_fetch_timeout"),
+            "score_limit": args.jobspy_score_limit,
+        },
+        "stage_metrics": stage_metrics,
+        "sources": sources,
+        "startup_source_report": startup_report,
+        "action_queue": action_queue,
+    }
+
+    SOURCE_VALIDATION_DIR.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    json_path = SOURCE_VALIDATION_DIR / f"{stamp}-source-run-metrics.json"
+    md_path = json_path.with_suffix(".md")
+    json_path.write_text(json.dumps(payload, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+    write_source_run_metrics_markdown(md_path, payload)
+    print(f"\nSource metrics: {json_path}")
+    print(f"Source metrics report: {md_path}")
+    return json_path
+
+
+def write_source_run_metrics_markdown(path: Path, payload: dict) -> None:
+    lines = [
+        "# Source Run Metrics",
+        "",
+        f"Generated: {payload['generated_at']}",
+        f"Run started: {payload['run_started_at']}",
+        f"Window: {payload['window']}",
+        "",
+        "## Source Scorecard",
+        "",
+        "| Source | Status | Runtime | Raw | Selected/New | Scored | Errors | Accepted | Outreach | Accepted/min |",
+        "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
+    ]
+    for name, row in payload["sources"].items():
+        if name == "startup_relationship":
+            lines.append(
+                "| startup_relationship | "
+                f"{row.get('status', '')} | {row.get('runtime_seconds', '')} |  |  |  |  |  | "
+                f"{row.get('relationship_targets', '')} |  |"
+            )
+            continue
+        lines.append(
+            f"| {name} | {row.get('status', '')} | {row.get('runtime_seconds', '')} | "
+            f"{row.get('raw_count', '')} | {row.get('selected_count', '')} | "
+            f"{row.get('freshly_scored_count', '')} | {row.get('error_count', '')} | "
+            f"{row.get('accepted_for_write', '')} | {row.get('outreach_signals', '')} | "
+            f"{row.get('accepted_per_minute', '')} |"
+        )
+
+    lines.extend(
+        [
+            "",
+            "## JobSpy Policy",
+            "",
+            f"- Query indices: {payload['jobspy_policy']['query_indices']}",
+            f"- Results per site: {payload['jobspy_policy']['results_per_site']}",
+            f"- Fetch timeout seconds: {payload['jobspy_policy']['fetch_timeout_seconds']}",
+            f"- Score limit: {payload['jobspy_policy']['score_limit']}",
+            "",
+            "## Action Queue",
+            "",
+            f"- Counts: {payload['action_queue']['counts']}",
+            f"- Source counts: {payload['action_queue']['source_counts']}",
+            "",
+            "## Startup Split",
+            "",
+            f"- Startup apply discovered: {payload['startup_source_report']['startup_apply_discovered']}",
+            f"- Startup apply new: {payload['startup_source_report']['startup_apply_new']}",
+            f"- Startup apply verdicts: {payload['startup_source_report']['startup_apply_verdicts']}",
+            f"- Startup relationship targets: {payload['startup_source_report']['relationship_targets']}",
+            f"- Startup relationship sources: {payload['startup_source_report']['relationship_source_counts']}",
+        ]
+    )
+    path.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
 
 
 def window_to_hours(window: str) -> int:
@@ -405,11 +725,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--skip-jobspy", action="store_true")
     parser.add_argument("--skip-startup-apply", action="store_true")
     parser.add_argument("--skip-relationship-discovery", action="store_true")
-    parser.add_argument("--jobspy-results", type=int, default=None)
+    parser.add_argument("--jobspy-results", type=int, default=0, help="Override JobSpy results per query/site. Default: 40 for 24h, scraper default for 7d.")
+    parser.add_argument("--jobspy-query-index", action="append", type=int, default=[], help="JobSpy query index to run; repeatable. Default 24h set is PM/Product Ops/Growth/Strategy/APM/AI-PM.")
     parser.add_argument("--jobspy-score-limit", type=int, default=10)
-    parser.add_argument("--jobspy-fetch-timeout", type=int, default=1800, help="Seconds before skipping the JobSpy breadth scrape for this run.")
-    parser.add_argument("--startup-limit-companies", type=int, default=12)
-    parser.add_argument("--startup-limit-jobs", type=int, default=30)
+    parser.add_argument("--jobspy-fetch-timeout", type=int, default=0, help="Seconds before skipping the JobSpy breadth scrape. Default: 600 for 24h, 1800 for 7d.")
+    parser.add_argument("--startup-limit-companies", type=int, default=20)
+    parser.add_argument("--startup-limit-jobs", type=int, default=50)
     parser.add_argument("--relationship-source-limit", type=int, default=25)
     parser.add_argument("--relationship-today", type=int, default=8)
     parser.add_argument("--run-generation", action="store_true")
@@ -430,8 +751,95 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def _effective_jobspy_query_indices(args: argparse.Namespace) -> list[int]:
+    if args.jobspy_query_index:
+        return args.jobspy_query_index
+    if args.window == "24h":
+        return list(DAILY_JOBSPY_QUERY_INDICES)
+    return []
+
+
+def _effective_jobspy_results(args: argparse.Namespace) -> int | None:
+    if args.jobspy_results and args.jobspy_results > 0:
+        return args.jobspy_results
+    if args.window == "24h":
+        return 40
+    return None
+
+
+def _effective_jobspy_fetch_timeout(args: argparse.Namespace) -> int:
+    if args.jobspy_fetch_timeout and args.jobspy_fetch_timeout > 0:
+        return args.jobspy_fetch_timeout
+    return 600 if args.window == "24h" else 1800
+
+
+def _start_stage(stage_metrics: dict[str, dict], name: str) -> float:
+    stage_metrics[name] = {"status": "running", "runtime_seconds": None}
+    return time.monotonic()
+
+
+def _finish_stage(
+    stage_metrics: dict[str, dict],
+    name: str,
+    started: float,
+    *,
+    status: str = "ran",
+    returncode: int | None = None,
+) -> None:
+    stage_metrics[name] = {
+        "status": status,
+        "runtime_seconds": round(time.monotonic() - started, 1),
+    }
+    if returncode is not None:
+        stage_metrics[name]["returncode"] = returncode
+
+
+def _skip_stage(stage_metrics: dict[str, dict], name: str) -> None:
+    stage_metrics[name] = {"status": "skipped", "runtime_seconds": 0}
+
+
+def _write_empty_jobspy_raw(hours_old: int, reason: str) -> Path:
+    LOGS_DIR.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
+    path = LOGS_DIR / f"jobspy_breadth_raw_{hours_old}h_{stamp}.json"
+    payload = {
+        "generated_at": datetime.now().isoformat(timespec="seconds"),
+        "source": "jobspy_breadth_v1",
+        "hours_old": hours_old,
+        "results_override": 0,
+        "query_indices": [],
+        "count": 0,
+        "skipped_reason": reason,
+        "jobs": [],
+    }
+    path.write_text(json.dumps(payload, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+    return path
+
+
+def _build_source_breadth(jobspy_raw: Path, *, since_ts: float) -> Path | None:
+    try:
+        playwright_raw = latest("linkedin_live_raw_*.json", LOGS_DIR)
+    except SystemExit as exc:
+        print(f"[warn] Could not build source breadth without LinkedIn raw artifact: {exc}", file=sys.stderr)
+        return None
+    run(
+        [
+            PYTHON,
+            "discovery/scripts/validate_source_breadth.py",
+            "--playwright-raw",
+            playwright_raw,
+            "--jobspy-raw",
+            jobspy_raw,
+        ]
+    )
+    return latest_since("*source-breadth-filtered.json", SOURCE_VALIDATION_DIR, since_ts)
+
+
 def main() -> int:
     args = parse_args()
+    run_started_at = datetime.now().isoformat(timespec="seconds")
+    stage_metrics: dict[str, dict] = {}
+    artifacts: dict[str, object] = {}
     if args.execute_sends and args.parallel_generation_outreach:
         raise SystemExit("--execute-sends is intentionally not supported with --parallel-generation-outreach.")
     hours_old = window_to_hours(args.window)
@@ -443,32 +851,58 @@ def main() -> int:
         run(["./discovery/scripts/ensure_chrome_9222.sh"])
 
     if not args.skip_linkedin:
+        stage_started = _start_stage(stage_metrics, "linkedin")
+        artifact_since = time.time()
         run(["./discovery/scripts/run_linkedin_discovery.sh", args.window])
+        _finish_stage(stage_metrics, "linkedin", stage_started)
+        artifacts["linkedin_scored"] = latest_since("linkedin_live_scored_*.json", LOGS_DIR, artifact_since)
+    else:
+        _skip_stage(stage_metrics, "linkedin")
 
     if not args.skip_handshake:
+        stage_started = _start_stage(stage_metrics, "handshake")
+        artifact_since = time.time()
         run(["./discovery/scripts/run_handshake_discovery.sh", args.window])
+        _finish_stage(stage_metrics, "handshake", stage_started)
+        artifacts["handshake_log"] = latest_since("handshake_import_*.json", LOGS_DIR, artifact_since)
+    else:
+        _skip_stage(stage_metrics, "handshake")
 
     if not args.skip_jobspy:
+        stage_started = _start_stage(stage_metrics, "jobspy")
+        artifact_since = time.time()
+        jobspy_results = _effective_jobspy_results(args)
+        jobspy_query_indices = _effective_jobspy_query_indices(args)
+        jobspy_timeout = _effective_jobspy_fetch_timeout(args)
+        artifacts["jobspy_query_indices"] = jobspy_query_indices or "all"
+        artifacts["jobspy_results"] = jobspy_results or "scraper_default"
+        artifacts["jobspy_fetch_timeout"] = jobspy_timeout
         fetch_cmd: list[object] = [PYTHON, "discovery/scripts/fetch_jobspy_breadth.py", "--hours-old", hours_old]
-        if args.jobspy_results:
-            fetch_cmd.extend(["--results", args.jobspy_results])
-        jobspy_fetch = run_capture(fetch_cmd, check=False, timeout=args.jobspy_fetch_timeout)
+        if jobspy_results:
+            fetch_cmd.extend(["--results", jobspy_results])
+        for query_index in jobspy_query_indices:
+            fetch_cmd.extend(["--query-index", query_index])
+        jobspy_fetch = run_capture(fetch_cmd, check=False, timeout=jobspy_timeout)
         if jobspy_fetch.returncode != 0:
             print(f"[warn] Skipping JobSpy validation/scoring because fetch exited with {jobspy_fetch.returncode}.", file=sys.stderr)
+            fallback_raw = _write_empty_jobspy_raw(hours_old, "timeout" if jobspy_fetch.returncode == 124 else "fetch_failed")
+            artifacts["jobspy_raw"] = fallback_raw
+            artifacts["source_breadth"] = _build_source_breadth(fallback_raw, since_ts=artifact_since)
+            _finish_stage(
+                stage_metrics,
+                "jobspy",
+                stage_started,
+                status="timed_out" if jobspy_fetch.returncode == 124 else "failed",
+                returncode=jobspy_fetch.returncode,
+            )
         else:
             jobspy_raw = latest(f"jobspy_breadth_raw_{hours_old}h_*.json", LOGS_DIR)
-            playwright_raw = latest("linkedin_live_raw_*.json", LOGS_DIR)
-            run(
-                [
-                    PYTHON,
-                    "discovery/scripts/validate_source_breadth.py",
-                    "--playwright-raw",
-                    playwright_raw,
-                    "--jobspy-raw",
-                    jobspy_raw,
-                ]
-            )
-            source_breadth = latest("*source-breadth-filtered.json", SOURCE_VALIDATION_DIR)
+            artifacts["jobspy_raw"] = jobspy_raw
+            source_breadth = _build_source_breadth(jobspy_raw, since_ts=artifact_since)
+            if source_breadth is None:
+                _finish_stage(stage_metrics, "jobspy", stage_started, status="failed")
+                raise SystemExit("Could not build source breadth after JobSpy fetch.")
+            artifacts["source_breadth"] = source_breadth
             run(
                 [
                     PYTHON,
@@ -481,8 +915,18 @@ def main() -> int:
                     args.jobspy_score_limit,
                 ]
             )
+            artifacts["jobspy_scored"] = latest_since("jobspy_filtered_scored_*.json", LOGS_DIR, artifact_since)
+            _finish_stage(stage_metrics, "jobspy", stage_started)
+    else:
+        _skip_stage(stage_metrics, "jobspy")
+        artifact_since = time.time()
+        fallback_raw = _write_empty_jobspy_raw(hours_old, "skip_jobspy")
+        artifacts["jobspy_raw"] = fallback_raw
+        artifacts["source_breadth"] = _build_source_breadth(fallback_raw, since_ts=artifact_since)
 
     if not args.skip_startup_apply:
+        stage_started = _start_stage(stage_metrics, "startup_apply")
+        artifact_since = time.time()
         run(
             [
                 PYTHON,
@@ -493,8 +937,13 @@ def main() -> int:
                 args.startup_limit_jobs,
             ]
         )
+        _finish_stage(stage_metrics, "startup_apply", stage_started)
+        artifacts["startup_apply_log"] = latest_since("startup_apply_*.txt", LOGS_DIR, artifact_since)
+    else:
+        _skip_stage(stage_metrics, "startup_apply")
 
     if not args.skip_relationship_discovery:
+        stage_started = _start_stage(stage_metrics, "relationship_discovery")
         for source_id in RELATIONSHIP_SOURCES:
             run(
                 [
@@ -508,7 +957,12 @@ def main() -> int:
                 ],
                 cwd=OUTREACH_ROOT,
             )
+        _finish_stage(stage_metrics, "relationship_discovery", stage_started)
+    else:
+        _skip_stage(stage_metrics, "relationship_discovery")
 
+    stage_started = _start_stage(stage_metrics, "startup_source_report")
+    artifact_since = time.time()
     run(
         [
             PYTHON,
@@ -519,9 +973,22 @@ def main() -> int:
             args.startup_limit_jobs,
         ]
     )
+    _finish_stage(stage_metrics, "startup_source_report", stage_started)
+    artifacts["startup_report"] = latest_since("*startup-source-report.json", SOURCE_VALIDATION_DIR, artifact_since)
+
+    stage_started = _start_stage(stage_metrics, "action_queue")
     action_queue_path = build_action_queue(args)
+    _finish_stage(stage_metrics, "action_queue", stage_started)
     print(f"\nFinal action queue: {action_queue_path}")
     print(f"Final action report: {action_queue_path.with_suffix('.html')}")
+    source_metrics_path = write_source_run_metrics(
+        args=args,
+        run_started_at=run_started_at,
+        stage_metrics=stage_metrics,
+        artifacts=artifacts,
+        action_queue_path=action_queue_path,
+    )
+    print(f"Final source metrics: {source_metrics_path}")
 
     generation_proc: subprocess.Popen | None = None
     if args.run_generation and args.prepare_outreach and args.parallel_generation_outreach:

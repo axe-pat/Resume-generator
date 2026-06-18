@@ -62,6 +62,16 @@ GENERIC_LINK_TEXT = {
     "view posting",
 }
 
+HANDSHAKE_TITLE_PREFILTERS: tuple[tuple[str, re.Pattern[str]], ...] = (
+    ("camp_or_childcare", re.compile(r"\b(summer camp|camp administrative|camp counselor|childcare)\b", re.I)),
+    ("admin_or_clerical", re.compile(r"\b(administrative|admin assistant|office assistant|clerical|receptionist)\b", re.I)),
+    ("hr_or_recruiting", re.compile(r"\b(human resources|hr\b|recruit(?:er|ing)|talent acquisition|compensation and benefits)\b", re.I)),
+    ("channel_management", re.compile(r"\bchannel management specialist\b", re.I)),
+    ("social_media", re.compile(r"\b(social media|livestream|live stream|content creator)\b", re.I)),
+    ("generic_sales_bd", re.compile(r"\b(sales\s*(?:&|and)\s*business development|sales business development|business development intern)\b", re.I)),
+    ("arts_or_production", re.compile(r"\b(production intern|symphony|theatre|theater|performing arts)\b", re.I)),
+)
+
 
 @dataclass
 class CsvJob:
@@ -84,6 +94,14 @@ def _clean(value: Any) -> str:
 def _is_generic_link_text(value: str) -> bool:
     normalized = re.sub(r"\s+", " ", _clean(value).lower())
     return normalized in GENERIC_LINK_TEXT
+
+
+def _handshake_title_prefilter_reason(job: CsvJob) -> str:
+    text = f"{job.company}\n{job.role_title}"
+    for label, pattern in HANDSHAKE_TITLE_PREFILTERS:
+        if pattern.search(text):
+            return label
+    return ""
 
 
 def _canonical_handshake_url(url: str) -> str:
@@ -612,6 +630,20 @@ def run(args: argparse.Namespace) -> int:
         if url_key in seen_urls:
             skipped.append({"url": item.url, "company": item.company, "role_title": item.role_title, "reason": "duplicate_in_csv"})
             continue
+        if not args.no_title_prefilter:
+            prefilter_reason = _handshake_title_prefilter_reason(item)
+            if prefilter_reason:
+                skipped.append(
+                    {
+                        "url": item.url,
+                        "company": item.company,
+                        "role_title": item.role_title,
+                        "reason": f"title_prefilter:{prefilter_reason}",
+                    }
+                )
+                seen_urls.add(url_key)
+                consecutive_existing = 0
+                continue
         consecutive_existing = 0
         seen_urls.add(url_key)
         candidates.append(item)
@@ -697,6 +729,9 @@ def run(args: argparse.Namespace) -> int:
             "deduped_candidates": len(candidates),
             "skipped_duplicates": len(skipped),
             "historical_seen_urls": len(historical_urls),
+            "title_prefilter_skipped": sum(
+                1 for item in skipped if str(item.get("reason") or "").startswith("title_prefilter:")
+            ),
             "fetch_ok": len(fetch_ok),
             "fetch_failed": len(fetch_failed),
             "scored": len(scored),
@@ -810,6 +845,7 @@ def main() -> int:
     )
     parser.add_argument("--skip-score", action="store_true", help="Fetch JDs but do not call the scorer.")
     parser.add_argument("--no-fetch", action="store_true", help="Parse/dedupe only with placeholder text.")
+    parser.add_argument("--no-title-prefilter", action="store_true", help="Do not skip obvious non-fit Handshake titles before JD fetch.")
     parser.add_argument(
         "--ignore-handshake-history",
         action="store_true",

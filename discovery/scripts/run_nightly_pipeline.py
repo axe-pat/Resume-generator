@@ -67,6 +67,9 @@ def _daily_engine_cmd(args: argparse.Namespace) -> list[object]:
     cmd.extend(["--startup-limit-companies", args.startup_limit_companies])
     cmd.extend(["--startup-limit-jobs", args.startup_limit_jobs])
     cmd.extend(["--jobspy-fetch-timeout", args.jobspy_fetch_timeout])
+    cmd.extend(["--jobspy-results", args.jobspy_results])
+    for query_index in args.jobspy_query_index:
+        cmd.extend(["--jobspy-query-index", query_index])
     if args.prepare_outreach:
         cmd.append("--prepare-outreach")
     if args.execute_sends:
@@ -142,6 +145,7 @@ def _write_summary(summary: dict) -> Path:
         "",
         f"Created: {summary['created_at']}",
         f"Daily engine ran: {summary['daily_engine_ran']}",
+        f"Source metrics: {summary.get('source_metrics') or ''}",
         f"Action queue: {summary.get('action_queue') or ''}",
         f"Generation shortlist: {summary.get('generation_shortlist') or ''}",
         f"Selected for generation: {summary.get('generation_selected_count')}",
@@ -218,9 +222,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--skip-relationship-discovery", action="store_true")
     parser.add_argument("--skip-linkedin-preflight", action="store_true")
     parser.add_argument("--relationship-today", type=str, default="8")
-    parser.add_argument("--jobspy-fetch-timeout", type=str, default="1800")
-    parser.add_argument("--startup-limit-companies", type=str, default="12")
-    parser.add_argument("--startup-limit-jobs", type=str, default="30")
+    parser.add_argument("--jobspy-fetch-timeout", type=str, default="0")
+    parser.add_argument("--jobspy-results", type=str, default="0")
+    parser.add_argument("--jobspy-query-index", action="append", default=[])
+    parser.add_argument("--startup-limit-companies", type=str, default="20")
+    parser.add_argument("--startup-limit-jobs", type=str, default="50")
     parser.add_argument("--prepare-outreach", action="store_true")
     parser.add_argument("--execute-sends", action="store_true")
     parser.add_argument("--target-sends", type=str, default="25")
@@ -260,6 +266,9 @@ def main() -> int:
 
         if not args.skip_daily_engine:
             run(_daily_engine_cmd(args))
+            source_metrics = latest("*source-run-metrics.json")
+            if source_metrics:
+                summary["source_metrics"] = str(source_metrics)
         action_queue = latest("*daily-action-queue.json")
         if action_queue:
             summary["action_queue"] = str(action_queue)
