@@ -650,9 +650,10 @@ overrides those defaults with curated profiles.
 Default engine profiles:
 
 - 24h: `pm_intern`, `product_ops_intern`, `growth_intern`,
-  `strategy_intern`, `apm_intern`, `ai_pm_intern`; 40 results/site.
-- 7d: the 24h set plus `mba_ai_strategy_intern`,
-  `mba_product_strategy_intern`, and `ai_strategy_ops_intern`; 60 results/site.
+  `strategy_intern`, `apm_intern`, `ai_pm_intern`,
+  `mba_ai_strategy_intern`, `mba_product_strategy_intern`, and
+  `ai_strategy_ops_intern`; 40 results/site.
+- 7d: the same focused query set; 60 results/site.
 - Broad validation sweep: opt in manually by passing all desired
   `--jobspy-query-index` values and a larger `--jobspy-results` cap.
 

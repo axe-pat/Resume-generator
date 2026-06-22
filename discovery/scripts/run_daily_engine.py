@@ -24,7 +24,7 @@ RELATIONSHIP_SOURCES = (
     "builtin_la_companies",
     "builtin_sf_companies",
 )
-DAILY_JOBSPY_QUERY_INDICES = (0, 1, 2, 3, 7, 8)
+DAILY_JOBSPY_QUERY_INDICES = (0, 1, 2, 3, 7, 8, 9, 10, 11)
 WEEKLY_JOBSPY_QUERY_INDICES = (0, 1, 2, 3, 7, 8, 9, 10, 11)
 WEEKLY_JOBSPY_RESULTS = 60
 

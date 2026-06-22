@@ -93,10 +93,10 @@ venv/bin/python discovery/scripts/run_jobspy_scoring_lane.py \
 
 Default posture: score `app_score_now`, keep `outreach_signal` for relationship
 work, and avoid spending tokens on obvious full-time/senior/general-PM noise.
-The 24h daily lane runs the PM/product-ops/growth/strategy/APM/AI-PM query set,
-uses about 40 results per site, and gives the scrape a 10-minute default
-timeout. Weekly runs use that same focused base plus MBA/AI strategy queries,
-about 60 results per site, and a 30-minute timeout. The old all-query broad
+The 24h daily lane runs the focused PM/product-ops/growth/strategy/APM/AI-PM
+set plus MBA/AI strategy queries, uses about 40 results per site, and gives the
+scrape a 10-minute default timeout. Weekly runs use the same focused query set
+at about 60 results per site with a 30-minute timeout. The old all-query broad
 sweep is manual/opt-in for source audits.
 
 ### Startup Apply Sources
