@@ -140,6 +140,8 @@ class ClassifiedJob:
     role_title: str
     url: str
     source: str
+    jobspy_query_id: str
+    jobspy_search_term: str
     reasons: list[str]
 
 
@@ -285,6 +287,8 @@ def _classified(verdict: str, source_bucket: str, job: dict[str, Any], reasons: 
         role_title=str(job.get("role_title") or job.get("title") or "").strip(),
         url=str(job.get("url") or "").strip(),
         source=str(job.get("source") or "").strip(),
+        jobspy_query_id=str(job.get("jobspy_query_id") or job.get("_query_id") or "").strip(),
+        jobspy_search_term=str(job.get("jobspy_search_term") or "").strip(),
         reasons=list(dict.fromkeys(reason for reason in reasons if reason)),
     )
 
@@ -347,7 +351,9 @@ def write_markdown(path: Path, payload: dict[str, Any]) -> None:
             lines.append("")
             for item in rows[:30]:
                 reason = "; ".join(item["reasons"][:3])
+                query = item.get("jobspy_query_id") or "n/a"
                 lines.append(f"- {item['company']} | {item['role_title']} | {item['url']}")
+                lines.append(f"  - query: {query}")
                 lines.append(f"  - {reason}")
             lines.append("")
 

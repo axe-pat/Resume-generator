@@ -25,6 +25,8 @@ RELATIONSHIP_SOURCES = (
     "builtin_sf_companies",
 )
 DAILY_JOBSPY_QUERY_INDICES = (0, 1, 2, 3, 7, 8)
+WEEKLY_JOBSPY_QUERY_INDICES = (0, 1, 2, 3, 7, 8, 9, 10, 11)
+WEEKLY_JOBSPY_RESULTS = 60
 
 COMMON_COMPANY_TOKENS = {
     "ai",
@@ -725,8 +727,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--skip-jobspy", action="store_true")
     parser.add_argument("--skip-startup-apply", action="store_true")
     parser.add_argument("--skip-relationship-discovery", action="store_true")
-    parser.add_argument("--jobspy-results", type=int, default=0, help="Override JobSpy results per query/site. Default: 40 for 24h, scraper default for 7d.")
-    parser.add_argument("--jobspy-query-index", action="append", type=int, default=[], help="JobSpy query index to run; repeatable. Default 24h set is PM/Product Ops/Growth/Strategy/APM/AI-PM.")
+    parser.add_argument("--jobspy-results", type=int, default=0, help="Override JobSpy results per query/site. Default: 40 for 24h, 60 for 7d.")
+    parser.add_argument("--jobspy-query-index", action="append", type=int, default=[], help="JobSpy query index to run; repeatable. Defaults: 24h uses PM/Product Ops/Growth/Strategy/APM/AI-PM; 7d adds focused MBA/AI strategy queries.")
     parser.add_argument("--jobspy-score-limit", type=int, default=10)
     parser.add_argument("--jobspy-fetch-timeout", type=int, default=0, help="Seconds before skipping the JobSpy breadth scrape. Default: 600 for 24h, 1800 for 7d.")
     parser.add_argument("--startup-limit-companies", type=int, default=20)
@@ -756,7 +758,7 @@ def _effective_jobspy_query_indices(args: argparse.Namespace) -> list[int]:
         return args.jobspy_query_index
     if args.window == "24h":
         return list(DAILY_JOBSPY_QUERY_INDICES)
-    return []
+    return list(WEEKLY_JOBSPY_QUERY_INDICES)
 
 
 def _effective_jobspy_results(args: argparse.Namespace) -> int | None:
@@ -764,7 +766,7 @@ def _effective_jobspy_results(args: argparse.Namespace) -> int | None:
         return args.jobspy_results
     if args.window == "24h":
         return 40
-    return None
+    return WEEKLY_JOBSPY_RESULTS
 
 
 def _effective_jobspy_fetch_timeout(args: argparse.Namespace) -> int:

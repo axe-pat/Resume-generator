@@ -231,7 +231,7 @@ venv/bin/python discovery/scripts/run_daily_engine.py \
 Behavior:
 
 - Runs the trusted LinkedIn lane, filtered JobSpy lane, startup apply lane, relationship source discovery, startup source report, and final daily action queue.
-- Runs a narrower daily JobSpy sweep by default: PM/product-ops/growth/strategy/APM/AI-PM query indices, roughly 40 results per site, and a 10-minute fetch timeout. Weekly/manual runs can still request the broad sweep.
+- Runs a narrower daily JobSpy sweep by default: PM/product-ops/growth/strategy/APM/AI-PM query indices, roughly 40 results per site, and a 10-minute fetch timeout. Weekly runs use the same focused base plus MBA/AI strategy queries at roughly 60 results per site; broad all-query sweeps are now manual/opt-in source audits.
 - Runs startup apply with broader default discovery coverage than before (`--startup-limit-companies 20 --startup-limit-jobs 50`) while keeping the normal scoring/write gate.
 - Reads the final post-score action queue JSON to pick application-plus-outreach and outreach-only companies.
 - Keeps `jobs.xlsx`, queue refreshes, and Outreach workbook writes serial.
@@ -274,7 +274,7 @@ Add next:
 Recommended daily policy once the source engine is wired:
 
 - Always run Playwright 24h as the trusted application baseline.
-- Run JobSpy 24h as a filtered, narrow breadth add-on; keep the broad sweep for weekly/manual coverage checks.
+- Run JobSpy 24h as a filtered, narrow breadth add-on; keep weekly on a curated high-signal profile and reserve broad sweeps for explicit manual coverage checks.
 - Automatically score JobSpy `app_score_now`.
 - Either cap JobSpy `app_review` scoring, or run it through a cheaper triage-only prompt before normal scoring.
 - Send JobSpy `outreach_signal` to the relationship lane instead of the resume/cover-letter lane.

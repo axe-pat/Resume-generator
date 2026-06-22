@@ -211,7 +211,10 @@ The scoring lane skips blocklisted companies before spending tokens and reuses
 the normal application scorer, write gate, `jobs.xlsx` dedupe, and `ReviewCache`.
 Daily automation runs a narrower JobSpy breadth policy by default: PM/product
 ops/growth/strategy/APM/AI-PM query indices, about 40 results per site, and a
-10-minute fetch timeout. Weekly runs can use the broad default scraper sweep.
+10-minute fetch timeout. Weekly automation also uses a curated profile instead
+of the full broad sweep: the daily set plus focused MBA/AI strategy queries,
+about 60 results per site, and a 30-minute timeout. The old broad sweep is now
+manual/opt-in via explicit `--jobspy-query-index` and `--jobspy-results` flags.
 
 ### Supervised daily engine
 
@@ -625,7 +628,9 @@ The `date_posted` column is set from JobSpy's `date_posted` field and reflects w
 
 ## Scraper query clusters
 
-9 clusters. Each runs on LinkedIn + Indeed. Results per query scale with lookback window: 50 (≤6h), 100 (≤30h), 150 (>30h).
+12 clusters. Each runs on LinkedIn + Indeed. Results per query scale with
+lookback window inside the standalone scraper, but the daily/weekly engine
+overrides those defaults with curated profiles.
 
 | id                   | search_term                          | role_type |
 |----------------------|--------------------------------------|-----------|
@@ -638,6 +643,18 @@ The `date_posted` column is set from JobSpy's `date_posted` field and reflects w
 | product_owner_intern | Product Owner Intern                 | PM        |
 | apm_intern           | Associate Product Manager Intern     | PM        |
 | ai_pm_intern         | AI Product Manager Intern            | PM        |
+| mba_ai_strategy_intern | MBA AI Strategy Intern              | Strategy  |
+| mba_product_strategy_intern | MBA Product Strategy Intern    | Strategy  |
+| ai_strategy_ops_intern | AI Strategy Operations Intern       | Strategy  |
+
+Default engine profiles:
+
+- 24h: `pm_intern`, `product_ops_intern`, `growth_intern`,
+  `strategy_intern`, `apm_intern`, `ai_pm_intern`; 40 results/site.
+- 7d: the 24h set plus `mba_ai_strategy_intern`,
+  `mba_product_strategy_intern`, and `ai_strategy_ops_intern`; 60 results/site.
+- Broad validation sweep: opt in manually by passing all desired
+  `--jobspy-query-index` values and a larger `--jobspy-results` cap.
 
 ### Known coverage gaps
 - High-traffic companies (Adobe, Apple, TikTok) can flood query results, pushing other roles past the results cap. TikTok is a notable example — a dedicated query is the planned fix.

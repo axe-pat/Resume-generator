@@ -96,7 +96,7 @@ def extract_company_from_jd(jd_text: str) -> str | None:
 # Query configuration
 # ---------------------------------------------------------------------------
 
-# 9 clusters covering all 11 target role types from profile.md.
+# Query clusters covering the target role types from profile.md.
 # Each cluster has a primary search term + the role types it covers.
 # LinkedIn + Indeed run for every query. Glassdoor is skipped by default
 # (slower, lower marginal yield for PM roles).
@@ -161,6 +161,24 @@ QUERIES = [
                         "Machine Learning PM Intern", "GenAI PM Intern"],
         "role_type":   "PM",
     },
+    {
+        "id":          "mba_ai_strategy_intern",
+        "search_term": "MBA AI Strategy Intern",
+        "covers":      ["MBA AI Strategy Intern", "AI Strategy MBA Intern"],
+        "role_type":   "Strategy",
+    },
+    {
+        "id":          "mba_product_strategy_intern",
+        "search_term": "MBA Product Strategy Intern",
+        "covers":      ["MBA Product Strategy Intern", "Product Strategy MBA Intern"],
+        "role_type":   "Strategy",
+    },
+    {
+        "id":          "ai_strategy_ops_intern",
+        "search_term": "AI Strategy Operations Intern",
+        "covers":      ["AI Strategy & Operations Intern", "AI Ops Strategy Intern"],
+        "role_type":   "Strategy",
+    },
 ]
 
 # Sites to query per run
@@ -189,6 +207,38 @@ def get_results_wanted(hours_old: int) -> int:
 
 # Seconds to sleep between queries to avoid hammering
 INTER_QUERY_SLEEP = 8
+
+# Cheap rejects applied before a JobSpy row enters the raw breadth artifact.
+# This keeps the weekly lane from spending downstream validation/scoring time on
+# categories that repeatedly dominate broad JobSpy results.
+RAW_NOISE_TITLE_RE = re.compile(
+    r"\b("
+    r"pharmacy|pharmacist|pharmcst|pharm|"
+    r"software (?:engineer|developer)|developer intern|security engineer|"
+    r"data scientist|machine learning engineer|systems engineer|"
+    r"human resources|hr intern|recruiter|talent acquisition|"
+    r"account executive|sales representative|sales intern|social media|"
+    r"marketing intern|product marketing manager|customer success|"
+    r"facility|facilities|administrative|receptionist|summer camp"
+    r")\b",
+    re.I,
+)
+
+RAW_NOISE_COMPANY_RE = re.compile(
+    r"\b("
+    r"walgreens|cvs|dillons|kroger|jobright(?:\.ai)?|lensa|talentify|"
+    r"robert half|randstad|insight global|teksystems"
+    r")\b",
+    re.I,
+)
+
+RAW_NOISE_JD_HEAD_RE = re.compile(
+    r"\b("
+    r"licensed pharmacist|pharmacy manager|dispense prescribed medications|"
+    r"retail sales|cold call|commission|cash register|front desk"
+    r")\b",
+    re.I,
+)
 
 # ---------------------------------------------------------------------------
 # Hashing helpers
@@ -262,9 +312,24 @@ def _normalise_row(row: pd.Series, query: dict) -> dict:
         "date_applied":  None,
         "folder_path":   None,
         "notes":         None,
-        # Internal — used for dedup, not written to xlsx
+        # JobSpy provenance for source tuning. These stay in raw artifacts and
+        # are useful when auditing noisy queries.
+        "jobspy_query_id": query["id"],
+        "jobspy_search_term": query["search_term"],
+        # Internal — used by older local scripts; keep for compatibility.
         "_query_id":     query["id"],
     }
+
+
+def _is_raw_noise(job: dict) -> bool:
+    title = str(job.get("role_title") or "")
+    company = str(job.get("company") or "")
+    jd_head = str(job.get("jd_text") or "")[:1200]
+    return bool(
+        RAW_NOISE_TITLE_RE.search(title)
+        or RAW_NOISE_COMPANY_RE.search(company)
+        or RAW_NOISE_JD_HEAD_RE.search(jd_head)
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -308,14 +373,19 @@ def run_query(query: dict, hours_old: int = DEFAULT_HOURS_OLD,
                 print(f"    → 0 results")
             return []
 
+        skipped_raw_noise = 0
         for _, row in df.iterrows():
             job = _normalise_row(row, query)
             # Skip rows with no title, company, or URL — unusable
             if job["role_title"] and job["company"] and job["url"]:
+                if _is_raw_noise(job):
+                    skipped_raw_noise += 1
+                    continue
                 results.append(job)
 
         if verbose:
-            print(f"    → {len(results)} raw results")
+            suffix = f" ({skipped_raw_noise} obvious-noise skipped)" if skipped_raw_noise else ""
+            print(f"    → {len(results)} raw results{suffix}")
 
     except Exception as e:
         print(f"    ✗ Query '{query['id']}' failed: {e}")

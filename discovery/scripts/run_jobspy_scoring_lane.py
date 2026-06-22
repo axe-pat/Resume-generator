@@ -98,6 +98,8 @@ def _to_score_job(raw: dict[str, Any], classified: dict[str, Any]) -> dict[str, 
             "tag=jobspy_filtered_v1",
             f"source_bucket={_clean(classified.get('source_bucket'))}",
             f"source_verdict={_clean(classified.get('source_verdict'))}",
+            f"jobspy_query_id={_clean(raw.get('jobspy_query_id') or raw.get('_query_id') or classified.get('jobspy_query_id'))}",
+            f"jobspy_search_term={_clean(raw.get('jobspy_search_term') or classified.get('jobspy_search_term'))}",
             f"filter_reasons={'; '.join(classified.get('reasons') or [])}",
         ]
         if value
