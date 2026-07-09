@@ -16,8 +16,39 @@ PYTHON = ROOT / "venv" / "bin" / "python"
 SOURCE_VALIDATION_DIR = ROOT / "discovery" / "source_validation"
 LOGS_DIR = ROOT / "discovery" / "auto" / "logs"
 CURRENT_SHORTLIST_JSON = ROOT / "apps" / "Apply queues" / "current_apply_queue" / "generation_shortlist.json"
+OUTREACH_ROOT = ROOT.parent / "Outreach"
+OUTREACH_PYTHON = OUTREACH_ROOT / ".venv" / "bin" / "python"
 APP_SUPPORT = Path.home() / "Library" / "Application Support" / "ResumeGenerator"
 LOCK_PATH = APP_SUPPORT / "nightly_pipeline.lock"
+
+APP_QUEUE_SEND_TARGET_BY_CYCLE = {
+    "offcycle_light": "5",
+    "normal": "25",
+}
+TRACK_2_INVITE_TARGET_BY_CYCLE = {
+    "offcycle_light": "25",
+    "normal": "25",
+}
+TRACK_2_FOLLOWUP_TARGET_BY_CYCLE = {
+    "offcycle_light": "25",
+    "normal": "25",
+}
+TRACK_2_MAPPING_TARGET_BY_CYCLE = {
+    "offcycle_light": "15",
+    "normal": "15",
+}
+TRACK_2_EMAIL_RESEARCH_TARGET_BY_CYCLE = {
+    "offcycle_light": "10",
+    "normal": "10",
+}
+TRACK_2_TOTAL_ACTIONS_BY_CYCLE = {
+    "offcycle_light": "80",
+    "normal": "80",
+}
+TRACK_2_COMPANIES_BY_CYCLE = {
+    "offcycle_light": "55",
+    "normal": "55",
+}
 
 
 def _cmd_text(cmd: Iterable[object]) -> str:
@@ -68,15 +99,22 @@ def _daily_engine_cmd(args: argparse.Namespace) -> list[object]:
     cmd.extend(["--startup-limit-jobs", args.startup_limit_jobs])
     cmd.extend(["--jobspy-fetch-timeout", args.jobspy_fetch_timeout])
     cmd.extend(["--jobspy-results", args.jobspy_results])
+    cmd.extend(["--linkedin-discovery-timeout", args.linkedin_discovery_timeout])
     for query_index in args.jobspy_query_index:
         cmd.extend(["--jobspy-query-index", query_index])
     if args.prepare_outreach:
         cmd.append("--prepare-outreach")
     if args.execute_sends:
         cmd.append("--execute-sends")
-        cmd.extend(["--target-sends", args.target_sends])
+        cmd.extend(["--target-sends", _app_queue_target_sends(args)])
         cmd.extend(["--per-company-send-limit", args.per_company_send_limit])
         cmd.extend(["--send-min-score", args.send_min_score])
+    if args.execute_linkedin_followups:
+        cmd.append("--execute-linkedin-followups")
+        cmd.extend(["--linkedin-followup-send-limit", args.linkedin_followup_send_limit])
+        cmd.extend(["--linkedin-followup-send-timeout", args.linkedin_followup_send_timeout])
+        for recommendation in args.linkedin_followup_recommendation:
+            cmd.extend(["--linkedin-followup-recommendation", recommendation])
     return cmd
 
 
@@ -126,6 +164,218 @@ def _generate_cmd(args: argparse.Namespace, shortlist_path: Path) -> list[object
     return cmd
 
 
+def _outreach_cmd(*parts: object) -> list[object]:
+    return [OUTREACH_PYTHON, "main.py", *parts]
+
+
+def _app_queue_target_sends(args: argparse.Namespace) -> str:
+    if args.target_sends != "auto":
+        return args.target_sends
+    return APP_QUEUE_SEND_TARGET_BY_CYCLE.get(args.cycle_config, APP_QUEUE_SEND_TARGET_BY_CYCLE["offcycle_light"])
+
+
+def _track_2_invite_target(args: argparse.Namespace) -> str:
+    if args.track_2_linkedin_invites != "auto":
+        return args.track_2_linkedin_invites
+    return TRACK_2_INVITE_TARGET_BY_CYCLE.get(args.cycle_config, TRACK_2_INVITE_TARGET_BY_CYCLE["offcycle_light"])
+
+
+def _track_2_followup_target(args: argparse.Namespace) -> str:
+    if args.track_2_linkedin_followups != "auto":
+        return args.track_2_linkedin_followups
+    return TRACK_2_FOLLOWUP_TARGET_BY_CYCLE.get(args.cycle_config, TRACK_2_FOLLOWUP_TARGET_BY_CYCLE["offcycle_light"])
+
+
+def _track_2_mapping_target(args: argparse.Namespace) -> str:
+    if args.track_2_company_mapping != "auto":
+        return args.track_2_company_mapping
+    return TRACK_2_MAPPING_TARGET_BY_CYCLE.get(args.cycle_config, TRACK_2_MAPPING_TARGET_BY_CYCLE["offcycle_light"])
+
+
+def _track_2_email_research_target(args: argparse.Namespace) -> str:
+    if args.track_2_email_research != "auto":
+        return args.track_2_email_research
+    return TRACK_2_EMAIL_RESEARCH_TARGET_BY_CYCLE.get(
+        args.cycle_config,
+        TRACK_2_EMAIL_RESEARCH_TARGET_BY_CYCLE["offcycle_light"],
+    )
+
+
+def _track_2_total_actions(args: argparse.Namespace) -> str:
+    if args.track_2_total_actions != "auto":
+        return args.track_2_total_actions
+    return TRACK_2_TOTAL_ACTIONS_BY_CYCLE.get(args.cycle_config, TRACK_2_TOTAL_ACTIONS_BY_CYCLE["offcycle_light"])
+
+
+def _track_2_companies(args: argparse.Namespace) -> str:
+    if args.track_2_companies != "auto":
+        return args.track_2_companies
+    return TRACK_2_COMPANIES_BY_CYCLE.get(args.cycle_config, TRACK_2_COMPANIES_BY_CYCLE["offcycle_light"])
+
+
+def _run_capture_print(cmd: list[object], *, cwd: Path) -> subprocess.CompletedProcess:
+    print(f"\n$ {_cmd_text(cmd)}", flush=True)
+    result = subprocess.run(
+        [str(part) for part in cmd],
+        cwd=cwd,
+        check=False,
+        text=True,
+        capture_output=True,
+    )
+    print(result.stdout, end="", flush=True)
+    if result.stderr:
+        print(result.stderr, end="", file=sys.stderr, flush=True)
+    return result
+
+
+def _artifact_from_output(output: str) -> str:
+    for line in output.splitlines():
+        if "Artifact:" in line:
+            return line.split("Artifact:", 1)[1].strip()
+        if "Output:" in line:
+            return line.split("Output:", 1)[1].strip()
+    return ""
+
+
+def _run_outreach_maintenance(args: argparse.Namespace) -> dict[str, object]:
+    """Maintain Track 2 account data and emit executable campaign artifacts."""
+    summary: dict[str, object] = {
+        "ran": True,
+        "cycle_config": args.cycle_config,
+        "strategic_accounts_artifact": "",
+        "account_universe_import": "",
+        "website_resolution_artifact": "",
+        "context_enrichment_artifact": "",
+        "account_tracker": "",
+        "campaign_plan_artifact": "",
+        "track_2_daily_run_artifact": "",
+    }
+
+    result = _run_capture_print(
+        _outreach_cmd(
+            "import-strategic-accounts",
+            "--workspace",
+            "workspace",
+            "--execute",
+        ),
+        cwd=OUTREACH_ROOT,
+    )
+    summary["strategic_accounts_returncode"] = result.returncode
+    summary["strategic_accounts_artifact"] = _artifact_from_output(result.stdout)
+
+    result = _run_capture_print(
+        _outreach_cmd(
+            "import-resume-jobs",
+            "--jobs-xlsx",
+            "../ResumeGenerator v1/discovery/jobs.xlsx",
+            "--account-universe",
+        ),
+        cwd=OUTREACH_ROOT,
+    )
+    summary["account_universe_import_returncode"] = result.returncode
+    summary["account_universe_import"] = _artifact_from_output(result.stdout)
+
+    if args.outreach_resolve_limit > 0:
+        result = _run_capture_print(
+            _outreach_cmd(
+                "resolve-company-websites",
+                "--workspace",
+                "workspace",
+                "--limit",
+                args.outreach_resolve_limit,
+                "--execute",
+                "--max-search-results",
+                args.outreach_max_search_results,
+                "--timeout-seconds",
+                args.outreach_timeout_seconds,
+            ),
+            cwd=OUTREACH_ROOT,
+        )
+        summary["website_resolution_returncode"] = result.returncode
+        summary["website_resolution_artifact"] = _artifact_from_output(result.stdout)
+
+    if args.outreach_enrich_limit > 0:
+        enrich_cmd = _outreach_cmd(
+            "enrich-company-context",
+            "--workspace",
+            "workspace",
+            "--limit",
+            args.outreach_enrich_limit,
+            "--verify-all",
+            "--execute",
+            "--require-direct-url",
+            "--no-job-fallback",
+            "--timeout-seconds",
+            args.outreach_timeout_seconds,
+        )
+        if args.outreach_no_web_search:
+            enrich_cmd.append("--no-web-search")
+        result = _run_capture_print(enrich_cmd, cwd=OUTREACH_ROOT)
+        summary["context_enrichment_returncode"] = result.returncode
+        summary["context_enrichment_artifact"] = _artifact_from_output(result.stdout)
+
+    result = _run_capture_print(
+        _outreach_cmd(
+            "account-tracker",
+            "--workspace",
+            "workspace",
+            "--output",
+            "workspace/account_tracker.xlsx",
+        ),
+        cwd=OUTREACH_ROOT,
+    )
+    summary["account_tracker_returncode"] = result.returncode
+    summary["account_tracker"] = _artifact_from_output(result.stdout)
+
+    result = _run_capture_print(
+        _outreach_cmd(
+            "build-account-campaign-plan",
+            "--workspace",
+            "workspace",
+            "--limit",
+            args.outreach_campaign_limit,
+        ),
+        cwd=OUTREACH_ROOT,
+    )
+    summary["campaign_plan_returncode"] = result.returncode
+    summary["campaign_plan_artifact"] = _artifact_from_output(result.stdout)
+
+    if args.execute_track_2_daily_plan:
+        track_2_cmd = _outreach_cmd(
+            "run-track-2-daily-plan",
+            "--workspace",
+            "workspace",
+            "--execute",
+            "--live-linkedin",
+            "--refresh-linkedin",
+            "--send-linkedin",
+            "--max-total-actions",
+            _track_2_total_actions(args),
+            "--max-companies",
+            _track_2_companies(args),
+            "--max-linkedin-invites",
+            _track_2_invite_target(args),
+            "--max-linkedin-followups",
+            _track_2_followup_target(args),
+            "--max-company-mapping",
+            _track_2_mapping_target(args),
+            "--max-email-research",
+            _track_2_email_research_target(args),
+            "--max-context-enrichment",
+            args.track_2_context_enrichment,
+            "--max-email-drafts",
+            args.track_2_email_drafts,
+        )
+        if args.track_2_no_network_enrichment:
+            track_2_cmd.append("--no-network-enrichment")
+        result = _run_capture_print(track_2_cmd, cwd=OUTREACH_ROOT)
+        summary["track_2_daily_run_returncode"] = result.returncode
+        summary["track_2_daily_run_artifact"] = _artifact_from_output(result.stdout)
+    else:
+        summary["track_2_daily_run_returncode"] = None
+    return summary
+
+
 def _selected_count(shortlist_path: Path) -> int:
     try:
         payload = json.loads(shortlist_path.read_text(encoding="utf-8"))
@@ -134,10 +384,11 @@ def _selected_count(shortlist_path: Path) -> int:
     return len(payload) if isinstance(payload, list) else 0
 
 
-def _write_summary(summary: dict) -> Path:
+def _write_summary(summary: dict, path: Path | None = None) -> Path:
     SOURCE_VALIDATION_DIR.mkdir(parents=True, exist_ok=True)
-    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-    path = SOURCE_VALIDATION_DIR / f"{stamp}-nightly-pipeline-summary.json"
+    if path is None:
+        stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        path = SOURCE_VALIDATION_DIR / f"{stamp}-nightly-pipeline-summary.json"
     path.write_text(json.dumps(summary, indent=2), encoding="utf-8")
     md_path = path.with_suffix(".md")
     lines = [
@@ -151,7 +402,38 @@ def _write_summary(summary: dict) -> Path:
         f"Selected for generation: {summary.get('generation_selected_count')}",
         f"Generation ran: {summary.get('generation_ran')}",
         f"Generation dry run: {summary.get('generation_dry_run')}",
+        f"Failures: {', '.join(summary.get('failures') or []) or 'none'}",
     ]
+    outreach = summary.get("outreach_maintenance") or {}
+    if outreach:
+        lines.extend(
+            [
+                "",
+                "## Outreach Track 2 Maintenance",
+                "",
+                f"- Ran: {outreach.get('ran')}",
+                f"- Strategic account import: {outreach.get('strategic_accounts_artifact') or ''}",
+                f"- Account universe import return code: {outreach.get('account_universe_import_returncode', '')}",
+                f"- Website resolution: {outreach.get('website_resolution_artifact') or ''}",
+                f"- Context enrichment: {outreach.get('context_enrichment_artifact') or ''}",
+                f"- Account tracker: {outreach.get('account_tracker') or ''}",
+                f"- Campaign plan: {outreach.get('campaign_plan_artifact') or ''}",
+                f"- Track 2 daily run: {outreach.get('track_2_daily_run_artifact') or ''}",
+            ]
+        )
+    outreach_report = summary.get("outreach_daily_report") or {}
+    if outreach_report:
+        lines.extend(
+            [
+                "",
+                "## Outreach Daily Report",
+                "",
+                f"- Return code: {outreach_report.get('returncode', '')}",
+                f"- HTML report: {outreach_report.get('html_report') or ''}",
+                f"- Markdown report: {outreach_report.get('daily_report') or ''}",
+                f"- Report artifact: {outreach_report.get('summary_artifact') or ''}",
+            ]
+        )
     jobspy_metrics = summary.get("jobspy_metrics") or {}
     if jobspy_metrics:
         lines.extend(
@@ -173,6 +455,36 @@ def _write_summary(summary: dict) -> Path:
         )
     md_path.write_text("\n".join(lines).strip() + "\n", encoding="utf-8")
     return path
+
+
+def _value_from_output(output: str, label: str) -> str:
+    needle = f"{label}:"
+    for line in output.splitlines():
+        if needle in line:
+            return line.split(needle, 1)[1].strip()
+    return ""
+
+
+def _write_outreach_daily_report(summary_path: Path, since: str) -> dict[str, object]:
+    result = _run_capture_print(
+        _outreach_cmd(
+            "write-daily-run-report",
+            "--workspace",
+            "workspace",
+            "--since",
+            since,
+            "--nightly-summary",
+            summary_path,
+        ),
+        cwd=OUTREACH_ROOT,
+    )
+    return {
+        "returncode": result.returncode,
+        "summary_artifact": _value_from_output(result.stdout, "Summary artifact"),
+        "daily_report": _value_from_output(result.stdout, "Daily report"),
+        "html_report_artifact": _value_from_output(result.stdout, "HTML report artifact"),
+        "html_report": _value_from_output(result.stdout, "HTML report"),
+    }
 
 
 def _latest_in(directory: Path, pattern: str) -> Path | None:
@@ -224,14 +536,20 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--relationship-today", type=str, default="8")
     parser.add_argument("--jobspy-fetch-timeout", type=str, default="0")
     parser.add_argument("--jobspy-results", type=str, default="0")
+    parser.add_argument("--linkedin-discovery-timeout", type=str, default="900")
     parser.add_argument("--jobspy-query-index", action="append", default=[])
     parser.add_argument("--startup-limit-companies", type=str, default="20")
     parser.add_argument("--startup-limit-jobs", type=str, default="50")
     parser.add_argument("--prepare-outreach", action="store_true")
     parser.add_argument("--execute-sends", action="store_true")
-    parser.add_argument("--target-sends", type=str, default="25")
+    parser.add_argument("--cycle-config", choices=("offcycle_light", "normal"), default="offcycle_light")
+    parser.add_argument("--target-sends", type=str, default="auto")
     parser.add_argument("--per-company-send-limit", type=str, default="15")
     parser.add_argument("--send-min-score", type=str, default="20")
+    parser.add_argument("--execute-linkedin-followups", action="store_true")
+    parser.add_argument("--linkedin-followup-send-limit", type=str, default="10")
+    parser.add_argument("--linkedin-followup-send-timeout", type=str, default="240")
+    parser.add_argument("--linkedin-followup-recommendation", action="append", default=[])
     parser.add_argument("--generate", action="store_true", help="Generate resumes from the gated shortlist.")
     parser.add_argument("--generation-dry-run", action="store_true")
     parser.add_argument("--generation-cap", type=str, default="10")
@@ -240,21 +558,45 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--handshake-internal-generation-min", type=str, default="6.0")
     parser.add_argument("--handshake-external-generation-min", type=str, default="6.5")
     parser.add_argument("--handshake-unknown-generation-min", type=str, default="6.5")
+    parser.add_argument("--skip-outreach-maintenance", action="store_true", help="Skip Track 2 account tracker/campaign maintenance.")
+    parser.add_argument("--outreach-resolve-limit", type=int, default=15, help="Websites to resolve for unverified Outreach companies.")
+    parser.add_argument("--outreach-enrich-limit", type=int, default=15, help="Companies to externally enrich after website resolution.")
+    parser.add_argument("--outreach-campaign-limit", type=int, default=30, help="Track 2 campaign actions to print/save.")
+    parser.add_argument("--outreach-timeout-seconds", type=int, default=4, help="Per-page Outreach enrichment timeout.")
+    parser.add_argument("--outreach-max-search-results", type=int, default=3, help="Search results to validate per website resolution candidate.")
+    parser.add_argument("--outreach-no-web-search", action="store_true", help="Only use known/direct Outreach URLs during context enrichment.")
+    parser.add_argument("--execute-track-2-daily-plan", action="store_true", help="Execute the bounded Outreach Track 2 daily plan after rebuilding the tracker.")
+    parser.add_argument("--track-2-total-actions", type=str, default="auto")
+    parser.add_argument("--track-2-companies", type=str, default="auto")
+    parser.add_argument("--track-2-linkedin-invites", type=str, default="auto")
+    parser.add_argument("--track-2-linkedin-followups", type=str, default="auto")
+    parser.add_argument("--track-2-company-mapping", type=str, default="auto")
+    parser.add_argument("--track-2-email-research", type=str, default="auto")
+    parser.add_argument("--track-2-context-enrichment", type=str, default="8")
+    parser.add_argument("--track-2-email-drafts", type=str, default="0")
+    parser.add_argument("--track-2-no-network-enrichment", action="store_true")
     return parser.parse_args()
 
 
 def main() -> int:
     with _pipeline_lock(LOCK_PATH):
         args = parse_args()
+        failures: list[str] = []
         summary = {
             "created_at": datetime.now().isoformat(timespec="seconds"),
             "daily_engine_ran": not args.skip_daily_engine,
+            "daily_engine_returncode": None,
             "applied_pdfs_synced": False,
             "generated_queue_cleared": False,
             "generated_queue_archived": False,
             "generation_ran": False,
             "generation_dry_run": bool(args.generation_dry_run),
+            "outreach_maintenance": {"ran": False},
+            "cycle_config": "",
+            "app_queue_target_sends": "",
         }
+        summary["cycle_config"] = args.cycle_config
+        summary["app_queue_target_sends"] = _app_queue_target_sends(args)
 
         run(_sync_applied_pdfs_cmd())
         summary["applied_pdfs_synced"] = True
@@ -265,7 +607,10 @@ def main() -> int:
             summary["generated_queue_archived"] = True
 
         if not args.skip_daily_engine:
-            run(_daily_engine_cmd(args))
+            daily_result = run(_daily_engine_cmd(args), check=False)
+            summary["daily_engine_returncode"] = daily_result.returncode
+            if daily_result.returncode != 0:
+                failures.append(f"daily_engine:{daily_result.returncode}")
             source_metrics = latest("*source-run-metrics.json")
             if source_metrics:
                 summary["source_metrics"] = str(source_metrics)
@@ -288,9 +633,22 @@ def main() -> int:
         elif args.generate:
             print("\nNo jobs selected for generation; skipping jobs.py generate.", flush=True)
 
+        if not args.skip_outreach_maintenance:
+            summary["outreach_maintenance"] = _run_outreach_maintenance(args)
+            for key, value in (summary["outreach_maintenance"] or {}).items():
+                if key.endswith("_returncode") and value not in (0, None):
+                    failures.append(f"{key}:{value}")
+
+        summary["failures"] = failures
         summary_path = _write_summary(summary)
+        report_summary = _write_outreach_daily_report(summary_path, str(summary["created_at"]))
+        summary["outreach_daily_report"] = report_summary
+        if report_summary.get("returncode") not in (0, None):
+            failures.append(f"outreach_daily_report:{report_summary.get('returncode')}")
+            summary["failures"] = failures
+        _write_summary(summary, path=summary_path)
         print(f"\nNightly summary: {summary_path}", flush=True)
-        return 0
+        return 1 if failures else 0
 
 
 if __name__ == "__main__":
