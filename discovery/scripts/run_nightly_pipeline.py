@@ -711,6 +711,7 @@ def main() -> int:
         }
         summary["cycle_config"] = args.cycle_config
         summary["app_queue_target_sends"] = _app_queue_target_sends(args)
+        source_metrics: Path | None = None
 
         run(_sync_applied_pdfs_cmd())
         summary["applied_pdfs_synced"] = True

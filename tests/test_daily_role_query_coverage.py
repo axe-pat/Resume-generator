@@ -75,6 +75,12 @@ def test_nightly_latest_since_rejects_a_stale_source_metrics_artifact(
     assert module.latest_since("*source-run-metrics.json", 200) == current
 
 
+def test_nightly_initializes_source_metrics_when_daily_engine_is_skipped() -> None:
+    source = NIGHTLY_SCRIPT.read_text(encoding="utf-8")
+
+    assert "source_metrics: Path | None = None" in source
+
+
 def test_company_discovery_receives_the_exact_linkedin_capture_artifact(monkeypatch) -> None:
     module = _load_script(NIGHTLY_SCRIPT, "run_nightly_pipeline_capture_test")
     commands: list[list[str]] = []
