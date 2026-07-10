@@ -24,8 +24,8 @@ RELATIONSHIP_SOURCES = (
     "builtin_la_companies",
     "builtin_sf_companies",
 )
-DAILY_JOBSPY_QUERY_INDICES = (0, 1, 2, 3, 7, 8, 9, 10, 11)
-WEEKLY_JOBSPY_QUERY_INDICES = (0, 1, 2, 3, 7, 8, 9, 10, 11)
+DAILY_JOBSPY_QUERY_INDICES = (0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11)
+WEEKLY_JOBSPY_QUERY_INDICES = (0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11)
 WEEKLY_JOBSPY_RESULTS = 60
 
 COMMON_COMPANY_TOKENS = {
@@ -944,8 +944,10 @@ def main() -> int:
     else:
         _skip_stage(stage_metrics, "startup_apply")
 
+    relationship_artifact_since: float | None = None
     if not args.skip_relationship_discovery:
         stage_started = _start_stage(stage_metrics, "relationship_discovery")
+        relationship_artifact_since = time.time()
         for source_id in RELATIONSHIP_SOURCES:
             run(
                 [
@@ -965,16 +967,23 @@ def main() -> int:
 
     stage_started = _start_stage(stage_metrics, "startup_source_report")
     artifact_since = time.time()
-    run(
-        [
-            PYTHON,
-            "discovery/scripts/build_startup_source_report.py",
-            "--limit-companies",
-            args.startup_limit_companies,
-            "--limit-jobs",
-            args.startup_limit_jobs,
-        ]
-    )
+    startup_report_cmd: list[object] = [
+        PYTHON,
+        "discovery/scripts/build_startup_source_report.py",
+        "--limit-companies",
+        args.startup_limit_companies,
+        "--limit-jobs",
+        args.startup_limit_jobs,
+    ]
+    if args.skip_startup_apply:
+        startup_report_cmd.append("--no-startup-apply")
+    if args.skip_relationship_discovery:
+        startup_report_cmd.append("--no-relationship-artifacts")
+    elif relationship_artifact_since is not None:
+        startup_report_cmd.extend(
+            ["--relationship-artifact-since-epoch", relationship_artifact_since]
+        )
+    run(startup_report_cmd)
     _finish_stage(stage_metrics, "startup_source_report", stage_started)
     artifacts["startup_report"] = latest_since("*startup-source-report.json", SOURCE_VALIDATION_DIR, artifact_since)
 

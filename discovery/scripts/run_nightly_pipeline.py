@@ -6,6 +6,7 @@ import fcntl
 import json
 import subprocess
 import sys
+import time
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
@@ -41,6 +42,10 @@ TRACK_2_EMAIL_RESEARCH_TARGET_BY_CYCLE = {
     "offcycle_light": "10",
     "normal": "10",
 }
+TRACK_2_EMAIL_DRAFT_TARGET_BY_CYCLE = {
+    "offcycle_light": "5",
+    "normal": "5",
+}
 TRACK_2_TOTAL_ACTIONS_BY_CYCLE = {
     "offcycle_light": "80",
     "normal": "80",
@@ -63,6 +68,14 @@ def run(cmd: list[object], *, check: bool = True) -> subprocess.CompletedProcess
 def latest(pattern: str) -> Path | None:
     matches = sorted(SOURCE_VALIDATION_DIR.glob(pattern), key=lambda path: path.stat().st_mtime)
     return matches[-1] if matches else None
+
+
+def latest_since(pattern: str, started_at_epoch: float) -> Path | None:
+    """Return only an artifact written by this pipeline invocation."""
+    candidate = latest(pattern)
+    if candidate is None or candidate.stat().st_mtime < started_at_epoch:
+        return None
+    return candidate
 
 
 @contextmanager
@@ -201,6 +214,15 @@ def _track_2_email_research_target(args: argparse.Namespace) -> str:
     )
 
 
+def _track_2_email_draft_target(args: argparse.Namespace) -> str:
+    if args.track_2_email_drafts != "auto":
+        return args.track_2_email_drafts
+    return TRACK_2_EMAIL_DRAFT_TARGET_BY_CYCLE.get(
+        args.cycle_config,
+        TRACK_2_EMAIL_DRAFT_TARGET_BY_CYCLE["offcycle_light"],
+    )
+
+
 def _track_2_total_actions(args: argparse.Namespace) -> str:
     if args.track_2_total_actions != "auto":
         return args.track_2_total_actions
@@ -237,7 +259,12 @@ def _artifact_from_output(output: str) -> str:
     return ""
 
 
-def _run_outreach_maintenance(args: argparse.Namespace) -> dict[str, object]:
+def _run_outreach_maintenance(
+    args: argparse.Namespace,
+    *,
+    source_metrics: Path | None = None,
+    run_id: str = "",
+) -> dict[str, object]:
     """Maintain Track 2 account data and emit executable campaign artifacts."""
     summary: dict[str, object] = {
         "ran": True,
@@ -249,6 +276,11 @@ def _run_outreach_maintenance(args: argparse.Namespace) -> dict[str, object]:
         "account_tracker": "",
         "campaign_plan_artifact": "",
         "track_2_daily_run_artifact": "",
+        "linkedin_intelligence_artifact": "",
+        "company_discovery_artifact": "",
+        "role_surface_artifact": "",
+        "cadence_report_artifact": "",
+        "outcome_learning_artifact": "",
     }
 
     result = _run_capture_print(
@@ -274,6 +306,67 @@ def _run_outreach_maintenance(args: argparse.Namespace) -> dict[str, object]:
     )
     summary["account_universe_import_returncode"] = result.returncode
     summary["account_universe_import"] = _artifact_from_output(result.stdout)
+
+    if not args.skip_linkedin:
+        result = _run_capture_print(
+            _outreach_cmd(
+                "capture-linkedin-intelligence",
+                "--workspace",
+                "workspace",
+                "--profile-viewers-every-days",
+                "7",
+            ),
+            cwd=OUTREACH_ROOT,
+        )
+        summary["linkedin_intelligence_returncode"] = result.returncode
+        summary["linkedin_intelligence_artifact"] = _artifact_from_output(result.stdout)
+    else:
+        summary["linkedin_intelligence_returncode"] = None
+        summary["linkedin_intelligence_status"] = "skipped"
+
+    linkedin_capture_artifact = str(summary.get("linkedin_intelligence_artifact") or "")
+    if linkedin_capture_artifact or source_metrics:
+        company_discovery_cmd = _outreach_cmd(
+            "build-company-discovery-review",
+            "--workspace",
+            "workspace",
+            "--run-id",
+            run_id or "nightly",
+        )
+        if linkedin_capture_artifact:
+            company_discovery_cmd.extend(
+                ["--capture-artifact", linkedin_capture_artifact]
+            )
+        if source_metrics:
+            company_discovery_cmd.extend(["--source-metrics", source_metrics])
+        result = _run_capture_print(
+            company_discovery_cmd,
+            cwd=OUTREACH_ROOT,
+        )
+        summary["company_discovery_returncode"] = result.returncode
+        summary["company_discovery_artifact"] = _artifact_from_output(result.stdout)
+    else:
+        summary["company_discovery_returncode"] = None
+        summary["company_discovery_status"] = "skipped_no_current_capture"
+
+    if source_metrics:
+        result = _run_capture_print(
+            _outreach_cmd(
+                "build-role-surface-report",
+                "--source-metrics",
+                source_metrics,
+                "--workspace",
+                "workspace",
+                "--run-id",
+                run_id or source_metrics.stem,
+            ),
+            cwd=OUTREACH_ROOT,
+        )
+        summary["role_surface_returncode"] = result.returncode
+        summary["role_surface_artifact"] = _artifact_from_output(result.stdout)
+    else:
+        summary["role_surface_returncode"] = None
+        summary["role_surface_status"] = "skipped"
 
     if args.outreach_resolve_limit > 0:
         result = _run_capture_print(
@@ -364,7 +457,7 @@ def _run_outreach_maintenance(args: argparse.Namespace) -> dict[str, object]:
             "--max-context-enrichment",
             args.track_2_context_enrichment,
             "--max-email-drafts",
-            args.track_2_email_drafts,
+            _track_2_email_draft_target(args),
         )
         if args.track_2_no_network_enrichment:
             track_2_cmd.append("--no-network-enrichment")
@@ -373,6 +466,20 @@ def _run_outreach_maintenance(args: argparse.Namespace) -> dict[str, object]:
         summary["track_2_daily_run_artifact"] = _artifact_from_output(result.stdout)
     else:
         summary["track_2_daily_run_returncode"] = None
+
+    result = _run_capture_print(
+        _outreach_cmd("build-outreach-cadence-report", "--workspace", "workspace"),
+        cwd=OUTREACH_ROOT,
+    )
+    summary["cadence_report_returncode"] = result.returncode
+    summary["cadence_report_artifact"] = _artifact_from_output(result.stdout)
+
+    result = _run_capture_print(
+        _outreach_cmd("build-outcome-learning-report", "--workspace", "workspace"),
+        cwd=OUTREACH_ROOT,
+    )
+    summary["outcome_learning_returncode"] = result.returncode
+    summary["outcome_learning_artifact"] = _artifact_from_output(result.stdout)
     return summary
 
 
@@ -419,6 +526,11 @@ def _write_summary(summary: dict, path: Path | None = None) -> Path:
                 f"- Account tracker: {outreach.get('account_tracker') or ''}",
                 f"- Campaign plan: {outreach.get('campaign_plan_artifact') or ''}",
                 f"- Track 2 daily run: {outreach.get('track_2_daily_run_artifact') or ''}",
+                f"- LinkedIn feed/profile signals: {outreach.get('linkedin_intelligence_artifact') or outreach.get('linkedin_intelligence_status') or ''}",
+                f"- Company discovery review: {outreach.get('company_discovery_artifact') or ''}",
+                f"- Role-surface report: {outreach.get('role_surface_artifact') or outreach.get('role_surface_status') or ''}",
+                f"- Cadence report: {outreach.get('cadence_report_artifact') or ''}",
+                f"- Outcome learning: {outreach.get('outcome_learning_artifact') or ''}",
             ]
         )
     outreach_report = summary.get("outreach_daily_report") or {}
@@ -574,7 +686,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--track-2-company-mapping", type=str, default="auto")
     parser.add_argument("--track-2-email-research", type=str, default="auto")
     parser.add_argument("--track-2-context-enrichment", type=str, default="8")
-    parser.add_argument("--track-2-email-drafts", type=str, default="0")
+    parser.add_argument("--track-2-email-drafts", type=str, default="auto")
     parser.add_argument("--track-2-no-network-enrichment", action="store_true")
     return parser.parse_args()
 
@@ -582,6 +694,7 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     with _pipeline_lock(LOCK_PATH):
         args = parse_args()
+        run_started_epoch = time.time()
         failures: list[str] = []
         summary = {
             "created_at": datetime.now().isoformat(timespec="seconds"),
@@ -612,12 +725,20 @@ def main() -> int:
             summary["daily_engine_returncode"] = daily_result.returncode
             if daily_result.returncode != 0:
                 failures.append(f"daily_engine:{daily_result.returncode}")
-            source_metrics = latest("*source-run-metrics.json")
+            source_metrics = latest_since("*source-run-metrics.json", run_started_epoch)
             if source_metrics:
                 summary["source_metrics"] = str(source_metrics)
-        action_queue = latest("*daily-action-queue.json")
+                summary["source_metrics_status"] = "current_run"
+            else:
+                summary["source_metrics_status"] = "missing_current_run"
+                if daily_result.returncode == 0:
+                    failures.append("source_metrics:missing_current_run")
+        action_queue = latest_since("*daily-action-queue.json", run_started_epoch)
         if action_queue:
             summary["action_queue"] = str(action_queue)
+            summary["action_queue_status"] = "current_run"
+        elif not args.skip_daily_engine:
+            summary["action_queue_status"] = "missing_current_run"
         summary["jobspy_metrics"] = _jobspy_metrics(
             Path(str(summary.get("source_metrics") or "")) if summary.get("source_metrics") else None
         )
@@ -637,7 +758,15 @@ def main() -> int:
             print("\nNo jobs selected for generation; skipping jobs.py generate.", flush=True)
 
         if not args.skip_outreach_maintenance:
-            summary["outreach_maintenance"] = _run_outreach_maintenance(args)
+            summary["outreach_maintenance"] = _run_outreach_maintenance(
+                args,
+                source_metrics=(
+                    Path(str(summary["source_metrics"]))
+                    if summary.get("source_metrics")
+                    else None
+                ),
+                run_id=str(summary["created_at"]),
+            )
             for key, value in (summary["outreach_maintenance"] or {}).items():
                 if key.endswith("_returncode") and value not in (0, None):
                     failures.append(f"{key}:{value}")

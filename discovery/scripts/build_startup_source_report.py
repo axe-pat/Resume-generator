@@ -13,10 +13,11 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[2]
 AUTO_DIR = ROOT / "discovery" / "auto"
+SCRIPT_DIR = ROOT / "discovery" / "scripts"
 OUT_DIR = ROOT / "discovery" / "source_validation"
 OUTREACH_ARTIFACTS_DIR = ROOT.parent / "Outreach" / "artifacts"
 
-for path in (ROOT, AUTO_DIR):
+for path in (ROOT, AUTO_DIR, SCRIPT_DIR):
     if str(path) not in sys.path:
         sys.path.insert(0, str(path))
 
@@ -108,11 +109,18 @@ def _classify_startup_apply(
     return rows, dict(discovered_counts), dict(new_counts)
 
 
-def _latest_outreach_artifact(source_id: str, artifacts_dir: Path) -> Path | None:
-    matches = sorted(
-        artifacts_dir.glob(f"*-discover-{source_id}.json"),
-        key=lambda path: path.stat().st_mtime,
-    )
+def _latest_outreach_artifact(
+    source_id: str,
+    artifacts_dir: Path,
+    *,
+    since_epoch: float | None = None,
+) -> Path | None:
+    matches = [
+        path
+        for path in artifacts_dir.glob(f"*-discover-{source_id}.json")
+        if since_epoch is None or path.stat().st_mtime >= since_epoch
+    ]
+    matches.sort(key=lambda path: path.stat().st_mtime)
     return matches[-1] if matches else None
 
 
@@ -171,11 +179,16 @@ def _load_relationship_targets(
     artifacts_dir: Path,
     source_ids: tuple[str, ...],
     limit_per_source: int,
+    artifact_since_epoch: float | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     targets: list[dict[str, Any]] = []
     artifacts: dict[str, Any] = {}
     for source_id in source_ids:
-        artifact = _latest_outreach_artifact(source_id, artifacts_dir)
+        artifact = _latest_outreach_artifact(
+            source_id,
+            artifacts_dir,
+            since_epoch=artifact_since_epoch,
+        )
         if artifact is None:
             artifacts[source_id] = {"artifact": "", "count": 0, "status": "missing"}
             continue
@@ -305,6 +318,17 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--out-dir", type=Path, default=OUT_DIR)
     parser.add_argument("--outreach-artifacts-dir", type=Path, default=OUTREACH_ARTIFACTS_DIR)
     parser.add_argument("--no-relationship-artifacts", action="store_true")
+    parser.add_argument(
+        "--relationship-artifact-since-epoch",
+        type=float,
+        default=None,
+        help="Only ingest relationship discovery artifacts written at or after this run cutoff.",
+    )
+    parser.add_argument(
+        "--no-startup-apply",
+        action="store_true",
+        help="Do not rediscover startup-apply jobs when that source lane was skipped.",
+    )
     parser.add_argument("--relationship-limit-per-source", type=int, default=15)
     return parser.parse_args()
 
@@ -312,13 +336,16 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     include_sources = {value.strip() for value in args.source if value.strip()} or None
-    startup_items, discovered_counts, new_counts = _classify_startup_apply(
-        limit_companies=max(args.limit_companies, 1),
-        limit_jobs=max(args.limit_jobs, 1) if args.limit_jobs is not None else None,
-        include_sources=include_sources,
-        ignore_existing=args.ignore_existing,
-        verbose=not args.quiet,
-    )
+    if args.no_startup_apply:
+        startup_items, discovered_counts, new_counts = [], {}, {}
+    else:
+        startup_items, discovered_counts, new_counts = _classify_startup_apply(
+            limit_companies=max(args.limit_companies, 1),
+            limit_jobs=max(args.limit_jobs, 1) if args.limit_jobs is not None else None,
+            include_sources=include_sources,
+            ignore_existing=args.ignore_existing,
+            verbose=not args.quiet,
+        )
 
     relationship_items: list[dict[str, Any]] = []
     relationship_artifacts: dict[str, Any] = {}
@@ -327,6 +354,7 @@ def main() -> int:
             artifacts_dir=args.outreach_artifacts_dir,
             source_ids=RELATIONSHIP_SOURCE_IDS,
             limit_per_source=max(args.relationship_limit_per_source, 0),
+            artifact_since_epoch=args.relationship_artifact_since_epoch,
         )
 
     payload = {
@@ -337,6 +365,7 @@ def main() -> int:
             "sources": sorted(include_sources) if include_sources else "all",
             "ignore_existing": args.ignore_existing,
             "relationship_artifacts_dir": str(args.outreach_artifacts_dir),
+            "relationship_artifact_since_epoch": args.relationship_artifact_since_epoch,
         },
         "startup_apply": {
             "discovered_counts": discovered_counts,
