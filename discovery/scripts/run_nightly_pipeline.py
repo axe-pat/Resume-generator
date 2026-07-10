@@ -501,23 +501,24 @@ def _load_json(path: Path | None) -> dict:
         return {}
 
 
-def _jobspy_metrics() -> dict:
-    raw = _load_json(_latest_in(LOGS_DIR, "jobspy_breadth_raw_*h_*.json"))
-    breadth = _load_json(_latest_in(SOURCE_VALIDATION_DIR, "*source-breadth-filtered.json"))
-    scored = _load_json(_latest_in(LOGS_DIR, "jobspy_filtered_scored_*.json"))
-    jobspy_bucket = (breadth.get("classified") or {}).get("jobspy_only") or {}
+def _jobspy_metrics(source_metrics_path: Path | None) -> dict:
+    """Return JobSpy metrics recorded by this daily-engine run, never "latest" data."""
+    source_metrics = _load_json(source_metrics_path)
+    jobspy = (source_metrics.get("sources") or {}).get("jobspy") or {}
+    details = jobspy.get("details") or {}
     return {
-        "raw_jobs": raw.get("count") or len(raw.get("jobs") or []),
-        "jobspy_only": (breadth.get("raw_counts") or {}).get("jobspy_only"),
-        "jobspy_app_score_now": len(jobspy_bucket.get("app_score_now") or []),
-        "jobspy_app_review": len(jobspy_bucket.get("app_review") or []),
-        "jobspy_outreach_signal": len(jobspy_bucket.get("outreach_signal") or []),
-        "selected_for_scoring": scored.get("extracted"),
-        "freshly_scored": scored.get("scored"),
-        "existing_skipped": scored.get("existing_skipped"),
-        "cache_skipped": scored.get("cache_skipped"),
-        "accepted_for_write": scored.get("accepted_for_write"),
-        "new_after_dedup": scored.get("new_after_dedup"),
+        "status": jobspy.get("status") or "skipped",
+        "raw_jobs": jobspy.get("raw_count"),
+        "jobspy_only": details.get("jobspy_only"),
+        "jobspy_app_score_now": details.get("app_score_now"),
+        "jobspy_app_review": details.get("app_review"),
+        "jobspy_outreach_signal": details.get("outreach_signal"),
+        "selected_for_scoring": details.get("selected_for_scoring"),
+        "freshly_scored": jobspy.get("freshly_scored_count"),
+        "existing_skipped": details.get("existing_skipped"),
+        "cache_skipped": details.get("cache_skipped"),
+        "accepted_for_write": jobspy.get("accepted_for_write"),
+        "new_after_dedup": details.get("new_after_dedup"),
     }
 
 
@@ -617,7 +618,9 @@ def main() -> int:
         action_queue = latest("*daily-action-queue.json")
         if action_queue:
             summary["action_queue"] = str(action_queue)
-        summary["jobspy_metrics"] = _jobspy_metrics()
+        summary["jobspy_metrics"] = _jobspy_metrics(
+            Path(str(summary.get("source_metrics") or "")) if summary.get("source_metrics") else None
+        )
 
         run(_shortlist_cmd(args))
         shortlist_path = CURRENT_SHORTLIST_JSON if CURRENT_SHORTLIST_JSON.exists() else latest("*generation-shortlist.json")
