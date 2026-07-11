@@ -7,7 +7,6 @@ import hmac
 import json
 import os
 import shutil
-import subprocess
 import sys
 from collections import defaultdict
 from contextlib import contextmanager
@@ -130,14 +129,6 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         ),
     )
     return parser.parse_args(argv)
-
-
-def _sync_applied_pdfs() -> None:
-    subprocess.run(
-        [sys.executable, "discovery/scripts/sync_applied_pdfs.py"],
-        cwd=ROOT,
-        check=True,
-    )
 
 
 def _discovery_manifest_paths() -> list[Path]:
@@ -764,6 +755,13 @@ def _refresh_queue_locked(
     manifest = {
         "created_at": datetime.now().isoformat(timespec="seconds"),
         "queue_type": "current_apply_queue",
+        "applied_pdf_sync": {
+            "status": "skipped_deprecated",
+            "reason": (
+                "Resume.pdf presence never changes application status; use the "
+                "reviewed archive-first lifecycle command"
+            ),
+        },
         "sources": sorted(APPLY_QUEUE_SOURCES),
         "latest_discovery_run": latest_run_name,
         "ready_count": len(ready_entries),
@@ -852,11 +850,9 @@ def main(argv: list[str] | None = None) -> int:
                 QUEUE_LOCK_PATH,
                 label="current apply queue refresh",
             ):
-                # Check before sync_applied_pdfs launches its own locked writer,
-                # so a cockpit refresh never waits behind an active jobs writer.
+                # Queue refresh is purely derived. Resume.pdf presence must never
+                # auto-mark an application applied.
                 _assert_jobs_lock_available()
-                if not args.dry_run:
-                    _sync_applied_pdfs()
                 return _run_refresh(args)
     except (RefreshLockBusy, TimeoutError) as exc:
         print(f"[busy] Queue refresh not started: {exc}", file=sys.stderr)

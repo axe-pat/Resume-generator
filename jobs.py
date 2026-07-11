@@ -39,8 +39,11 @@ Usage examples
   # Review queue
   python jobs.py list --status queued --top 20
 
-  # Override status (e.g. skip a role you don't want)
+  # Override a non-live status (live queue terminal changes fail closed)
   python jobs.py mark --id 55 --status skip
+
+  # Applied/closed transitions must preserve the application artifacts:
+  python discovery/scripts/transition_application.py --id 55 --status applied --dry-run
 
   # Monthly cleanup
   python jobs.py archive --older-than 60
@@ -1257,10 +1260,103 @@ def cmd_pipeline(args):
 # ─────────────────────────────────────────────────────────────────────────────
 # Subcommand: mark
 # ─────────────────────────────────────────────────────────────────────────────
+_LIVE_QUEUE_TERMINAL_GUARDED_STATUSES = {
+    "parked",
+    "rejected",
+    "skip",
+    "skipped",
+}
+
+
+def _path_is_within(path: Path, root: Path) -> bool:
+    try:
+        path.relative_to(root)
+        return True
+    except ValueError:
+        return False
+
+
+def _row_points_to_current_queue(row: pd.Series) -> bool:
+    raw = str(row.get("folder_path") or "").strip()
+    if not raw:
+        return False
+    path = Path(raw).expanduser()
+    queue = CURRENT_APPLY_QUEUE_DIR
+    # Check both the lexical path and the resolved path. The former catches a
+    # temporarily missing queue folder; the latter catches aliases/symlinks.
+    try:
+        if _path_is_within(path.absolute(), queue.absolute()):
+            return True
+        return _path_is_within(path.resolve(), queue.resolve())
+    except OSError:
+        return True
+
+
+def _current_queue_job_ids_for_terminal_guard() -> set[str]:
+    """Load every indexed/physical current-queue id, failing closed on damage."""
+    if not CURRENT_APPLY_QUEUE_DIR.exists():
+        return set()
+    if CURRENT_APPLY_QUEUE_DIR.is_symlink() or not CURRENT_APPLY_QUEUE_DIR.is_dir():
+        raise ValueError("current apply queue is unavailable or unsafe")
+
+    priority_path = CURRENT_APPLY_QUEUE_DIR / "priority_order.json"
+    manifest_path = CURRENT_APPLY_QUEUE_DIR / "manifest.json"
+    if not priority_path.is_file() or not manifest_path.is_file():
+        raise ValueError("current apply queue indexes are incomplete")
+    if priority_path.is_symlink() or manifest_path.is_symlink():
+        raise ValueError("current apply queue indexes cannot be symlinks")
+    try:
+        priority = json.loads(priority_path.read_text(encoding="utf-8"))
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise ValueError("current apply queue indexes are unreadable") from exc
+    if not isinstance(priority, list) or not isinstance(manifest, dict):
+        raise ValueError("current apply queue indexes have invalid shapes")
+    ready = manifest.get("ready_jobs")
+    manual = manifest.get("manual_review_jobs")
+    if not isinstance(ready, list) or not isinstance(manual, list):
+        raise ValueError("current apply queue manifest has invalid job lists")
+
+    ids: set[str] = set()
+    for entry in [*priority, *ready, *manual]:
+        if not isinstance(entry, dict):
+            raise ValueError("current apply queue contains an invalid job entry")
+        row_id = str(entry.get("id") or "").strip()
+        if not row_id:
+            raise ValueError("current apply queue contains a job without an id")
+        ids.add(row_id)
+
+    queue_children = list(CURRENT_APPLY_QUEUE_DIR.rglob("*"))
+    if any(child.is_symlink() for child in queue_children):
+        raise ValueError("current apply queue contains a symlink")
+    for metadata_path in (
+        child for child in queue_children if child.name == "metadata.json"
+    ):
+        if metadata_path.is_symlink() or not metadata_path.is_file():
+            raise ValueError("current apply queue contains unsafe metadata")
+        try:
+            metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+            raise ValueError("current apply queue metadata is unreadable") from exc
+        if not isinstance(metadata, dict):
+            raise ValueError("current apply queue metadata has an invalid shape")
+        row_id = str(metadata.get("id") or "").strip()
+        if not row_id:
+            raise ValueError("current apply queue metadata has no job id")
+        ids.add(row_id)
+    return ids
+
+
 def cmd_mark(args):
     valid_statuses = {"queued", "promoted", "generated", "applied", "closed", "parked", "rejected", "skip", "skipped"}
     if args.status not in valid_statuses:
         sys.exit(f"[ERROR] Invalid status '{args.status}'. Choose from: {valid_statuses}")
+    if args.status in {"applied", "closed"}:
+        sys.exit(
+            "[ERROR] jobs.py mark cannot safely set applied/closed. Use "
+            "discovery/scripts/transition_application.py so generated artifacts "
+            "are archived before the tracker changes."
+        )
 
     ids = {str(i).strip() for i in args.id.split(",")}
 
@@ -1269,6 +1365,33 @@ def cmd_mark(args):
         mask = df["id"].astype(str).isin(ids)
         if not mask.any():
             sys.exit(f"[ERROR] No rows found with id(s): {ids}")
+
+        if args.status in _LIVE_QUEUE_TERMINAL_GUARDED_STATUSES:
+            try:
+                live_queue_ids = _current_queue_job_ids_for_terminal_guard()
+            except ValueError as exc:
+                sys.exit(
+                    "[ERROR] Refusing terminal status change because the current "
+                    f"apply queue cannot be proven safe: {exc}"
+                )
+            target_rows = df[mask]
+            live_rows = target_rows.apply(
+                lambda row: (
+                    _row_id(row) in live_queue_ids
+                    or _row_points_to_current_queue(row)
+                ),
+                axis=1,
+            )
+            if live_rows.any():
+                blocked_ids = sorted(
+                    target_rows.loc[live_rows, "id"].astype(str).str.strip().tolist()
+                )
+                sys.exit(
+                    "[ERROR] Refusing tracker-only terminal status change for "
+                    f"live current-queue job id(s): {', '.join(blocked_ids)}. "
+                    "Archive the application artifacts through the reviewed "
+                    "lifecycle flow first."
+                )
 
         df.loc[mask, "status"] = args.status
         if not args.dry_run:

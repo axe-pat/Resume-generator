@@ -29,7 +29,7 @@ apply_assist/                 (supervised, manual trigger)
 
 You                           (every ~12h)
   ↓  open apps/<Company>/ dirs, review resume, generate CL only if needed
-  ↓  python jobs.py mark --id 42 --status applied
+  ↓  transition_application.py archives artifacts, then marks applied/closed
 ```
 
 ---
@@ -243,11 +243,15 @@ python run_app.py Stripe --no-smart-cost     # disable fit-score-based model/pas
 python run_app.py McKinsey --track nonpm     # uses freeform_master_nonpm.txt
 python run_app.py McKinsey --track nonpm --resume-only
 
-# Mark a job after applying
-python jobs.py mark --id 42 --status applied
+# Preview, then archive and mark a reviewed application as applied
+venv/bin/python discovery/scripts/transition_application.py \
+  --id 42 --status applied --dry-run --json
+venv/bin/python discovery/scripts/transition_application.py \
+  --id 42 --status applied --confirm "APPLY 42" --json
 
-# Skip a role you don't want to apply to
-python jobs.py mark --id 55 --status skip
+# Close a live queue role without applying
+venv/bin/python discovery/scripts/transition_application.py \
+  --id 55 --status not-applied --confirm "CLOSE 55" --json
 
 # Re-sort and re-apply full xlsx formatting without changing any data
 python jobs.py sort

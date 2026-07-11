@@ -112,11 +112,23 @@ python run_app.py McKinsey --track nonpm --resume-only
 ## After applying
 
 ```bash
-# Mark as applied (manual step — never automated)
-python jobs.py mark --id 42 --status applied
+# Preview, then archive the complete application and update the tracker
+venv/bin/python discovery/scripts/transition_application.py \
+  --id 42 --status applied --dry-run --json
+venv/bin/python discovery/scripts/transition_application.py \
+  --id 42 --status applied --confirm "APPLY 42" --json
 
-# Skip a role you've decided not to apply to
-python jobs.py mark --id 55 --status skip
+# Close without applying after review
+venv/bin/python discovery/scripts/transition_application.py \
+  --id 42 --status not-applied --confirm "CLOSE 42" --json
+
+# Tracker-only skip remains available only for a row proven not to be live
+python jobs.py mark --id 55 --status skip --dry-run
 ```
 
-Terminal statuses (`applied`, `rejected`, `skip`) are never touched by automation.
+`jobs.py mark` rejects `applied` and `closed`. It also rejects
+`parked/rejected/skip/skipped` when the ID, metadata, or folder path is still in
+the live queue: a tracker-only terminal change can make queue refresh drop the
+only generated files. The lifecycle command archives first, updates all queue
+indexes and `jobs.xlsx` under locks, and rolls back the whole operation on
+failure. See `docs/APPLICATION_LIFECYCLE.md`.

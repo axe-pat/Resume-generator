@@ -175,10 +175,6 @@ def _clear_generated_queue_cmd() -> list[object]:
     return [PYTHON, "discovery/scripts/archive_current_generated_queue.py"]
 
 
-def _sync_applied_pdfs_cmd() -> list[object]:
-    return [PYTHON, "discovery/scripts/sync_applied_pdfs.py"]
-
-
 def _shortlist_cmd(args: argparse.Namespace) -> list[object]:
     return [
         PYTHON,
@@ -440,6 +436,9 @@ def _run_outreach_maintenance(
     summary: dict[str, object] = {
         "ran": True,
         "cycle_config": args.cycle_config,
+        "track_2_linkedin_delivery_requested": bool(
+            getattr(args, "track_2_send_linkedin", False)
+        ),
         "strategic_accounts_artifact": "",
         "account_universe_import": "",
         "website_resolution_artifact": "",
@@ -694,7 +693,6 @@ def _run_outreach_maintenance(
             "--execute",
             "--live-linkedin",
             "--refresh-linkedin",
-            "--send-linkedin",
             "--max-total-actions",
             _track_2_total_actions(args),
             "--max-companies",
@@ -712,6 +710,8 @@ def _run_outreach_maintenance(
             "--max-email-drafts",
             _track_2_email_draft_target(args),
         )
+        if getattr(args, "track_2_send_linkedin", False):
+            track_2_cmd.append("--send-linkedin")
         if args.track_2_no_network_enrichment:
             track_2_cmd.append("--no-network-enrichment")
         result = _run_capture_print(
@@ -1147,7 +1147,19 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--execute-track-2-daily-plan",
         action="store_true",
-        help="Execute the bounded Outreach Track 2 daily plan after rebuilding the tracker.",
+        help=(
+            "Execute the bounded Outreach Track 2 preparation/drafting plan after "
+            "rebuilding the tracker. LinkedIn delivery remains off unless "
+            "--track-2-send-linkedin is also supplied."
+        ),
+    )
+    parser.add_argument(
+        "--track-2-send-linkedin",
+        action="store_true",
+        help=(
+            "Explicitly allow Track 2 LinkedIn delivery. Omit for live refresh, "
+            "planning, enrichment, and drafts without sending."
+        ),
     )
     parser.add_argument("--track-2-total-actions", type=str, default="auto")
     parser.add_argument("--track-2-companies", type=str, default="auto")
@@ -1185,6 +1197,7 @@ def _initial_summary(
         "action_queue": "",
         "action_queue_status": "skipped" if args.skip_daily_engine else "not_started",
         "applied_pdfs_synced": False,
+        "applied_pdf_sync_status": "skipped_deprecated_manual_review_required",
         "generated_queue_cleared": False,
         "generated_queue_archived": False,
         "generation_ran": False,
@@ -1246,8 +1259,12 @@ def _run_pipeline_body(
             "run_daily_engine.py standalone for the direct lane."
         )
 
-    run(_sync_applied_pdfs_cmd())
-    summary["applied_pdfs_synced"] = True
+    # Resume.pdf only proves a local file exists. It must never be interpreted as
+    # proof that an application was submitted.
+    summary["applied_pdfs_synced"] = False
+    summary["applied_pdf_sync_status"] = (
+        "skipped_deprecated_manual_review_required"
+    )
 
     if args.archive_generated_before_run and not args.skip_clear_generated_queue:
         run(_clear_generated_queue_cmd())

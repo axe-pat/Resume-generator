@@ -283,10 +283,14 @@ Generation policy:
 - Daily generation cap: `10`
 
 Scheduled LinkedIn inbox/follow-up ownership is deliberately singular: Track 2
-owns refresh, reconciliation, cadence selection, and sends. The nightly wrapper
-always passes `--skip-linkedin-followups` to the Daily Engine, then invokes the
-bounded Track 2 plan with `--refresh-linkedin`, `--send-linkedin`, and the cycle's
-follow-up limit. The deprecated nightly `--execute-linkedin-followups` flag is
+owns refresh, reconciliation, cadence selection, and optional sends. The nightly
+wrapper always passes `--skip-linkedin-followups` to the Daily Engine, then
+invokes the bounded Track 2 plan with `--refresh-linkedin` and the cycle's
+follow-up limit.
+It adds `--send-linkedin` only when the separate nightly
+`--track-2-send-linkedin` flag is present. This lets the operator run the full
+live preparation/draft flow without delivery. The deprecated nightly
+`--execute-linkedin-followups` flag is
 rejected before pipeline side effects begin. Use `run_daily_engine.py` directly
 only when intentionally operating the standalone supervised lane; never run both
 lanes for the same scheduled run.
@@ -363,6 +367,8 @@ venv/bin/python discovery/scripts/production_release.py check
 Then install the unattended 1:00am LaunchAgent:
 
 ```bash
+# Add --track-2-send-linkedin only after explicitly reviewing/authorizing
+# scheduled LinkedIn delivery. Omitting it preserves prep/drafts with no send.
 RESUMEGEN_NIGHTLY_ARGS="--cycle-config offcycle_light --generate ..." \
 RESUMEGEN_NIGHTLY_LOAD=1 \
 ./discovery/scripts/install_nightly_launch_agent.sh 01:00

@@ -523,8 +523,11 @@ Current steady-state structure:
 Useful maintenance commands:
 
 ```bash
-# Mark any folder containing Resume.pdf as applied, update jobs.xlsx, and archive it
+# Deprecated report-only scanner; never moves files or changes tracker status
 python discovery/scripts/sync_applied_pdfs.py
+
+# Safely preview one reviewed applied/closed outcome before committing it
+python discovery/scripts/transition_application.py --id 1949 --status applied --dry-run --json
 
 # Rebuild the single live apply inbox from jobs.xlsx
 python discovery/scripts/refresh_current_apply_queue.py
@@ -539,10 +542,18 @@ python discovery/scripts/consolidate_apply_surfaces.py
 Recommended post-apply rhythm:
 
 ```bash
-python discovery/scripts/sync_applied_pdfs.py
-python discovery/scripts/refresh_current_apply_queue.py
+python discovery/scripts/transition_application.py --id 1949 --status applied --confirm "APPLY 1949"
 python discovery/scripts/refresh_forgotten_queue.py
 ```
+
+The transition command already updates the current-queue indexes. It archives
+the complete application directory before changing `jobs.xlsx`, keeps a
+rollback journal, and rejects ambiguous or concurrent mutations. See
+`docs/APPLICATION_LIFECYCLE.md`.
+
+Nightly, Daily Engine, and queue refresh all report legacy PDF sync as
+`skipped_deprecated`. A local `Resume.pdf` proves only that a file exists; it is
+never treated as evidence that the user submitted the application.
 
 Recommended post-discovery rhythm:
 

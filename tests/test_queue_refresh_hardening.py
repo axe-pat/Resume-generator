@@ -138,11 +138,7 @@ def test_help_exits_before_any_refresh_side_effect(monkeypatch) -> None:
     module = _load_script(
         "refresh_current_apply_queue.py", "queue_refresh_help_contract_test"
     )
-    monkeypatch.setattr(
-        module,
-        "_sync_applied_pdfs",
-        lambda: pytest.fail("--help must not sync applied PDFs"),
-    )
+    assert not hasattr(module, "_sync_applied_pdfs")
     monkeypatch.setattr(
         module,
         "_run_refresh",
@@ -167,11 +163,7 @@ def test_dry_run_leaves_tracker_and_live_queue_unchanged(
     company_dir = paths["APPS_DIR"] / "Acme"
     company_dir.mkdir()
     (company_dir / "user-file.txt").write_text("keep", encoding="utf-8")
-    monkeypatch.setattr(
-        module,
-        "_sync_applied_pdfs",
-        lambda: pytest.fail("dry-run must not sync applied PDFs"),
-    )
+    assert not hasattr(module, "_sync_applied_pdfs")
     monkeypatch.setattr(
         module.jobs,
         "save_jobs",
@@ -227,7 +219,7 @@ def test_tracker_read_modify_write_stays_inside_one_jobs_lock(
     monkeypatch.setattr(module.jobs, "XlsxLock", TrackingLock)
     monkeypatch.setattr(module.pd, "read_excel", locked_read_excel)
     monkeypatch.setattr(module.jobs, "save_jobs", locked_save_jobs)
-    monkeypatch.setattr(module, "_sync_applied_pdfs", lambda: events.append("sync"))
+    assert not hasattr(module, "_sync_applied_pdfs")
 
     assert module.main([]) == 0
 
@@ -242,7 +234,16 @@ def test_tracker_read_modify_write_stays_inside_one_jobs_lock(
         if event.endswith(":exit")
     )
     assert active_enter < events.index("read") < events.index("save") < active_exit
-    assert (paths["QUEUE_DIR"] / "manifest.json").is_file()
+    manifest_path = paths["QUEUE_DIR"] / "manifest.json"
+    assert manifest_path.is_file()
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert manifest["applied_pdf_sync"] == {
+        "status": "skipped_deprecated",
+        "reason": (
+            "Resume.pdf presence never changes application status; use the "
+            "reviewed archive-first lifecycle command"
+        ),
+    }
     assert (
         paths["APPLY_QUEUES_DIR"]
         / ".current_apply_queue_prev"
@@ -264,11 +265,7 @@ def test_busy_queue_lock_fails_before_tracker_or_sync(
         "_assert_jobs_lock_available",
         lambda: pytest.fail("busy queue must fail before tracker access"),
     )
-    monkeypatch.setattr(
-        module,
-        "_sync_applied_pdfs",
-        lambda: pytest.fail("busy queue must fail before applied sync"),
-    )
+    assert not hasattr(module, "_sync_applied_pdfs")
 
     with _held_lock(queue_lock):
         assert module.main([]) == module.LOCK_BUSY_EXIT_CODE

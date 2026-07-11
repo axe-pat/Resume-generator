@@ -15,7 +15,8 @@ to clean `main` commits.
 3. Merge the verified changes to each repo's `main` branch.
 4. Confirm the production code paths are clean. Runtime data under workspace,
    reports, and ignored artifacts is not part of the source-code cleanliness
-   check.
+   check. ResumeGenerator's protected paths include `apply_assist/`, so the
+   fill-to-review runner cannot become production through an unattested edit.
 5. Record the exact tested HEADs with `production_release.py record`, including
    concise test evidence.
 6. Run `production_release.py check`, then install/reload the LaunchAgent.
@@ -52,6 +53,18 @@ return code `124` and `status: timed_out` with an explicit failure message, and
 still finalizes the nightly summary, exact manifest, and report. Use
 `--track-2-timeout-seconds 0` only for an explicitly supervised diagnostic run;
 never blindly retry a timed-out live run before reconciling partial artifacts.
+
+`--execute-track-2-daily-plan` runs live refresh, planning, enrichment, and
+draft creation but does not deliver LinkedIn messages by itself. Delivery
+requires the separate `--track-2-send-linkedin` flag. A production LaunchAgent
+that is intentionally authorized to retain the prior bounded-send behavior
+must include that flag in `RESUMEGEN_NIGHTLY_ARGS` when it is reviewed and
+reinstalled; do not edit the loaded plist as an incidental code-release step.
+
+The production nightly, Daily Engine, and current-queue refresh paths never run
+`sync_applied_pdfs.py`. Each reports that legacy lane as
+`skipped_deprecated`; the presence of `Resume.pdf` is not submission evidence
+and cannot mutate application status.
 
 The scheduled guard exits before the pipeline when either repo is not on `main`,
 a protected code path is dirty, an attestation is missing, or HEAD differs from

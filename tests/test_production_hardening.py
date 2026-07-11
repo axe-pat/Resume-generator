@@ -9,6 +9,7 @@ import sys
 from contextlib import contextmanager
 from types import SimpleNamespace
 
+import pandas as pd
 import pytest
 
 
@@ -190,11 +191,55 @@ def test_track_2_is_the_scheduled_refresh_and_followup_owner(monkeypatch) -> Non
 
     track_2 = next(command for command in captured if "run-track-2-daily-plan" in command)
     assert "--refresh-linkedin" in track_2
-    assert "--send-linkedin" in track_2
+    assert "--send-linkedin" not in track_2
     assert track_2[track_2.index("--max-linkedin-followups") + 1] == "25"
+    assert summary["track_2_linkedin_delivery_requested"] is False
     assert summary["track_2_daily_run_status"] == "failed_missing_artifact"
     assert summary["track_2_artifact_validation_returncode"] == 1
     assert "did not emit a readable" in summary["track_2_daily_run_failure"]
+
+
+def test_track_2_linkedin_delivery_requires_the_explicit_send_flag(monkeypatch) -> None:
+    module = _load_script("run_nightly_pipeline.py", "nightly_track2_send_gate_test")
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "run_nightly_pipeline.py",
+            "--skip-linkedin",
+            "--skip-company-news",
+            "--execute-track-2-daily-plan",
+            "--track-2-send-linkedin",
+            "--outreach-resolve-limit",
+            "0",
+            "--outreach-enrich-limit",
+            "0",
+        ],
+    )
+    args = module.parse_args()
+    captured: list[list[str]] = []
+
+    def fake_capture(command, **kwargs):
+        normalized = [str(part) for part in command]
+        captured.append(normalized)
+        result = _completed(command)
+        setattr(result, "timed_out", False)
+        return result
+
+    monkeypatch.setattr(module, "_run_capture_print", fake_capture)
+
+    summary = module._run_outreach_maintenance(args, run_id="run-1")
+
+    track_2 = next(command for command in captured if "run-track-2-daily-plan" in command)
+    assert track_2.count("--send-linkedin") == 1
+    assert summary["track_2_linkedin_delivery_requested"] is True
+
+
+def test_track_2_send_flag_defaults_off(monkeypatch) -> None:
+    module = _load_script("run_nightly_pipeline.py", "nightly_track2_send_default_test")
+    monkeypatch.setattr(sys, "argv", ["run_nightly_pipeline.py"])
+
+    assert module.parse_args().track_2_send_linkedin is False
 
 
 def test_daily_timeout_terminates_the_subprocess_group(tmp_path: Path, monkeypatch) -> None:
@@ -390,11 +435,7 @@ def test_failed_direct_send_does_not_erase_the_draft_pointer(
 
 def test_direct_followup_execution_cannot_be_silently_skipped(monkeypatch) -> None:
     module = _load_script("run_daily_engine.py", "daily_followup_flag_guard_test")
-    monkeypatch.setattr(
-        module,
-        "sync_applied_pdfs",
-        lambda: pytest.fail("guard must run before pipeline side effects"),
-    )
+    assert not hasattr(module, "sync_applied_pdfs")
     args = SimpleNamespace(
         execute_sends=False,
         parallel_generation_outreach=False,
@@ -407,6 +448,93 @@ def test_direct_followup_execution_cannot_be_silently_skipped(monkeypatch) -> No
             args,
             {"run_started_at": "2026-07-11T01:00:00"},
         )
+
+
+def test_daily_engine_has_no_pdf_presence_status_mutation_path() -> None:
+    module = _load_script("run_daily_engine.py", "daily_no_pdf_auto_apply_test")
+
+    assert not hasattr(module, "sync_applied_pdfs")
+    assert "sync_applied_pdfs" not in module._run_daily_engine.__code__.co_names
+    assert module.applied_pdf_status_report() == {
+        "status": "skipped_deprecated",
+        "mutated": False,
+        "reason": (
+            "Resume.pdf presence is not proof of submission; applied/closed "
+            "status requires the reviewed archive-first lifecycle command"
+        ),
+    }
+
+
+def test_legacy_applied_pdf_scanner_is_report_only(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    module = _load_script("sync_applied_pdfs.py", "pdf_scanner_report_only_test")
+    root = tmp_path / "ResumeGenerator"
+    apps = root / "apps"
+    role = apps / "Apply queues" / "current_apply_queue" / "jobs" / "Acme" / "PM"
+    role.mkdir(parents=True)
+    pdf = role / "Resume.pdf"
+    pdf.write_bytes(b"legacy marker")
+    monkeypatch.setattr(module, "ROOT", root)
+    monkeypatch.setattr(module, "APPS_DIR", apps)
+    before = pdf.read_bytes()
+
+    assert module.main(["--json"]) == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["status"] == "skipped_deprecated"
+    assert payload["mutated"] is False
+    assert payload["candidate_count"] == 1
+    assert pdf.read_bytes() == before
+
+
+def test_archived_pdf_reconciliation_never_marks_applied(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    module = _load_script(
+        "reconcile_active_statuses.py", "archived_pdf_no_auto_apply_test"
+    )
+    archive = tmp_path / "apps" / "archive" / "applied"
+    archived_role = archive / "2026-07-12" / "Acme" / "Market_Research_Analyst"
+    archived_role.mkdir(parents=True)
+    (archived_role / "Resume.pdf").write_bytes(b"legacy marker")
+    current_queue = tmp_path / "apps" / "Apply queues" / "current_apply_queue"
+    current_queue.mkdir(parents=True)
+    frame = pd.DataFrame(
+        [
+            {
+                "id": "42",
+                "company": "Acme",
+                "role_title": "Market Research Analyst",
+                "status": "generated",
+                "date_applied": "",
+                "folder_path": str(tmp_path / "missing-role"),
+                "notes": "",
+            }
+        ]
+    )
+    saved: list[pd.DataFrame] = []
+
+    class NoopLock:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return None
+
+    monkeypatch.setattr(module, "ARCHIVE_APPLIED_DIR", archive)
+    monkeypatch.setattr(module, "CURRENT_QUEUE_ROOT", current_queue.resolve())
+    monkeypatch.setattr(module.jobs, "XlsxLock", NoopLock)
+    monkeypatch.setattr(module.jobs, "load_jobs", lambda: frame.copy())
+    monkeypatch.setattr(module.jobs, "save_jobs", lambda value: saved.append(value.copy()))
+
+    assert module.main() == 0
+
+    output = capsys.readouterr().out
+    assert "requiring review: 1" in output
+    assert "automatically: 0" in output
+    assert saved == []
+    assert frame.iloc[0]["status"] == "generated"
 
 
 def test_daily_manifest_records_exact_typed_action_artifacts(
@@ -926,6 +1054,7 @@ def test_nightly_binds_summary_to_exact_daily_manifest(
 
     def fake_run(cmd, **kwargs):
         normalized = [str(item) for item in cmd]
+        assert not any(item.endswith("sync_applied_pdfs.py") for item in normalized)
         if any(item.endswith("run_daily_engine.py") for item in normalized):
             assert normalized[normalized.index("--run-id") + 1] == run_id
             module.daily_engine_manifest_path(run_id).write_text(
@@ -985,6 +1114,17 @@ def test_nightly_binds_summary_to_exact_daily_manifest(
     )
     assert summary["source_metrics"] == str(source_metrics)
     assert summary["action_queue"] == str(action_queue)
+    assert summary["applied_pdfs_synced"] is False
+    assert summary["applied_pdf_sync_status"] == (
+        "skipped_deprecated_manual_review_required"
+    )
+
+
+def test_nightly_has_no_pdf_presence_status_mutation_command() -> None:
+    module = _load_script("run_nightly_pipeline.py", "nightly_no_pdf_auto_apply_test")
+
+    assert not hasattr(module, "_sync_applied_pdfs_cmd")
+    assert "sync_applied_pdfs.py" not in module._run_pipeline_body.__code__.co_consts
 
 
 def test_nightly_augments_manifest_with_exact_track_2_run_and_phases(
@@ -1630,6 +1770,46 @@ def test_production_attestation_requires_clean_main_and_exact_tested_heads(
     )
     with pytest.raises(
         module.ProductionReleaseError, match="does not match tested SHA"
+    ):
+        module.validate_attestation(
+            path=attestation,
+            resume_root=resume,
+            outreach_root=outreach,
+        )
+
+
+def test_production_attestation_protects_apply_assist_code(tmp_path: Path) -> None:
+    module = _load_script(
+        "production_release.py", "production_release_apply_assist_test"
+    )
+    resume = tmp_path / "resume"
+    outreach = tmp_path / "outreach"
+    _init_repo(resume, "jobs.py")
+    _init_repo(outreach, "main.py")
+    apply_runner = resume / "apply_assist" / "rtrvr_apply_runner.py"
+    apply_runner.parent.mkdir(parents=True)
+    apply_runner.write_text("print('review only')\n", encoding="utf-8")
+    subprocess.run(["git", "add", "apply_assist"], cwd=resume, check=True)
+    subprocess.run(
+        ["git", "commit", "-m", "add apply assist"],
+        cwd=resume,
+        check=True,
+        capture_output=True,
+    )
+    attestation = tmp_path / "production_release.json"
+
+    payload = module.record_attestation(
+        path=attestation,
+        resume_root=resume,
+        outreach_root=outreach,
+        test_evidence=["review-only apply-assist tests passed"],
+    )
+
+    protected = payload["repositories"]["resume_generator"]["code_paths"]
+    assert "apply_assist" in protected
+    apply_runner.write_text("print('untested change')\n", encoding="utf-8")
+    with pytest.raises(
+        module.ProductionReleaseError, match="apply_assist/rtrvr_apply_runner.py"
     ):
         module.validate_attestation(
             path=attestation,

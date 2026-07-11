@@ -20,6 +20,7 @@ DEFAULT_ATTESTATION_PATH = APP_SUPPORT / "production_release.json"
 RESUME_CODE_PATHS = (
     "discovery/scripts",
     "discovery/auto",
+    "apply_assist",
     "jobs.py",
     "pyproject.toml",
     "requirements.txt",

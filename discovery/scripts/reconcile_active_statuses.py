@@ -16,7 +16,6 @@ ARCHIVE_APPLIED_DIR = jobs.APPS_DIR / "archive" / "applied"
 CURRENT_QUEUE_ROOT = jobs.CURRENT_APPLY_QUEUE_DIR.resolve()
 PDF_PATTERN = re.compile(r"\.pdf$", re.I)
 PARK_NOTE_PREFIX = "[cleanup] parked stale active row"
-APPLY_NOTE_PREFIX = "[cleanup] reconciled applied from archived pdf"
 
 
 def _norm(text: str) -> str:
@@ -114,7 +113,7 @@ def main() -> int:
         target_mask = statuses.isin(["promoted", "generated"])
 
         parked_count = 0
-        applied_count = 0
+        applied_review_count = 0
 
         for idx, row in df[target_mask].iterrows():
             status = str(row.get("status") or "").strip().lower()
@@ -131,14 +130,10 @@ def main() -> int:
                 )
 
             if archive_match is not None:
-                df.at[idx, "status"] = "applied"
-                df.at[idx, "date_applied"] = archive_match["date_applied"]
-                df.at[idx, "folder_path"] = str(archive_match["dir"])
-                df.at[idx, "notes"] = _append_note(
-                    row.get("notes") or "",
-                    f"{APPLY_NOTE_PREFIX} at {timestamp}",
-                )
-                applied_count += 1
+                # Archived PDF presence is useful review evidence, but it is not
+                # proof that the user submitted the application. Leave the row
+                # untouched for an explicit lifecycle transition.
+                applied_review_count += 1
                 continue
 
             df.at[idx, "status"] = "parked"
@@ -148,9 +143,11 @@ def main() -> int:
             )
             parked_count += 1
 
-        jobs.save_jobs(df)
+        if parked_count:
+            jobs.save_jobs(df)
 
-    print(f"Reconciled to applied: {applied_count}")
+    print(f"Archived-PDF applied candidates requiring review: {applied_review_count}")
+    print("Reconciled to applied automatically: 0 (deprecated)")
     print(f"Parked stale active rows: {parked_count}")
     return 0
 
