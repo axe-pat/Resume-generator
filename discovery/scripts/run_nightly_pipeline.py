@@ -5,6 +5,7 @@ import argparse
 import fcntl
 import json
 import os
+import secrets
 import signal
 import subprocess
 import sys
@@ -25,6 +26,8 @@ OUTREACH_ROOT = ROOT.parent / "Outreach"
 OUTREACH_PYTHON = OUTREACH_ROOT / ".venv" / "bin" / "python"
 APP_SUPPORT = Path.home() / "Library" / "Application Support" / "ResumeGenerator"
 LOCK_PATH = APP_SUPPORT / "nightly_pipeline.lock"
+OPERATOR_MUTATION_LOCK_PATH = APP_SUPPORT / "operator_mutation.lock"
+NIGHTLY_LOCK_TOKEN_ENV = "RESUMEGEN_NIGHTLY_LOCK_TOKEN"
 
 APP_QUEUE_SEND_TARGET_BY_CYCLE = {
     "offcycle_light": "5",
@@ -93,7 +96,38 @@ def _pipeline_lock(path: Path):
         except BlockingIOError:
             print(f"Nightly pipeline already running; lock held at {path}", flush=True)
             raise SystemExit(75)
-        yield
+        try:
+            os.fchmod(fh.fileno(), 0o600)
+        except OSError:
+            pass
+        token = secrets.token_urlsafe(32)
+        fh.write(json.dumps({"pid": os.getpid(), "token": token}))
+        fh.flush()
+        previous_token = os.environ.get(NIGHTLY_LOCK_TOKEN_ENV)
+        os.environ[NIGHTLY_LOCK_TOKEN_ENV] = token
+        try:
+            yield
+        finally:
+            if previous_token is None:
+                os.environ.pop(NIGHTLY_LOCK_TOKEN_ENV, None)
+            else:
+                os.environ[NIGHTLY_LOCK_TOKEN_ENV] = previous_token
+
+
+@contextmanager
+def _operator_mutation_lock(path: Path):
+    """Serialize all production writers with Product cockpit mutations."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a+") as handle:
+        try:
+            os.fchmod(handle.fileno(), 0o600)
+        except OSError:
+            pass
+        fcntl.flock(handle, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(handle, fcntl.LOCK_UN)
 
 
 def _daily_engine_cmd(args: argparse.Namespace, *, run_id: str = "") -> list[object]:
@@ -845,12 +879,86 @@ def _write_summary(summary: dict, path: Path | None = None) -> Path:
 def _value_from_output(output: str, label: str) -> str:
     needle = f"{label}:"
     for line in output.splitlines():
-        if needle in line:
-            return line.split(needle, 1)[1].strip()
+        stripped = line.strip()
+        if stripped.startswith(needle):
+            return stripped[len(needle) :].strip()
     return ""
 
 
-def _write_outreach_daily_report(summary_path: Path, since: str) -> dict[str, object]:
+def _validate_outreach_report_binding(
+    report: dict[str, object],
+    *,
+    summary_path: Path,
+    since: str,
+    run_id: str,
+) -> list[str]:
+    def same_file(left: Path | None, right: Path | None) -> bool:
+        if left is None or right is None:
+            return False
+        try:
+            return left.samefile(right)
+        except OSError:
+            return left.resolve(strict=False) == right.resolve(strict=False)
+
+    errors: list[str] = []
+    stem = f"{run_id}-daily-run-report"
+    expected_names = {
+        "summary_artifact": f"{stem}.json",
+        "daily_report": f"{stem}.md",
+        "html_report_artifact": f"{stem}.html",
+        "html_report": f"{stem}.html",
+    }
+    resolved: dict[str, Path] = {}
+    for key, expected_name in expected_names.items():
+        path = _resolve_outreach_artifact(report.get(key))
+        if path is None:
+            errors.append(f"{key}:missing")
+            continue
+        resolved[key] = path
+        report[key] = str(path)
+        if path.name != expected_name:
+            errors.append(f"{key}:expected_filename={expected_name}:actual={path.name}")
+        if not path.is_file():
+            errors.append(f"{key}:missing_file={path}")
+
+    summary_artifact = resolved.get("summary_artifact")
+    payload = _load_json(summary_artifact)
+    if summary_artifact is not None and not payload:
+        errors.append("summary_artifact:invalid_or_empty_json")
+    if payload:
+        if str(payload.get("run_id") or "") != run_id:
+            errors.append("summary_artifact:run_id_mismatch")
+        if str(payload.get("report_mode") or "") != "run_scoped":
+            errors.append("summary_artifact:report_mode_not_run_scoped")
+        if str(payload.get("since") or "") != since:
+            errors.append("summary_artifact:since_mismatch")
+        report_summary_path = _resolve_outreach_artifact(payload.get("nightly_summary"))
+        if not same_file(report_summary_path, summary_path):
+            errors.append("summary_artifact:nightly_summary_mismatch")
+
+    for key in ("daily_report", "html_report_artifact"):
+        path = resolved.get(key)
+        if path is None or not path.is_file():
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+        except OSError:
+            errors.append(f"{key}:unreadable")
+            continue
+        if run_id not in text:
+            errors.append(f"{key}:run_id_missing_from_content")
+    if not same_file(
+        resolved.get("html_report"), resolved.get("html_report_artifact")
+    ):
+        errors.append("html_report:not_exact_artifact")
+    return errors
+
+
+def _write_outreach_daily_report(
+    summary_path: Path,
+    since: str,
+    run_id: str,
+) -> dict[str, object]:
     result = _run_capture_print(
         _outreach_cmd(
             "write-daily-run-report",
@@ -860,10 +968,12 @@ def _write_outreach_daily_report(summary_path: Path, since: str) -> dict[str, ob
             since,
             "--nightly-summary",
             summary_path,
+            "--run-id",
+            run_id,
         ),
         cwd=OUTREACH_ROOT,
     )
-    return {
+    report = {
         "returncode": result.returncode,
         "summary_artifact": _value_from_output(result.stdout, "Summary artifact"),
         "daily_report": _value_from_output(result.stdout, "Daily report"),
@@ -872,6 +982,18 @@ def _write_outreach_daily_report(summary_path: Path, since: str) -> dict[str, ob
         ),
         "html_report": _value_from_output(result.stdout, "HTML report"),
     }
+    if result.returncode == 0:
+        binding_errors = _validate_outreach_report_binding(
+            report,
+            summary_path=summary_path,
+            since=since,
+            run_id=run_id,
+        )
+        if binding_errors:
+            report["producer_returncode"] = result.returncode
+            report["returncode"] = 2
+            report["binding_error"] = "; ".join(binding_errors)
+    return report
 
 
 def _latest_in(directory: Path, pattern: str) -> Path | None:
@@ -1544,6 +1666,7 @@ def _finalize_summary_and_report(
         report_summary = _write_outreach_daily_report(
             summary_path,
             str(summary["created_at"]),
+            str(summary["run_id"]),
         )
     except BaseException as exc:
         report_summary = {
@@ -1587,13 +1710,18 @@ def main() -> int:
             "returncode": returncode,
             "argv": sys.argv[1:],
         }
-        _finalize_summary_and_report(
-            summary=summary,
-            failures=[f"argument_parse:{returncode}"],
-            summary_path=summary_path,
-        )
+        with _pipeline_lock(LOCK_PATH), _operator_mutation_lock(
+            OPERATOR_MUTATION_LOCK_PATH
+        ):
+            _finalize_summary_and_report(
+                summary=summary,
+                failures=[f"argument_parse:{returncode}"],
+                summary_path=summary_path,
+            )
         return returncode
-    with _pipeline_lock(LOCK_PATH):
+    with _pipeline_lock(LOCK_PATH), _operator_mutation_lock(
+        OPERATOR_MUTATION_LOCK_PATH
+    ):
         failures: list[str] = []
         summary = _initial_summary(args, created_at=created_at, run_id=run_id)
         exception_returncode = 0

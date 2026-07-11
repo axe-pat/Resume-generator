@@ -52,8 +52,25 @@ production merely because it exists in the shared checkout.
   `~/Library/Application Support/ResumeGenerator/production_release.json`
 - Scheduler state:
   `~/Library/Application Support/ResumeGenerator/nightly_scheduler_state.json`
+- Shared cockpit mutation lock:
+  `~/Library/Application Support/ResumeGenerator/operator_mutation.lock`
 - Timestamped logs: `~/Library/Logs/ResumeGenerator/`
 - Nightly summaries: `discovery/source_validation/*-nightly-pipeline-summary.json`
 - Daily manifests: `discovery/source_validation/*-daily-engine-run-manifest.json`
 - Final HTML report:
   `../Outreach/workspace/reports/daily_html/daily_run_report.html`
+
+The pipeline owns `nightly_pipeline.lock` first and then holds the shared
+cockpit mutation lock for the whole run. A guarded cockpit write that already
+owns the shared lock finishes before nightly proceeds; a new cockpit write
+fails closed once the pipeline lock is busy.
+
+Legacy terminal summaries whose successful report was named by completion time
+can be rebound without rerunning report logic or touching mutable latest
+mirrors:
+
+```bash
+venv/bin/python discovery/scripts/repair_outreach_report_binding.py \
+  --summary discovery/source_validation/<run-id>-nightly-pipeline-summary.json
+# Review the preview, then repeat with --apply.
+```

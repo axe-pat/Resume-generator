@@ -1,13 +1,19 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import argparse
+import fcntl
+import hmac
 import json
+import os
 import shutil
 import subprocess
 import sys
 from collections import defaultdict
+from contextlib import contextmanager
 from datetime import date, datetime
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 import pandas as pd
 
@@ -34,10 +40,96 @@ ARCHIVE_DIR = APPS_DIR / "archive"
 DISCOVERY_ARCHIVE_DIR = ARCHIVE_DIR / "discovery_runs"
 QUEUE_DIR = APPLY_QUEUES_DIR / "current_apply_queue"
 QUEUE_TMP_DIR = APPLY_QUEUES_DIR / ".current_apply_queue_tmp"
+QUEUE_LOCK_PATH = APPLY_QUEUES_DIR / ".current_apply_queue.lock"
 JOBS_DIR = QUEUE_DIR / "jobs"
 MANUAL_DIR = QUEUE_DIR / "manual_review"
 JOBS_XLSX = ROOT / "discovery" / "jobs.xlsx"
+NIGHTLY_LOCK_PATH = (
+    Path.home()
+    / "Library"
+    / "Application Support"
+    / "ResumeGenerator"
+    / "nightly_pipeline.lock"
+)
+NIGHTLY_LOCK_TOKEN_ENV = "RESUMEGEN_NIGHTLY_LOCK_TOKEN"
 ACTIVE_GENERATED_ARCHIVE_DAYS = 10
+LOCK_BUSY_EXIT_CODE = 75
+
+
+class RefreshLockBusy(RuntimeError):
+    """Raised when another producer owns a refresh dependency lock."""
+
+
+@contextmanager
+def _advisory_lock(path: Path, *, label: str, shared: bool = False):
+    """Acquire a non-blocking advisory lock and retain it for the context."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a+") as fh:
+        try:
+            os.fchmod(fh.fileno(), 0o600)
+        except OSError:
+            pass
+        operation = fcntl.LOCK_SH if shared else fcntl.LOCK_EX
+        try:
+            fcntl.flock(fh, operation | fcntl.LOCK_NB)
+        except BlockingIOError as exc:
+            raise RefreshLockBusy(f"{label} lock is busy: {path}") from exc
+        try:
+            yield
+        finally:
+            fcntl.flock(fh, fcntl.LOCK_UN)
+
+
+def _has_inherited_nightly_lock_token(path: Path) -> bool:
+    inherited = os.environ.get(NIGHTLY_LOCK_TOKEN_ENV, "").strip()
+    if not inherited:
+        return False
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False
+    recorded = str(payload.get("token") or "").strip()
+    return bool(recorded) and hmac.compare_digest(inherited, recorded)
+
+
+@contextmanager
+def _nightly_refresh_guard():
+    """Block standalone refreshes during nightly while allowing its own children."""
+    lock_context = _advisory_lock(
+        NIGHTLY_LOCK_PATH,
+        label="nightly pipeline",
+        shared=True,
+    )
+    try:
+        lock_context.__enter__()
+    except RefreshLockBusy:
+        # run_nightly_pipeline.py writes a per-run token into the locked file and
+        # exports the same token to descendants. This permits the two intentional
+        # refreshes in run_linkedin_discovery.sh without letting an unrelated
+        # cockpit process bypass the production lock merely with a CLI flag.
+        if not _has_inherited_nightly_lock_token(NIGHTLY_LOCK_PATH):
+            raise
+        yield
+        return
+    try:
+        yield
+    finally:
+        lock_context.__exit__(None, None, None)
+
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Rebuild the derived current apply queue safely."
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help=(
+            "Build and validate a disposable queue preview without syncing applied "
+            "PDFs, writing jobs.xlsx, swapping queue directories, or deleting app dirs."
+        ),
+    )
+    return parser.parse_args(argv)
 
 
 def _sync_applied_pdfs() -> None:
@@ -168,11 +260,11 @@ def _move_tree_contents(src: Path, dst: Path) -> None:
         pass
 
 
-def _normalize_tmp_queue_path(path_str: str) -> str:
+def _normalize_staging_queue_path(path_str: str, staging_dir: Path) -> str:
     raw = str(path_str or "").strip()
     if not raw:
         return raw
-    return raw.replace(str(QUEUE_TMP_DIR), str(QUEUE_DIR))
+    return raw.replace(str(staging_dir), str(QUEUE_DIR))
 
 
 def _archived_queue_metadata_index() -> dict[str, list[Path]]:
@@ -278,19 +370,46 @@ def _cleanup_redundant_top_level_dirs(entries: list[dict]) -> list[Path]:
     return removed
 
 
-def _update_folder_paths(entries: list[dict]) -> None:
+def _update_folder_paths_locked(
+    tracker_df: pd.DataFrame,
+    entries: list[dict],
+    *,
+    dry_run: bool,
+) -> int:
+    """Update tracker paths while the caller retains jobs.XlsxLock."""
     if not entries:
-        return
-    df = pd.read_excel(JOBS_XLSX, sheet_name="Jobs", dtype=str).fillna("")
+        return 0
+    changed = 0
     for entry in entries:
         row_id = str(entry.get("id") or "").strip()
         folder_path = str(entry.get("folder_path") or "").strip()
         if not row_id or not folder_path:
             continue
-        mask = df["id"].astype(str) == row_id
+        mask = tracker_df["id"].astype(str) == row_id
         if mask.any():
-            df.loc[mask, "folder_path"] = folder_path
-    jobs.save_jobs(df)
+            current_paths = tracker_df.loc[mask, "folder_path"].fillna("").astype(str)
+            changed += int((current_paths != folder_path).sum())
+            tracker_df.loc[mask, "folder_path"] = folder_path
+    if changed and not dry_run:
+        jobs.save_jobs(tracker_df)
+    return changed
+
+
+def _swap_queue(staging_dir: Path) -> None:
+    """Atomically replace the live queue, restoring it if promotion fails."""
+    backup_dir = APPLY_QUEUES_DIR / ".current_apply_queue_prev"
+    moved_current = False
+    if backup_dir.exists():
+        shutil.rmtree(backup_dir)
+    if QUEUE_DIR.exists():
+        QUEUE_DIR.rename(backup_dir)
+        moved_current = True
+    try:
+        staging_dir.rename(QUEUE_DIR)
+    except BaseException:
+        if moved_current and backup_dir.exists() and not QUEUE_DIR.exists():
+            backup_dir.rename(QUEUE_DIR)
+        raise
 
 
 def _load_manual_queue_entries() -> list[dict]:
@@ -413,9 +532,13 @@ def _is_inactive_queue_row(row: pd.Series) -> bool:
     return False
 
 
-def main() -> int:
-    _sync_applied_pdfs()
-
+def _refresh_queue_locked(
+    args: argparse.Namespace,
+    *,
+    tracker_df: pd.DataFrame,
+    staging_dir: Path,
+) -> int:
+    """Build a queue from a tracker snapshot while jobs.XlsxLock is held."""
     latest_manifest_path, latest_manifest = _latest_discovery_manifest()
     latest_run_name = latest_manifest_path.parent.name if latest_manifest_path else ""
     latest_urls = {
@@ -424,7 +547,7 @@ def main() -> int:
         if str(job.get("url") or "").strip()
     }
 
-    df = pd.read_excel(JOBS_XLSX, sheet_name="Jobs", dtype=str).fillna("")
+    df = tracker_df.copy()
     df = df[df["source"].isin(APPLY_QUEUE_SOURCES)].copy()
     df["fit_score_num"] = pd.to_numeric(df["fit_score"], errors="coerce")
     df = df[df["status"].isin(["queued", "promoted", "generated"])]
@@ -449,10 +572,8 @@ def main() -> int:
     queue_metadata_index = _archived_queue_metadata_index()
     top_level_company_index = _archived_top_level_company_index()
 
-    if QUEUE_TMP_DIR.exists():
-        shutil.rmtree(QUEUE_TMP_DIR)
-    temp_jobs_dir = QUEUE_TMP_DIR / "jobs"
-    temp_manual_dir = QUEUE_TMP_DIR / "manual_review"
+    temp_jobs_dir = staging_dir / "jobs"
+    temp_manual_dir = staging_dir / "manual_review"
     temp_jobs_dir.mkdir(parents=True, exist_ok=True)
     temp_manual_dir.mkdir(parents=True, exist_ok=True)
 
@@ -581,16 +702,22 @@ def main() -> int:
         entry["priority_rank"] = priority_rank
 
     for entry in ready_entries + manual_entries:
-        entry["folder_path"] = _normalize_tmp_queue_path(str(entry.get("folder_path") or ""))
+        entry["folder_path"] = _normalize_staging_queue_path(
+            str(entry.get("folder_path") or ""), staging_dir
+        )
 
-    _update_folder_paths(ready_entries + manual_entries)
+    folder_path_changes = _update_folder_paths_locked(
+        tracker_df,
+        ready_entries + manual_entries,
+        dry_run=args.dry_run,
+    )
 
-    priority_txt = QUEUE_TMP_DIR / "priority_order.txt"
-    priority_json = QUEUE_TMP_DIR / "priority_order.json"
-    latest_txt = QUEUE_TMP_DIR / "latest_run_jobs.txt"
-    carry_txt = QUEUE_TMP_DIR / "carry_over_jobs.txt"
-    manual_txt = QUEUE_TMP_DIR / "manual_review.txt"
-    command_sh = QUEUE_TMP_DIR / "generate_command.sh"
+    priority_txt = staging_dir / "priority_order.txt"
+    priority_json = staging_dir / "priority_order.json"
+    latest_txt = staging_dir / "latest_run_jobs.txt"
+    carry_txt = staging_dir / "carry_over_jobs.txt"
+    manual_txt = staging_dir / "manual_review.txt"
+    command_sh = staging_dir / "generate_command.sh"
     final_priority_txt = QUEUE_DIR / "priority_order.txt"
     final_priority_json = QUEUE_DIR / "priority_order.json"
     final_latest_txt = QUEUE_DIR / "latest_run_jobs.txt"
@@ -623,7 +750,6 @@ def main() -> int:
         encoding="utf-8",
     )
 
-    companies_to_generate = [entry for entry in ready_entries if str(entry.get("status") or "").lower() != "generated"]
     script_lines = [
         "#!/usr/bin/env bash",
         "set -euo pipefail",
@@ -652,24 +778,89 @@ def main() -> int:
             "generate_command": str(final_command_sh),
         },
     }
-    (QUEUE_TMP_DIR / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    (staging_dir / "manifest.json").write_text(
+        json.dumps(manifest, indent=2), encoding="utf-8"
+    )
 
-    if QUEUE_DIR.exists():
-        backup_dir = APPLY_QUEUES_DIR / ".current_apply_queue_prev"
-        if backup_dir.exists():
-            shutil.rmtree(backup_dir)
-        QUEUE_DIR.rename(backup_dir)
-    QUEUE_TMP_DIR.rename(QUEUE_DIR)
-    removed_dirs = _cleanup_redundant_top_level_dirs(ready_entries + manual_entries)
+    removed_dirs: list[Path] = []
+    if not args.dry_run:
+        _swap_queue(staging_dir)
+        removed_dirs = _cleanup_redundant_top_level_dirs(
+            ready_entries + manual_entries
+        )
 
-    print(f"Queue: {QUEUE_DIR}")
+    print(f"Queue: {QUEUE_DIR}{' [dry-run preview]' if args.dry_run else ''}")
     print(f"Latest discovery run: {latest_run_name or 'none'}")
     print(f"Ready jobs: {len(ready_entries)}")
     print(f"Manual review jobs: {len(manual_entries)}")
+    print(f"Tracker folder paths to update: {folder_path_changes}")
     if removed_dirs:
         print(f"Removed redundant top-level app dirs: {len(removed_dirs)}")
     print(f"Generate command: bash {final_command_sh}")
+    if args.dry_run:
+        print(
+            "[dry-run] No applied-PDF sync, tracker write, queue swap, or app-dir "
+            "cleanup was performed."
+        )
     return 0
+
+
+def _assert_jobs_lock_available() -> None:
+    """Probe the tracker lock without waiting or mutating the workbook."""
+    with jobs.XlsxLock(timeout=0):
+        pass
+
+
+def _run_refresh(args: argparse.Namespace) -> int:
+    if args.dry_run:
+        with TemporaryDirectory(prefix="resumegen-queue-preview-") as temp_dir:
+            with jobs.XlsxLock(timeout=0):
+                tracker_df = pd.read_excel(
+                    JOBS_XLSX, sheet_name="Jobs", dtype=str
+                ).fillna("")
+                return _refresh_queue_locked(
+                    args,
+                    tracker_df=tracker_df,
+                    staging_dir=Path(temp_dir),
+                )
+
+    if QUEUE_TMP_DIR.exists():
+        shutil.rmtree(QUEUE_TMP_DIR)
+    QUEUE_TMP_DIR.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        with jobs.XlsxLock(timeout=0):
+            tracker_df = pd.read_excel(
+                JOBS_XLSX, sheet_name="Jobs", dtype=str
+            ).fillna("")
+            return _refresh_queue_locked(
+                args,
+                tracker_df=tracker_df,
+                staging_dir=QUEUE_TMP_DIR,
+            )
+    finally:
+        # A successful swap renames the staging directory. On any earlier
+        # failure, remove the incomplete preview without disturbing live/prev.
+        if QUEUE_TMP_DIR.exists():
+            shutil.rmtree(QUEUE_TMP_DIR)
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv)
+    try:
+        with _nightly_refresh_guard():
+            with _advisory_lock(
+                QUEUE_LOCK_PATH,
+                label="current apply queue refresh",
+            ):
+                # Check before sync_applied_pdfs launches its own locked writer,
+                # so a cockpit refresh never waits behind an active jobs writer.
+                _assert_jobs_lock_available()
+                if not args.dry_run:
+                    _sync_applied_pdfs()
+                return _run_refresh(args)
+    except (RefreshLockBusy, TimeoutError) as exc:
+        print(f"[busy] Queue refresh not started: {exc}", file=sys.stderr)
+        return LOCK_BUSY_EXIT_CODE
 
 
 if __name__ == "__main__":

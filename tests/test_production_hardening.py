@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+from contextlib import contextmanager
 from types import SimpleNamespace
 
 import pytest
@@ -1077,6 +1078,9 @@ def test_nightly_failure_still_writes_summary_and_attempts_report(
     module = _load_script("run_nightly_pipeline.py", "nightly_finalization_test")
     monkeypatch.setattr(module, "SOURCE_VALIDATION_DIR", tmp_path / "validation")
     monkeypatch.setattr(module, "LOCK_PATH", tmp_path / "nightly.lock")
+    monkeypatch.setattr(
+        module, "OPERATOR_MUTATION_LOCK_PATH", tmp_path / "operator_mutation.lock"
+    )
     args = SimpleNamespace(
         skip_daily_engine=False,
         generation_dry_run=False,
@@ -1091,10 +1095,10 @@ def test_nightly_failure_still_writes_summary_and_attempts_report(
             subprocess.CalledProcessError(9, ["boom"])
         ),
     )
-    report_calls: list[Path] = []
+    report_calls: list[tuple[Path, str, str]] = []
 
-    def fake_report(summary_path: Path, since: str):
-        report_calls.append(summary_path)
+    def fake_report(summary_path: Path, since: str, run_id: str):
+        report_calls.append((summary_path, since, run_id))
         return {"returncode": 0, "html_report": "/tmp/report.html"}
 
     monkeypatch.setattr(module, "_write_outreach_daily_report", fake_report)
@@ -1106,7 +1110,122 @@ def test_nightly_failure_still_writes_summary_and_attempts_report(
     assert payload["status"] == "failed"
     assert payload["pipeline_exception"]["returncode"] == 9
     assert "pipeline_exception:CalledProcessError:9" in payload["failures"]
-    assert report_calls == summaries
+    assert [call[0] for call in report_calls] == summaries
+    assert report_calls[0][1] == payload["created_at"]
+    assert report_calls[0][2] == payload["run_id"]
+
+
+def test_nightly_report_writer_passes_run_id_and_accepts_only_exact_binding(
+    tmp_path: Path, monkeypatch
+) -> None:
+    module = _load_script("run_nightly_pipeline.py", "nightly_report_binding_test")
+    outreach = tmp_path / "Outreach"
+    monkeypatch.setattr(module, "OUTREACH_ROOT", outreach)
+    run_id = "20260711-150851"
+    since = "2026-07-11T15:08:51"
+    summary_path = tmp_path / f"{run_id}-nightly-pipeline-summary.json"
+    summary_path.write_text(json.dumps({"run_id": run_id}), encoding="utf-8")
+    report_dir = outreach / "workspace" / "reports"
+    html_dir = report_dir / "daily_html"
+    report_dir.mkdir(parents=True)
+    html_dir.mkdir(parents=True)
+    summary_artifact = report_dir / f"{run_id}-daily-run-report.json"
+    markdown = report_dir / f"{run_id}-daily-run-report.md"
+    html = html_dir / f"{run_id}-daily-run-report.html"
+    summary_artifact.write_text(
+        json.dumps(
+            {
+                "run_id": run_id,
+                "report_mode": "run_scoped",
+                "since": since,
+                "nightly_summary": str(summary_path),
+                "run_status": "failed_or_incomplete",
+                "track_2_execution": {"status": "partial_failed"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    markdown.write_text(f"# Daily report\n\nRun ID: `{run_id}`\n", encoding="utf-8")
+    html.write_text(f"<p>Run ID {run_id}</p>", encoding="utf-8")
+    latest_html = html_dir / "daily_run_report.html"
+    latest_html.write_text("latest mirror", encoding="utf-8")
+    stdout = "\n".join(
+        [
+            f"Latest HTML report: {latest_html}",
+            f"Summary artifact: {summary_artifact}",
+            f"Daily report: {markdown}",
+            f"HTML report artifact: {html}",
+            f"HTML report: {html}",
+        ]
+    )
+    captured: list[list[object]] = []
+
+    def fake_run(cmd: list[object], *, cwd: Path):
+        captured.append(cmd)
+        assert cwd == outreach
+        return _completed(cmd, stdout=stdout)
+
+    monkeypatch.setattr(module, "_run_capture_print", fake_run)
+
+    result = module._write_outreach_daily_report(summary_path, since, run_id)
+
+    assert result["returncode"] == 0
+    assert result["html_report"] == str(html.resolve())
+    assert result["summary_artifact"] == str(summary_artifact.resolve())
+    assert captured[0][captured[0].index("--run-id") + 1] == run_id
+    assert result.get("binding_error") is None
+
+
+def test_nightly_report_writer_rejects_timestamp_named_report(
+    tmp_path: Path, monkeypatch
+) -> None:
+    module = _load_script("run_nightly_pipeline.py", "nightly_report_rejection_test")
+    outreach = tmp_path / "Outreach"
+    monkeypatch.setattr(module, "OUTREACH_ROOT", outreach)
+    run_id = "20260711-150851"
+    since = "2026-07-11T15:08:51"
+    summary_path = tmp_path / f"{run_id}-nightly-pipeline-summary.json"
+    summary_path.write_text(json.dumps({"run_id": run_id}), encoding="utf-8")
+    report_dir = outreach / "workspace" / "reports"
+    html_dir = report_dir / "daily_html"
+    report_dir.mkdir(parents=True)
+    html_dir.mkdir(parents=True)
+    old_stem = "20260711-173446-daily-run-report"
+    summary_artifact = report_dir / f"{old_stem}.json"
+    markdown = report_dir / f"{old_stem}.md"
+    html = html_dir / f"{old_stem}.html"
+    summary_artifact.write_text(
+        json.dumps(
+            {
+                "report_mode": "run_scoped",
+                "since": since,
+                "nightly_summary": str(summary_path),
+            }
+        ),
+        encoding="utf-8",
+    )
+    markdown.write_text("old timestamp report", encoding="utf-8")
+    html.write_text("old timestamp report", encoding="utf-8")
+    stdout = "\n".join(
+        [
+            f"Summary artifact: {summary_artifact}",
+            f"Daily report: {markdown}",
+            f"HTML report artifact: {html}",
+            f"HTML report: {html}",
+        ]
+    )
+    monkeypatch.setattr(
+        module,
+        "_run_capture_print",
+        lambda cmd, *, cwd: _completed(cmd, stdout=stdout),
+    )
+
+    result = module._write_outreach_daily_report(summary_path, since, run_id)
+
+    assert result["producer_returncode"] == 0
+    assert result["returncode"] == 2
+    assert "expected_filename=20260711-150851-daily-run-report.json" in result["binding_error"]
+    assert "run_id_mismatch" in result["binding_error"]
 
 
 def test_nightly_argument_failure_still_writes_summary_and_attempts_report(
@@ -1116,13 +1235,17 @@ def test_nightly_argument_failure_still_writes_summary_and_attempts_report(
         "run_nightly_pipeline.py", "nightly_argument_finalization_test"
     )
     monkeypatch.setattr(module, "SOURCE_VALIDATION_DIR", tmp_path / "validation")
+    monkeypatch.setattr(module, "LOCK_PATH", tmp_path / "nightly.lock")
+    monkeypatch.setattr(
+        module, "OPERATOR_MUTATION_LOCK_PATH", tmp_path / "operator_mutation.lock"
+    )
     monkeypatch.setattr(
         module, "parse_args", lambda: (_ for _ in ()).throw(SystemExit(2))
     )
-    report_calls: list[Path] = []
+    report_calls: list[tuple[Path, str, str]] = []
 
-    def fake_report(summary_path: Path, since: str):
-        report_calls.append(summary_path)
+    def fake_report(summary_path: Path, since: str, run_id: str):
+        report_calls.append((summary_path, since, run_id))
         return {"returncode": 0, "html_report": "/tmp/report.html"}
 
     monkeypatch.setattr(module, "_write_outreach_daily_report", fake_report)
@@ -1134,7 +1257,77 @@ def test_nightly_argument_failure_still_writes_summary_and_attempts_report(
     assert payload["status"] == "failed"
     assert payload["argument_parse_failure"]["returncode"] == 2
     assert payload["failures"] == ["argument_parse:2"]
-    assert report_calls == summaries
+    assert [call[0] for call in report_calls] == summaries
+    assert report_calls[0][1] == payload["created_at"]
+    assert report_calls[0][2] == payload["run_id"]
+
+
+def test_nightly_holds_operator_mutation_lock_inside_pipeline_lock(
+    tmp_path: Path, monkeypatch
+) -> None:
+    module = _load_script("run_nightly_pipeline.py", "nightly_lock_order_test")
+    assert module.OPERATOR_MUTATION_LOCK_PATH == (
+        module.APP_SUPPORT / "operator_mutation.lock"
+    )
+    nightly_lock = tmp_path / "nightly_pipeline.lock"
+    operator_lock = tmp_path / "operator_mutation.lock"
+    monkeypatch.setattr(module, "LOCK_PATH", nightly_lock)
+    monkeypatch.setattr(module, "OPERATOR_MUTATION_LOCK_PATH", operator_lock)
+    args = SimpleNamespace(
+        skip_daily_engine=True,
+        generation_dry_run=False,
+        cycle_config="offcycle_light",
+        target_sends="auto",
+    )
+    monkeypatch.setattr(module, "parse_args", lambda: args)
+    monkeypatch.setattr(
+        module,
+        "_initial_summary",
+        lambda *a, **kw: {"created_at": kw["created_at"], "run_id": kw["run_id"]},
+    )
+    events: list[str] = []
+
+    @contextmanager
+    def fake_pipeline_lock(path: Path):
+        assert path == nightly_lock
+        events.append("pipeline_enter")
+        try:
+            yield
+        finally:
+            events.append("pipeline_exit")
+
+    @contextmanager
+    def fake_operator_lock(path: Path):
+        assert path == operator_lock
+        assert events == ["pipeline_enter"]
+        events.append("operator_enter")
+        try:
+            yield
+        finally:
+            events.append("operator_exit")
+
+    monkeypatch.setattr(module, "_pipeline_lock", fake_pipeline_lock)
+    monkeypatch.setattr(module, "_operator_mutation_lock", fake_operator_lock)
+    monkeypatch.setattr(
+        module,
+        "_run_pipeline_body",
+        lambda *a, **kw: events.append("pipeline_body"),
+    )
+    monkeypatch.setattr(
+        module,
+        "_finalize_summary_and_report",
+        lambda **kw: events.append("finalize"),
+    )
+
+    assert module.main() == 0
+    assert events == [
+        "pipeline_enter",
+        "operator_enter",
+        "pipeline_body",
+        "finalize",
+        "operator_exit",
+        "pipeline_exit",
+    ]
 
 
 def test_scheduler_is_unattended_by_default_and_records_timestamped_log(
