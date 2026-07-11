@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import sys
 from collections import Counter
 from dataclasses import asdict, dataclass
 from datetime import datetime
@@ -13,8 +14,6 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[2]
 LOGS_DIR = ROOT / "discovery" / "auto" / "logs"
 OUT_DIR = ROOT / "discovery" / "source_validation"
-
-import sys
 
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
@@ -34,10 +33,27 @@ EARLY_SIGNAL_RE = re.compile(
     re.I,
 )
 
+NARROW_GROWTH_TITLE_RE = re.compile(
+    r"\b(?:"
+    r"growth\s+(?:strateg(?:y|ic)|ops|operations|product)|"
+    r"product\s+growth|"
+    r"user\s+growth\s+(?:strateg(?:y|ic)|ops|operations|project)|"
+    r"(?:strateg(?:y|ic)|ops|operations)\s*(?:&|and)\s*growth|"
+    r"growth\s*(?:&|and)\s*(?:strateg(?:y|ic)|ops|operations)"
+    r")\b",
+    re.I,
+)
+GENERIC_GROWTH_TITLE_RE = re.compile(r"\bgrowth\b", re.I)
+GROWTH_COMMERCIAL_EXCLUSION_RE = re.compile(
+    r"\b(?:sales|marketing|business development|partnerships?)\b",
+    re.I,
+)
+
 TARGET_SIGNAL_PATTERNS = [
     ("product_intern", re.compile(r"\b(product (?:manager|management|owner|ops|operations|strategy|strategist|solutions?)|pm)\b", re.I)),
     ("ai_product", re.compile(r"\b(ai|genai|ml|data)\s+product\b|\bproduct.*\b(ai|genai|ml|data)\b", re.I)),
-    ("strategy_ops", re.compile(r"\b(strategy|strategic|business operations|bizops|biz ops|growth|gtm|revenue operations|revops)\b", re.I)),
+    ("growth_strategy_ops", NARROW_GROWTH_TITLE_RE),
+    ("strategy_ops", re.compile(r"\b(strategy|strategic|business operations|bizops|biz ops|gtm|revenue operations|revops)\b", re.I)),
     ("program_ops", re.compile(r"\b(program manager|technical program manager|operations project|special project)\b", re.I)),
     ("startup_operator", re.compile(r"\b(chief of staff|founder'?s associate|founding operator|business associate|venture|new ventures)\b", re.I)),
 ]
@@ -113,7 +129,7 @@ LARGE_COMPANY_GENERIC_RE = re.compile(
 
 NOISE_TITLE_RE = re.compile(
     r"\b("
-    r"product marketing manager|marketing manager|sales manager|account executive|"
+    r"product marketing manager|marketing product manager|marketing manager|sales manager|account executive|"
     r"customer success|recruiter|talent acquisition|software engineer|data scientist|"
     r"solutions architect|legal|counsel|human resources|hr intern"
     r")\b",
@@ -231,6 +247,27 @@ def classify_job(job: dict[str, Any], source_bucket: str) -> ClassifiedJob:
 
     if source_bucket == "jobspy_only" and JOBSPY_NOISE_TITLE_RE.search(title):
         return _classified("skip_noise", source_bucket, job, ["JobSpy noisy title pattern"])
+
+    if NARROW_GROWTH_TITLE_RE.search(title) and GROWTH_COMMERCIAL_EXCLUSION_RE.search(title):
+        return _classified(
+            "skip_noise",
+            source_bucket,
+            job,
+            ["Growth title is sales, marketing, business-development, or partnerships led"],
+        )
+
+    product_title_signal = bool({"product_intern", "ai_product"}.intersection(title_signals))
+    if (
+        GENERIC_GROWTH_TITLE_RE.search(title)
+        and not NARROW_GROWTH_TITLE_RE.search(title)
+        and not product_title_signal
+    ):
+        return _classified(
+            "skip_noise",
+            source_bucket,
+            job,
+            ["Generic growth title without product, strategy, or operations scope"],
+        )
 
     if SENIORITY_REJECT_RE.search(title) and not early_signal:
         return _classified("skip_noise", source_bucket, job, ["Senior/full-time level signal without early-career signal"])

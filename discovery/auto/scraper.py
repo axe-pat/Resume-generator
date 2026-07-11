@@ -1,7 +1,7 @@
 """
 scraper.py — Job Discovery via JobSpy
 --------------------------------------
-Queries LinkedIn + Indeed across 6 role clusters every run.
+Queries LinkedIn + Indeed across configured role clusters every run.
 Returns a list of deduplicated job dicts ready for the pipeline.
 
 Deduplication:
@@ -169,14 +169,22 @@ QUERIES = [
     },
     {
         "id":          "mba_product_strategy_intern",
-        "search_term": "MBA Product Strategy Intern",
-        "covers":      ["MBA Product Strategy Intern", "Product Strategy MBA Intern"],
+        "search_term": "Product Strategy Intern",
+        "covers":      ["Product Strategy Intern", "MBA Product Strategy Intern",
+                        "Product Strategy MBA Intern", "Product Strategist Intern"],
         "role_type":   "Strategy",
     },
     {
         "id":          "ai_strategy_ops_intern",
         "search_term": "AI Strategy Operations Intern",
         "covers":      ["AI Strategy & Operations Intern", "AI Ops Strategy Intern"],
+        "role_type":   "Strategy",
+    },
+    {
+        "id":          "growth_strategy_intern",
+        "search_term": "Growth Strategy Intern",
+        "covers":      ["Growth Strategy Intern", "User Growth Strategy Intern",
+                        "Growth Strategy & Operations Intern"],
         "role_type":   "Strategy",
     },
 ]
@@ -370,7 +378,7 @@ def run_query(query: dict, hours_old: int = DEFAULT_HOURS_OLD,
 
         if df is None or df.empty:
             if verbose:
-                print(f"    → 0 results")
+                print("    → 0 results")
             return []
 
         skipped_raw_noise = 0

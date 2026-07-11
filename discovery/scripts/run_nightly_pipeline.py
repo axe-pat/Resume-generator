@@ -259,6 +259,72 @@ def _artifact_from_output(output: str) -> str:
     return ""
 
 
+def _labeled_path_from_output(output: str, label: str) -> str:
+    prefix = f"{label}:"
+    for line in output.splitlines():
+        if line.startswith(prefix):
+            return line.split(":", 1)[1].strip()
+    return ""
+
+
+def _resolve_outreach_output_path(value: str) -> Path | None:
+    if not value.strip():
+        return None
+    path = Path(value).expanduser()
+    if not path.is_absolute():
+        path = OUTREACH_ROOT / path
+    return path.resolve(strict=False)
+
+
+def _run_shared_discovery_queue(action_queue: Path) -> dict[str, object]:
+    """Build the cross-repo queue from one exact current-run action artifact."""
+
+    result = _run_capture_print(
+        [
+            OUTREACH_PYTHON,
+            "-m",
+            "outreach.shared_discovery",
+            "--action-queue",
+            action_queue,
+            "--workspace",
+            "workspace",
+            "--output-dir",
+            "workspace/shared_discovery",
+            "--limit",
+            "50",
+        ],
+        cwd=OUTREACH_ROOT,
+    )
+    json_path = _resolve_outreach_output_path(
+        _labeled_path_from_output(result.stdout, "JSON")
+    )
+    csv_path = _resolve_outreach_output_path(
+        _labeled_path_from_output(result.stdout, "CSV")
+    )
+    if result.returncode != 0:
+        status = "failed_command"
+    elif json_path is None or csv_path is None:
+        status = "failed_missing_artifact_paths"
+    elif not json_path.is_file() or not csv_path.is_file():
+        status = "failed_missing_artifacts"
+    else:
+        status = "completed"
+    return {
+        "returncode": result.returncode,
+        "status": status,
+        "json": str(json_path or ""),
+        "csv": str(csv_path or ""),
+    }
+
+
+def _nonzero_returncode_failures(summary: dict[str, object]) -> list[str]:
+    return [
+        f"{key}:{value}"
+        for key, value in summary.items()
+        if key.endswith("_returncode") and value not in (0, None)
+    ]
+
+
 def _run_outreach_maintenance(
     args: argparse.Namespace,
     *,
@@ -277,6 +343,7 @@ def _run_outreach_maintenance(
         "campaign_plan_artifact": "",
         "track_2_daily_run_artifact": "",
         "linkedin_intelligence_artifact": "",
+        "company_news_artifact": "",
         "company_discovery_artifact": "",
         "role_surface_artifact": "",
         "cadence_report_artifact": "",
@@ -324,8 +391,42 @@ def _run_outreach_maintenance(
         summary["linkedin_intelligence_returncode"] = None
         summary["linkedin_intelligence_status"] = "skipped"
 
+    if not getattr(args, "skip_company_news", False):
+        result = _run_capture_print(
+            _outreach_cmd(
+                "capture-company-news",
+                "--workspace",
+                "workspace",
+                "--run-id",
+                run_id or "nightly",
+            ),
+            cwd=OUTREACH_ROOT,
+        )
+        summary["company_news_returncode"] = result.returncode
+        company_news_path = _resolve_outreach_output_path(
+            _artifact_from_output(result.stdout)
+        )
+        summary["company_news_artifact"] = str(company_news_path or "")
+        if result.returncode != 0:
+            summary["company_news_status"] = "failed_command"
+            summary["company_news_validation_returncode"] = None
+        elif company_news_path is None:
+            summary["company_news_status"] = "failed_missing_artifact_path"
+            summary["company_news_validation_returncode"] = 1
+        elif not company_news_path.is_file():
+            summary["company_news_status"] = "failed_missing_artifact"
+            summary["company_news_validation_returncode"] = 1
+        else:
+            summary["company_news_status"] = "completed"
+            summary["company_news_validation_returncode"] = 0
+    else:
+        summary["company_news_returncode"] = None
+        summary["company_news_validation_returncode"] = None
+        summary["company_news_status"] = "skipped"
+
     linkedin_capture_artifact = str(summary.get("linkedin_intelligence_artifact") or "")
-    if linkedin_capture_artifact or source_metrics:
+    company_news_artifact = str(summary.get("company_news_artifact") or "")
+    if linkedin_capture_artifact or company_news_artifact or source_metrics:
         company_discovery_cmd = _outreach_cmd(
             "build-company-discovery-review",
             "--workspace",
@@ -339,6 +440,10 @@ def _run_outreach_maintenance(
             )
         if source_metrics:
             company_discovery_cmd.extend(["--source-metrics", source_metrics])
+        if company_news_artifact:
+            company_discovery_cmd.extend(
+                ["--news-capture-artifact", company_news_artifact]
+            )
         result = _run_capture_print(
             company_discovery_cmd,
             cwd=OUTREACH_ROOT,
@@ -527,10 +632,23 @@ def _write_summary(summary: dict, path: Path | None = None) -> Path:
                 f"- Campaign plan: {outreach.get('campaign_plan_artifact') or ''}",
                 f"- Track 2 daily run: {outreach.get('track_2_daily_run_artifact') or ''}",
                 f"- LinkedIn feed/profile signals: {outreach.get('linkedin_intelligence_artifact') or outreach.get('linkedin_intelligence_status') or ''}",
+                f"- Company/news signals: {outreach.get('company_news_artifact') or outreach.get('company_news_status') or ''}",
                 f"- Company discovery review: {outreach.get('company_discovery_artifact') or ''}",
                 f"- Role-surface report: {outreach.get('role_surface_artifact') or outreach.get('role_surface_status') or ''}",
                 f"- Cadence report: {outreach.get('cadence_report_artifact') or ''}",
                 f"- Outcome learning: {outreach.get('outcome_learning_artifact') or ''}",
+            ]
+        )
+    shared_queue = summary.get("shared_discovery_queue") or {}
+    if shared_queue:
+        lines.extend(
+            [
+                "",
+                "## Shared Discovery Queue",
+                "",
+                f"- Status: {shared_queue.get('status') or ('completed' if shared_queue.get('returncode') == 0 else 'failed')}",
+                f"- JSON: {shared_queue.get('json') or ''}",
+                f"- CSV: {shared_queue.get('csv') or ''}",
             ]
         )
     outreach_report = summary.get("outreach_daily_report") or {}
@@ -641,6 +759,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--archive-generated-before-run", action="store_true", help="Archive generated jobs from the active queue before discovery. Off by default so generated-but-unapplied jobs stay active.")
     parser.add_argument("--skip-clear-generated-queue", action="store_true", help="Deprecated no-op kept for old launch commands.")
     parser.add_argument("--skip-linkedin", action="store_true")
+    parser.add_argument("--skip-company-news", action="store_true")
     parser.add_argument("--skip-handshake", action="store_true")
     parser.add_argument("--skip-jobspy", action="store_true")
     parser.add_argument("--skip-startup-apply", action="store_true")
@@ -672,6 +791,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--handshake-external-generation-min", type=str, default="6.5")
     parser.add_argument("--handshake-unknown-generation-min", type=str, default="6.5")
     parser.add_argument("--skip-outreach-maintenance", action="store_true", help="Skip Track 2 account tracker/campaign maintenance.")
+    parser.add_argument("--skip-shared-discovery", action="store_true", help="Skip the merged cross-repo discovery queue.")
     parser.add_argument("--outreach-resolve-limit", type=int, default=15, help="Websites to resolve for unverified Outreach companies.")
     parser.add_argument("--outreach-enrich-limit", type=int, default=15, help="Companies to externally enrich after website resolution.")
     parser.add_argument("--outreach-campaign-limit", type=int, default=30, help="Track 2 campaign actions to print/save.")
@@ -706,6 +826,7 @@ def main() -> int:
             "generation_ran": False,
             "generation_dry_run": bool(args.generation_dry_run),
             "outreach_maintenance": {"ran": False},
+            "shared_discovery_queue": {"status": "not_started"},
             "cycle_config": "",
             "app_queue_target_sends": "",
         }
@@ -768,9 +889,24 @@ def main() -> int:
                 ),
                 run_id=str(summary["created_at"]),
             )
-            for key, value in (summary["outreach_maintenance"] or {}).items():
-                if key.endswith("_returncode") and value not in (0, None):
-                    failures.append(f"{key}:{value}")
+            failures.extend(
+                _nonzero_returncode_failures(summary["outreach_maintenance"] or {})
+            )
+
+        if action_queue and not args.skip_shared_discovery:
+            shared_queue = _run_shared_discovery_queue(action_queue)
+            summary["shared_discovery_queue"] = shared_queue
+            if shared_queue.get("status") != "completed":
+                failures.append(
+                    "shared_discovery_queue:"
+                    f"{shared_queue.get('status') or shared_queue.get('returncode')}"
+                )
+        elif args.skip_shared_discovery:
+            summary["shared_discovery_queue"] = {"status": "skipped"}
+        else:
+            summary["shared_discovery_queue"] = {
+                "status": "skipped_missing_current_action_queue"
+            }
 
         summary["failures"] = failures
         summary_path = _write_summary(summary)
