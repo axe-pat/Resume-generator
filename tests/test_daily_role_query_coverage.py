@@ -109,3 +109,117 @@ def test_company_discovery_receives_the_exact_linkedin_capture_artifact(monkeypa
     assert company_command[company_command.index("--capture-artifact") + 1] == (
         "/tmp/current-linkedin-capture.json"
     )
+    assert company_command[company_command.index("--news-capture-artifact") + 1] == (
+        str(Path("/tmp/other.json").resolve())
+    )
+
+
+def test_shared_discovery_receives_one_exact_action_queue(monkeypatch, tmp_path: Path) -> None:
+    module = _load_script(NIGHTLY_SCRIPT, "run_nightly_pipeline_shared_queue_test")
+    captured: list[list[str]] = []
+    output_dir = tmp_path / "workspace" / "shared_discovery"
+    output_dir.mkdir(parents=True)
+    (output_dir / "run.json").write_text("{}", encoding="utf-8")
+    (output_dir / "run.csv").write_text("company\n", encoding="utf-8")
+    monkeypatch.setattr(module, "OUTREACH_ROOT", tmp_path)
+
+    def fake_run(cmd, *, cwd):
+        normalized = [str(part) for part in cmd]
+        captured.append(normalized)
+        return subprocess.CompletedProcess(
+            normalized,
+            0,
+            stdout="JSON: workspace/shared_discovery/run.json\nCSV: workspace/shared_discovery/run.csv\n",
+            stderr="",
+        )
+
+    monkeypatch.setattr(module, "_run_capture_print", fake_run)
+    queue = tmp_path / "current-run-daily-action-queue.json"
+    result = module._run_shared_discovery_queue(queue)
+
+    assert captured[0][captured[0].index("--action-queue") + 1] == str(queue)
+    assert "--nightly-summary" not in captured[0]
+    assert result == {
+        "returncode": 0,
+        "status": "completed",
+        "json": str(output_dir / "run.json"),
+        "csv": str(output_dir / "run.csv"),
+    }
+
+
+def test_shared_discovery_does_not_report_success_without_output_artifacts(
+    monkeypatch, tmp_path: Path
+) -> None:
+    module = _load_script(NIGHTLY_SCRIPT, "run_nightly_pipeline_shared_missing_test")
+    monkeypatch.setattr(module, "OUTREACH_ROOT", tmp_path)
+    monkeypatch.setattr(
+        module,
+        "_run_capture_print",
+        lambda cmd, *, cwd: subprocess.CompletedProcess(
+            [str(part) for part in cmd],
+            0,
+            stdout=(
+                "JSON: workspace/shared_discovery/missing.json\n"
+                "CSV: workspace/shared_discovery/missing.csv\n"
+            ),
+            stderr="",
+        ),
+    )
+
+    result = module._run_shared_discovery_queue(
+        tmp_path / "current-run-daily-action-queue.json"
+    )
+
+    assert result["returncode"] == 0
+    assert result["status"] == "failed_missing_artifacts"
+    assert Path(str(result["json"])).is_absolute()
+
+
+def test_company_news_capture_fails_validation_when_artifact_is_missing(
+    monkeypatch, tmp_path: Path
+) -> None:
+    module = _load_script(NIGHTLY_SCRIPT, "run_nightly_pipeline_news_missing_test")
+    missing_artifact = tmp_path / "artifacts" / "missing-company-news.json"
+    news_output = {"value": "Artifact: artifacts/missing-company-news.json\n"}
+    monkeypatch.setattr(module, "OUTREACH_ROOT", tmp_path)
+
+    def fake_run(cmd, *, cwd):
+        normalized = [str(part) for part in cmd]
+        stdout = (
+            news_output["value"]
+            if "capture-company-news" in normalized
+            else ""
+        )
+        return subprocess.CompletedProcess(normalized, 0, stdout=stdout, stderr="")
+
+    monkeypatch.setattr(module, "_run_capture_print", fake_run)
+    args = SimpleNamespace(
+        cycle_config="offcycle_light",
+        skip_linkedin=True,
+        skip_company_news=False,
+        outreach_resolve_limit=0,
+        outreach_enrich_limit=0,
+        outreach_campaign_limit=5,
+        execute_track_2_daily_plan=False,
+    )
+
+    summary = module._run_outreach_maintenance(args, run_id="nightly-1")
+
+    assert summary["company_news_returncode"] == 0
+    assert summary["company_news_validation_returncode"] == 1
+    assert summary["company_news_status"] == "failed_missing_artifact"
+    assert summary["company_news_artifact"] == str(missing_artifact)
+    assert "company_news_validation_returncode:1" in (
+        module._nonzero_returncode_failures(summary)
+    )
+
+    news_output["value"] = ""
+    summary = module._run_outreach_maintenance(args, run_id="nightly-2")
+
+    assert summary["company_news_returncode"] == 0
+    assert summary["company_news_validation_returncode"] == 1
+    assert summary["company_news_status"] == "failed_missing_artifact_path"
+    assert summary["company_news_artifact"] == ""
+    assert "company_news_validation_returncode:1" in (
+        module._nonzero_returncode_failures(summary)
+    )

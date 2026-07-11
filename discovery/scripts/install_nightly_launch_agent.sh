@@ -7,6 +7,7 @@ PLIST_PATH="${HOME}/Library/LaunchAgents/${LABEL}.plist"
 SCHEDULED_TIME="${1:-20:00}"
 PIPELINE_ARGS="${RESUMEGEN_NIGHTLY_ARGS:---generate}"
 PYTHON_BIN="${PYTHON_BIN:-${ROOT_DIR}/venv/bin/python}"
+LOG_DIR="${RESUMEGEN_NIGHTLY_LOG_DIR:-${HOME}/Library/Logs/ResumeGenerator}"
 LOAD_AFTER_WRITE="${RESUMEGEN_NIGHTLY_LOAD:-0}"
 
 if [[ ! "$SCHEDULED_TIME" =~ ^[0-2][0-9]:[0-5][0-9]$ ]]; then
@@ -19,16 +20,19 @@ MINUTE="${SCHEDULED_TIME##*:}"
 HOUR="$((10#$HOUR))"
 MINUTE="$((10#$MINUTE))"
 
-mkdir -p "${HOME}/Library/LaunchAgents" "${ROOT_DIR}/logs"
+mkdir -p "${HOME}/Library/LaunchAgents" "${LOG_DIR}"
 
 xml_escape() {
   printf '%s' "$1" | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g'
 }
 
-STDOUT_XML="$(xml_escape "${ROOT_DIR}/logs/nightly_launchd.out.log")"
-STDERR_XML="$(xml_escape "${ROOT_DIR}/logs/nightly_launchd.err.log")"
+STDOUT_XML="$(xml_escape "${LOG_DIR}/nightly_launchd.out.log")"
+STDERR_XML="$(xml_escape "${LOG_DIR}/nightly_launchd.err.log")"
 LAUNCHER_XML="$(xml_escape "${ROOT_DIR}/discovery/scripts/nightly_prompt_launcher.sh")"
+PYTHON_XML="$(xml_escape "${PYTHON_BIN}")"
+PROMPT_XML="$(xml_escape "${ROOT_DIR}/discovery/scripts/nightly_prompt.py")"
 PIPELINE_ARGS_XML="$(xml_escape "$PIPELINE_ARGS")"
+LOG_DIR_XML="$(xml_escape "${LOG_DIR}")"
 
 cat > "$PLIST_PATH" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -39,7 +43,8 @@ cat > "$PLIST_PATH" <<PLIST
   <string>${LABEL}</string>
   <key>ProgramArguments</key>
   <array>
-    <string>${LAUNCHER_XML}</string>
+    <string>${PYTHON_XML}</string>
+    <string>${PROMPT_XML}</string>
     <string>--scheduled-time</string>
     <string>${SCHEDULED_TIME}</string>
   </array>
@@ -47,6 +52,8 @@ cat > "$PLIST_PATH" <<PLIST
   <dict>
     <key>RESUMEGEN_NIGHTLY_ARGS</key>
     <string>${PIPELINE_ARGS_XML}</string>
+    <key>RESUMEGEN_NIGHTLY_LOG_DIR</key>
+    <string>${LOG_DIR_XML}</string>
   </dict>
   <key>StartInterval</key>
   <integer>300</integer>

@@ -69,6 +69,13 @@ _TARGET_ROLE_PATTERNS = [
     re.compile(r"\bproduct\s+operations\b", re.I),
     re.compile(r"\bproduct\s+owner\b", re.I),
     re.compile(r"\bgrowth\s+product\b", re.I),
+    re.compile(
+        r"\b(?:growth\s+(?:strateg(?:y|ic)|ops|operations)|"
+        r"user\s+growth\s+(?:strateg(?:y|ic)|ops|operations|project)|"
+        r"(?:strateg(?:y|ic)|ops|operations)\s*(?:&|and)\s*growth|"
+        r"growth\s*(?:&|and)\s*(?:strateg(?:y|ic)|ops|operations))\b",
+        re.I,
+    ),
     re.compile(r"\bstrategy\b", re.I),
     re.compile(r"\bstrategic\s+operations\b", re.I),
     re.compile(r"\bstrategic\s+finance\b", re.I),

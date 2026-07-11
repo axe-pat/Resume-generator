@@ -152,6 +152,14 @@ Important buckets:
 - `follow_up`: companies with existing touchpoints.
 - `skipped_internal`: blocklisted, duplicate, terminal, or low-fit records.
 
+The nightly wrapper now passes this exact current-run action queue into Outreach's
+shared discovery builder. The resulting
+`../Outreach/workspace/shared_discovery/shared_daily_queue.{json,csv}` merges
+application roles with YC/Built In company targets, approved company-watchlist
+entries, and warm Outreach contacts. It validates exact pointers, dedupes companies,
+preserves source provenance, and labels every row ready, human-review-required, or
+buffered. It does not write back into `jobs.xlsx` or authorize a send.
+
 Run the queue before scoring when you want intake visibility. Run it again after
 scoring/writes/generation to get the final daily operating view.
 
@@ -236,11 +244,31 @@ with the command printed by the installer. The prompt can run after wake because
 the LaunchAgent checks every 5 minutes and the prompt state lives under
 `~/Library/Application Support/ResumeGenerator/`.
 
+The LaunchAgent `last exit code` is not the source of truth because the 5-minute
+prompt checker can later exit cleanly with "not due" and overwrite it. For run
+debugging, inspect:
+
+- timestamped pipeline logs in `~/Library/Logs/ResumeGenerator/nightly_pipeline_*.log`
+- scheduler state in `~/Library/Application Support/ResumeGenerator/nightly_scheduler_state.json`
+- summary artifacts in `discovery/source_validation/*nightly-pipeline-summary.{json,md}`
+
+LinkedIn/Chrome preflight retries the live-session check before failing. If the
+daily engine still fails, the nightly wrapper records `daily_engine_returncode`,
+continues non-LinkedIn maintenance where possible, rebuilds Outreach Track 2
+account artifacts, writes a failure summary, and exits nonzero so the failure is
+visible without making the whole run look like it did nothing.
+
 Nightly summaries link the per-run source metrics artifact and still include the
 temporary JobSpy block. The source metrics report shows raw/discovered counts,
 selected/new counts, fresh scoring, errors, accepted writes, outreach signals,
 runtime, and accepted-per-minute by source. Use it for source trend audits before
 changing filters again.
+
+The same nightly maintenance pass also captures the configured public company/news
+feeds into Outreach's reviewed watchlist contract. Source status and counts are
+recorded from the exact capture artifact; the cumulative candidate ledger is never
+presented as current-run source activity. Use `--skip-company-news` or
+`--skip-shared-discovery` only for an intentional degraded run.
 
 ## Weekly Caveat
 

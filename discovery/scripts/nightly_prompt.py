@@ -17,7 +17,7 @@ PYTHON = ROOT / "venv" / "bin" / "python"
 APP_SUPPORT = Path.home() / "Library" / "Application Support" / "ResumeGenerator"
 STATE_PATH = APP_SUPPORT / "nightly_scheduler_state.json"
 LOCK_PATH = APP_SUPPORT / "nightly_scheduler.lock"
-LOG_DIR = ROOT / "logs"
+LOG_DIR = Path(os.environ.get("RESUMEGEN_NIGHTLY_LOG_DIR", ROOT / "logs")).expanduser()
 
 
 def _now() -> datetime:
