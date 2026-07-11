@@ -2,6 +2,7 @@
 set -euo pipefail
 
 WINDOW="${1:-24h}"
+RUN_ARTIFACT="${2:-}"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT_DIR"
 
@@ -22,7 +23,7 @@ case "$WINDOW" in
   *)
     cat >&2 <<'USAGE'
 Usage:
-  ./discovery/scripts/run_handshake_discovery.sh [24h|7d]
+  ./discovery/scripts/run_handshake_discovery.sh [24h|7d] [exact-run-artifact.json]
 
 Environment overrides:
   HANDSHAKE_SEARCH_URL
@@ -60,6 +61,10 @@ if [[ -n "$HANDSHAKE_SEARCH_URL" ]]; then
   CMD+=(--search-url "$HANDSHAKE_SEARCH_URL")
 else
   CMD+=(--default-search)
+fi
+
+if [[ -n "$RUN_ARTIFACT" ]]; then
+  CMD+=(--run-artifact "$RUN_ARTIFACT")
 fi
 
 "${CMD[@]}"

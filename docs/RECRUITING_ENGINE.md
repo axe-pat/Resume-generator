@@ -78,6 +78,16 @@ development, and social-media roles. The import log records
 `title_prefilter_skipped` so an over-aggressive filter is visible in the run
 artifact.
 
+The importer emits a versioned run artifact even when all observed links are
+duplicates and zero candidates remain. In production, the Daily Engine passes
+an exact artifact path through the Handshake wrapper, validates it, and uses its
+run-scoped `input_rows`, skips, candidates, fetches, scores, and accepted count
+for Source Breakdown. It never falls back to a stale `latest` Handshake log;
+missing or invalid output keeps the stage non-green.
+Zero candidates after dedupe is a valid completed run. All JD fetch/processing
+failures mark it failed; mixed successes and errors mark it partial-failed, and
+the error count is carried into the manifest/source family.
+
 ### JobSpy
 
 Breadth radar for roles the focused LinkedIn searches may miss. It is useful, but
@@ -112,8 +122,29 @@ credible company-level hiring signal.
 ```bash
 venv/bin/python discovery/auto/startup_apply_pipeline.py
 venv/bin/python discovery/scripts/build_startup_source_report.py \
+  --rediscover-startup-apply \
+  --rediscover-relationship-artifacts \
   --limit-companies 20 --limit-jobs 50
 ```
+
+The first command emits a versioned structured artifact on every execution,
+including zero-new and best-effort failure cases. The second command is an
+explicit standalone re-fetch for source-health work. In the production Daily
+Engine, the report receives the exact startup-run artifact and exact report
+output path; it never re-fetches or chooses a `latest` startup artifact. A
+missing, malformed, or non-green pointer fails closed and keeps the run
+non-green.
+
+Startup scoring health preserves `decision=Error`: all-error scoring is
+`failed`, mixed success/errors is `partial_failed`, and zero-new remains a green
+`completed` result. The artifact, source metrics, and top-level source family all
+carry the error count.
+
+The production relationship lane captures the exact `Artifact:` path from every
+configured Outreach `discover-source` command, validates that each artifact
+belongs to that source, and passes the exact mapping into the report. Missing or
+non-green members produce failed/partial-failed health; mtime-based selection is
+only available in explicit standalone rediscovery mode.
 
 ### Outreach Org Discovery
 

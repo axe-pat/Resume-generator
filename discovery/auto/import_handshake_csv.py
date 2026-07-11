@@ -42,6 +42,8 @@ from scorer import DEFAULT_MODEL, score_batch  # noqa: E402
 from shared.discovery_sources import min_apply_queue_score_for_row  # noqa: E402
 
 SOURCE_TAG = "handshake_jobs_v1"
+HANDSHAKE_RUN_ARTIFACT_SCHEMA = "resume_generator.handshake_import_run"
+HANDSHAKE_RUN_ARTIFACT_VERSION = 1
 DEFAULT_CSV = Path("/Users/akshat/Downloads/-JobTitle-Company-Industry-Pay-Deadline-Status-URL.csv")
 DEFAULT_SEARCH_URL = (
     "https://app.joinhandshake.com/job-search/11111986?"
@@ -562,12 +564,134 @@ def _assign_ids(existing: pd.DataFrame, new_rows: list[dict[str, Any]]) -> list[
     return new_rows
 
 
-def _write_raw_log(payload: dict[str, Any]) -> Path:
-    LOGS_DIR.mkdir(parents=True, exist_ok=True)
-    stamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
-    path = LOGS_DIR / f"handshake_import_{stamp}.json"
-    path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+def _write_raw_log(
+    payload: dict[str, Any],
+    exact_path: Path | None = None,
+) -> Path:
+    if exact_path is None:
+        stamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
+        path = LOGS_DIR / f"handshake_import_{stamp}.json"
+    else:
+        path = exact_path.expanduser().resolve(strict=False)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp_path = path.with_name(f".{path.name}.tmp")
+    temp_path.write_text(
+        json.dumps(payload, indent=2, ensure_ascii=True) + "\n",
+        encoding="utf-8",
+    )
+    temp_path.replace(path)
     return path
+
+
+def _handshake_health(
+    *,
+    candidate_count: int,
+    fetch_ok_count: int,
+    fetch_failed_count: int,
+    scored: list[dict[str, Any]],
+) -> dict[str, int | str]:
+    scoring_errors = sum(
+        1
+        for row in scored
+        if str(row.get("decision") or "").strip().casefold() == "error"
+        or str(row.get("status") or "").strip().casefold() == "error"
+    )
+    processing_errors = max(0, fetch_ok_count - len(scored))
+    error_count = fetch_failed_count + scoring_errors + processing_errors
+    if candidate_count == 0 or error_count == 0:
+        status = "completed"
+    elif error_count >= candidate_count:
+        status = "failed"
+    else:
+        status = "partial_failed"
+    return {
+        "status": status,
+        "error_count": error_count,
+        "fetch_error_count": fetch_failed_count,
+        "scoring_error_count": scoring_errors,
+        "processing_error_count": processing_errors,
+    }
+
+
+def _handshake_run_payload(
+    *,
+    args: argparse.Namespace,
+    csv_path: Path,
+    input_count: int,
+    candidates: list[CsvJob],
+    skipped: list[dict[str, str]],
+    historical_seen_count: int,
+    fetch_ok: list[CsvJob],
+    fetch_failed: list[dict[str, Any]],
+    scored: list[dict[str, Any]],
+    accepted: list[dict[str, Any]],
+    rejected: list[dict[str, Any]],
+) -> dict[str, Any]:
+    health = _handshake_health(
+        candidate_count=len(candidates),
+        fetch_ok_count=len(fetch_ok),
+        fetch_failed_count=len(fetch_failed),
+        scored=scored,
+    )
+    return {
+        "schema": HANDSHAKE_RUN_ARTIFACT_SCHEMA,
+        "version": HANDSHAKE_RUN_ARTIFACT_VERSION,
+        "status": health["status"],
+        "created_at": datetime.now().isoformat(timespec="seconds"),
+        "csv": "" if args.search_url else str(csv_path),
+        "search_url": args.search_url or "",
+        "source": SOURCE_TAG,
+        "write": bool(args.write),
+        "counts": {
+            "input_rows": input_count,
+            "deduped_candidates": len(candidates),
+            "skipped_duplicates": len(skipped),
+            "historical_seen_urls": historical_seen_count,
+            "title_prefilter_skipped": sum(
+                1
+                for item in skipped
+                if str(item.get("reason") or "").startswith("title_prefilter:")
+            ),
+            "fetch_ok": len(fetch_ok),
+            "fetch_failed": len(fetch_failed),
+            "scored": len(scored),
+            "accepted_min_score": len(accepted),
+            "rejected_or_below_min": len(rejected),
+            "error_count": health["error_count"],
+            "fetch_error_count": health["fetch_error_count"],
+            "scoring_error_count": health["scoring_error_count"],
+            "processing_error_count": health["processing_error_count"],
+        },
+        "skipped": skipped,
+        "fetch_failed": fetch_failed,
+        "scored": [
+            {
+                "company": row.get("company"),
+                "role_title": row.get("role_title"),
+                "fit_score": row.get("fit_score"),
+                "status": row.get("status"),
+                "decision": row.get("decision"),
+                "category": row.get("category"),
+                "url": row.get("url"),
+                "queue_min_score": row.get("queue_min_score"),
+                "notes": row.get("notes"),
+                "fit_rationale": row.get("fit_rationale"),
+            }
+            for row in scored
+        ],
+        "accepted": [
+            {
+                "company": row.get("company"),
+                "role_title": row.get("role_title"),
+                "fit_score": row.get("fit_score"),
+                "queue_min_score": row.get("queue_min_score"),
+                "url": row.get("url"),
+                "notes": row.get("notes"),
+                "fit_rationale": row.get("fit_rationale"),
+            }
+            for row in accepted
+        ],
+    }
 
 
 def _refresh_queue() -> None:
@@ -656,6 +780,21 @@ def run(args: argparse.Namespace) -> int:
     print(f"New candidates after dedupe: {len(candidates)}")
     print(f"Skipped duplicates: {len(skipped)}")
     if not candidates:
+        log_payload = _handshake_run_payload(
+            args=args,
+            csv_path=csv_path,
+            input_count=len(csv_jobs),
+            candidates=[],
+            skipped=skipped,
+            historical_seen_count=len(historical_urls),
+            fetch_ok=[],
+            fetch_failed=[],
+            scored=[],
+            accepted=[],
+            rejected=[],
+        )
+        log_path = _write_raw_log(log_payload, getattr(args, "run_artifact", None))
+        print(f"Log: {log_path}")
         return 0
 
     fetched: list[dict[str, Any]]
@@ -718,57 +857,20 @@ def run(args: argparse.Namespace) -> int:
     ]
     rejected = [row for row in scored if row not in accepted]
 
-    log_payload = {
-        "created_at": datetime.now().isoformat(timespec="seconds"),
-        "csv": "" if args.search_url else str(csv_path),
-        "search_url": args.search_url or "",
-        "source": SOURCE_TAG,
-        "write": bool(args.write),
-        "counts": {
-            "input_rows": len(csv_jobs),
-            "deduped_candidates": len(candidates),
-            "skipped_duplicates": len(skipped),
-            "historical_seen_urls": len(historical_urls),
-            "title_prefilter_skipped": sum(
-                1 for item in skipped if str(item.get("reason") or "").startswith("title_prefilter:")
-            ),
-            "fetch_ok": len(fetch_ok),
-            "fetch_failed": len(fetch_failed),
-            "scored": len(scored),
-            "accepted_min_score": len(accepted),
-            "rejected_or_below_min": len(rejected),
-        },
-        "skipped": skipped,
-        "fetch_failed": fetch_failed,
-        "scored": [
-            {
-                "company": row.get("company"),
-                "role_title": row.get("role_title"),
-                "fit_score": row.get("fit_score"),
-                "status": row.get("status"),
-                "decision": row.get("decision"),
-                "category": row.get("category"),
-                "url": row.get("url"),
-                "queue_min_score": row.get("queue_min_score"),
-                "notes": row.get("notes"),
-                "fit_rationale": row.get("fit_rationale"),
-            }
-            for row in scored
-        ],
-        "accepted": [
-            {
-                "company": row.get("company"),
-                "role_title": row.get("role_title"),
-                "fit_score": row.get("fit_score"),
-                "queue_min_score": row.get("queue_min_score"),
-                "url": row.get("url"),
-                "notes": row.get("notes"),
-                "fit_rationale": row.get("fit_rationale"),
-            }
-            for row in accepted
-        ],
-    }
-    log_path = _write_raw_log(log_payload)
+    log_payload = _handshake_run_payload(
+        args=args,
+        csv_path=csv_path,
+        input_count=len(csv_jobs),
+        candidates=candidates,
+        skipped=skipped,
+        historical_seen_count=len(historical_urls),
+        fetch_ok=fetch_ok,
+        fetch_failed=fetch_failed,
+        scored=scored,
+        accepted=accepted,
+        rejected=rejected,
+    )
+    log_path = _write_raw_log(log_payload, getattr(args, "run_artifact", None))
 
     print(f"Fetched JDs: {len(fetch_ok)} ok, {len(fetch_failed)} failed")
     if fetch_failed:
@@ -788,7 +890,7 @@ def run(args: argparse.Namespace) -> int:
         for row in sorted(accepted, key=lambda r: float(r.get("fit_score") or 0), reverse=True):
             print(f"  [{row.get('fit_score')}] {row.get('company')} | {row.get('role_title')}")
 
-    print(f"Log: {log_path.relative_to(ROOT)}")
+    print(f"Log: {log_path}")
 
     if not args.write:
         print("Dry run only. Re-run with --write to append accepted rows and refresh the queue.")
@@ -853,6 +955,15 @@ def main() -> int:
     )
     parser.add_argument("--write", action="store_true", help="Append accepted rows to jobs.xlsx and refresh queue.")
     parser.add_argument("--no-refresh-queue", action="store_true", help="Do not refresh current_apply_queue after writing.")
+    parser.add_argument(
+        "--run-artifact",
+        type=Path,
+        default=None,
+        help=(
+            "Write the structured Handshake result to this exact JSON path. The "
+            "Daily Engine sets this so zero-candidate runs remain run-scoped."
+        ),
+    )
     parser.add_argument("--quiet", action="store_true", help="Reduce scorer output.")
     args = parser.parse_args()
     if args.default_search and not args.search_url:

@@ -51,6 +51,8 @@ except ImportError:
 
 
 LOGS_DIR = _HERE / "logs"
+STARTUP_RUN_ARTIFACT_SCHEMA = "resume_generator.startup_apply_run"
+STARTUP_RUN_ARTIFACT_VERSION = 1
 DEFAULT_MODEL = "claude-haiku-4-5-20251001"
 DEFAULT_LIMIT_COMPANIES = 12
 DEFAULT_LIMIT_JOBS = 30
@@ -472,6 +474,9 @@ def _post_process_scored_jobs(scored_jobs: list[dict]) -> list[dict]:
     for job_dict in scored_jobs:
         decision = str(job_dict.get("decision") or "").strip().lower()
         fit_score = job_dict.get("fit_score")
+        if decision == "error":
+            job_dict["status"] = "error"
+            continue
         if decision == "reject" or fit_score is None:
             job_dict["status"] = "skipped"
             continue
@@ -482,6 +487,32 @@ def _post_process_scored_jobs(scored_jobs: list[dict]) -> list[dict]:
         else:
             job_dict["status"] = "skipped"
     return scored_jobs
+
+
+def _startup_scoring_health(
+    selected_count: int,
+    scored_jobs: list[dict],
+) -> dict[str, int | str]:
+    scoring_errors = sum(
+        1
+        for item in scored_jobs
+        if str(item.get("decision") or "").strip().casefold() == "error"
+        or str(item.get("status") or "").strip().casefold() == "error"
+    )
+    processing_errors = max(0, selected_count - len(scored_jobs))
+    error_count = scoring_errors + processing_errors
+    if selected_count == 0 or error_count == 0:
+        status = "completed"
+    elif error_count >= selected_count:
+        status = "failed"
+    else:
+        status = "partial_failed"
+    return {
+        "status": status,
+        "error_count": error_count,
+        "scoring_error_count": scoring_errors,
+        "processing_error_count": processing_errors,
+    }
 
 
 def _build_notes(
@@ -1321,13 +1352,14 @@ def _source_score_summary(scored_jobs: list[dict]) -> dict[str, dict[str, object
                 "queued": 0,
                 "review": 0,
                 "skipped": 0,
+                "error": 0,
                 "scores": [],
                 "top_jobs": [],
             },
         )
         bucket["scored"] += 1
         status = str(job.get("status") or "").strip().lower()
-        if status in {"queued", "review", "skipped"}:
+        if status in {"queued", "review", "skipped", "error"}:
             bucket[status] += 1
         score = _score_float(job.get("fit_score"))
         if score is not None:
@@ -1371,6 +1403,7 @@ def _print_source_summary(
             f"queued={row.get('queued', 0)} | "
             f"review={row.get('review', 0)} | "
             f"skipped={row.get('skipped', 0)} | "
+            f"errors={row.get('error', 0)} | "
             f"avg_fit={avg_text} | "
             f"fit>=7={row.get('fit_ge_7', 0)}"
         )
@@ -1392,7 +1425,7 @@ def _write_run_log(
     new_counts: dict[str, int],
 ) -> Path:
     LOGS_DIR.mkdir(exist_ok=True)
-    timestamp = run_start.strftime("%Y-%m-%d_%H%M")
+    timestamp = run_start.strftime("%Y-%m-%d_%H%M%S")
     log_path = LOGS_DIR / f"startup_apply_{timestamp}.txt"
     elapsed = (datetime.now() - run_start).seconds
     queued = [job for job in scored_jobs if job.get("status") == "queued"]
@@ -1428,6 +1461,7 @@ def _write_run_log(
                 f"queued={row.get('queued', 0)} | "
                 f"review={row.get('review', 0)} | "
                 f"skipped={row.get('skipped', 0)} | "
+                f"errors={row.get('error', 0)} | "
                 f"avg_fit={avg_text} | "
                 f"fit>=7={row.get('fit_ge_7', 0)}"
             )
@@ -1455,6 +1489,144 @@ def _write_run_log(
     return log_path
 
 
+def _default_run_artifact_path(run_start: datetime) -> Path:
+    return LOGS_DIR / f"startup_apply_run_{run_start.strftime('%Y%m%d-%H%M%S-%f')}.json"
+
+
+def _artifact_safe(value):
+    if isinstance(value, Path):
+        return str(value)
+    if isinstance(value, dict):
+        return {str(key): _artifact_safe(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple, set)):
+        return [_artifact_safe(item) for item in value]
+    try:
+        if pd.isna(value):
+            return None
+    except (TypeError, ValueError):
+        pass
+    if hasattr(value, "item"):
+        try:
+            return value.item()
+        except (TypeError, ValueError):
+            pass
+    return value
+
+
+def _complete_source_counts(
+    discovered_counts: dict[str, int],
+    new_counts: dict[str, int],
+) -> tuple[dict[str, int], dict[str, int]]:
+    source_ids = sorted(set(discovered_counts) | set(new_counts))
+    return (
+        {source_id: int(discovered_counts.get(source_id, 0)) for source_id in source_ids},
+        {source_id: int(new_counts.get(source_id, 0)) for source_id in source_ids},
+    )
+
+
+def _write_run_artifact(
+    path: Path,
+    *,
+    run_start: datetime,
+    status: str,
+    dry_run: bool,
+    skip_score: bool,
+    model: str,
+    limit_companies: int,
+    limit_jobs: int | None,
+    include_sources: set[str] | None,
+    ignore_existing: bool,
+    discovered_counts: dict[str, int],
+    new_counts: dict[str, int],
+    selected_candidates: list[dict],
+    scored_jobs: list[dict],
+    log_path: Path | None,
+    jobs_written: int,
+    error: BaseException | None = None,
+) -> Path:
+    discovered_by_source, new_by_source = _complete_source_counts(
+        discovered_counts,
+        new_counts,
+    )
+    selected_by_source = _group_counts_by_source(
+        selected_candidates,
+        lambda item: item.get("source_id"),
+    )
+    selected_by_source = {
+        source_id: int(selected_by_source.get(source_id, 0))
+        for source_id in discovered_by_source
+    }
+    status_counts: dict[str, int] = {}
+    decision_counts: dict[str, int] = {}
+    for item in scored_jobs:
+        item_status = str(item.get("status") or "unknown").strip().lower() or "unknown"
+        status_counts[item_status] = status_counts.get(item_status, 0) + 1
+        decision = str(item.get("decision") or "unknown").strip() or "unknown"
+        decision_counts[decision] = decision_counts.get(decision, 0) + 1
+    scoring_health = _startup_scoring_health(len(selected_candidates), scored_jobs)
+    run_error_count = 1 if error is not None else 0
+
+    completed_at = datetime.now()
+    payload = {
+        "schema": STARTUP_RUN_ARTIFACT_SCHEMA,
+        "version": STARTUP_RUN_ARTIFACT_VERSION,
+        "status": status,
+        "run_started_at": run_start.isoformat(timespec="seconds"),
+        "completed_at": completed_at.isoformat(timespec="seconds"),
+        "runtime_seconds": round((completed_at - run_start).total_seconds(), 3),
+        "config": {
+            "dry_run": dry_run,
+            "skip_score": skip_score,
+            "model": model,
+            "limit_companies": limit_companies,
+            "limit_jobs": limit_jobs,
+            "sources": sorted(include_sources) if include_sources else "all",
+            "ignore_existing": ignore_existing,
+        },
+        "counts": {
+            "discovered": sum(discovered_by_source.values()),
+            "new": sum(new_by_source.values()),
+            "selected": len(selected_candidates),
+            "scored": len(scored_jobs),
+            "written": jobs_written,
+            "discovered_by_source": discovered_by_source,
+            "new_by_source": new_by_source,
+            "selected_by_source": selected_by_source,
+            "status_counts": status_counts,
+            "decision_counts": decision_counts,
+            "error_count": int(scoring_health["error_count"]) + run_error_count,
+            "scoring_error_count": scoring_health["scoring_error_count"],
+            "processing_error_count": scoring_health["processing_error_count"],
+            "run_error_count": run_error_count,
+        },
+        "candidates": {
+            "selected": selected_candidates,
+            "scored": scored_jobs,
+        },
+        "outputs": {
+            "run_log": str(log_path) if log_path else "",
+            "jobs_xlsx_updated": bool(jobs_written),
+        },
+        "error": (
+            {
+                "type": type(error).__name__,
+                "message": str(error),
+            }
+            if error is not None
+            else None
+        ),
+    }
+    path = path.expanduser().resolve(strict=False)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp_path = path.with_name(f".{path.name}.tmp")
+    temp_path.write_text(
+        json.dumps(_artifact_safe(payload), indent=2, ensure_ascii=True) + "\n",
+        encoding="utf-8",
+    )
+    temp_path.replace(path)
+    return path
+
+
 def run(
     *,
     dry_run: bool,
@@ -1465,93 +1637,160 @@ def run(
     include_sources: set[str] | None,
     ignore_existing: bool,
     verbose: bool,
+    run_artifact: Path | None = None,
 ) -> list[dict]:
     run_start = datetime.now()
+    artifact_path = run_artifact or _default_run_artifact_path(run_start)
+    discovered_counts: dict[str, int] = {}
+    new_counts: dict[str, int] = {}
+    candidate_dicts: list[dict] = []
+    scored_jobs: list[dict] = []
+    log_path: Path | None = None
+    jobs_written = 0
     if verbose:
         print(f"\n{'═' * 60}")
         print(f"  Startup Apply Pipeline — {run_start.strftime('%Y-%m-%d %H:%M')}")
         print(f"{'═' * 60}")
 
-    df_existing = jobs.load_jobs()
-    existing_hashes = set(df_existing["url_hash"].dropna().astype(str).tolist())
-    next_id = _next_row_id(df_existing)
-    discovered, discovered_counts = _discover_startup_jobs(limit_companies, include_sources=include_sources, verbose=verbose)
-    if ignore_existing:
-        new_items = list(discovered)
-    else:
-        new_items = [item for item in discovered if _url_hash(item.url) not in existing_hashes]
-    new_counts = _group_counts_by_source(new_items, lambda item: item.source_id)
-    filtered = list(new_items)
-    filtered = sorted(filtered, key=_startup_candidate_priority, reverse=True)
-    if limit_jobs is not None:
-        filtered = filtered[:limit_jobs]
-    if not filtered:
-        if verbose:
-            print("  No new startup apply jobs found.")
-        return []
+    try:
+        df_existing = jobs.load_jobs()
+        existing_hashes = set(df_existing["url_hash"].dropna().astype(str).tolist())
+        next_id = _next_row_id(df_existing)
+        discovered, discovered_counts = _discover_startup_jobs(
+            limit_companies,
+            include_sources=include_sources,
+            verbose=verbose,
+        )
+        if ignore_existing:
+            new_items = list(discovered)
+        else:
+            new_items = [
+                item for item in discovered if _url_hash(item.url) not in existing_hashes
+            ]
+        new_counts = _group_counts_by_source(new_items, lambda item: item.source_id)
+        filtered = sorted(new_items, key=_startup_candidate_priority, reverse=True)
+        if limit_jobs is not None:
+            filtered = filtered[:limit_jobs]
 
-    candidate_dicts = [
-        {
-            "company": item.company,
-            "role_title": item.role_title,
-            "location": item.location,
-            "url": item.url,
-            "url_hash": _url_hash(item.url),
-            "source": item.source,
-            "source_id": item.source_id,
-            "date_posted": item.date_posted,
-            "jd_text": item.jd_text,
-            "notes": item.notes,
-            "status": "",
-        }
-        for item in filtered
-    ]
+        candidate_dicts = [
+            {
+                "company": item.company,
+                "role_title": item.role_title,
+                "location": item.location,
+                "url": item.url,
+                "url_hash": _url_hash(item.url),
+                "source": item.source,
+                "source_id": item.source_id,
+                "date_posted": item.date_posted,
+                "jd_text": item.jd_text,
+                "notes": item.notes,
+                "list_url": item.list_url,
+                "status": "",
+            }
+            for item in filtered
+        ]
 
-    if verbose:
-        print(f"  New startup candidates before scoring: {len(candidate_dicts)}")
+        if not candidate_dicts:
+            if verbose:
+                print("  No new startup apply jobs found.")
+        else:
+            if verbose:
+                print(f"  New startup candidates before scoring: {len(candidate_dicts)}")
 
-    if skip_score:
-        scored_jobs = []
-        for candidate in candidate_dicts:
-            candidate["fit_score"] = ""
-            candidate["fit_rationale"] = "[Skipped scoring] Discovery smoke test run"
-            candidate["role_type"] = ""
-            candidate["status"] = "review"
-            scored_jobs.append(candidate)
-    else:
-        api_key = _load_api_key()
-        client = anthropic.Anthropic(api_key=api_key)
-        scored_jobs = score_batch(candidate_dicts, client=client, model=model, verbose=verbose)
-        scored_jobs = _post_process_scored_jobs(scored_jobs)
+            if skip_score:
+                for candidate in candidate_dicts:
+                    candidate["fit_score"] = ""
+                    candidate["fit_rationale"] = "[Skipped scoring] Discovery smoke test run"
+                    candidate["role_type"] = ""
+                    candidate["status"] = "review"
+                    scored_jobs.append(candidate)
+            else:
+                api_key = _load_api_key()
+                client = anthropic.Anthropic(api_key=api_key)
+                scored_jobs = score_batch(
+                    candidate_dicts,
+                    client=client,
+                    model=model,
+                    verbose=verbose,
+                )
+                scored_jobs = _post_process_scored_jobs(scored_jobs)
 
-    rows = _rows_from_jobs(scored_jobs, start_id=next_id)
-    df_new = pd.DataFrame(rows, columns=jobs.COLUMNS)
-    df_all = pd.concat([df_existing, df_new], ignore_index=True)
-    jobs.save_jobs(df_all, dry_run=dry_run)
+            rows = _rows_from_jobs(scored_jobs, start_id=next_id)
+            df_new = pd.DataFrame(rows, columns=jobs.COLUMNS)
+            df_all = pd.concat([df_existing, df_new], ignore_index=True)
+            jobs.save_jobs(df_all, dry_run=dry_run)
+            jobs_written = 0 if dry_run else len(rows)
 
-    log_path = _write_run_log(
-        scored_jobs,
-        run_start,
-        dry_run=dry_run,
-        skip_score=skip_score,
-        discovered_counts=discovered_counts,
-        new_counts=new_counts,
-    )
-    if verbose:
-        _print_source_summary(
+        log_path = _write_run_log(
+            scored_jobs,
+            run_start,
+            dry_run=dry_run,
+            skip_score=skip_score,
             discovered_counts=discovered_counts,
             new_counts=new_counts,
-            scored_jobs=scored_jobs,
         )
-        queued = len([job for job in scored_jobs if job.get("status") == "queued"])
-        review = len([job for job in scored_jobs if job.get("status") == "review"])
-        skipped = len([job for job in scored_jobs if job.get("status") == "skipped"])
-        print(f"\n  Queued: {queued} | Review: {review} | Skipped: {skipped}")
-        print(f"  Log: {log_path}")
-        if not dry_run:
-            print(f"  ✓ jobs.xlsx updated ({len(df_all)} total rows)")
-
-    return scored_jobs
+        scoring_health = _startup_scoring_health(len(candidate_dicts), scored_jobs)
+        artifact_path = _write_run_artifact(
+            artifact_path,
+            run_start=run_start,
+            status=str(scoring_health["status"]),
+            dry_run=dry_run,
+            skip_score=skip_score,
+            model=model,
+            limit_companies=limit_companies,
+            limit_jobs=limit_jobs,
+            include_sources=include_sources,
+            ignore_existing=ignore_existing,
+            discovered_counts=discovered_counts,
+            new_counts=new_counts,
+            selected_candidates=candidate_dicts,
+            scored_jobs=scored_jobs,
+            log_path=log_path,
+            jobs_written=jobs_written,
+        )
+        if verbose:
+            _print_source_summary(
+                discovered_counts=discovered_counts,
+                new_counts=new_counts,
+                scored_jobs=scored_jobs,
+            )
+            queued = len([job for job in scored_jobs if job.get("status") == "queued"])
+            review = len([job for job in scored_jobs if job.get("status") == "review"])
+            skipped = len([job for job in scored_jobs if job.get("status") == "skipped"])
+            print(f"\n  Queued: {queued} | Review: {review} | Skipped: {skipped}")
+            print(f"  Log: {log_path}")
+            print(f"  Run artifact: {artifact_path}")
+            if not dry_run and candidate_dicts:
+                print(f"  ✓ jobs.xlsx updated ({len(df_existing) + jobs_written} total rows)")
+        return scored_jobs
+    except BaseException as exc:
+        try:
+            failed_path = _write_run_artifact(
+                artifact_path,
+                run_start=run_start,
+                status="failed",
+                dry_run=dry_run,
+                skip_score=skip_score,
+                model=model,
+                limit_companies=limit_companies,
+                limit_jobs=limit_jobs,
+                include_sources=include_sources,
+                ignore_existing=ignore_existing,
+                discovered_counts=discovered_counts,
+                new_counts=new_counts,
+                selected_candidates=candidate_dicts,
+                scored_jobs=scored_jobs,
+                log_path=log_path,
+                jobs_written=jobs_written,
+                error=exc,
+            )
+            print(f"  Failed run artifact: {failed_path}", file=sys.stderr)
+        except Exception as artifact_exc:
+            print(
+                f"  WARNING: Could not write failed startup run artifact: {artifact_exc}",
+                file=sys.stderr,
+            )
+        raise
 
 
 def main() -> int:
@@ -1582,6 +1821,15 @@ def main() -> int:
         action="store_true",
         help="Ignore existing jobs.xlsx dedupe and analyze all currently discovered startup jobs",
     )
+    parser.add_argument(
+        "--run-artifact",
+        type=Path,
+        default=None,
+        help=(
+            "Write the structured result to this exact JSON path. The daily engine "
+            "sets this explicitly so downstream reporting cannot select a stale run."
+        ),
+    )
     parser.add_argument("--quiet", action="store_true", help="Suppress verbose per-source output")
     args = parser.parse_args()
 
@@ -1595,6 +1843,7 @@ def main() -> int:
         include_sources=include_sources,
         ignore_existing=args.ignore_existing,
         verbose=not args.quiet,
+        run_artifact=args.run_artifact,
     )
     return 0
 

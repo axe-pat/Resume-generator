@@ -263,6 +263,7 @@ def _handshake_metrics(path: Path | None) -> dict:
     decision_counts = _decision_counts(scored)
     return {
         "artifact": str(path) if path else "",
+        "artifact_status": payload.get("status"),
         "raw_count": counts.get("input_rows"),
         "deduped_candidates": counts.get("deduped_candidates"),
         "skipped_duplicates": counts.get("skipped_duplicates"),
@@ -273,7 +274,7 @@ def _handshake_metrics(path: Path | None) -> dict:
         "freshly_scored_count": counts.get("scored"),
         "accepted_for_write": counts.get("accepted_min_score"),
         "decision_counts": decision_counts,
-        "error_count": counts.get("fetch_failed", 0),
+        "error_count": counts.get("error_count", counts.get("fetch_failed", 0)),
     }
 
 
@@ -305,34 +306,58 @@ def _jobspy_metrics_from_artifacts(
     }
 
 
-def _startup_apply_log_metrics(path: Path | None) -> dict:
-    if not path:
-        return {"artifact": ""}
-    text = path.read_text(encoding="utf-8", errors="replace")
-    source_rows: dict[str, dict[str, int]] = {}
-    for line in text.splitlines():
-        if " | discovered=" not in line:
-            continue
-        label, _, rest = line.partition(" | ")
-        source_match = re.search(r"\[([^\]]+)\]", label)
-        source_id = source_match.group(1) if source_match else label.strip()
-        source_rows[source_id] = {
-            "discovered": _parse_count(r"discovered=(\d+)", rest),
-            "new": _parse_count(r"new=(\d+)", rest),
-            "scored": _parse_count(r"scored=(\d+)", rest),
-            "queued": _parse_count(r"queued=(\d+)", rest),
-            "review": _parse_count(r"review=(\d+)", rest),
-            "skipped": _parse_count(r"skipped=(\d+)", rest),
+def _startup_apply_artifact_metrics(path: Path | None) -> dict:
+    payload = _load_artifact_json(path)
+    counts = payload.get("counts") if isinstance(payload.get("counts"), dict) else {}
+    discovered = (
+        counts.get("discovered_by_source")
+        if isinstance(counts.get("discovered_by_source"), dict)
+        else {}
+    )
+    new = (
+        counts.get("new_by_source")
+        if isinstance(counts.get("new_by_source"), dict)
+        else {}
+    )
+    selected = (
+        counts.get("selected_by_source")
+        if isinstance(counts.get("selected_by_source"), dict)
+        else {}
+    )
+    statuses = (
+        counts.get("status_counts")
+        if isinstance(counts.get("status_counts"), dict)
+        else {}
+    )
+    decisions = (
+        counts.get("decision_counts")
+        if isinstance(counts.get("decision_counts"), dict)
+        else {}
+    )
+    source_ids = sorted(set(discovered) | set(new) | set(selected))
+    source_rows = {
+        source_id: {
+            "discovered": int(discovered.get(source_id) or 0),
+            "new": int(new.get(source_id) or 0),
+            "selected": int(selected.get(source_id) or 0),
         }
+        for source_id in source_ids
+    }
     return {
-        "artifact": str(path),
-        "discovered_count": sum(item["discovered"] for item in source_rows.values()),
-        "new_count": sum(item["new"] for item in source_rows.values()),
-        "freshly_scored_count": sum(item["scored"] for item in source_rows.values()),
-        "accepted_for_write": _parse_count(r"^Queued:\s+(\d+)", text),
-        "review_count": _parse_count(r"^Review:\s+(\d+)", text),
-        "skipped_count": _parse_count(r"^Skipped:\s+(\d+)", text),
+        "artifact": str(path) if path else "",
+        "artifact_schema": payload.get("schema"),
+        "artifact_version": payload.get("version"),
+        "artifact_status": payload.get("status"),
+        "discovered_count": int(counts.get("discovered") or 0),
+        "new_count": int(counts.get("new") or 0),
+        "freshly_scored_count": int(counts.get("scored") or 0),
+        "accepted_for_write": int(statuses.get("queued") or 0),
+        "review_count": int(statuses.get("review") or 0),
+        "skipped_count": int(statuses.get("skipped") or 0),
+        "written_count": int(counts.get("written") or 0),
         "source_counts": source_rows,
+        "decision_counts": decisions,
+        "error_count": int(counts.get("error_count") or 0),
     }
 
 
@@ -342,11 +367,18 @@ def _startup_report_metrics(path: Path | None) -> dict:
     relationship = payload.get("relationship_lane") or {}
     return {
         "artifact": str(path) if path else "",
+        "startup_apply_status": startup_apply.get("status"),
+        "startup_apply_mode": startup_apply.get("mode"),
+        "startup_apply_run_artifact": startup_apply.get("run_artifact"),
         "startup_apply_discovered": startup_apply.get("discovered_counts") or {},
         "startup_apply_new": startup_apply.get("new_counts") or {},
         "startup_apply_verdicts": startup_apply.get("verdict_counts") or {},
         "startup_apply_source_verdicts": startup_apply.get("source_verdict_counts")
         or {},
+        "relationship_status": relationship.get("status"),
+        "relationship_mode": relationship.get("mode"),
+        "relationship_error_count": relationship.get("error_count", 0),
+        "relationship_artifacts": relationship.get("artifacts") or {},
         "relationship_source_counts": relationship.get("source_counts") or {},
         "relationship_targets": len(relationship.get("items") or []),
     }
@@ -382,6 +414,7 @@ def _source_row(
         "accepted_for_write": accepted,
         "outreach_signals": metrics.get(outreach_key),
         "error_count": metrics.get("error_count", 0),
+        "decision_counts": metrics.get("decision_counts") or {},
         "accepted_per_minute": _accepted_per_minute(accepted, runtime),
         "details": metrics,
     }
@@ -453,7 +486,9 @@ def write_source_run_metrics(
         artifacts.get("source_breadth"),
         artifacts.get("jobspy_scored"),
     )
-    startup_apply = _startup_apply_log_metrics(artifacts.get("startup_apply_log"))
+    startup_apply = _startup_apply_artifact_metrics(
+        artifacts.get("startup_apply_run")
+    )
     startup_report = _startup_report_metrics(artifacts.get("startup_report"))
     action_queue = _action_queue_metrics(action_queue_path)
     linkedin_followup_drafts = _linkedin_followup_draft_metrics(artifacts.get("linkedin_followup_drafts"))
@@ -488,6 +523,8 @@ def write_source_run_metrics(
             "runtime_seconds": relationship_stage.get("runtime_seconds"),
             "relationship_targets": startup_report.get("relationship_targets"),
             "source_counts": startup_report.get("relationship_source_counts"),
+            "error_count": startup_report.get("relationship_error_count", 0),
+            "artifacts": startup_report.get("relationship_artifacts") or {},
         },
     }
 
@@ -576,9 +613,15 @@ def write_source_run_metrics_markdown(path: Path, payload: dict) -> None:
             "",
             "## Startup Split",
             "",
+            f"- Startup apply status: {payload['startup_source_report']['startup_apply_status']}",
+            f"- Startup apply mode: {payload['startup_source_report']['startup_apply_mode']}",
+            f"- Startup apply exact run artifact: {payload['startup_source_report']['startup_apply_run_artifact']}",
             f"- Startup apply discovered: {payload['startup_source_report']['startup_apply_discovered']}",
             f"- Startup apply new: {payload['startup_source_report']['startup_apply_new']}",
             f"- Startup apply verdicts: {payload['startup_source_report']['startup_apply_verdicts']}",
+            f"- Startup relationship status: {payload['startup_source_report']['relationship_status']}",
+            f"- Startup relationship mode: {payload['startup_source_report']['relationship_mode']}",
+            f"- Startup relationship errors: {payload['startup_source_report']['relationship_error_count']}",
             f"- Startup relationship targets: {payload['startup_source_report']['relationship_targets']}",
             f"- Startup relationship sources: {payload['startup_source_report']['relationship_source_counts']}",
         ]
@@ -1416,6 +1459,261 @@ def daily_engine_manifest_path(run_id: str) -> Path:
     )
 
 
+def startup_apply_run_artifact_path(run_id: str) -> Path:
+    nonce = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
+    return LOGS_DIR / f"startup_apply_run_{_manifest_run_id(run_id)}_{nonce}.json"
+
+
+def handshake_run_artifact_path(run_id: str) -> Path:
+    nonce = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
+    return LOGS_DIR / f"handshake_import_{_manifest_run_id(run_id)}_{nonce}.json"
+
+
+def startup_source_report_path(run_id: str) -> Path:
+    nonce = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
+    return (
+        SOURCE_VALIDATION_DIR
+        / f"{_manifest_run_id(run_id)}-{nonce}-startup-source-report.json"
+    )
+
+
+def _artifact_health_status(total_count: int, error_count: int) -> str:
+    if total_count == 0 or error_count == 0:
+        return "completed"
+    if error_count >= total_count:
+        return "failed"
+    return "partial_failed"
+
+
+def _validate_startup_apply_run_artifact(path: Path) -> dict[str, object]:
+    if not path.is_file():
+        raise ValueError(f"Exact startup run artifact is missing: {path}")
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"Exact startup run artifact is invalid: {path}") from exc
+    if not isinstance(payload, dict):
+        raise ValueError("Startup run artifact root must be an object")
+    if payload.get("schema") != "resume_generator.startup_apply_run":
+        raise ValueError(f"Unexpected startup run artifact schema: {payload.get('schema')!r}")
+    if payload.get("version") != 1:
+        raise ValueError(f"Unsupported startup run artifact version: {payload.get('version')!r}")
+    counts = payload.get("counts")
+    candidates = payload.get("candidates")
+    if not isinstance(counts, dict) or not isinstance(candidates, dict):
+        raise ValueError("Startup run artifact is missing counts or candidates")
+    selected = candidates.get("selected")
+    scored = candidates.get("scored")
+    if (
+        not isinstance(selected, list)
+        or not isinstance(scored, list)
+        or any(not isinstance(item, dict) for item in [*selected, *scored])
+    ):
+        raise ValueError("Startup run artifact candidate lists are invalid")
+    try:
+        selected_count = int(counts.get("selected"))
+        scored_count = int(counts.get("scored"))
+        error_count = int(counts.get("error_count"))
+        scoring_errors = int(counts.get("scoring_error_count"))
+        processing_errors = int(counts.get("processing_error_count"))
+        run_errors = int(counts.get("run_error_count"))
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Startup run artifact health counts are invalid") from exc
+    if min(
+        selected_count,
+        scored_count,
+        error_count,
+        scoring_errors,
+        processing_errors,
+        run_errors,
+    ) < 0:
+        raise ValueError("Startup run artifact contains negative health counts")
+    if selected_count != len(selected):
+        raise ValueError(
+            "Startup run artifact counts.selected does not match candidates.selected"
+        )
+    if scored_count != len(scored) or scored_count > selected_count:
+        raise ValueError(
+            "Startup run artifact counts.scored does not match candidates.scored"
+        )
+    actual_scoring_errors = sum(
+        1
+        for item in scored
+        if isinstance(item, dict)
+        and (
+            str(item.get("decision") or "").strip().casefold() == "error"
+            or str(item.get("status") or "").strip().casefold() == "error"
+        )
+    )
+    if scoring_errors != actual_scoring_errors:
+        raise ValueError("Startup run artifact scoring error count is inconsistent")
+    if processing_errors != max(0, selected_count - scored_count):
+        raise ValueError("Startup run artifact processing error count is inconsistent")
+    if error_count != scoring_errors + processing_errors + run_errors:
+        raise ValueError("Startup run artifact total error count is inconsistent")
+    expected_status = (
+        "failed"
+        if run_errors
+        else _artifact_health_status(selected_count, error_count)
+    )
+    if payload.get("status") != expected_status:
+        raise ValueError(
+            "Startup run artifact status does not match its scoring error counts"
+        )
+    return payload
+
+
+def _validate_handshake_run_artifact(path: Path) -> dict[str, object]:
+    if not path.is_file():
+        raise ValueError(f"Exact Handshake run artifact is missing: {path}")
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"Exact Handshake run artifact is invalid: {path}") from exc
+    if not isinstance(payload, dict):
+        raise ValueError("Handshake run artifact root must be an object")
+    if payload.get("schema") != "resume_generator.handshake_import_run":
+        raise ValueError(f"Unexpected Handshake run artifact schema: {payload.get('schema')!r}")
+    if payload.get("version") != 1:
+        raise ValueError(f"Unsupported Handshake run artifact version: {payload.get('version')!r}")
+    counts = payload.get("counts")
+    skipped = payload.get("skipped")
+    fetch_failed_rows = payload.get("fetch_failed")
+    scored_rows = payload.get("scored")
+    if (
+        not isinstance(counts, dict)
+        or not isinstance(skipped, list)
+        or not isinstance(fetch_failed_rows, list)
+        or not isinstance(scored_rows, list)
+        or any(
+            not isinstance(item, dict)
+            for item in [*skipped, *fetch_failed_rows, *scored_rows]
+        )
+    ):
+        raise ValueError("Handshake run artifact contains invalid row lists")
+    try:
+        input_rows = int(counts.get("input_rows"))
+        candidates = int(counts.get("deduped_candidates"))
+        skipped_count = int(counts.get("skipped_duplicates"))
+        error_count = int(counts.get("error_count"))
+        fetch_ok = int(counts.get("fetch_ok"))
+        fetch_failed_count = int(counts.get("fetch_failed"))
+        fetch_errors = int(counts.get("fetch_error_count"))
+        scored_count = int(counts.get("scored"))
+        scoring_errors = int(counts.get("scoring_error_count"))
+        processing_errors = int(counts.get("processing_error_count"))
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Handshake run artifact contains invalid counts") from exc
+    if min(
+        input_rows,
+        candidates,
+        skipped_count,
+        error_count,
+        fetch_ok,
+        fetch_failed_count,
+        fetch_errors,
+        scored_count,
+        scoring_errors,
+        processing_errors,
+    ) < 0:
+        raise ValueError("Handshake run artifact contains negative counts")
+    if skipped_count != len(skipped):
+        raise ValueError(
+            "Handshake skipped count does not match its run-scoped skipped rows"
+        )
+    if candidates + skipped_count > input_rows:
+        raise ValueError("Handshake run artifact count ordering is impossible")
+    if fetch_failed_count != fetch_errors:
+        raise ValueError("Handshake fetch failure counts disagree")
+    if fetch_ok + fetch_errors != candidates:
+        raise ValueError("Handshake fetch counts do not match candidate count")
+    if fetch_errors != len(fetch_failed_rows):
+        raise ValueError("Handshake fetch error count does not match failed rows")
+    if scored_count != len(scored_rows) or scored_count > fetch_ok:
+        raise ValueError("Handshake scored count does not match scored rows")
+    actual_scoring_errors = sum(
+        1
+        for item in scored_rows
+        if str(item.get("decision") or "").strip().casefold() == "error"
+        or str(item.get("status") or "").strip().casefold() == "error"
+    )
+    if scoring_errors != actual_scoring_errors:
+        raise ValueError("Handshake scoring error count is inconsistent")
+    if processing_errors != max(0, fetch_ok - scored_count):
+        raise ValueError("Handshake processing error count is inconsistent")
+    if error_count != fetch_errors + scoring_errors + processing_errors:
+        raise ValueError("Handshake total error count is inconsistent")
+    expected_status = _artifact_health_status(candidates, error_count)
+    if payload.get("status") != expected_status:
+        raise ValueError(
+            "Handshake run artifact status does not match its processing error counts"
+        )
+    return payload
+
+
+def _artifact_pointer_from_output(output: str, *, base_dir: Path) -> Path | None:
+    for line in reversed((output or "").splitlines()):
+        if not line.strip().startswith("Artifact:"):
+            continue
+        raw_path = line.split("Artifact:", 1)[1].strip()
+        if not raw_path:
+            continue
+        path = Path(raw_path).expanduser()
+        if not path.is_absolute():
+            path = base_dir / path
+        return path.resolve(strict=False)
+    return None
+
+
+def _validate_relationship_discovery_artifact(
+    path: Path,
+    expected_source_id: str,
+) -> tuple[dict[str, object], str]:
+    if not path.is_file():
+        raise ValueError(
+            f"Exact relationship artifact is missing for {expected_source_id}: {path}"
+        )
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(
+            f"Exact relationship artifact is invalid for {expected_source_id}: {path}"
+        ) from exc
+    if not isinstance(payload, dict):
+        raise ValueError("Relationship discovery artifact root must be an object")
+    source = payload.get("source")
+    actual_source_id = (
+        str(source.get("source_id") or "").strip()
+        if isinstance(source, dict)
+        else ""
+    )
+    if actual_source_id != expected_source_id:
+        raise ValueError(
+            f"Relationship artifact source mismatch: expected {expected_source_id}, "
+            f"found {actual_source_id or 'missing'}"
+        )
+    results = payload.get("results")
+    if not isinstance(results, list):
+        raise ValueError(
+            f"Relationship artifact results are invalid for {expected_source_id}"
+        )
+    try:
+        kept_count = int(payload.get("count"))
+        raw_count = int(payload.get("raw_count"))
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            f"Relationship artifact counts are invalid for {expected_source_id}"
+        ) from exc
+    if kept_count != len(results) or kept_count < 0 or raw_count < kept_count:
+        raise ValueError(
+            f"Relationship artifact counts are inconsistent for {expected_source_id}"
+        )
+    status = str(payload.get("status") or "completed").strip().casefold()
+    if status in {"ran", "success", "ok"}:
+        status = "completed"
+    return payload, status
+
+
 def _json_safe(value: Any) -> Any:
     if isinstance(value, Path):
         return str(value)
@@ -1528,6 +1826,35 @@ def _typed_manifest_pointers(manifest: dict[str, object]) -> dict[str, object]:
         artifacts.get("linkedin_reconcile_artifacts"),
         base_dir=OUTREACH_ROOT,
     )
+    startup_apply_run_artifact = _readable_artifact_path(
+        artifacts.get("startup_apply_run"),
+        base_dir=ROOT,
+    )
+    startup_source_report_artifact = _readable_artifact_path(
+        artifacts.get("startup_report"),
+        base_dir=ROOT,
+    )
+    handshake_run_artifact = _readable_artifact_path(
+        artifacts.get("handshake_log"),
+        base_dir=ROOT,
+    )
+    relationship_run = (
+        artifacts.get("relationship_discovery")
+        if isinstance(artifacts.get("relationship_discovery"), dict)
+        else {}
+    )
+    relationship_paths = (
+        relationship_run.get("artifacts")
+        if isinstance(relationship_run.get("artifacts"), dict)
+        else {}
+    )
+    relationship_discovery_artifacts = {
+        str(source_id): path
+        for source_id, raw_path in relationship_paths.items()
+        if (
+            path := _readable_artifact_path(raw_path, base_dir=OUTREACH_ROOT)
+        )
+    }
     for path in _reconcile_artifacts_from_drafts(followup_drafts):
         if path not in reconcile_artifacts:
             reconcile_artifacts.append(path)
@@ -1538,6 +1865,10 @@ def _typed_manifest_pointers(manifest: dict[str, object]) -> dict[str, object]:
         "linkedin_followup_draft_artifacts": followup_drafts,
         "linkedin_followup_send_artifacts": followup_sends,
         "linkedin_reconcile_artifacts": reconcile_artifacts,
+        "startup_apply_run_artifact": startup_apply_run_artifact,
+        "startup_source_report_artifact": startup_source_report_artifact,
+        "handshake_run_artifact": handshake_run_artifact,
+        "relationship_discovery_artifacts": relationship_discovery_artifacts,
         "source_metrics": str(manifest.get("source_metrics") or ""),
         "action_queue": str(manifest.get("action_queue") or ""),
         "app_invites": {
@@ -1625,23 +1956,47 @@ def _source_families_for_manifest(manifest: dict[str, object]) -> dict[str, obje
         if isinstance(stages.get("relationship_discovery"), dict)
         else {}
     )
+    startup_report_stage = (
+        stages.get("startup_source_report")
+        if isinstance(stages.get("startup_source_report"), dict)
+        else {}
+    )
     relationship_count = _manifest_count(
         startup_relationship.get("relationship_targets")
     )
-    startup_statuses = {
-        str(startup_apply.get("status") or "skipped"),
+    startup_lane_statuses = [
+        str(startup_apply.get("status") or "skipped").casefold(),
         str(
             startup_relationship.get("status")
             or relationship_stage.get("status")
             or "skipped"
-        ),
-    }
-    if any("fail" in status or "timeout" in status for status in startup_statuses):
-        startup_status = "partial_failed" if "ran" in startup_statuses else "failed"
-    elif "ran" in startup_statuses:
-        startup_status = "ran" if startup_statuses == {"ran"} else "partial"
-    else:
+        ).casefold(),
+    ]
+    helper_status = str(
+        startup_report_stage.get("status") or "skipped"
+    ).casefold()
+
+    def non_green(status: str) -> bool:
+        return (
+            "fail" in status
+            or "timeout" in status
+            or status in {"incomplete", "timed_out"}
+        )
+
+    lane_has_activity = any(
+        status in {"ran", "completed", "partial"}
+        for status in startup_lane_statuses
+    )
+    if any(non_green(status) for status in [*startup_lane_statuses, helper_status]):
+        startup_status = "partial_failed" if lane_has_activity else "failed"
+    elif all(status == "skipped" for status in startup_lane_statuses):
+        # The helper report is bookkeeping; a successful helper cannot manufacture
+        # source activity when both underlying startup lanes were intentionally skipped.
         startup_status = "skipped"
+    elif all(status in {"ran", "completed"} for status in startup_lane_statuses):
+        startup_status = "ran"
+    else:
+        startup_status = "partial"
 
     action_queue_path = Path(str(manifest.get("action_queue") or ""))
     action_queue = _load_json(action_queue_path)
@@ -1691,6 +2046,10 @@ def _source_families_for_manifest(manifest: dict[str, object]) -> dict[str, obje
                     ),
                     "relationship_targets": relationship_count,
                     "source_counts": startup_relationship.get("source_counts") or {},
+                    "error_count": _manifest_count(
+                        startup_relationship.get("error_count")
+                    ),
+                    "artifacts": startup_relationship.get("artifacts") or {},
                 },
             },
         },
@@ -1784,11 +2143,45 @@ def _run_daily_engine(args: argparse.Namespace, run_manifest: dict[str, object])
 
     if not args.skip_handshake:
         stage_started = _start_stage(stage_metrics, "handshake")
-        artifact_since = time.time()
-        run(["./discovery/scripts/run_handshake_discovery.sh", args.window])
-        _finish_stage(stage_metrics, "handshake", stage_started)
-        artifacts["handshake_log"] = latest_since(
-            "handshake_import_*.json", LOGS_DIR, artifact_since
+        handshake_artifact = handshake_run_artifact_path(args.run_id)
+        artifacts["handshake_log"] = handshake_artifact
+        handshake_result = run(
+            [
+                "./discovery/scripts/run_handshake_discovery.sh",
+                args.window,
+                handshake_artifact,
+            ],
+            check=False,
+        )
+        if handshake_result.returncode != 0:
+            _finish_stage(
+                stage_metrics,
+                "handshake",
+                stage_started,
+                status="failed",
+                returncode=handshake_result.returncode,
+            )
+            raise SystemExit(
+                f"Handshake discovery exited with {handshake_result.returncode}; "
+                f"exact artifact: {handshake_artifact}"
+            )
+        try:
+            handshake_payload = _validate_handshake_run_artifact(handshake_artifact)
+        except ValueError as exc:
+            _finish_stage(
+                stage_metrics,
+                "handshake",
+                stage_started,
+                status="failed",
+                returncode=2,
+            )
+            raise SystemExit(str(exc)) from exc
+        handshake_status = str(handshake_payload.get("status") or "failed")
+        _finish_stage(
+            stage_metrics,
+            "handshake",
+            stage_started,
+            status="ran" if handshake_status == "completed" else handshake_status,
         )
     else:
         _skip_stage(stage_metrics, "handshake")
@@ -1868,8 +2261,9 @@ def _run_daily_engine(args: argparse.Namespace, run_manifest: dict[str, object])
 
     if not args.skip_startup_apply:
         stage_started = _start_stage(stage_metrics, "startup_apply")
-        artifact_since = time.time()
-        run(
+        startup_apply_artifact = startup_apply_run_artifact_path(args.run_id)
+        artifacts["startup_apply_run"] = startup_apply_artifact
+        startup_result = run(
             [
                 PYTHON,
                 "discovery/auto/startup_apply_pipeline.py",
@@ -1877,21 +2271,64 @@ def _run_daily_engine(args: argparse.Namespace, run_manifest: dict[str, object])
                 args.startup_limit_companies,
                 "--limit-jobs",
                 args.startup_limit_jobs,
-            ]
+                "--run-artifact",
+                startup_apply_artifact,
+            ],
+            check=False,
         )
-        _finish_stage(stage_metrics, "startup_apply", stage_started)
-        artifacts["startup_apply_log"] = latest_since(
-            "startup_apply_*.txt", LOGS_DIR, artifact_since
+        if startup_result.returncode != 0:
+            _finish_stage(
+                stage_metrics,
+                "startup_apply",
+                stage_started,
+                status="failed",
+                returncode=startup_result.returncode,
+            )
+            raise SystemExit(
+                f"Startup apply exited with {startup_result.returncode}; exact artifact: "
+                f"{startup_apply_artifact}"
+            )
+        try:
+            startup_apply_payload = _validate_startup_apply_run_artifact(
+                startup_apply_artifact
+            )
+        except ValueError as exc:
+            _finish_stage(
+                stage_metrics,
+                "startup_apply",
+                stage_started,
+                status="failed",
+                returncode=2,
+            )
+            raise SystemExit(str(exc)) from exc
+        startup_outputs = startup_apply_payload.get("outputs")
+        run_log = str(
+            startup_outputs.get("run_log")
+            if isinstance(startup_outputs, dict)
+            else ""
+        )
+        if run_log and Path(run_log).is_file():
+            artifacts["startup_apply_log"] = Path(run_log)
+        startup_apply_status = str(
+            startup_apply_payload.get("status") or "failed"
+        )
+        _finish_stage(
+            stage_metrics,
+            "startup_apply",
+            stage_started,
+            status=(
+                "ran" if startup_apply_status == "completed" else startup_apply_status
+            ),
         )
     else:
         _skip_stage(stage_metrics, "startup_apply")
 
-    relationship_artifact_since: float | None = None
+    relationship_artifact_paths: dict[str, Path] = {}
+    relationship_artifact_statuses: dict[str, str] = {}
     if not args.skip_relationship_discovery:
         stage_started = _start_stage(stage_metrics, "relationship_discovery")
-        relationship_artifact_since = time.time()
         for source_id in RELATIONSHIP_SOURCES:
-            run(
+            result = run_capture(
                 [
                     OUTREACH_PYTHON,
                     "main.py",
@@ -1902,13 +2339,63 @@ def _run_daily_engine(args: argparse.Namespace, run_manifest: dict[str, object])
                     args.relationship_source_limit,
                 ],
                 cwd=OUTREACH_ROOT,
+                check=False,
             )
-        _finish_stage(stage_metrics, "relationship_discovery", stage_started)
+            output = "\n".join(
+                part for part in [result.stdout, result.stderr] if part
+            )
+            pointer = _artifact_pointer_from_output(
+                output,
+                base_dir=OUTREACH_ROOT,
+            )
+            if pointer is None:
+                relationship_artifact_statuses[source_id] = "failed"
+                print(
+                    f"[warn] No exact Artifact pointer returned for {source_id}.",
+                    file=sys.stderr,
+                )
+                continue
+            try:
+                _, artifact_health = _validate_relationship_discovery_artifact(
+                    pointer,
+                    source_id,
+                )
+            except ValueError as exc:
+                relationship_artifact_statuses[source_id] = "failed"
+                print(f"[warn] {exc}", file=sys.stderr)
+                continue
+            relationship_artifact_paths[source_id] = pointer
+            if result.returncode != 0:
+                relationship_artifact_statuses[source_id] = "failed"
+            else:
+                relationship_artifact_statuses[source_id] = artifact_health
+
+        green_relationship_sources = sum(
+            status == "completed"
+            for status in relationship_artifact_statuses.values()
+        )
+        relationship_errors = len(RELATIONSHIP_SOURCES) - green_relationship_sources
+        if relationship_errors == 0:
+            relationship_stage_status = "ran"
+        elif green_relationship_sources:
+            relationship_stage_status = "partial_failed"
+        else:
+            relationship_stage_status = "failed"
+        artifacts["relationship_discovery"] = {
+            "artifacts": relationship_artifact_paths,
+            "statuses": relationship_artifact_statuses,
+        }
+        _finish_stage(
+            stage_metrics,
+            "relationship_discovery",
+            stage_started,
+            status=relationship_stage_status,
+            returncode=0 if relationship_errors == 0 else 1,
+        )
     else:
         _skip_stage(stage_metrics, "relationship_discovery")
 
     stage_started = _start_stage(stage_metrics, "startup_source_report")
-    artifact_since = time.time()
     startup_report_cmd: list[object] = [
         PYTHON,
         "discovery/scripts/build_startup_source_report.py",
@@ -1919,17 +2406,59 @@ def _run_daily_engine(args: argparse.Namespace, run_manifest: dict[str, object])
     ]
     if args.skip_startup_apply:
         startup_report_cmd.append("--no-startup-apply")
+    else:
+        startup_apply_artifact = artifacts.get("startup_apply_run")
+        if not isinstance(startup_apply_artifact, Path):
+            _finish_stage(
+                stage_metrics,
+                "startup_source_report",
+                stage_started,
+                status="failed",
+                returncode=2,
+            )
+            raise SystemExit("Startup source report has no exact startup run pointer.")
+        startup_report_cmd.extend(
+            ["--startup-run-artifact", startup_apply_artifact]
+        )
     if args.skip_relationship_discovery:
         startup_report_cmd.append("--no-relationship-artifacts")
-    elif relationship_artifact_since is not None:
-        startup_report_cmd.extend(
-            ["--relationship-artifact-since-epoch", relationship_artifact_since]
+    else:
+        startup_report_cmd.append("--exact-relationship-artifacts")
+        for source_id in RELATIONSHIP_SOURCES:
+            startup_report_cmd.extend(
+                ["--required-relationship-source", source_id]
+            )
+            startup_report_cmd.extend(
+                [
+                    "--relationship-artifact-status",
+                    f"{source_id}={relationship_artifact_statuses.get(source_id, 'failed')}",
+                ]
+            )
+            exact_artifact = relationship_artifact_paths.get(source_id)
+            if exact_artifact is not None:
+                startup_report_cmd.extend(
+                    [
+                        "--relationship-artifact",
+                        f"{source_id}={exact_artifact}",
+                    ]
+                )
+    startup_report_artifact = startup_source_report_path(args.run_id)
+    artifacts["startup_report"] = startup_report_artifact
+    startup_report_cmd.extend(["--output-json", startup_report_artifact])
+    report_result = run(startup_report_cmd, check=False)
+    if report_result.returncode != 0 or not startup_report_artifact.is_file():
+        _finish_stage(
+            stage_metrics,
+            "startup_source_report",
+            stage_started,
+            status="failed",
+            returncode=report_result.returncode or 2,
         )
-    run(startup_report_cmd)
+        raise SystemExit(
+            "Startup source report failed closed for exact startup run artifact "
+            f"{artifacts.get('startup_apply_run')}."
+        )
     _finish_stage(stage_metrics, "startup_source_report", stage_started)
-    artifacts["startup_report"] = latest_since(
-        "*startup-source-report.json", SOURCE_VALIDATION_DIR, artifact_since
-    )
 
     stage_started = _start_stage(stage_metrics, "action_queue")
     action_queue_path = build_action_queue(args)

@@ -50,12 +50,15 @@ def test_nightly_enables_a_bounded_email_draft_lane() -> None:
     }
 
 
-def test_daily_startup_report_wiring_excludes_skipped_or_stale_relationship_lanes() -> None:
+def test_daily_startup_report_wiring_uses_exact_or_explicitly_skipped_relationship_lanes() -> None:
     source = SCRIPT.read_text(encoding="utf-8")
 
     assert 'startup_report_cmd.append("--no-startup-apply")' in source
     assert 'startup_report_cmd.append("--no-relationship-artifacts")' in source
-    assert '"--relationship-artifact-since-epoch"' in source
+    assert 'startup_report_cmd.append("--exact-relationship-artifacts")' in source
+    assert '"--required-relationship-source"' in source
+    assert '"--relationship-artifact"' in source
+    assert "relationship_artifact_since" not in source
 
 
 def test_nightly_latest_since_rejects_a_stale_source_metrics_artifact(

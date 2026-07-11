@@ -110,6 +110,9 @@ Purpose:
 - Find actual startup roles with apply URLs and JD text.
 - Existing sources include YC, Built In, and a16z.
 - This is application-first, not relationship-first.
+- Every execution emits a structured run artifact with exact per-source
+  discovered/new counts and the selected/scored candidates, even when zero jobs
+  are new. Failures emit a non-green artifact when the process can still write.
 
 Current finding:
 
@@ -122,10 +125,21 @@ Current report command:
 
 ```bash
 venv/bin/python discovery/scripts/build_startup_source_report.py \
+  --rediscover-startup-apply \
+  --rediscover-relationship-artifacts \
   --limit-companies 12 --limit-jobs 30
 ```
 
-Use `--ignore-existing` when checking source health instead of only net-new tracker additions.
+Use `--ignore-existing` when checking source health instead of only net-new
+tracker additions. This command is an explicit manual rediscovery: it fetches
+the sources again and is not evidence for a prior run. The Daily Engine instead
+passes `--startup-run-artifact <exact path>` and an exact output path, so its
+report cannot re-fetch, fall back to a stale `latest` artifact, or silently turn
+a missing/invalid/non-green startup run into a green source row.
+Production relationship discovery is also exact-pointer bound: every configured
+`discover-source` call must return a readable artifact for that same source ID.
+Missing, mismatched, or non-green artifacts make the relationship lane failed or
+partial-failed; only explicit manual rediscovery may select by directory/mtime.
 
 ### Daily Source Dashboard
 

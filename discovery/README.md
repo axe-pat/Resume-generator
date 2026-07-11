@@ -89,6 +89,17 @@ python discovery/auto/startup_apply_pipeline.py --limit-companies 8 --limit-jobs
 python discovery/auto/startup_apply_pipeline.py --dry-run --ignore-existing
 ```
 
+Every execution writes a versioned `startup_apply_run_*.json` artifact, including
+successful zero-new runs and best-effort failure artifacts. The artifact records
+the exact discovered/new counts by source plus the selected/scored candidate
+data used downstream. The Daily Engine supplies an exact artifact path and binds
+all startup reporting to it.
+
+Artifact health distinguishes absence from failure: zero new roles is
+`completed`; all scoring results with `decision=Error` is `failed`; a mix of
+successful and errored scoring is `partial_failed`. Error decisions and counts
+remain visible in source metrics and are not rewritten as ordinary skips.
+
 ### Startup source report
 
 No-write daily/validation report that puts startup apply candidates and Outreach
@@ -96,17 +107,34 @@ organization artifacts into the same source-engine vocabulary.
 
 ```bash
 venv/bin/python discovery/scripts/build_startup_source_report.py \
+  --rediscover-startup-apply \
+  --rediscover-relationship-artifacts \
   --limit-companies 12 --limit-jobs 30
 
 # Source-health mode: ignore existing jobs.xlsx dedupe
 venv/bin/python discovery/scripts/build_startup_source_report.py \
+  --rediscover-startup-apply \
+  --rediscover-relationship-artifacts \
   --limit-companies 12 --limit-jobs 30 --ignore-existing
 ```
+
+`--rediscover-startup-apply` is deliberately a standalone/manual source-health
+mode. It performs a fresh network fetch and must not be presented as the report
+for an earlier startup run. Production uses `--startup-run-artifact <exact.json>`;
+the Daily Engine wires that pointer automatically, never selects `latest`, and
+fails closed if the artifact is missing, malformed, or non-green.
+
+Production relationship discovery is exact-pointer bound too: each configured
+Outreach `discover-source` command must return its exact `Artifact:` path. The
+Daily Engine validates source identity and health and passes that source-to-path
+mapping to the report. Directory/mtime selection exists only in explicit
+`--rediscover-relationship-artifacts` manual mode.
 
 Output goes to `discovery/source_validation/` with:
 
 - startup apply items classified as `app_score_now`, `app_review`, `outreach_signal`, or `skip_noise`
-- relationship org targets ranked from the latest no-write Outreach discovery artifacts
+- relationship org targets ranked from exact run artifacts in production, or
+  directory-selected artifacts only in explicit manual rediscovery mode
 
 ### Daily source dashboard
 
@@ -429,6 +457,16 @@ rows plus jobs already scored in prior Handshake write logs, and stops after 8
 consecutive known jobs by default. Tune with `HANDSHAKE_MAX_PAGES`,
 `HANDSHAKE_MAX_RESULTS`, and
 `HANDSHAKE_STOP_AFTER_EXISTING` when the portal filter changes.
+
+Every Handshake execution writes a versioned `handshake_import_*.json` artifact,
+including runs where every observed link is already known. The artifact keeps
+the full observed-link count, duplicate/prefilter skips, candidates, fetches,
+scores, and accepted rows. The Daily Engine supplies the exact output path and
+reads only that pointer; it never substitutes an older `latest` import log. A
+missing, malformed, or non-green exact artifact fails the Handshake stage.
+Zero post-dedupe candidates is still a valid `completed` run. All JD fetch or
+processing failures produce `failed`; mixed success/errors produce
+`partial_failed`, with error counts propagated into Source Breakdown.
 
 The queue floor is application-effort aware:
 - `handshake_apply_flow=internal` uses `4.0`
