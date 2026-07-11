@@ -81,15 +81,37 @@ def test_nightly_initializes_source_metrics_when_daily_engine_is_skipped() -> No
     assert "source_metrics: Path | None = None" in source
 
 
-def test_company_discovery_receives_the_exact_linkedin_capture_artifact(monkeypatch) -> None:
+def test_company_discovery_receives_the_exact_linkedin_capture_artifact(
+    monkeypatch, tmp_path: Path
+) -> None:
     module = _load_script(NIGHTLY_SCRIPT, "run_nightly_pipeline_capture_test")
     commands: list[list[str]] = []
+    artifacts = tmp_path / "artifacts"
+    artifacts.mkdir()
+    linkedin = artifacts / "current-linkedin-capture.json"
+    news = artifacts / "company-news.json"
+    discovery = artifacts / "company-discovery.json"
+    for artifact in (linkedin, news, discovery):
+        artifact.write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(module, "OUTREACH_ROOT", tmp_path)
 
     def fake_run(cmd, *, cwd):
         normalized = [str(part) for part in cmd]
         commands.append(normalized)
-        artifact = "/tmp/current-linkedin-capture.json" if "capture-linkedin-intelligence" in normalized else "/tmp/other.json"
-        return subprocess.CompletedProcess(normalized, 0, stdout=f"Artifact: {artifact}\n", stderr="")
+        if "capture-linkedin-intelligence" in normalized:
+            output = "artifacts/current-linkedin-capture.json"
+        elif "capture-company-news" in normalized:
+            output = "artifacts/company-news.json"
+        elif "build-company-discovery-review" in normalized:
+            output = "artifacts/company-discovery.json"
+        else:
+            output = ""
+        return subprocess.CompletedProcess(
+            normalized,
+            0,
+            stdout=f"Artifact: {output}\n" if output else "",
+            stderr="",
+        )
 
     monkeypatch.setattr(module, "_run_capture_print", fake_run)
     args = SimpleNamespace(
@@ -101,17 +123,20 @@ def test_company_discovery_receives_the_exact_linkedin_capture_artifact(monkeypa
         execute_track_2_daily_plan=False,
     )
 
-    module._run_outreach_maintenance(args, run_id="nightly-1")
+    summary = module._run_outreach_maintenance(args, run_id="nightly-1")
 
     company_command = next(
         command for command in commands if "build-company-discovery-review" in command
     )
     assert company_command[company_command.index("--capture-artifact") + 1] == (
-        "/tmp/current-linkedin-capture.json"
+        str(linkedin)
     )
     assert company_command[company_command.index("--news-capture-artifact") + 1] == (
-        str(Path("/tmp/other.json").resolve())
+        str(news)
     )
+    assert summary["linkedin_intelligence_status"] == "completed"
+    assert summary["company_news_status"] == "completed"
+    assert summary["company_discovery_status"] == "completed"
 
 
 def test_shared_discovery_receives_one_exact_action_queue(monkeypatch, tmp_path: Path) -> None:

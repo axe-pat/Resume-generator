@@ -193,11 +193,19 @@ Handshake runs by default as part of the daily application sources. Real sends
 are deliberately explicit. Generation can run in parallel with Outreach artifact
 preparation, but workbook writes and LinkedIn sends stay serialized.
 
-## Nightly Automation
+The Daily Engine also retains a standalone, supervised LinkedIn inbox lane. It
+can reconcile messages, emit a reusable draft artifact, and optionally send the
+approved recommendation classes. Its offset pull remains resumable (previously
+seen threads are still eligible for reconciliation), and a successful command
+without a readable result artifact is recorded as a failure. This lane is not
+used by the scheduled nightly wrapper.
 
-Nightly automation is split into discovery, shortlist, and optional generation.
-Discovery can run unattended; resume generation is gated by a stricter cost
-policy than the apply queue.
+## Nightly Production Automation
+
+Nightly automation is the production entrypoint for discovery, the app-outreach
+lane, shortlist/generation, Outreach Track 2, and the final run-scoped report.
+The LaunchAgent runs unattended at 1:00am by default. Prompt/Snooze/Skip mode is
+still available, but it is an explicit opt-in and is not the production default.
 
 ```bash
 venv/bin/python discovery/scripts/run_nightly_pipeline.py
@@ -233,16 +241,124 @@ Generation policy:
 - Handshake unknown flow: `fit_score >= 6.5`
 - Daily generation cap: `10`
 
-The local macOS prompt/snooze scheduler is installed separately:
+Scheduled LinkedIn inbox/follow-up ownership is deliberately singular: Track 2
+owns refresh, reconciliation, cadence selection, and sends. The nightly wrapper
+always passes `--skip-linkedin-followups` to the Daily Engine, then invokes the
+bounded Track 2 plan with `--refresh-linkedin`, `--send-linkedin`, and the cycle's
+follow-up limit. The deprecated nightly `--execute-linkedin-followups` flag is
+rejected before pipeline side effects begin. Use `run_daily_engine.py` directly
+only when intentionally operating the standalone supervised lane; never run both
+lanes for the same scheduled run.
+
+Every daily-engine invocation writes one exact manifest named
+`<run-id>-daily-engine-run-manifest.json`. The nightly summary records it as
+`daily_engine_manifest`; it is the authoritative pointer for:
+
+- `invite_send_artifacts`, with actual per-company and total app-invite sends
+- `linkedin_followup_draft_artifacts`
+- `linkedin_followup_send_artifacts`
+- `linkedin_reconcile_artifacts`
+- the exact `source_metrics` and `action_queue`
+- `source_families`, with explicit status and zero counts for LinkedIn,
+  Handshake, JobSpy, startup sources, ResumeGenerator/app queue, and Track 2
+
+Track 2 remains separately bound through
+`outreach_maintenance.track_2_daily_run_artifact`. The orchestrator recognizes
+the command's final `Run artifact:` line instead of accidentally taking an
+earlier nested artifact. Before report generation it also augments the daily
+manifest with `track_2_daily_run_artifacts`, full phase results, phase artifact
+pointers, and planned-versus-actual phase counts. Email is explicit too:
+`track_2_email_draft_artifacts` and `track_2_email_send_artifacts` are always
+present, while `email_channel` records draft/sent counts, SMTP readiness, and
+concrete blockers. The nightly path does not silently enable SMTP delivery;
+review-bound approval and the separate live email command remain required.
+
+The same augmentation writes `nightly_extensions` for the normalized run ID,
+canonical LinkedIn owner, company-news capture, reviewed company discovery, and
+the shared discovery queue. Only readable files are emitted into the typed
+`company_news_artifacts`, `company_discovery_artifacts`, and
+`shared_discovery_artifacts` lists; missing files remain explicit failed/skipped
+statuses rather than inheriting an older workspace artifact.
+
+The nightly finalizer always writes the JSON/Markdown summary and attempts the
+Outreach daily report, even when an earlier subprocess raises. A failed stage
+therefore produces a failed reportable run, not a missing run. Timestamped
+launcher and full pipeline logs live under
+`~/Library/Logs/ResumeGenerator/` by default.
+
+Track 2 has a four-hour (`14400` second) outer deadline by default. Override it
+with `--track-2-timeout-seconds`; `0` disables the deadline for an explicitly
+supervised diagnostic run. On timeout, the orchestrator terminates Track 2's
+isolated subprocess group, records return code `124`, `status: timed_out`, the
+configured deadline, and an explicit reconciliation warning in the exact
+summary/manifest, then still runs report finalization. Do not force a retry
+until the partial Track 2 artifacts have been reconciled against LinkedIn.
+
+### Release and install
+
+Scheduled production runs are guarded by a release attestation. Both repos must
+be on `main`, the production code paths must be clean, and each HEAD must equal
+the tested SHA recorded in the attestation. Development and feature testing
+should happen on a branch/worktree; do not point the LaunchAgent at that working
+tree.
+
+After both repos have passed their release suites and the tested commits are on
+clean `main` branches, record the release:
 
 ```bash
-./discovery/scripts/install_nightly_launch_agent.sh 20:00
+venv/bin/python discovery/scripts/production_release.py record \
+  --test-evidence "ResumeGenerator focused/full tests passed" \
+  --test-evidence "Outreach focused/full tests passed"
+
+venv/bin/python discovery/scripts/production_release.py check
 ```
 
-By default the installer only writes the LaunchAgent plist. Load it explicitly
-with the command printed by the installer. The prompt can run after wake because
-the LaunchAgent checks every 5 minutes and the prompt state lives under
-`~/Library/Application Support/ResumeGenerator/`.
+Then install the unattended 1:00am LaunchAgent:
+
+```bash
+RESUMEGEN_NIGHTLY_ARGS="--cycle-config offcycle_light --generate ..." \
+RESUMEGEN_NIGHTLY_LOAD=1 \
+./discovery/scripts/install_nightly_launch_agent.sh 01:00
+```
+
+Before trusting the schedule, verify the same launchd context can read both
+Desktop repos and validate the recorded SHAs without triggering any pipeline
+action. Install a separate, temporary check-only label:
+
+```bash
+RESUMEGEN_NIGHTLY_LABEL=com.akshat.resumegenerator.nightly.preflight \
+RESUMEGEN_NIGHTLY_MODE=check \
+RESUMEGEN_NIGHTLY_LOAD=1 \
+./discovery/scripts/install_nightly_launch_agent.sh 01:00
+
+launchctl kickstart -k \
+  "gui/$(id -u)/com.akshat.resumegenerator.nightly.preflight"
+launchctl print \
+  "gui/$(id -u)/com.akshat.resumegenerator.nightly.preflight"
+```
+
+Exit code `0` plus a JSON `status: valid` record in
+`~/Library/Logs/ResumeGenerator/nightly_launchd.out.log` proves the launchd
+process could read the Desktop repos and match the attestation. The check-only
+path does not read or mutate scheduler state and cannot invoke the pipeline.
+Boot out the temporary preflight label after verification. A nonzero result
+must be fixed before enabling the production label; it commonly means a missing
+attestation, dirty/changed HEAD, or macOS Desktop/TCC denial.
+
+The installer only writes the plist unless `RESUMEGEN_NIGHTLY_LOAD=1` is set.
+Its `ProgramArguments` call the configured `PYTHON_BIN` and
+`nightly_prompt.py` directly, so launchd uses the same audited interpreter that
+was selected during installation.
+It checks every five minutes for catch-up after wake, but the scheduler records
+the day's attempt before execution so a partial LinkedIn send cannot be replayed
+blindly. Inspect the failed summary/report and explicitly force a retry only
+after reconciling partial actions.
+
+To use the old prompt flow for a non-production/manual setup:
+
+```bash
+RESUMEGEN_NIGHTLY_MODE=prompt ./discovery/scripts/install_nightly_launch_agent.sh 01:00
+```
 
 The LaunchAgent `last exit code` is not the source of truth because the 5-minute
 prompt checker can later exit cleanly with "not due" and overwrite it. For run

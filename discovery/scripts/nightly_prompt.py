@@ -12,12 +12,31 @@ from contextlib import contextmanager
 from datetime import datetime, time, timedelta
 from pathlib import Path
 
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
+
+from production_release import (  # noqa: E402
+    DEFAULT_ATTESTATION_PATH,
+    ProductionReleaseError,
+    validate_attestation,
+)
+
 ROOT = Path(__file__).resolve().parents[2]
 PYTHON = ROOT / "venv" / "bin" / "python"
 APP_SUPPORT = Path.home() / "Library" / "Application Support" / "ResumeGenerator"
 STATE_PATH = APP_SUPPORT / "nightly_scheduler_state.json"
 LOCK_PATH = APP_SUPPORT / "nightly_scheduler.lock"
-LOG_DIR = Path(os.environ.get("RESUMEGEN_NIGHTLY_LOG_DIR", ROOT / "logs")).expanduser()
+LOG_DIR = Path(
+    os.environ.get(
+        "RESUMEGEN_NIGHTLY_LOG_DIR",
+        Path.home() / "Library" / "Logs" / "ResumeGenerator",
+    )
+).expanduser()
+
+
+def _env_flag(name: str) -> bool:
+    return os.environ.get(name, "").strip().casefold() in {"1", "true", "yes", "on"}
 
 
 def _now() -> datetime:
@@ -65,7 +84,9 @@ def _parse_hhmm(value: str) -> time:
 
 def _scheduled_at(today: datetime, scheduled_time: str) -> datetime:
     scheduled = _parse_hhmm(scheduled_time)
-    return today.replace(hour=scheduled.hour, minute=scheduled.minute, second=0, microsecond=0)
+    return today.replace(
+        hour=scheduled.hour, minute=scheduled.minute, second=0, microsecond=0
+    )
 
 
 def _parse_iso(value: str) -> datetime | None:
@@ -82,7 +103,7 @@ def _due(state: dict, args: argparse.Namespace) -> tuple[bool, str]:
         return True, "forced"
     now = _now()
     today = _today_key(now)
-    if state.get("last_run_date") == today:
+    if state.get("last_attempt_date") == today or state.get("last_run_date") == today:
         return False, "already_ran_today"
     if state.get("last_skip_date") == today:
         return False, "skipped_today"
@@ -106,7 +127,7 @@ def _prompt_choice(args: argparse.Namespace, reason: str) -> str:
         f"Pipeline args: {args.pipeline_args or '(default)'}"
     )
     script = (
-        f'display dialog {json.dumps(message)} '
+        f"display dialog {json.dumps(message)} "
         'buttons {"Skip Today", "Snooze", "Run Now"} '
         'default button "Run Now" cancel button "Skip Today"'
     )
@@ -124,7 +145,7 @@ def _prompt_choice(args: argparse.Namespace, reason: str) -> str:
 def _prompt_snooze_time(default_time: str) -> datetime | None:
     script = (
         'display dialog "Snooze nightly pipeline until what local time? Use HH:MM." '
-        f'default answer {json.dumps(default_time)} '
+        f"default answer {json.dumps(default_time)} "
         'buttons {"Cancel", "OK"} default button "OK" cancel button "Cancel"'
     )
     result = _osascript(script)
@@ -136,21 +157,25 @@ def _prompt_snooze_time(default_time: str) -> datetime | None:
     try:
         target_time = _parse_hhmm(match[1].strip())
     except ValueError as exc:
-        _osascript(f'display alert {json.dumps(str(exc))}')
+        _osascript(f"display alert {json.dumps(str(exc))}")
         return None
     now = _now()
-    target = now.replace(hour=target_time.hour, minute=target_time.minute, second=0, microsecond=0)
+    target = now.replace(
+        hour=target_time.hour, minute=target_time.minute, second=0, microsecond=0
+    )
     if target <= now:
         target += timedelta(days=1)
     return target
 
 
 def _pipeline_command(args: argparse.Namespace) -> list[str]:
-    extra_args = shlex.split(args.pipeline_args or os.environ.get("RESUMEGEN_NIGHTLY_ARGS", "--generate"))
+    extra_args = shlex.split(
+        args.pipeline_args or os.environ.get("RESUMEGEN_NIGHTLY_ARGS", "--generate")
+    )
     return [str(PYTHON), "discovery/scripts/run_nightly_pipeline.py", *extra_args]
 
 
-def _run_pipeline(args: argparse.Namespace) -> int:
+def _run_pipeline(args: argparse.Namespace) -> tuple[int, Path]:
     LOG_DIR.mkdir(parents=True, exist_ok=True)
     stamp = _now().strftime("%Y%m%d-%H%M%S")
     log_path = LOG_DIR / f"nightly_pipeline_{stamp}.log"
@@ -160,39 +185,112 @@ def _run_pipeline(args: argparse.Namespace) -> int:
         log.flush()
         result = subprocess.run(cmd, cwd=ROOT, stdout=log, stderr=subprocess.STDOUT)
     _osascript(
-        'display notification '
-        f'{json.dumps(f"Nightly pipeline finished with exit code {result.returncode}.")} '
+        "display notification "
+        f"{json.dumps(f'Nightly pipeline finished with exit code {result.returncode}.')} "
         'with title "ResumeGenerator"'
     )
-    return result.returncode
+    return result.returncode, log_path
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Prompt/snooze gate for the local nightly pipeline.")
-    parser.add_argument("--scheduled-time", default="20:00", help="Local HH:MM time to prompt each day.")
+    parser = argparse.ArgumentParser(
+        description="Unattended scheduler for the local nightly pipeline."
+    )
+    parser.add_argument(
+        "--scheduled-time", default="01:00", help="Local HH:MM time to run each day."
+    )
     parser.add_argument("--state-path", default=str(STATE_PATH))
-    parser.add_argument("--pipeline-args", default="", help="Arguments for run_nightly_pipeline.py.")
-    parser.add_argument("--force", action="store_true", help="Prompt even if not due.")
-    parser.add_argument("--check-only", action="store_true", help="Print due state without prompting.")
+    parser.add_argument(
+        "--pipeline-args", default="", help="Arguments for run_nightly_pipeline.py."
+    )
+    parser.add_argument("--force", action="store_true", help="Run even if not due.")
+    parser.add_argument(
+        "--prompt",
+        action="store_true",
+        help="Ask Run/Snooze/Skip before running. Off by default.",
+    )
+    parser.add_argument(
+        "--require-production-attestation",
+        action="store_true",
+        help="Require clean main branches at the exact tested SHAs recorded in the release attestation.",
+    )
+    parser.add_argument(
+        "--production-attestation",
+        default=os.environ.get(
+            "RESUMEGEN_PRODUCTION_ATTESTATION", str(DEFAULT_ATTESTATION_PATH)
+        ),
+    )
+    parser.add_argument(
+        "--production-check-only",
+        action="store_true",
+        default=_env_flag("RESUMEGEN_PRODUCTION_CHECK_ONLY"),
+        help="Validate Desktop repo access and the production attestation, print JSON, and exit without scheduler-state changes.",
+    )
+    parser.add_argument(
+        "--check-only",
+        action="store_true",
+        help="Print due state without running or prompting.",
+    )
     parser.add_argument("--verbose", action="store_true")
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
+    if args.production_check_only:
+        try:
+            result = validate_attestation(path=Path(args.production_attestation))
+        except ProductionReleaseError as exc:
+            print(
+                json.dumps(
+                    {
+                        "status": "failed",
+                        "check": "production_release_and_desktop_access",
+                        "error": str(exc),
+                    },
+                    indent=2,
+                )
+            )
+            return 78
+        print(
+            json.dumps(
+                {
+                    "status": "valid",
+                    "check": "production_release_and_desktop_access",
+                    **result,
+                },
+                indent=2,
+            )
+        )
+        return 0
     state_path = Path(args.state_path).expanduser()
     with _lock(LOCK_PATH):
         state = _load_state(state_path)
         is_due, reason = _due(state, args)
         if args.check_only:
-            print(json.dumps({"due": is_due, "reason": reason, "state": state}, indent=2))
+            print(
+                json.dumps({"due": is_due, "reason": reason, "state": state}, indent=2)
+            )
             return 0
         if not is_due:
             if args.verbose:
                 print(f"Not due: {reason}")
             return 0
 
-        choice = _prompt_choice(args, reason)
+        if args.require_production_attestation:
+            try:
+                attestation = validate_attestation(
+                    path=Path(args.production_attestation)
+                )
+            except ProductionReleaseError as exc:
+                state["last_guard_failure_at"] = _now().isoformat(timespec="seconds")
+                state["last_guard_failure"] = str(exc)
+                _save_state(state_path, state)
+                print(f"Production release check failed: {exc}", file=sys.stderr)
+                return 78
+            state["last_production_attestation"] = attestation
+
+        choice = _prompt_choice(args, reason) if args.prompt else "Run Now"
         today = _today_key()
         if choice == "Skip Today":
             state["last_skip_date"] = today
@@ -210,12 +308,15 @@ def main() -> int:
 
         state["snooze_until"] = ""
         state["last_decision_at"] = _now().isoformat(timespec="seconds")
-        state["last_run_date"] = today
+        state["last_attempt_date"] = today
+        state["last_attempt_started_at"] = _now().isoformat(timespec="seconds")
         _save_state(state_path, state)
-        return_code = _run_pipeline(args)
+        return_code, log_path = _run_pipeline(args)
         state = _load_state(state_path)
+        state["last_run_date"] = today
         state["last_run_completed_at"] = _now().isoformat(timespec="seconds")
         state["last_run_exit_code"] = return_code
+        state["last_run_log"] = str(log_path)
         _save_state(state_path, state)
         return return_code
 
