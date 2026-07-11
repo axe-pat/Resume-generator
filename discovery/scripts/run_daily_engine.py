@@ -774,6 +774,29 @@ def _note_is_sendable(candidate: dict) -> bool:
     return qc.get("verdict") == "send"
 
 
+def _normalized_company_identity(value: object) -> str:
+    return re.sub(r"[^a-z0-9]+", "", str(value or "").casefold())
+
+
+def _has_bound_target_company_evidence(company: str, candidate: dict) -> bool:
+    """Require the Outreach discovery pass to bind the person to this company.
+
+    A high score or second-degree connection is never a substitute for current-
+    employer evidence.  This fail-closed gate also makes older artifacts that
+    predate the binding fields ineligible for unattended sends.
+    """
+
+    expected = _normalized_company_identity(company)
+    observed = _normalized_company_identity(
+        candidate.get("target_company_evidence_company")
+    )
+    return bool(
+        expected
+        and candidate.get("target_company_match") is True
+        and observed == expected
+    )
+
+
 def _safe_unattended_candidate(
     company: str,
     candidate: dict,
@@ -796,13 +819,13 @@ def _safe_unattended_candidate(
     score = _candidate_score(candidate)
     if score < min_score:
         return False
-    if _candidate_mentions_company(company, candidate):
-        return True
-    if str(candidate.get("connection_degree") or "") == "2nd" and score >= max(
-        min_score, 35
-    ):
-        return True
-    return score >= 70
+    return _has_bound_target_company_evidence(company, candidate)
+
+
+def _bounded_command_error(result: subprocess.CompletedProcess, *, limit: int = 1200) -> str:
+    raw = str(result.stderr or result.stdout or "")
+    normalized = " ".join(raw.split())
+    return normalized[-limit:]
 
 
 def _filtered_send_artifact(
@@ -855,6 +878,19 @@ def _sent_count_from_batch(batch_artifact: Path | None) -> int:
     )
 
 
+def _status_counts_from_batch(batch_artifact: Path | None) -> dict[str, int]:
+    if not batch_artifact or not batch_artifact.exists():
+        return {}
+    payload = json.loads(batch_artifact.read_text(encoding="utf-8"))
+    counts: dict[str, int] = {}
+    for item in payload.get("results") or []:
+        if not isinstance(item, dict):
+            continue
+        status = str(item.get("status") or "unknown").strip().casefold()
+        counts[status] = counts.get(status, 0) + 1
+    return counts
+
+
 def run_targeted_outreach_from_action_queue(
     args: argparse.Namespace, action_queue_path: Path
 ) -> dict[str, object]:
@@ -877,6 +913,7 @@ def run_targeted_outreach_from_action_queue(
     target_sends = max(args.target_sends, 0)
     sent_total = 0
     failures: list[str] = []
+    unresolved: list[str] = []
     skipped: list[str] = []
     company_runs: list[dict[str, object]] = []
     invite_send_artifacts: list[str] = []
@@ -911,6 +948,7 @@ def run_targeted_outreach_from_action_queue(
         if prep.returncode != 0:
             failures.append(company)
             company_run["status"] = "prep_failed"
+            company_run["prep_error"] = _bounded_command_error(prep)
             print(
                 f"[warn] Outreach artifact generation failed for {company}; continuing."
             )
@@ -969,6 +1007,7 @@ def run_targeted_outreach_from_action_queue(
         if send.returncode != 0:
             failures.append(company)
             company_run["status"] = "send_failed"
+            company_run["send_error"] = _bounded_command_error(send)
             print(f"[warn] Invite send failed for {company}; continuing.")
             continue
         batch_artifact = _artifact_from_output(send.stdout)
@@ -979,10 +1018,22 @@ def run_targeted_outreach_from_action_queue(
                 f"[warn] Invite send for {company} returned success without a readable batch artifact; continuing."
             )
             continue
-        sent_now = _sent_count_from_batch(batch_artifact)
+        status_counts = _status_counts_from_batch(batch_artifact)
+        sent_now = int(status_counts.get("sent") or 0) + int(
+            status_counts.get("sent_without_note") or 0
+        )
+        unknown_now = int(status_counts.get("send_unknown_reserved") or 0)
         company_run["invite_send_artifact"] = str(batch_artifact)
         company_run["sent_count"] = sent_now
-        company_run["status"] = "sent" if sent_now else "completed_no_sends"
+        company_run["status_counts"] = status_counts
+        if unknown_now and sent_now:
+            company_run["status"] = "partial_send_unknown_reserved"
+            unresolved.append(company)
+        elif unknown_now:
+            company_run["status"] = "send_unknown_reserved"
+            unresolved.append(company)
+        else:
+            company_run["status"] = "sent" if sent_now else "completed_no_sends"
         invite_send_artifacts.append(str(batch_artifact))
         sent_total += sent_now
         print(
@@ -993,6 +1044,11 @@ def run_targeted_outreach_from_action_queue(
         print(f"[info] Companies skipped with no safe unattended candidates: {skipped}")
     if failures:
         print(f"[warn] Outreach failures: {failures}")
+    if unresolved:
+        print(
+            "[warn] Invite delivery requires signed-in reconciliation for: "
+            f"{unresolved}"
+        )
     return {
         "mode": "targeted_execute",
         "target_sends": target_sends,
@@ -1003,6 +1059,7 @@ def run_targeted_outreach_from_action_queue(
         "invite_send_artifacts": invite_send_artifacts,
         "skipped_companies": skipped,
         "failed_companies": failures,
+        "unresolved_companies": unresolved,
     }
 
 
@@ -1403,6 +1460,49 @@ def _reconcile_artifacts_from_drafts(draft_artifacts: list[str]) -> list[str]:
     return paths
 
 
+APP_INVITE_FAILED_STATUSES = {
+    "prep_failed",
+    "prep_artifact_missing",
+    "send_failed",
+    "send_artifact_missing",
+}
+APP_INVITE_UNRESOLVED_STATUSES = {
+    "send_unknown_reserved",
+    "partial_send_unknown_reserved",
+}
+
+
+def _app_invite_execution_status(outreach: dict[str, object]) -> str:
+    rows = [
+        row
+        for row in list(outreach.get("company_runs") or [])
+        if isinstance(row, dict)
+    ]
+    if not outreach:
+        return "skipped"
+    failed = [
+        row
+        for row in rows
+        if str(row.get("status") or "").casefold() in APP_INVITE_FAILED_STATUSES
+    ]
+    unresolved = [
+        row
+        for row in rows
+        if str(row.get("status") or "").casefold()
+        in APP_INVITE_UNRESOLVED_STATUSES
+    ]
+    completed = [row for row in rows if row not in failed and row not in unresolved]
+    if failed:
+        return "partial_failed" if completed or unresolved else "failed"
+    if unresolved:
+        return (
+            "partial_send_unknown_reserved"
+            if completed
+            else "send_unknown_reserved"
+        )
+    return "completed"
+
+
 def _typed_manifest_pointers(manifest: dict[str, object]) -> dict[str, object]:
     artifacts = (
         manifest.get("artifacts") if isinstance(manifest.get("artifacts"), dict) else {}
@@ -1441,10 +1541,16 @@ def _typed_manifest_pointers(manifest: dict[str, object]) -> dict[str, object]:
         "source_metrics": str(manifest.get("source_metrics") or ""),
         "action_queue": str(manifest.get("action_queue") or ""),
         "app_invites": {
+            "status": _app_invite_execution_status(outreach),
             "target": int(outreach.get("target_sends") or 0),
             "sent": int(outreach.get("sent_total") or 0),
             "companies_attempted": int(outreach.get("companies_attempted") or 0),
             "company_runs": list(outreach.get("company_runs") or []),
+            "failed_companies": list(outreach.get("failed_companies") or []),
+            "skipped_companies": list(outreach.get("skipped_companies") or []),
+            "unresolved_companies": list(
+                outreach.get("unresolved_companies") or []
+            ),
         },
         "track_2_daily_run_artifacts": list(
             manifest.get("track_2_daily_run_artifacts") or []
@@ -1555,6 +1661,16 @@ def _source_families_for_manifest(manifest: dict[str, object]) -> dict[str, obje
         if isinstance(manifest.get("outreach_execution"), dict)
         else {}
     )
+    app_invite_status = _app_invite_execution_status(outreach)
+    if action_queue_path.is_file():
+        if app_invite_status in {"failed", "partial_failed"}:
+            app_queue_status = "partial_failed"
+        elif app_invite_status in APP_INVITE_UNRESOLVED_STATUSES:
+            app_queue_status = "incomplete"
+        else:
+            app_queue_status = "ran"
+    else:
+        app_queue_status = str(action_queue_stage.get("status") or "skipped")
     return {
         "linkedin": source_row("linkedin"),
         "handshake": source_row("handshake"),
@@ -1579,17 +1695,22 @@ def _source_families_for_manifest(manifest: dict[str, object]) -> dict[str, obje
             },
         },
         "resume_generator_app_queue": {
-            "status": (
-                "ran"
-                if action_queue_path.is_file()
-                else str(action_queue_stage.get("status") or "skipped")
-            ),
+            "status": app_queue_status,
             "raw_count": action_total,
             "kept_count": _manifest_count(outreach.get("sent_total")),
             "details": {
                 "action_queue_counts": action_counts,
+                "app_invite_status": app_invite_status,
                 "invite_target": _manifest_count(outreach.get("target_sends")),
                 "invite_sent": _manifest_count(outreach.get("sent_total")),
+                "companies_attempted": _manifest_count(
+                    outreach.get("companies_attempted")
+                ),
+                "failed_companies": list(outreach.get("failed_companies") or []),
+                "skipped_companies": list(outreach.get("skipped_companies") or []),
+                "unresolved_companies": list(
+                    outreach.get("unresolved_companies") or []
+                ),
             },
         },
         "track_2": {
