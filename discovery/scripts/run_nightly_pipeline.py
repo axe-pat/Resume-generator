@@ -5,6 +5,7 @@ import argparse
 import fcntl
 import json
 import os
+import signal
 import subprocess
 import sys
 import traceback
@@ -258,15 +259,63 @@ def _track_2_companies(args: argparse.Namespace) -> str:
     )
 
 
-def _run_capture_print(cmd: list[object], *, cwd: Path) -> subprocess.CompletedProcess:
+def _signal_process_group(process: subprocess.Popen, sig: signal.Signals) -> None:
+    try:
+        os.killpg(process.pid, sig)
+    except ProcessLookupError:
+        return
+    except (AttributeError, PermissionError):
+        if sig == signal.SIGKILL:
+            process.kill()
+        else:
+            process.terminate()
+
+
+def _terminate_process_group(
+    process: subprocess.Popen,
+    *,
+    grace_seconds: float = 10,
+) -> tuple[str, str]:
+    _signal_process_group(process, signal.SIGTERM)
+    try:
+        return process.communicate(timeout=grace_seconds)
+    except subprocess.TimeoutExpired:
+        _signal_process_group(process, signal.SIGKILL)
+        return process.communicate()
+
+
+def _run_capture_print(
+    cmd: list[object],
+    *,
+    cwd: Path,
+    timeout_seconds: int | float | None = None,
+) -> subprocess.CompletedProcess:
     print(f"\n$ {_cmd_text(cmd)}", flush=True)
-    result = subprocess.run(
-        [str(part) for part in cmd],
+    normalized = [str(part) for part in cmd]
+    process = subprocess.Popen(
+        normalized,
         cwd=cwd,
-        check=False,
         text=True,
-        capture_output=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        start_new_session=True,
     )
+    timeout = timeout_seconds if timeout_seconds and timeout_seconds > 0 else None
+    timed_out = False
+    try:
+        stdout, stderr = process.communicate(timeout=timeout)
+        returncode = int(process.returncode or 0)
+    except subprocess.TimeoutExpired:
+        timed_out = True
+        print(
+            f"[warn] Command timed out after {timeout_seconds}s; terminating process group: {_cmd_text(cmd)}",
+            file=sys.stderr,
+            flush=True,
+        )
+        stdout, stderr = _terminate_process_group(process)
+        returncode = 124
+    result = subprocess.CompletedProcess(normalized, returncode, stdout, stderr)
+    setattr(result, "timed_out", timed_out)
     print(result.stdout, end="", flush=True)
     if result.stderr:
         print(result.stderr, end="", file=sys.stderr, flush=True)
@@ -478,6 +527,7 @@ def _run_outreach_maintenance(
     summary["campaign_plan_returncode"] = result.returncode
     summary["campaign_plan_artifact"] = _artifact_from_output(result.stdout)
 
+    track_2_timeout = max(int(getattr(args, "track_2_timeout_seconds", 14400)), 0)
     if args.execute_track_2_daily_plan:
         track_2_cmd = _outreach_cmd(
             "run-track-2-daily-plan",
@@ -506,8 +556,27 @@ def _run_outreach_maintenance(
         )
         if args.track_2_no_network_enrichment:
             track_2_cmd.append("--no-network-enrichment")
-        result = _run_capture_print(track_2_cmd, cwd=OUTREACH_ROOT)
+        result = _run_capture_print(
+            track_2_cmd,
+            cwd=OUTREACH_ROOT,
+            timeout_seconds=track_2_timeout or None,
+        )
         summary["track_2_daily_run_returncode"] = result.returncode
+        summary["track_2_timeout_seconds"] = track_2_timeout
+        if getattr(result, "timed_out", False):
+            summary["track_2_daily_run_status"] = "timed_out"
+            summary["track_2_daily_run_failure"] = (
+                f"Track 2 exceeded its {track_2_timeout}-second outer timeout; "
+                "the subprocess group was terminated and partial progress must be reconciled from its artifacts."
+            )
+        elif result.returncode == 0:
+            summary["track_2_daily_run_status"] = "completed"
+            summary["track_2_daily_run_failure"] = ""
+        else:
+            summary["track_2_daily_run_status"] = "failed"
+            summary["track_2_daily_run_failure"] = (
+                f"Track 2 exited with return code {result.returncode}."
+            )
         summary["track_2_daily_run_artifact"] = _artifact_from_output(result.stdout)
         track_2_artifact = _resolve_outreach_artifact(
             summary["track_2_daily_run_artifact"]
@@ -517,6 +586,9 @@ def _run_outreach_maintenance(
         )
     else:
         summary["track_2_daily_run_returncode"] = None
+        summary["track_2_daily_run_status"] = "skipped"
+        summary["track_2_timeout_seconds"] = track_2_timeout
+        summary["track_2_daily_run_failure"] = ""
         summary["track_2_artifact_validation_returncode"] = None
 
     result = _run_capture_print(
@@ -802,6 +874,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--track-2-email-research", type=str, default="auto")
     parser.add_argument("--track-2-context-enrichment", type=str, default="8")
     parser.add_argument("--track-2-email-drafts", type=str, default="auto")
+    parser.add_argument(
+        "--track-2-timeout-seconds",
+        type=int,
+        default=14400,
+        help="Outer timeout for the complete Track 2 subprocess. Default 14400 (4 hours); 0 disables.",
+    )
     parser.add_argument("--track-2-no-network-enrichment", action="store_true")
     return parser.parse_args()
 
@@ -845,6 +923,20 @@ def _path_from_manifest(manifest: dict, key: str) -> Path | None:
     if not path.is_absolute():
         path = ROOT / path
     return path if path.is_file() else None
+
+
+def _outreach_maintenance_failures(maintenance: dict[str, object]) -> list[str]:
+    failures = [
+        f"{key}:{value}"
+        for key, value in maintenance.items()
+        if key.endswith("_returncode") and value not in (0, None)
+    ]
+    if maintenance.get("track_2_daily_run_status") == "timed_out":
+        failures.append(
+            "track_2_daily_run:timed_out:"
+            f"{maintenance.get('track_2_timeout_seconds', 0)}s"
+        )
+    return failures
 
 
 def _run_pipeline_body(
@@ -923,9 +1015,7 @@ def _run_pipeline_body(
             source_metrics=source_metrics,
             run_id=str(summary["created_at"]),
         )
-        for key, value in (summary["outreach_maintenance"] or {}).items():
-            if key.endswith("_returncode") and value not in (0, None):
-                failures.append(f"{key}:{value}")
+        failures.extend(_outreach_maintenance_failures(summary["outreach_maintenance"]))
 
 
 def _exception_returncode(exc: BaseException) -> int:
@@ -1044,6 +1134,8 @@ def _augment_daily_engine_manifest(summary: dict[str, object]) -> None:
     )
     if returncode is None:
         status = "skipped"
+    elif maintenance.get("track_2_daily_run_status") == "timed_out":
+        status = "timed_out"
     elif returncode != 0:
         status = "failed"
     elif not track_payload:
@@ -1106,7 +1198,7 @@ def _augment_daily_engine_manifest(summary: dict[str, object]) -> None:
     elif status != "ran":
         email_status = (
             "skipped_track_2_failed"
-            if status.startswith("failed")
+            if status.startswith("failed") or status == "timed_out"
             else "skipped_track_2_not_run"
         )
         email_blockers.append(
@@ -1142,6 +1234,8 @@ def _augment_daily_engine_manifest(summary: dict[str, object]) -> None:
     track_2 = {
         "status": status,
         "returncode": returncode,
+        "timeout_seconds": int(maintenance.get("track_2_timeout_seconds") or 0),
+        "failure": str(maintenance.get("track_2_daily_run_failure") or ""),
         "run_artifact": str(track_path or ""),
         "artifacts": list(dict.fromkeys([*run_artifacts, *phase_artifacts])),
         "planned_action_count": planned_count,

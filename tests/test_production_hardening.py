@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import sys
 from types import SimpleNamespace
 
 import pytest
@@ -39,6 +40,87 @@ def test_track_2_parser_prefers_top_level_run_artifact() -> None:
         )
         == "artifacts/exact-track-2-run.json"
     )
+
+
+def test_track_2_outer_timeout_terminates_the_subprocess_group(
+    tmp_path: Path, monkeypatch
+) -> None:
+    module = _load_script("run_nightly_pipeline.py", "nightly_timeout_process_test")
+    popen_kwargs: dict[str, object] = {}
+
+    class FakeProcess:
+        pid = 4242
+        returncode = -15
+
+        def __init__(self):
+            self.communicate_calls = 0
+
+        def communicate(self, timeout=None):
+            self.communicate_calls += 1
+            if self.communicate_calls == 1:
+                raise subprocess.TimeoutExpired(["track-2"], timeout)
+            return "partial stdout\n", "partial stderr\n"
+
+        def terminate(self):
+            raise AssertionError("killpg should be used for the isolated process group")
+
+        def kill(self):
+            raise AssertionError(
+                "SIGKILL should not be needed after graceful group termination"
+            )
+
+    process = FakeProcess()
+
+    def fake_popen(cmd, **kwargs):
+        popen_kwargs.update(kwargs)
+        return process
+
+    signals: list[tuple[int, object]] = []
+    monkeypatch.setattr(module.subprocess, "Popen", fake_popen)
+    monkeypatch.setattr(
+        module.os, "killpg", lambda pid, sig: signals.append((pid, sig))
+    )
+
+    result = module._run_capture_print(
+        ["track-2"],
+        cwd=tmp_path,
+        timeout_seconds=1,
+    )
+
+    assert result.returncode == 124
+    assert result.timed_out is True
+    assert result.stdout == "partial stdout\n"
+    assert popen_kwargs["start_new_session"] is True
+    assert signals == [(4242, module.signal.SIGTERM)]
+
+
+def test_track_2_timeout_is_an_explicit_maintenance_failure() -> None:
+    module = _load_script("run_nightly_pipeline.py", "nightly_timeout_failure_test")
+
+    assert module._outreach_maintenance_failures(
+        {
+            "track_2_daily_run_returncode": 124,
+            "track_2_daily_run_status": "timed_out",
+            "track_2_timeout_seconds": 14400,
+        }
+    ) == [
+        "track_2_daily_run_returncode:124",
+        "track_2_daily_run:timed_out:14400s",
+    ]
+
+
+def test_track_2_timeout_defaults_to_four_hours_and_zero_disables(monkeypatch) -> None:
+    module = _load_script("run_nightly_pipeline.py", "nightly_timeout_args_test")
+
+    monkeypatch.setattr(sys, "argv", ["run_nightly_pipeline.py"])
+    assert module.parse_args().track_2_timeout_seconds == 14400
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["run_nightly_pipeline.py", "--track-2-timeout-seconds", "0"],
+    )
+    assert module.parse_args().track_2_timeout_seconds == 0
 
 
 def test_daily_manifest_records_exact_typed_action_artifacts(
@@ -383,6 +465,47 @@ def test_nightly_augments_manifest_with_exact_track_2_run_and_phases(
     assert payload["email_channel"]["draft_count"] == 1
     assert payload["email_channel"]["sent_count"] == 0
     assert len(payload["email_channel"]["blockers"]) == 2
+
+
+def test_nightly_manifest_records_track_2_timeout_without_claiming_completion(
+    tmp_path: Path, monkeypatch
+) -> None:
+    module = _load_script("run_nightly_pipeline.py", "nightly_timeout_manifest_test")
+    outreach = tmp_path / "Outreach"
+    outreach.mkdir()
+    monkeypatch.setattr(module, "OUTREACH_ROOT", outreach)
+    manifest = tmp_path / "daily-engine-run-manifest.json"
+    manifest.write_text(
+        json.dumps(
+            {
+                "manifest_schema": "resume_generator.daily_engine_run_manifest",
+                "manifest_version": 1,
+                "source_families": {},
+            }
+        ),
+        encoding="utf-8",
+    )
+    summary = {
+        "daily_engine_manifest": str(manifest),
+        "outreach_maintenance": {
+            "track_2_daily_run_returncode": 124,
+            "track_2_daily_run_status": "timed_out",
+            "track_2_timeout_seconds": 14400,
+            "track_2_daily_run_failure": "outer timeout",
+            "track_2_daily_run_artifact": "",
+        },
+    }
+
+    module._augment_daily_engine_manifest(summary)
+
+    payload = json.loads(manifest.read_text(encoding="utf-8"))
+    assert payload["track_2"]["status"] == "timed_out"
+    assert payload["track_2"]["returncode"] == 124
+    assert payload["track_2"]["timeout_seconds"] == 14400
+    assert payload["track_2"]["failure"] == "outer timeout"
+    assert payload["source_families"]["track_2"]["status"] == "timed_out"
+    assert payload["source_families"]["track_2"]["kept_count"] == 0
+    assert payload["email_channel"]["status"] == "skipped_track_2_failed"
 
 
 def test_nightly_failure_still_writes_summary_and_attempts_report(

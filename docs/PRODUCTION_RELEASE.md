@@ -34,6 +34,13 @@ before any live action, so it will not automatically replay a partially failed
 run the same day. Reconcile the summary's exact invite/follow-up artifacts before
 using `nightly_prompt.py --force`.
 
+The complete Track 2 subprocess has a four-hour (`14400` second) outer deadline.
+If it expires, the orchestrator terminates the isolated process group, records
+return code `124` and `status: timed_out` with an explicit failure message, and
+still finalizes the nightly summary, exact manifest, and report. Use
+`--track-2-timeout-seconds 0` only for an explicitly supervised diagnostic run;
+never blindly retry a timed-out live run before reconciling partial artifacts.
+
 The scheduled guard exits before the pipeline when either repo is not on `main`,
 a protected code path is dirty, an attestation is missing, or HEAD differs from
 the recorded tested SHA. This is deliberate: a new feature cannot become

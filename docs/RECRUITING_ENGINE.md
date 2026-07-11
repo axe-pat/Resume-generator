@@ -255,6 +255,14 @@ therefore produces a failed reportable run, not a missing run. Timestamped
 launcher and full pipeline logs live under
 `~/Library/Logs/ResumeGenerator/` by default.
 
+Track 2 has a four-hour (`14400` second) outer deadline by default. Override it
+with `--track-2-timeout-seconds`; `0` disables the deadline for an explicitly
+supervised diagnostic run. On timeout, the orchestrator terminates Track 2's
+isolated subprocess group, records return code `124`, `status: timed_out`, the
+configured deadline, and an explicit reconciliation warning in the exact
+summary/manifest, then still runs report finalization. Do not force a retry
+until the partial Track 2 artifacts have been reconciled against LinkedIn.
+
 ### Release and install
 
 Scheduled production runs are guarded by a release attestation. Both repos must
