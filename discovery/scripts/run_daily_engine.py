@@ -30,25 +30,6 @@ DAILY_JOBSPY_QUERY_INDICES = (0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12)
 WEEKLY_JOBSPY_QUERY_INDICES = (0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12)
 WEEKLY_JOBSPY_RESULTS = 60
 
-COMMON_COMPANY_TOKENS = {
-    "ai",
-    "and",
-    "co",
-    "company",
-    "corp",
-    "corporation",
-    "defense",
-    "group",
-    "inc",
-    "industries",
-    "labs",
-    "systems",
-    "technologies",
-    "technology",
-    "the",
-}
-
-
 class ArtifactCommandResult(NamedTuple):
     status: str
     returncode: int
@@ -693,21 +674,92 @@ def _artifact_from_output(output: str) -> Path | None:
     return None
 
 
-def _company_tokens(company: str) -> list[str]:
-    tokens = re.findall(r"[a-z0-9]+", company.lower())
-    return [
-        token
-        for token in tokens
-        if len(token) >= 3 and token not in COMMON_COMPANY_TOKENS
-    ]
-
-
 def _candidate_mentions_company(company: str, candidate: dict) -> bool:
-    text = " ".join(
-        str(candidate.get(field) or "")
-        for field in ("title", "subtitle", "snippet", "raw_text", "company")
-    ).lower()
-    return any(token in text for token in _company_tokens(company))
+    """Require current-employer-shaped evidence, never a name/pass match."""
+
+    company_tokens = re.findall(r"[a-z0-9]+", company.casefold())
+    if not company_tokens:
+        return False
+    company_key = "".join(company_tokens)
+    for field in ("current_company", "current_employer", "employer", "company"):
+        value_key = "".join(
+            re.findall(r"[a-z0-9]+", str(candidate.get(field) or "").casefold())
+        )
+        if value_key and value_key == company_key:
+            return True
+    if len(company_key) < 4:
+        return False
+
+    alias_pattern = r"\s+".join(re.escape(token) for token in company_tokens)
+    end_boundary = r"(?=$|\s*(?:[|·,;()]|[-—]\s)|\.(?:\s|$))"
+    patterns = (
+        rf"(?:@\s*|\bat\s+){alias_pattern}{end_boundary}",
+        rf"\b(?:founder|co-founder|ceo|cto|cpo|head\s+of\s+product|product)"
+        rf"\s+(?:of\s+|at\s+|@\s*|[-—]\s*){alias_pattern}{end_boundary}",
+        rf"\bcurrent:\s*[^|;]{{0,120}}?{alias_pattern}{end_boundary}",
+    )
+    for field in ("title", "headline", "snippet", "raw_text"):
+        text = re.sub(
+            r"\s+",
+            " ",
+            str(candidate.get(field) or "").casefold(),
+        ).strip()
+        for pattern in patterns:
+            match = re.search(pattern, text, flags=re.I)
+            if match is None:
+                continue
+            segment_start = max(
+                text.rfind("|", 0, match.start()),
+                text.rfind("·", 0, match.start()),
+                text.rfind(";", 0, match.start()),
+                text.rfind(",", 0, match.start()),
+            )
+            prefix = text[segment_start + 1 : match.start()]
+            if re.search(r"\b(?:ex|former|formerly|past|previously)\b", prefix):
+                continue
+            return True
+    return False
+
+
+def _company_filter_failed(payload: dict) -> bool:
+    status = str(payload.get("company_filter_status") or "").strip().casefold()
+    if status.startswith("failed"):
+        return True
+    if "Could not find an exact company suggestion for" in str(
+        payload.get("company_filter_error") or ""
+    ):
+        return True
+    for summary in payload.get("pass_summaries") or []:
+        if not isinstance(summary, dict):
+            continue
+        alias_errors = " | ".join(
+            str(item) for item in summary.get("alias_errors") or []
+        )
+        if (
+            summary.get("pass_name") == "startup_company_coverage"
+            and summary.get("fallback_used")
+            and "Could not find an exact company suggestion for" in alias_errors
+        ):
+            return True
+    return False
+
+
+def _coverage_only(payload: dict, candidate: dict) -> bool:
+    pool = payload.get("startup_pool")
+    if isinstance(pool, dict) and bool(pool.get("coverage_only")):
+        return True
+    if "startup_company_coverage" in {
+        str(item) for item in candidate.get("passes") or []
+    }:
+        return True
+    return any(
+        isinstance(summary, dict)
+        and (
+            summary.get("pass_name") == "startup_company_coverage"
+            or bool(summary.get("coverage_only"))
+        )
+        for summary in payload.get("pass_summaries") or []
+    )
 
 
 def _candidate_score(candidate: dict) -> int:
@@ -723,8 +775,20 @@ def _note_is_sendable(candidate: dict) -> bool:
 
 
 def _safe_unattended_candidate(
-    company: str, candidate: dict, *, min_score: int
+    company: str,
+    candidate: dict,
+    *,
+    min_score: int,
+    source_payload: dict | None = None,
 ) -> bool:
+    payload = source_payload or {}
+    if _company_filter_failed(payload):
+        return False
+    if _coverage_only(payload, candidate) and not _candidate_mentions_company(
+        company,
+        candidate,
+    ):
+        return False
     if not candidate.get("linkedin_url") or candidate.get("existing_connection"):
         return False
     if not _note_is_sendable(candidate):
@@ -745,10 +809,17 @@ def _filtered_send_artifact(
     source_artifact: Path, *, company: str, min_score: int, limit: int
 ) -> tuple[Path | None, int]:
     payload = json.loads(source_artifact.read_text(encoding="utf-8"))
+    if _company_filter_failed(payload):
+        return None, 0
     safe_results = [
         item
         for item in payload.get("results") or []
-        if _safe_unattended_candidate(company, item, min_score=min_score)
+        if _safe_unattended_candidate(
+            company,
+            item,
+            min_score=min_score,
+            source_payload=payload,
+        )
     ]
     if limit > 0:
         safe_results = safe_results[:limit]
