@@ -655,46 +655,77 @@ def _company_key(company: str) -> str:
     return " ".join(company.lower().split())
 
 
-def _append_company(companies: list[str], seen: set[str], company: str) -> bool:
+def _claim_company(seen: set[str], company: str) -> bool:
     company = company.strip()
-    if not company:
-        return False
     key = _company_key(company)
-    if key in seen:
+    if not company or key in seen:
         return False
-    companies.append(company)
     seen.add(key)
     return True
+
+
+def _outreach_target(item: dict[str, object], *, bucket: str) -> dict[str, str]:
+    return {
+        "company": str(item.get("company") or "").strip(),
+        "target_role_title": str(
+            item.get("role_title") or item.get("signal_title") or ""
+        ).strip(),
+        "source": str(item.get("source") or "").strip(),
+        "queue_bucket": bucket,
+    }
+
+
+def selected_outreach_targets(
+    action_queue_path: Path, *, app_limit: int, relationship_limit: int
+) -> list[dict[str, str]]:
+    payload = json.loads(action_queue_path.read_text(encoding="utf-8"))
+    targets: list[dict[str, str]] = []
+    seen: set[str] = set()
+
+    if app_limit > 0:
+        app_added = 0
+        for item in payload.get("application_plus_outreach") or []:
+            if not isinstance(item, dict):
+                continue
+            target = _outreach_target(item, bucket="application_plus_outreach")
+            if _claim_company(seen, target["company"]):
+                targets.append(target)
+                app_added += 1
+            if app_added >= app_limit:
+                break
+
+    relationship_added = 0
+    if relationship_limit > 0:
+        for item in payload.get("outreach_only_today") or []:
+            if not isinstance(item, dict):
+                continue
+            target = _outreach_target(item, bucket="outreach_only_today")
+            if _claim_company(seen, target["company"]):
+                targets.append(target)
+                relationship_added += 1
+            if relationship_added >= relationship_limit:
+                break
+    return targets
 
 
 def selected_outreach_companies(
     action_queue_path: Path, *, app_limit: int, relationship_limit: int
 ) -> list[str]:
-    payload = json.loads(action_queue_path.read_text(encoding="utf-8"))
-    companies: list[str] = []
-    seen: set[str] = set()
-
-    for item in payload.get("application_plus_outreach") or []:
-        company = str(item.get("company") or "").strip()
-        _append_company(companies, seen, company)
-        if len(companies) >= app_limit:
-            break
-
-    relationship_added = 0
-    for item in payload.get("outreach_only_today") or []:
-        company = str(item.get("company") or "").strip()
-        if _append_company(companies, seen, company):
-            relationship_added += 1
-        if relationship_added >= relationship_limit:
-            break
-    return companies
+    return [
+        target["company"]
+        for target in selected_outreach_targets(
+            action_queue_path,
+            app_limit=app_limit,
+            relationship_limit=relationship_limit,
+        )
+    ]
 
 
-def target_outreach_companies(
+def target_outreach_targets(
     action_queue_path: Path, *, company_limit: int
-) -> list[str]:
+) -> list[dict[str, str]]:
     payload = json.loads(action_queue_path.read_text(encoding="utf-8"))
-    companies: list[str] = []
+    targets: list[dict[str, str]] = []
     seen: set[str] = set()
     for bucket in (
         "application_plus_outreach",
@@ -702,10 +733,26 @@ def target_outreach_companies(
         "relationship_buffer",
     ):
         for item in payload.get(bucket) or []:
-            _append_company(companies, seen, str(item.get("company") or ""))
-            if len(companies) >= company_limit:
-                return companies
-    return companies
+            if not isinstance(item, dict):
+                continue
+            target = _outreach_target(item, bucket=bucket)
+            if _claim_company(seen, target["company"]):
+                targets.append(target)
+            if len(targets) >= company_limit:
+                return targets
+    return targets
+
+
+def target_outreach_companies(
+    action_queue_path: Path, *, company_limit: int
+) -> list[str]:
+    return [
+        target["company"]
+        for target in target_outreach_targets(
+            action_queue_path,
+            company_limit=company_limit,
+        )
+    ]
 
 
 def _artifact_from_output(output: str) -> Path | None:
@@ -947,9 +994,10 @@ def run_targeted_outreach_from_action_queue(
         ],
         cwd=OUTREACH_ROOT,
     )
-    companies = target_outreach_companies(
+    targets = target_outreach_targets(
         action_queue_path, company_limit=max(args.max_outreach_companies, 1)
     )
+    companies = [target["company"] for target in targets]
     print(
         f"\nTargeted outreach companies selected from {action_queue_path.name}: {companies}"
     )
@@ -960,11 +1008,15 @@ def run_targeted_outreach_from_action_queue(
     skipped: list[str] = []
     company_runs: list[dict[str, object]] = []
     invite_send_artifacts: list[str] = []
-    for company in companies:
+    for target in targets:
+        company = target["company"]
         if sent_total >= target_sends:
             break
         company_run: dict[str, object] = {
             "company": company,
+            "target_role_title": target["target_role_title"],
+            "source": target["source"],
+            "queue_bucket": target["queue_bucket"],
             "status": "preparing",
             "prep_artifact": "",
             "filtered_send_artifact": "",
@@ -973,16 +1025,19 @@ def run_targeted_outreach_from_action_queue(
             "sent_count": 0,
         }
         company_runs.append(company_run)
+        prep_cmd: list[object] = [
+            OUTREACH_PYTHON,
+            "main.py",
+            "run",
+            "--company",
+            company,
+            "--company-mode",
+            "startup",
+        ]
+        if target["target_role_title"]:
+            prep_cmd.extend(["--target-role-title", target["target_role_title"]])
         prep = run_capture(
-            [
-                OUTREACH_PYTHON,
-                "main.py",
-                "run",
-                "--company",
-                company,
-                "--company-mode",
-                "startup",
-            ],
+            prep_cmd,
             cwd=OUTREACH_ROOT,
             check=False,
             timeout=args.company_prep_timeout,
@@ -1121,14 +1176,17 @@ def run_outreach_from_action_queue(
         ],
         cwd=OUTREACH_ROOT,
     )
-    companies = selected_outreach_companies(
+    targets = selected_outreach_targets(
         action_queue_path,
         app_limit=max(args.app_outreach_limit, 0),
         relationship_limit=max(args.relationship_outreach_limit, 0),
     )
+    companies = [target["company"] for target in targets]
     print(f"\nOutreach companies selected from {action_queue_path.name}: {companies}")
     failures: list[str] = []
-    for company in companies:
+    company_runs: list[dict[str, object]] = []
+    for target in targets:
+        company = target["company"]
         cmd: list[object] = [
             OUTREACH_PYTHON,
             "main.py",
@@ -1138,6 +1196,8 @@ def run_outreach_from_action_queue(
             "--company-mode",
             "startup",
         ]
+        if target["target_role_title"]:
+            cmd.extend(["--target-role-title", target["target_role_title"]])
         if args.execute_sends:
             cmd.extend(
                 [
@@ -1149,6 +1209,14 @@ def run_outreach_from_action_queue(
                 ]
             )
         result = run(cmd, cwd=OUTREACH_ROOT, check=False)
+        company_runs.append(
+            {
+                **target,
+                "status": "prepared" if result.returncode == 0 else "prep_failed",
+                "prep_returncode": result.returncode,
+                "sent_count": 0,
+            }
+        )
         if result.returncode != 0:
             failures.append(company)
             print(
@@ -1162,7 +1230,7 @@ def run_outreach_from_action_queue(
         "sent_total": 0,
         "companies_selected": companies,
         "companies_attempted": len(companies),
-        "company_runs": [],
+        "company_runs": company_runs,
         "invite_send_artifacts": [],
         "skipped_companies": [],
         "failed_companies": failures,
@@ -2552,26 +2620,31 @@ def _run_daily_engine(args: argparse.Namespace, run_manifest: dict[str, object])
                 args.resume_parallel,
             ]
         )
-        companies = selected_outreach_companies(
+        targets = selected_outreach_targets(
             action_queue_path,
             app_limit=max(args.app_outreach_limit, 0),
             relationship_limit=max(args.relationship_outreach_limit, 0),
         )
+        companies = [target["company"] for target in targets]
         print(
             f"\nOutreach companies selected from {action_queue_path.name}: {companies}"
         )
         failures: list[str] = []
-        for company in companies:
+        for target in targets:
+            company = target["company"]
+            cmd: list[object] = [
+                OUTREACH_PYTHON,
+                "main.py",
+                "run",
+                "--company",
+                company,
+                "--company-mode",
+                "startup",
+            ]
+            if target["target_role_title"]:
+                cmd.extend(["--target-role-title", target["target_role_title"]])
             result = run(
-                [
-                    OUTREACH_PYTHON,
-                    "main.py",
-                    "run",
-                    "--company",
-                    company,
-                    "--company-mode",
-                    "startup",
-                ],
+                cmd,
                 cwd=OUTREACH_ROOT,
                 check=False,
             )

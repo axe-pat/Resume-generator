@@ -185,6 +185,14 @@ Important buckets:
 - `follow_up`: companies with existing touchpoints.
 - `skipped_internal`: blocklisted, duplicate, terminal, or low-fit records.
 
+Execution preserves more than the company name. For every selected company the
+Daily Engine carries the exact `role_title`, source, and queue bucket into the
+company-run manifest. When a concrete role exists it invokes Outreach with
+`--target-role-title`; role-family messaging therefore follows the application
+evidence before any company-level tracker context or Product fallback. A
+duplicate company in a later relationship bucket cannot overwrite the earlier
+`application_plus_outreach` role/source provenance.
+
 The nightly wrapper now passes this exact current-run action queue into Outreach's
 shared discovery builder. The resulting
 `../Outreach/workspace/shared_discovery/shared_daily_queue.{json,csv}` merges

@@ -621,8 +621,11 @@ def test_targeted_outreach_returns_exact_company_and_batch_counts(
         encoding="utf-8",
     )
 
+    capture_calls: list[list[str]] = []
+
     def fake_capture(cmd, **kwargs):
         normalized = [str(item) for item in cmd]
+        capture_calls.append(normalized)
         if "send-invites" in normalized:
             return _completed(
                 cmd, stdout="Artifact: artifacts/invite-send-batch.json\n"
@@ -632,7 +635,17 @@ def test_targeted_outreach_returns_exact_company_and_batch_counts(
     monkeypatch.setattr(module, "run_capture", fake_capture)
     queue = tmp_path / "queue.json"
     queue.write_text(
-        json.dumps({"application_plus_outreach": [{"company": "Acme"}]}),
+        json.dumps(
+            {
+                "application_plus_outreach": [
+                    {
+                        "company": "Acme",
+                        "role_title": "AI Automation Co-Op",
+                        "source": "current_apply_queue",
+                    }
+                ]
+            }
+        ),
         encoding="utf-8",
     )
     args = SimpleNamespace(
@@ -650,8 +663,69 @@ def test_targeted_outreach_returns_exact_company_and_batch_counts(
     assert result["sent_total"] == 2
     assert result["invite_send_artifacts"] == [str(invite_artifact)]
     assert result["company_runs"][0]["company"] == "Acme"
+    assert result["company_runs"][0]["target_role_title"] == "AI Automation Co-Op"
+    assert result["company_runs"][0]["source"] == "current_apply_queue"
+    assert result["company_runs"][0]["queue_bucket"] == "application_plus_outreach"
     assert result["company_runs"][0]["safe_candidate_count"] == 2
     assert result["company_runs"][0]["sent_count"] == 2
+    prep_call = next(call for call in capture_calls if "send-invites" not in call)
+    assert prep_call[prep_call.index("--target-role-title") + 1] == "AI Automation Co-Op"
+
+
+def test_outreach_target_selection_preserves_role_source_and_bucket_precedence(
+    tmp_path: Path,
+) -> None:
+    module = _load_script("run_daily_engine.py", "daily_role_target_selection_test")
+    queue = tmp_path / "queue.json"
+    queue.write_text(
+        json.dumps(
+            {
+                "application_plus_outreach": [
+                    {
+                        "company": "AMETEK",
+                        "role_title": "AI Automation Co-Op",
+                        "source": "current_apply_queue",
+                    }
+                ],
+                "outreach_only_today": [
+                    {
+                        "company": "AMETEK",
+                        "signal_title": "Generic relationship signal",
+                        "source": "startup_org:yc_sf_bay_hiring",
+                    },
+                    {
+                        "company": "Astraea",
+                        "source": "startup_org:yc_sf_bay_hiring",
+                    },
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    targeted = module.target_outreach_targets(queue, company_limit=2)
+    relationship_only = module.selected_outreach_targets(
+        queue,
+        app_limit=0,
+        relationship_limit=1,
+    )
+
+    assert targeted == [
+        {
+            "company": "AMETEK",
+            "target_role_title": "AI Automation Co-Op",
+            "source": "current_apply_queue",
+            "queue_bucket": "application_plus_outreach",
+        },
+        {
+            "company": "Astraea",
+            "target_role_title": "",
+            "source": "startup_org:yc_sf_bay_hiring",
+            "queue_bucket": "outreach_only_today",
+        },
+    ]
+    assert relationship_only[0]["company"] == "AMETEK"
+    assert relationship_only[0]["queue_bucket"] == "outreach_only_today"
 
 
 def test_app_queue_target_send_blocks_failed_julia_company_filter(
@@ -1260,6 +1334,7 @@ def test_source_family_timeout_keeps_nightly_summary_non_green(
     summary_path = tmp_path / "nightly-summary.json"
     summary = {
         "created_at": "2026-07-11T01:00:00",
+        "run_id": "20260711-010000",
         "daily_engine_ran": True,
         "daily_engine_manifest": str(manifest),
     }
@@ -1268,7 +1343,7 @@ def test_source_family_timeout_keeps_nightly_summary_non_green(
     monkeypatch.setattr(
         module,
         "_write_outreach_daily_report",
-        lambda *_args: {"returncode": 0},
+        lambda *_args, **_kwargs: {"returncode": 0},
     )
 
     module._finalize_summary_and_report(

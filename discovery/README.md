@@ -182,6 +182,11 @@ Output goes to `discovery/source_validation/*-daily-action-queue.{json,md,html}`
 - `follow_up`: companies with existing touchpoints
 - `skipped_internal`: blocklisted, duplicate, terminal, or low-fit records
 
+The execution bridge keeps each selected target's company, exact role title,
+source, and bucket together. Concrete application roles are passed to Outreach
+as `--target-role-title` and copied into `outreach_execution.company_runs`; a
+company-level relationship row cannot silently replace that role context.
+
 Run it before scoring as a pre-score intake view. Run it again after the
 application scoring/write lanes refresh `current_apply_queue`; that second HTML
 is the final daily operating queue.

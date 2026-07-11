@@ -26,6 +26,18 @@ to clean `main` commits.
    Track 2 run artifact, and HTML report. A missing pointer is a production
    failure; do not infer success from a browser window or a loose artifact.
 
+If a same-day live proof has already sent invitations or messages, do not rerun
+the live pipeline merely to obtain a green report. Fix and validate code with
+fixture/no-send end-to-end tests, attest and reload the release, then treat the
+next scheduled run as the first live candidate. Reconciliation must precede any
+forced retry so daily limits and recipient safety remain authoritative.
+
+Report acceptance also checks semantics, not just files: every run-scoped
+report is named by and contains the nightly run ID; required source failures
+remain non-green; feed captures need stable post permalinks; exact-run review
+rows are separate from workspace carryover; and per-company mapping reports
+attempted/completed/failed rather than presenting a phase budget as completed.
+
 ## Failure behavior
 
 The pipeline is fail-reporting, not fail-silent. It attempts summary and report
