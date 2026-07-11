@@ -487,10 +487,14 @@ def test_daily_manifest_records_exact_typed_action_artifacts(
     assert payload["source_metrics"] == str(source_metrics)
     assert payload["action_queue"] == str(action_queue)
     assert payload["app_invites"] == {
+        "status": "completed",
         "target": 5,
         "sent": 2,
         "companies_attempted": 1,
         "company_runs": [{"company": "Acme", "sent_count": 2}],
+        "failed_companies": [],
+        "skipped_companies": [],
+        "unresolved_companies": [],
     }
     assert payload["manifest_schema"] == "resume_generator.daily_engine_run_manifest"
     assert payload["manifest_version"] == 1
@@ -592,6 +596,8 @@ def test_targeted_outreach_returns_exact_company_and_batch_counts(
                         "linkedin_url": "https://linkedin.example/one",
                         "score": 80,
                         "company": "Acme",
+                        "target_company_match": True,
+                        "target_company_evidence_company": "acme",
                         "note_qc": {"verdict": "send"},
                     },
                     {
@@ -599,6 +605,8 @@ def test_targeted_outreach_returns_exact_company_and_batch_counts(
                         "linkedin_url": "https://linkedin.example/two",
                         "score": 75,
                         "company": "Acme",
+                        "target_company_match": True,
+                        "target_company_evidence_company": "acme",
                         "note_qc": {"verdict": "send"},
                     },
                 ]
@@ -741,6 +749,86 @@ def test_app_queue_target_send_blocks_failed_julia_company_filter(
         "Julia",
         json.loads(prep_artifact.read_text(encoding="utf-8"))["results"][0],
     ) is False
+
+
+def test_unattended_send_requires_company_bound_evidence_even_at_high_score() -> None:
+    module = _load_script("run_daily_engine.py", "daily_company_binding_test")
+    base = {
+        "name": "Julia Person",
+        "linkedin_url": "https://linkedin.example/julia",
+        "score": 100,
+        "company": "Julia",
+        "connection_degree": "2nd",
+        "note_qc": {"verdict": "send"},
+    }
+
+    assert not module._safe_unattended_candidate("Julia", base, min_score=20)
+    assert not module._safe_unattended_candidate(
+        "Julia",
+        {
+            **base,
+            "target_company_match": True,
+            "target_company_evidence_company": "Mattel",
+        },
+        min_score=20,
+    )
+    assert module._safe_unattended_candidate(
+        "Julia",
+        {
+            **base,
+            "target_company_match": True,
+            "target_company_evidence_company": "Julia",
+        },
+        min_score=20,
+    )
+
+
+def test_manifest_surfaces_partial_app_invite_failure(tmp_path: Path, monkeypatch) -> None:
+    module = _load_script("run_daily_engine.py", "daily_app_failure_manifest_test")
+    monkeypatch.setattr(module, "SOURCE_VALIDATION_DIR", tmp_path)
+    action_queue = tmp_path / "queue.json"
+    action_queue.write_text(
+        json.dumps({"counts": {"application_plus_outreach": 2}}),
+        encoding="utf-8",
+    )
+    source_metrics = tmp_path / "metrics.json"
+    source_metrics.write_text(json.dumps({"sources": {}}), encoding="utf-8")
+
+    manifest = module.write_daily_engine_manifest(
+        {
+            "run_id": "partial-app",
+            "action_queue": str(action_queue),
+            "source_metrics": str(source_metrics),
+            "outreach_execution": {
+                "mode": "targeted_execute",
+                "target_sends": 5,
+                "sent_total": 1,
+                "companies_attempted": 2,
+                "failed_companies": ["Justinian"],
+                "company_runs": [
+                    {
+                        "company": "Julia",
+                        "status": "sent",
+                        "sent_count": 1,
+                    },
+                    {
+                        "company": "Justinian",
+                        "status": "prep_failed",
+                        "prep_returncode": 1,
+                        "prep_error": "No exact LinkedIn company suggestion",
+                    },
+                ],
+            },
+        }
+    )
+    payload = json.loads(manifest.read_text(encoding="utf-8"))
+
+    assert payload["app_invites"]["status"] == "partial_failed"
+    assert payload["app_invites"]["failed_companies"] == ["Justinian"]
+    assert payload["source_families"]["resume_generator_app_queue"]["status"] == "partial_failed"
+    assert payload["source_families"]["resume_generator_app_queue"]["details"][
+        "app_invite_status"
+    ] == "partial_failed"
 
 
 def test_nightly_binds_summary_to_exact_daily_manifest(
