@@ -1250,7 +1250,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--linkedin-discovery-timeout",
         type=int,
-        default=900,
+        default=1800,
         help="Timeout seconds for the LinkedIn discovery stage before scoring partial raw results.",
     )
     parser.add_argument(

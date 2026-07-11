@@ -1228,6 +1228,73 @@ def test_nightly_report_writer_rejects_timestamp_named_report(
     assert "run_id_mismatch" in result["binding_error"]
 
 
+def test_source_family_timeout_keeps_nightly_summary_non_green(
+    tmp_path: Path, monkeypatch
+) -> None:
+    module = _load_script("run_nightly_pipeline.py", "nightly_source_timeout_test")
+    manifest = tmp_path / "daily-engine-run-manifest.json"
+    manifest.write_text(
+        json.dumps(
+            {
+                "source_families": {
+                    "linkedin": {
+                        "status": "timed-out-partial",
+                        "raw_count": 31,
+                        "kept_count": 1,
+                    },
+                    "handshake": {
+                        "status": "ran",
+                        "raw_count": 25,
+                        "kept_count": 0,
+                    },
+                    "jobspy": {
+                        "status": "failed-fetch",
+                        "raw_count": 0,
+                        "kept_count": 0,
+                    },
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    summary_path = tmp_path / "nightly-summary.json"
+    summary = {
+        "created_at": "2026-07-11T01:00:00",
+        "daily_engine_ran": True,
+        "daily_engine_manifest": str(manifest),
+    }
+    failures: list[str] = []
+    monkeypatch.setattr(module, "_augment_daily_engine_manifest", lambda _summary: None)
+    monkeypatch.setattr(
+        module,
+        "_write_outreach_daily_report",
+        lambda *_args: {"returncode": 0},
+    )
+
+    module._finalize_summary_and_report(
+        summary=summary,
+        failures=failures,
+        summary_path=summary_path,
+    )
+    payload = json.loads(summary_path.read_text(encoding="utf-8"))
+
+    assert payload["status"] == "failed"
+    assert payload["failures"] == [
+        "source_family:linkedin:timed_out_partial",
+        "source_family:jobspy:failed_fetch",
+    ]
+
+
+def test_linkedin_discovery_default_timeout_is_thirty_minutes(monkeypatch) -> None:
+    daily = _load_script("run_daily_engine.py", "daily_timeout_default_test")
+    nightly = _load_script("run_nightly_pipeline.py", "nightly_timeout_default_test")
+
+    monkeypatch.setattr(sys, "argv", ["run_daily_engine.py"])
+    assert daily.parse_args().linkedin_discovery_timeout == 1800
+    monkeypatch.setattr(sys, "argv", ["run_nightly_pipeline.py"])
+    assert nightly.parse_args().linkedin_discovery_timeout == "1800"
+
+
 def test_nightly_argument_failure_still_writes_summary_and_attempts_report(
     tmp_path: Path, monkeypatch
 ) -> None:

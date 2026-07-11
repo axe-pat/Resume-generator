@@ -1061,7 +1061,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--relationship-today", type=str, default="8")
     parser.add_argument("--jobspy-fetch-timeout", type=str, default="0")
     parser.add_argument("--jobspy-results", type=str, default="0")
-    parser.add_argument("--linkedin-discovery-timeout", type=str, default="900")
+    parser.add_argument("--linkedin-discovery-timeout", type=str, default="1800")
     parser.add_argument("--jobspy-query-index", action="append", default=[])
     parser.add_argument("--startup-limit-companies", type=str, default="20")
     parser.add_argument("--startup-limit-jobs", type=str, default="50")
@@ -1643,6 +1643,44 @@ def _augment_daily_engine_manifest(summary: dict[str, object]) -> None:
     )
 
 
+NON_GREEN_SOURCE_STATUSES = {
+    "failed",
+    "timed_out",
+    "timeout",
+    "partial_failed",
+    "incomplete",
+}
+
+
+def _source_family_failures(summary: dict[str, object]) -> list[str]:
+    """Return exact manifest source failures that must keep a run non-green."""
+
+    manifest_path = Path(str(summary.get("daily_engine_manifest") or ""))
+    if not manifest_path.is_file():
+        return []
+    manifest = _load_json(manifest_path)
+    source_families = (
+        manifest.get("source_families")
+        if isinstance(manifest.get("source_families"), dict)
+        else {}
+    )
+    failures: list[str] = []
+    for name, raw in source_families.items():
+        row = raw if isinstance(raw, dict) else {}
+        status = (
+            str(row.get("status") or "skipped")
+            .strip()
+            .casefold()
+            .replace("-", "_")
+        )
+        if status in NON_GREEN_SOURCE_STATUSES or any(
+            status.startswith(f"{failure_status}_")
+            for failure_status in NON_GREEN_SOURCE_STATUSES
+        ):
+            failures.append(f"source_family:{name}:{status}")
+    return failures
+
+
 def _finalize_summary_and_report(
     *,
     summary: dict[str, object],
@@ -1661,6 +1699,11 @@ def _finalize_summary_and_report(
         summary["daily_engine_manifest_augmentation_error"] = str(exc)
         summary["failures"] = failures
         summary["status"] = "failed"
+    for failure in _source_family_failures(summary):
+        if failure not in failures:
+            failures.append(failure)
+    summary["failures"] = failures
+    summary["status"] = "failed" if failures else "completed"
     _write_summary(summary, path=summary_path)
     try:
         report_summary = _write_outreach_daily_report(

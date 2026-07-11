@@ -26,13 +26,15 @@ Action Queue
         |
         v
 Execution
-  ResumeGenerator generates resume + cover letter
+  ResumeGenerator nightly generates tailored resumes; cover letters stay on demand
   Outreach finds people, generates notes, sends/logs touchpoints
 ```
 
 The design rule is simple: discovery is shared, execution stays specialized.
 ResumeGenerator remains the application system of record. Outreach remains the
-relationship system of record.
+relationship system of record. The production nightly generation command uses
+`--resume-only --budget-mode`; generate a cover letter separately only when an
+ATS or application path actually requires one.
 
 ## Source Lanes
 
@@ -285,6 +287,12 @@ Outreach daily report, even when an earlier subprocess raises. A failed stage
 therefore produces a failed reportable run, not a missing run. Timestamped
 launcher and full pipeline logs live under
 `~/Library/Logs/ResumeGenerator/` by default.
+
+LinkedIn job discovery has a 30-minute (`1800` second) wall-clock bound. The
+extractor still checkpoints partial raw results and scores them after a timeout,
+but `source_families.linkedin.status=timed_out` keeps both the nightly summary
+and daily report non-green. This longer bound accommodates normal multi-page
+LinkedIn latency while preserving deterministic process-group cleanup.
 
 Track 2 has a four-hour (`14400` second) outer deadline by default. Override it
 with `--track-2-timeout-seconds`; `0` disables the deadline for an explicitly
