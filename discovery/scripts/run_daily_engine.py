@@ -9,7 +9,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import Iterable
+from typing import Any, Iterable
 
 ROOT = Path(__file__).resolve().parents[2]
 LOGS_DIR = ROOT / "discovery" / "auto" / "logs"
@@ -51,7 +51,9 @@ def _cmd_text(cmd: Iterable[object]) -> str:
     return " ".join(str(part) for part in cmd)
 
 
-def run(cmd: list[object], *, cwd: Path = ROOT, check: bool = True) -> subprocess.CompletedProcess:
+def run(
+    cmd: list[object], *, cwd: Path = ROOT, check: bool = True
+) -> subprocess.CompletedProcess:
     print(f"\n$ {_cmd_text(cmd)}")
     return subprocess.run([str(part) for part in cmd], cwd=cwd, check=check)
 
@@ -74,7 +76,10 @@ def run_capture(
             timeout=timeout,
         )
     except subprocess.TimeoutExpired as exc:
-        print(f"[warn] Command timed out after {timeout}s: {_cmd_text(cmd)}", file=sys.stderr)
+        print(
+            f"[warn] Command timed out after {timeout}s: {_cmd_text(cmd)}",
+            file=sys.stderr,
+        )
         stdout = exc.stdout or ""
         stderr = exc.stderr or ""
         if isinstance(stdout, bytes):
@@ -85,13 +90,17 @@ def run_capture(
             print(stdout, end="")
         if stderr:
             print(stderr, end="", file=sys.stderr)
-        return subprocess.CompletedProcess([str(part) for part in cmd], 124, stdout, stderr)
+        return subprocess.CompletedProcess(
+            [str(part) for part in cmd], 124, stdout, stderr
+        )
     if result.stdout:
         print(result.stdout, end="")
     if result.stderr:
         print(result.stderr, end="", file=sys.stderr)
     if check and result.returncode != 0:
-        raise subprocess.CalledProcessError(result.returncode, result.args, result.stdout, result.stderr)
+        raise subprocess.CalledProcessError(
+            result.returncode, result.args, result.stdout, result.stderr
+        )
     return result
 
 
@@ -113,9 +122,7 @@ def latest(pattern: str, directory: Path) -> Path:
 
 def latest_since(pattern: str, directory: Path, since_ts: float) -> Path | None:
     matches = [
-        path
-        for path in directory.glob(pattern)
-        if path.stat().st_mtime >= since_ts - 2
+        path for path in directory.glob(pattern) if path.stat().st_mtime >= since_ts - 2
     ]
     matches = sorted(matches, key=lambda path: path.stat().st_mtime)
     return matches[-1] if matches else None
@@ -140,12 +147,16 @@ def _parse_count(pattern: str, text: str) -> int:
 def _decision_counts(items: list[dict]) -> dict[str, int]:
     counts: dict[str, int] = {}
     for item in items:
-        decision = str(item.get("decision") or item.get("status") or "").strip() or "unknown"
+        decision = (
+            str(item.get("decision") or item.get("status") or "").strip() or "unknown"
+        )
         counts[decision] = counts.get(decision, 0) + 1
     return counts
 
 
-def _accepted_per_minute(accepted: int, runtime_seconds: float | int | None) -> float | None:
+def _accepted_per_minute(
+    accepted: int, runtime_seconds: float | int | None
+) -> float | None:
     if not runtime_seconds or runtime_seconds <= 0:
         return None
     return round(accepted / (runtime_seconds / 60), 3)
@@ -190,7 +201,9 @@ def _handshake_metrics(path: Path | None) -> dict:
     }
 
 
-def _jobspy_metrics_from_artifacts(raw_path: Path | None, breadth_path: Path | None, scored_path: Path | None) -> dict:
+def _jobspy_metrics_from_artifacts(
+    raw_path: Path | None, breadth_path: Path | None, scored_path: Path | None
+) -> dict:
     raw = _load_json(raw_path)
     breadth = _load_json(breadth_path)
     scored = _score_artifact_metrics(scored_path)
@@ -256,7 +269,8 @@ def _startup_report_metrics(path: Path | None) -> dict:
         "startup_apply_discovered": startup_apply.get("discovered_counts") or {},
         "startup_apply_new": startup_apply.get("new_counts") or {},
         "startup_apply_verdicts": startup_apply.get("verdict_counts") or {},
-        "startup_apply_source_verdicts": startup_apply.get("source_verdict_counts") or {},
+        "startup_apply_source_verdicts": startup_apply.get("source_verdict_counts")
+        or {},
         "relationship_source_counts": relationship.get("source_counts") or {},
         "relationship_targets": len(relationship.get("items") or []),
     }
@@ -318,7 +332,9 @@ def write_source_run_metrics(
     relationship_stage = stage_metrics.get("relationship_discovery", {})
 
     sources = {
-        "linkedin": _source_row(stage=stage_metrics.get("linkedin", {}), metrics=linkedin),
+        "linkedin": _source_row(
+            stage=stage_metrics.get("linkedin", {}), metrics=linkedin
+        ),
         "handshake": _source_row(
             stage=stage_metrics.get("handshake", {}),
             metrics=handshake,
@@ -348,6 +364,7 @@ def write_source_run_metrics(
 
     payload = {
         "generated_at": datetime.now().isoformat(timespec="seconds"),
+        "run_id": _manifest_run_id(getattr(args, "run_id", "")),
         "run_started_at": run_started_at,
         "window": args.window,
         "jobspy_policy": {
@@ -366,7 +383,9 @@ def write_source_run_metrics(
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     json_path = SOURCE_VALIDATION_DIR / f"{stamp}-source-run-metrics.json"
     md_path = json_path.with_suffix(".md")
-    json_path.write_text(json.dumps(payload, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+    json_path.write_text(
+        json.dumps(payload, indent=2, ensure_ascii=True) + "\n", encoding="utf-8"
+    )
     write_source_run_metrics_markdown(md_path, payload)
     print(f"\nSource metrics: {json_path}")
     print(f"Source metrics report: {md_path}")
@@ -467,7 +486,9 @@ def _append_company(companies: list[str], seen: set[str], company: str) -> bool:
     return True
 
 
-def selected_outreach_companies(action_queue_path: Path, *, app_limit: int, relationship_limit: int) -> list[str]:
+def selected_outreach_companies(
+    action_queue_path: Path, *, app_limit: int, relationship_limit: int
+) -> list[str]:
     payload = json.loads(action_queue_path.read_text(encoding="utf-8"))
     companies: list[str] = []
     seen: set[str] = set()
@@ -488,11 +509,17 @@ def selected_outreach_companies(action_queue_path: Path, *, app_limit: int, rela
     return companies
 
 
-def target_outreach_companies(action_queue_path: Path, *, company_limit: int) -> list[str]:
+def target_outreach_companies(
+    action_queue_path: Path, *, company_limit: int
+) -> list[str]:
     payload = json.loads(action_queue_path.read_text(encoding="utf-8"))
     companies: list[str] = []
     seen: set[str] = set()
-    for bucket in ("application_plus_outreach", "outreach_only_today", "relationship_buffer"):
+    for bucket in (
+        "application_plus_outreach",
+        "outreach_only_today",
+        "relationship_buffer",
+    ):
         for item in payload.get(bucket) or []:
             _append_company(companies, seen, str(item.get("company") or ""))
             if len(companies) >= company_limit:
@@ -511,7 +538,11 @@ def _artifact_from_output(output: str) -> Path | None:
 
 def _company_tokens(company: str) -> list[str]:
     tokens = re.findall(r"[a-z0-9]+", company.lower())
-    return [token for token in tokens if len(token) >= 3 and token not in COMMON_COMPANY_TOKENS]
+    return [
+        token
+        for token in tokens
+        if len(token) >= 3 and token not in COMMON_COMPANY_TOKENS
+    ]
 
 
 def _candidate_mentions_company(company: str, candidate: dict) -> bool:
@@ -534,7 +565,9 @@ def _note_is_sendable(candidate: dict) -> bool:
     return qc.get("verdict") == "send"
 
 
-def _safe_unattended_candidate(company: str, candidate: dict, *, min_score: int) -> bool:
+def _safe_unattended_candidate(
+    company: str, candidate: dict, *, min_score: int
+) -> bool:
     if not candidate.get("linkedin_url") or candidate.get("existing_connection"):
         return False
     if not _note_is_sendable(candidate):
@@ -544,12 +577,16 @@ def _safe_unattended_candidate(company: str, candidate: dict, *, min_score: int)
         return False
     if _candidate_mentions_company(company, candidate):
         return True
-    if str(candidate.get("connection_degree") or "") == "2nd" and score >= max(min_score, 35):
+    if str(candidate.get("connection_degree") or "") == "2nd" and score >= max(
+        min_score, 35
+    ):
         return True
     return score >= 70
 
 
-def _filtered_send_artifact(source_artifact: Path, *, company: str, min_score: int, limit: int) -> tuple[Path | None, int]:
+def _filtered_send_artifact(
+    source_artifact: Path, *, company: str, min_score: int, limit: int
+) -> tuple[Path | None, int]:
     payload = json.loads(source_artifact.read_text(encoding="utf-8"))
     safe_results = [
         item
@@ -560,16 +597,22 @@ def _filtered_send_artifact(source_artifact: Path, *, company: str, min_score: i
         safe_results = safe_results[:limit]
     if not safe_results:
         return None, 0
-    filtered_payload = {**payload, "results": safe_results, "target_send_filter": {
-        "source_artifact": str(source_artifact),
-        "min_score": min_score,
-        "limit": limit,
-        "safe_count": len(safe_results),
-    }}
+    filtered_payload = {
+        **payload,
+        "results": safe_results,
+        "target_send_filter": {
+            "source_artifact": str(source_artifact),
+            "min_score": min_score,
+            "limit": limit,
+            "safe_count": len(safe_results),
+        },
+    }
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     slug = re.sub(r"[^a-z0-9]+", "-", company.lower()).strip("-") or "company"
     out_path = OUTREACH_ROOT / "artifacts" / f"{stamp}-target-send-{slug}.json"
-    out_path.write_text(json.dumps(filtered_payload, indent=2, ensure_ascii=False), encoding="utf-8")
+    out_path.write_text(
+        json.dumps(filtered_payload, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
     return out_path, len(safe_results)
 
 
@@ -577,10 +620,16 @@ def _sent_count_from_batch(batch_artifact: Path | None) -> int:
     if not batch_artifact or not batch_artifact.exists():
         return 0
     payload = json.loads(batch_artifact.read_text(encoding="utf-8"))
-    return sum(1 for item in payload.get("results") or [] if str(item.get("status") or "").lower() == "sent")
+    return sum(
+        1
+        for item in payload.get("results") or []
+        if str(item.get("status") or "").lower() == "sent"
+    )
 
 
-def run_targeted_outreach_from_action_queue(args: argparse.Namespace, action_queue_path: Path) -> None:
+def run_targeted_outreach_from_action_queue(
+    args: argparse.Namespace, action_queue_path: Path
+) -> dict[str, object]:
     run(
         [
             OUTREACH_PYTHON,
@@ -591,15 +640,31 @@ def run_targeted_outreach_from_action_queue(args: argparse.Namespace, action_que
         ],
         cwd=OUTREACH_ROOT,
     )
-    companies = target_outreach_companies(action_queue_path, company_limit=max(args.max_outreach_companies, 1))
-    print(f"\nTargeted outreach companies selected from {action_queue_path.name}: {companies}")
+    companies = target_outreach_companies(
+        action_queue_path, company_limit=max(args.max_outreach_companies, 1)
+    )
+    print(
+        f"\nTargeted outreach companies selected from {action_queue_path.name}: {companies}"
+    )
     target_sends = max(args.target_sends, 0)
     sent_total = 0
     failures: list[str] = []
     skipped: list[str] = []
+    company_runs: list[dict[str, object]] = []
+    invite_send_artifacts: list[str] = []
     for company in companies:
         if sent_total >= target_sends:
             break
+        company_run: dict[str, object] = {
+            "company": company,
+            "status": "preparing",
+            "prep_artifact": "",
+            "filtered_send_artifact": "",
+            "invite_send_artifact": "",
+            "safe_candidate_count": 0,
+            "sent_count": 0,
+        }
+        company_runs.append(company_run)
         prep = run_capture(
             [
                 OUTREACH_PYTHON,
@@ -614,29 +679,46 @@ def run_targeted_outreach_from_action_queue(args: argparse.Namespace, action_que
             check=False,
             timeout=args.company_prep_timeout,
         )
+        company_run["prep_returncode"] = prep.returncode
         if prep.returncode != 0:
             failures.append(company)
-            print(f"[warn] Outreach artifact generation failed for {company}; continuing.")
+            company_run["status"] = "prep_failed"
+            print(
+                f"[warn] Outreach artifact generation failed for {company}; continuing."
+            )
             continue
         artifact = _artifact_from_output(prep.stdout)
         if not artifact or not artifact.exists():
             failures.append(company)
-            print(f"[warn] Could not resolve outreach artifact for {company}; continuing.")
+            company_run["status"] = "prep_artifact_missing"
+            print(
+                f"[warn] Could not resolve outreach artifact for {company}; continuing."
+            )
             continue
+        company_run["prep_artifact"] = str(artifact)
         remaining = target_sends - sent_total
         per_company_limit = args.send_limit or args.per_company_send_limit
-        send_limit = min(remaining, per_company_limit) if per_company_limit > 0 else remaining
+        send_limit = (
+            min(remaining, per_company_limit) if per_company_limit > 0 else remaining
+        )
         filtered_artifact, safe_count = _filtered_send_artifact(
             artifact,
             company=company,
             min_score=args.send_min_score,
             limit=send_limit,
         )
+        company_run["safe_candidate_count"] = safe_count
         if not filtered_artifact:
             skipped.append(company)
-            print(f"[info] No safe unattended invite candidates for {company}; continuing.")
+            company_run["status"] = "no_safe_candidates"
+            print(
+                f"[info] No safe unattended invite candidates for {company}; continuing."
+            )
             continue
-        print(f"[info] Sending up to {safe_count} safe candidates for {company}; target remaining={remaining}.")
+        company_run["filtered_send_artifact"] = str(filtered_artifact)
+        print(
+            f"[info] Sending up to {safe_count} safe candidates for {company}; target remaining={remaining}."
+        )
         send = run_capture(
             [
                 OUTREACH_PYTHON,
@@ -655,25 +737,52 @@ def run_targeted_outreach_from_action_queue(args: argparse.Namespace, action_que
             check=False,
             timeout=args.send_timeout,
         )
+        company_run["send_returncode"] = send.returncode
         if send.returncode != 0:
             failures.append(company)
+            company_run["status"] = "send_failed"
             print(f"[warn] Invite send failed for {company}; continuing.")
             continue
         batch_artifact = _artifact_from_output(send.stdout)
+        if batch_artifact is None or not batch_artifact.is_file():
+            failures.append(company)
+            company_run["status"] = "send_artifact_missing"
+            print(
+                f"[warn] Invite send for {company} returned success without a readable batch artifact; continuing."
+            )
+            continue
         sent_now = _sent_count_from_batch(batch_artifact)
+        company_run["invite_send_artifact"] = str(batch_artifact)
+        company_run["sent_count"] = sent_now
+        company_run["status"] = "sent" if sent_now else "completed_no_sends"
+        invite_send_artifacts.append(str(batch_artifact))
         sent_total += sent_now
-        print(f"[info] {company}: sent_now={sent_now}; sent_total={sent_total}/{target_sends}.")
+        print(
+            f"[info] {company}: sent_now={sent_now}; sent_total={sent_total}/{target_sends}."
+        )
     print(f"\nTargeted outreach send total: {sent_total}/{target_sends}")
     if skipped:
         print(f"[info] Companies skipped with no safe unattended candidates: {skipped}")
     if failures:
         print(f"[warn] Outreach failures: {failures}")
+    return {
+        "mode": "targeted_execute",
+        "target_sends": target_sends,
+        "sent_total": sent_total,
+        "companies_selected": companies,
+        "companies_attempted": len(company_runs),
+        "company_runs": company_runs,
+        "invite_send_artifacts": invite_send_artifacts,
+        "skipped_companies": skipped,
+        "failed_companies": failures,
+    }
 
 
-def run_outreach_from_action_queue(args: argparse.Namespace, action_queue_path: Path) -> None:
+def run_outreach_from_action_queue(
+    args: argparse.Namespace, action_queue_path: Path
+) -> dict[str, object]:
     if args.execute_sends and args.target_sends > 0:
-        run_targeted_outreach_from_action_queue(args, action_queue_path)
-        return
+        return run_targeted_outreach_from_action_queue(args, action_queue_path)
     run(
         [
             OUTREACH_PYTHON,
@@ -714,23 +823,54 @@ def run_outreach_from_action_queue(args: argparse.Namespace, action_queue_path: 
         result = run(cmd, cwd=OUTREACH_ROOT, check=False)
         if result.returncode != 0:
             failures.append(company)
-            print(f"[warn] Outreach artifact generation failed for {company}; continuing.")
+            print(
+                f"[warn] Outreach artifact generation failed for {company}; continuing."
+            )
     if failures:
         print(f"[warn] Outreach failures: {failures}")
+    return {
+        "mode": "prepare" if not args.execute_sends else "legacy_execute",
+        "target_sends": max(args.target_sends, 0),
+        "sent_total": 0,
+        "companies_selected": companies,
+        "companies_attempted": len(companies),
+        "company_runs": [],
+        "invite_send_artifacts": [],
+        "skipped_companies": [],
+        "failed_companies": failures,
+    }
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Supervised daily application + outreach engine.")
+    parser = argparse.ArgumentParser(
+        description="Supervised daily application + outreach engine."
+    )
     parser.add_argument("--window", choices=("24h", "7d"), default="24h")
     parser.add_argument("--skip-linkedin", action="store_true")
     parser.add_argument("--skip-handshake", action="store_true")
     parser.add_argument("--skip-jobspy", action="store_true")
     parser.add_argument("--skip-startup-apply", action="store_true")
     parser.add_argument("--skip-relationship-discovery", action="store_true")
-    parser.add_argument("--jobspy-results", type=int, default=0, help="Override JobSpy results per query/site. Default: 40 for 24h, 60 for 7d.")
-    parser.add_argument("--jobspy-query-index", action="append", type=int, default=[], help="JobSpy query index to run; repeatable. Defaults: 24h uses PM/Product Ops/Growth/Strategy/APM/AI-PM; 7d adds focused MBA/AI strategy queries.")
+    parser.add_argument(
+        "--jobspy-results",
+        type=int,
+        default=0,
+        help="Override JobSpy results per query/site. Default: 40 for 24h, 60 for 7d.",
+    )
+    parser.add_argument(
+        "--jobspy-query-index",
+        action="append",
+        type=int,
+        default=[],
+        help="JobSpy query index to run; repeatable. Defaults: 24h uses PM/Product Ops/Growth/Strategy/APM/AI-PM; 7d adds focused MBA/AI strategy queries.",
+    )
     parser.add_argument("--jobspy-score-limit", type=int, default=10)
-    parser.add_argument("--jobspy-fetch-timeout", type=int, default=0, help="Seconds before skipping the JobSpy breadth scrape. Default: 600 for 24h, 1800 for 7d.")
+    parser.add_argument(
+        "--jobspy-fetch-timeout",
+        type=int,
+        default=0,
+        help="Seconds before skipping the JobSpy breadth scrape. Default: 600 for 24h, 1800 for 7d.",
+    )
     parser.add_argument("--startup-limit-companies", type=int, default=20)
     parser.add_argument("--startup-limit-jobs", type=int, default=50)
     parser.add_argument("--relationship-source-limit", type=int, default=25)
@@ -742,14 +882,33 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--relationship-outreach-limit", type=int, default=2)
     parser.add_argument("--max-outreach-companies", type=int, default=24)
     parser.add_argument("--parallel-generation-outreach", action="store_true")
-    parser.add_argument("--execute-sends", action="store_true", help="Actually send LinkedIn invites after artifact generation.")
-    parser.add_argument("--target-sends", type=int, default=25, help="Global send target for unattended --execute-sends runs.")
-    parser.add_argument("--per-company-send-limit", type=int, default=15, help="Per-company cap while filling --target-sends.")
+    parser.add_argument(
+        "--execute-sends",
+        action="store_true",
+        help="Actually send LinkedIn invites after artifact generation.",
+    )
+    parser.add_argument(
+        "--target-sends",
+        type=int,
+        default=25,
+        help="Global send target for unattended --execute-sends runs.",
+    )
+    parser.add_argument(
+        "--per-company-send-limit",
+        type=int,
+        default=15,
+        help="Per-company cap while filling --target-sends.",
+    )
     parser.add_argument("--send-limit", type=int, default=0)
     parser.add_argument("--send-min-score", type=int, default=20)
     parser.add_argument("--skip-linkedin-preflight", action="store_true")
     parser.add_argument("--company-prep-timeout", type=int, default=420)
     parser.add_argument("--send-timeout", type=int, default=420)
+    parser.add_argument(
+        "--run-id",
+        default="",
+        help="Stable identifier supplied by the nightly orchestrator; used for the exact run manifest filename.",
+    )
     return parser.parse_args()
 
 
@@ -814,7 +973,9 @@ def _write_empty_jobspy_raw(hours_old: int, reason: str) -> Path:
         "skipped_reason": reason,
         "jobs": [],
     }
-    path.write_text(json.dumps(payload, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+    path.write_text(
+        json.dumps(payload, indent=2, ensure_ascii=True) + "\n", encoding="utf-8"
+    )
     return path
 
 
@@ -822,7 +983,10 @@ def _build_source_breadth(jobspy_raw: Path, *, since_ts: float) -> Path | None:
     try:
         playwright_raw = latest("linkedin_live_raw_*.json", LOGS_DIR)
     except SystemExit as exc:
-        print(f"[warn] Could not build source breadth without LinkedIn raw artifact: {exc}", file=sys.stderr)
+        print(
+            f"[warn] Could not build source breadth without LinkedIn raw artifact: {exc}",
+            file=sys.stderr,
+        )
         return None
     run(
         [
@@ -834,16 +998,269 @@ def _build_source_breadth(jobspy_raw: Path, *, since_ts: float) -> Path | None:
             jobspy_raw,
         ]
     )
-    return latest_since("*source-breadth-filtered.json", SOURCE_VALIDATION_DIR, since_ts)
+    return latest_since(
+        "*source-breadth-filtered.json", SOURCE_VALIDATION_DIR, since_ts
+    )
 
 
-def main() -> int:
-    args = parse_args()
-    run_started_at = datetime.now().isoformat(timespec="seconds")
+def _manifest_run_id(value: str) -> str:
+    cleaned = re.sub(r"[^A-Za-z0-9._-]+", "-", value.strip()).strip("-._")
+    return cleaned or datetime.now().strftime("%Y%m%d-%H%M%S")
+
+
+def daily_engine_manifest_path(run_id: str) -> Path:
+    return (
+        SOURCE_VALIDATION_DIR
+        / f"{_manifest_run_id(run_id)}-daily-engine-run-manifest.json"
+    )
+
+
+def _json_safe(value: Any) -> Any:
+    if isinstance(value, Path):
+        return str(value)
+    if isinstance(value, dict):
+        return {str(key): _json_safe(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple, set)):
+        return [_json_safe(item) for item in value]
+    return value
+
+
+def _artifact_path_list(value: object) -> list[str]:
+    values = value if isinstance(value, (list, tuple, set)) else [value]
+    paths: list[str] = []
+    for item in values:
+        text = str(item or "").strip()
+        if text and text not in paths:
+            paths.append(text)
+    return paths
+
+
+def _reconcile_artifacts_from_drafts(draft_artifacts: list[str]) -> list[str]:
+    paths: list[str] = []
+    for raw_path in draft_artifacts:
+        payload = _load_json(Path(raw_path))
+        source = str(payload.get("source_artifact") or "").strip()
+        if source and source not in paths:
+            paths.append(source)
+    return paths
+
+
+def _typed_manifest_pointers(manifest: dict[str, object]) -> dict[str, object]:
+    artifacts = (
+        manifest.get("artifacts") if isinstance(manifest.get("artifacts"), dict) else {}
+    )
+    outreach = (
+        manifest.get("outreach_execution")
+        if isinstance(manifest.get("outreach_execution"), dict)
+        else {}
+    )
+    invite_send_artifacts = _artifact_path_list(outreach.get("invite_send_artifacts"))
+    followup_drafts = _artifact_path_list(artifacts.get("linkedin_followup_drafts"))
+    followup_sends = _artifact_path_list(
+        artifacts.get("linkedin_followup_send_results")
+    )
+    reconcile_artifacts = _artifact_path_list(
+        artifacts.get("linkedin_reconcile_artifacts")
+    )
+    for path in _reconcile_artifacts_from_drafts(followup_drafts):
+        if path not in reconcile_artifacts:
+            reconcile_artifacts.append(path)
+    return {
+        "manifest_schema": "resume_generator.daily_engine_run_manifest",
+        "manifest_version": 1,
+        "invite_send_artifacts": invite_send_artifacts,
+        "linkedin_followup_draft_artifacts": followup_drafts,
+        "linkedin_followup_send_artifacts": followup_sends,
+        "linkedin_reconcile_artifacts": reconcile_artifacts,
+        "source_metrics": str(manifest.get("source_metrics") or ""),
+        "action_queue": str(manifest.get("action_queue") or ""),
+        "app_invites": {
+            "target": int(outreach.get("target_sends") or 0),
+            "sent": int(outreach.get("sent_total") or 0),
+            "companies_attempted": int(outreach.get("companies_attempted") or 0),
+            "company_runs": list(outreach.get("company_runs") or []),
+        },
+        "track_2_daily_run_artifacts": list(
+            manifest.get("track_2_daily_run_artifacts") or []
+        ),
+        "track_2_phase_artifacts": list(manifest.get("track_2_phase_artifacts") or []),
+        "track_2_phase_results": list(manifest.get("track_2_phase_results") or []),
+        "track_2_email_draft_artifacts": list(
+            manifest.get("track_2_email_draft_artifacts") or []
+        ),
+        "track_2_email_send_artifacts": list(
+            manifest.get("track_2_email_send_artifacts") or []
+        ),
+        "email_channel": (
+            manifest.get("email_channel")
+            if isinstance(manifest.get("email_channel"), dict)
+            else {
+                "status": "skipped_track_2_not_run",
+                "smtp_configured": False,
+                "blockers": [
+                    "Track 2 has not run yet; nightly email delivery also requires explicit human approval and SMTP configuration."
+                ],
+                "draft_artifacts": [],
+                "send_artifacts": [],
+                "draft_count": 0,
+                "sent_count": 0,
+                "approval_required": True,
+            }
+        ),
+    }
+
+
+def _manifest_count(value: object) -> int:
+    try:
+        return int(value or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _source_families_for_manifest(manifest: dict[str, object]) -> dict[str, object]:
+    source_metrics = _load_json(Path(str(manifest.get("source_metrics") or "")))
+    sources = (
+        source_metrics.get("sources")
+        if isinstance(source_metrics.get("sources"), dict)
+        else {}
+    )
+    stages = (
+        manifest.get("stage_metrics")
+        if isinstance(manifest.get("stage_metrics"), dict)
+        else {}
+    )
+
+    def source_row(key: str) -> dict[str, object]:
+        row = sources.get(key) if isinstance(sources.get(key), dict) else {}
+        stage = stages.get(key) if isinstance(stages.get(key), dict) else {}
+        return {
+            "status": str(row.get("status") or stage.get("status") or "skipped"),
+            "raw_count": _manifest_count(row.get("raw_count")),
+            "kept_count": _manifest_count(row.get("accepted_for_write")),
+            "details": row.get("details")
+            if isinstance(row.get("details"), dict)
+            else {},
+        }
+
+    startup_apply = source_row("startup_apply")
+    startup_relationship = (
+        sources.get("startup_relationship")
+        if isinstance(sources.get("startup_relationship"), dict)
+        else {}
+    )
+    relationship_stage = (
+        stages.get("relationship_discovery")
+        if isinstance(stages.get("relationship_discovery"), dict)
+        else {}
+    )
+    relationship_count = _manifest_count(
+        startup_relationship.get("relationship_targets")
+    )
+    startup_statuses = {
+        str(startup_apply.get("status") or "skipped"),
+        str(
+            startup_relationship.get("status")
+            or relationship_stage.get("status")
+            or "skipped"
+        ),
+    }
+    if any("fail" in status or "timeout" in status for status in startup_statuses):
+        startup_status = "partial_failed" if "ran" in startup_statuses else "failed"
+    elif "ran" in startup_statuses:
+        startup_status = "ran" if startup_statuses == {"ran"} else "partial"
+    else:
+        startup_status = "skipped"
+
+    action_queue_path = Path(str(manifest.get("action_queue") or ""))
+    action_queue = _load_json(action_queue_path)
+    action_counts = (
+        action_queue.get("counts")
+        if isinstance(action_queue.get("counts"), dict)
+        else {}
+    )
+    action_total = sum(_manifest_count(value) for value in action_counts.values())
+    action_queue_stage = (
+        stages.get("action_queue")
+        if isinstance(stages.get("action_queue"), dict)
+        else {}
+    )
+    outreach = (
+        manifest.get("outreach_execution")
+        if isinstance(manifest.get("outreach_execution"), dict)
+        else {}
+    )
+    return {
+        "linkedin": source_row("linkedin"),
+        "handshake": source_row("handshake"),
+        "jobspy": source_row("jobspy"),
+        "startup_sources": {
+            "status": startup_status,
+            "raw_count": _manifest_count(startup_apply.get("raw_count"))
+            + relationship_count,
+            "kept_count": _manifest_count(startup_apply.get("kept_count"))
+            + relationship_count,
+            "details": {
+                "startup_apply": startup_apply,
+                "startup_relationship": {
+                    "status": str(
+                        startup_relationship.get("status")
+                        or relationship_stage.get("status")
+                        or "skipped"
+                    ),
+                    "relationship_targets": relationship_count,
+                    "source_counts": startup_relationship.get("source_counts") or {},
+                },
+            },
+        },
+        "resume_generator_app_queue": {
+            "status": (
+                "ran"
+                if action_queue_path.is_file()
+                else str(action_queue_stage.get("status") or "skipped")
+            ),
+            "raw_count": action_total,
+            "kept_count": _manifest_count(outreach.get("sent_total")),
+            "details": {
+                "action_queue_counts": action_counts,
+                "invite_target": _manifest_count(outreach.get("target_sends")),
+                "invite_sent": _manifest_count(outreach.get("sent_total")),
+            },
+        },
+        "track_2": {
+            "status": "skipped",
+            "raw_count": 0,
+            "kept_count": 0,
+            "details": {
+                "reason": "Track 2 runs in the nightly stage after the daily engine."
+            },
+        },
+    }
+
+
+def write_daily_engine_manifest(manifest: dict[str, object]) -> Path:
+    manifest.update(_typed_manifest_pointers(manifest))
+    if not isinstance(manifest.get("source_families"), dict):
+        manifest["source_families"] = _source_families_for_manifest(manifest)
+    path = daily_engine_manifest_path(str(manifest.get("run_id") or ""))
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(_json_safe(manifest), indent=2, ensure_ascii=True) + "\n",
+        encoding="utf-8",
+    )
+    return path
+
+
+def _run_daily_engine(args: argparse.Namespace, run_manifest: dict[str, object]) -> int:
+    run_started_at = str(run_manifest["run_started_at"])
     stage_metrics: dict[str, dict] = {}
     artifacts: dict[str, object] = {}
+    run_manifest["stage_metrics"] = stage_metrics
+    run_manifest["artifacts"] = artifacts
+    run_manifest["outreach_execution"] = {}
     if args.execute_sends and args.parallel_generation_outreach:
-        raise SystemExit("--execute-sends is intentionally not supported with --parallel-generation-outreach.")
+        raise SystemExit(
+            "--execute-sends is intentionally not supported with --parallel-generation-outreach."
+        )
     hours_old = window_to_hours(args.window)
 
     sync_applied_pdfs()
@@ -857,7 +1274,9 @@ def main() -> int:
         artifact_since = time.time()
         run(["./discovery/scripts/run_linkedin_discovery.sh", args.window])
         _finish_stage(stage_metrics, "linkedin", stage_started)
-        artifacts["linkedin_scored"] = latest_since("linkedin_live_scored_*.json", LOGS_DIR, artifact_since)
+        artifacts["linkedin_scored"] = latest_since(
+            "linkedin_live_scored_*.json", LOGS_DIR, artifact_since
+        )
     else:
         _skip_stage(stage_metrics, "linkedin")
 
@@ -866,7 +1285,9 @@ def main() -> int:
         artifact_since = time.time()
         run(["./discovery/scripts/run_handshake_discovery.sh", args.window])
         _finish_stage(stage_metrics, "handshake", stage_started)
-        artifacts["handshake_log"] = latest_since("handshake_import_*.json", LOGS_DIR, artifact_since)
+        artifacts["handshake_log"] = latest_since(
+            "handshake_import_*.json", LOGS_DIR, artifact_since
+        )
     else:
         _skip_stage(stage_metrics, "handshake")
 
@@ -879,17 +1300,30 @@ def main() -> int:
         artifacts["jobspy_query_indices"] = jobspy_query_indices or "all"
         artifacts["jobspy_results"] = jobspy_results or "scraper_default"
         artifacts["jobspy_fetch_timeout"] = jobspy_timeout
-        fetch_cmd: list[object] = [PYTHON, "discovery/scripts/fetch_jobspy_breadth.py", "--hours-old", hours_old]
+        fetch_cmd: list[object] = [
+            PYTHON,
+            "discovery/scripts/fetch_jobspy_breadth.py",
+            "--hours-old",
+            hours_old,
+        ]
         if jobspy_results:
             fetch_cmd.extend(["--results", jobspy_results])
         for query_index in jobspy_query_indices:
             fetch_cmd.extend(["--query-index", query_index])
         jobspy_fetch = run_capture(fetch_cmd, check=False, timeout=jobspy_timeout)
         if jobspy_fetch.returncode != 0:
-            print(f"[warn] Skipping JobSpy validation/scoring because fetch exited with {jobspy_fetch.returncode}.", file=sys.stderr)
-            fallback_raw = _write_empty_jobspy_raw(hours_old, "timeout" if jobspy_fetch.returncode == 124 else "fetch_failed")
+            print(
+                f"[warn] Skipping JobSpy validation/scoring because fetch exited with {jobspy_fetch.returncode}.",
+                file=sys.stderr,
+            )
+            fallback_raw = _write_empty_jobspy_raw(
+                hours_old,
+                "timeout" if jobspy_fetch.returncode == 124 else "fetch_failed",
+            )
             artifacts["jobspy_raw"] = fallback_raw
-            artifacts["source_breadth"] = _build_source_breadth(fallback_raw, since_ts=artifact_since)
+            artifacts["source_breadth"] = _build_source_breadth(
+                fallback_raw, since_ts=artifact_since
+            )
             _finish_stage(
                 stage_metrics,
                 "jobspy",
@@ -917,14 +1351,18 @@ def main() -> int:
                     args.jobspy_score_limit,
                 ]
             )
-            artifacts["jobspy_scored"] = latest_since("jobspy_filtered_scored_*.json", LOGS_DIR, artifact_since)
+            artifacts["jobspy_scored"] = latest_since(
+                "jobspy_filtered_scored_*.json", LOGS_DIR, artifact_since
+            )
             _finish_stage(stage_metrics, "jobspy", stage_started)
     else:
         _skip_stage(stage_metrics, "jobspy")
         artifact_since = time.time()
         fallback_raw = _write_empty_jobspy_raw(hours_old, "skip_jobspy")
         artifacts["jobspy_raw"] = fallback_raw
-        artifacts["source_breadth"] = _build_source_breadth(fallback_raw, since_ts=artifact_since)
+        artifacts["source_breadth"] = _build_source_breadth(
+            fallback_raw, since_ts=artifact_since
+        )
 
     if not args.skip_startup_apply:
         stage_started = _start_stage(stage_metrics, "startup_apply")
@@ -940,7 +1378,9 @@ def main() -> int:
             ]
         )
         _finish_stage(stage_metrics, "startup_apply", stage_started)
-        artifacts["startup_apply_log"] = latest_since("startup_apply_*.txt", LOGS_DIR, artifact_since)
+        artifacts["startup_apply_log"] = latest_since(
+            "startup_apply_*.txt", LOGS_DIR, artifact_since
+        )
     else:
         _skip_stage(stage_metrics, "startup_apply")
 
@@ -985,10 +1425,13 @@ def main() -> int:
         )
     run(startup_report_cmd)
     _finish_stage(stage_metrics, "startup_source_report", stage_started)
-    artifacts["startup_report"] = latest_since("*startup-source-report.json", SOURCE_VALIDATION_DIR, artifact_since)
+    artifacts["startup_report"] = latest_since(
+        "*startup-source-report.json", SOURCE_VALIDATION_DIR, artifact_since
+    )
 
     stage_started = _start_stage(stage_metrics, "action_queue")
     action_queue_path = build_action_queue(args)
+    run_manifest["action_queue"] = str(action_queue_path)
     _finish_stage(stage_metrics, "action_queue", stage_started)
     print(f"\nFinal action queue: {action_queue_path}")
     print(f"Final action report: {action_queue_path.with_suffix('.html')}")
@@ -999,10 +1442,16 @@ def main() -> int:
         artifacts=artifacts,
         action_queue_path=action_queue_path,
     )
+    artifacts["source_metrics"] = source_metrics_path
+    run_manifest["source_metrics"] = str(source_metrics_path)
     print(f"Final source metrics: {source_metrics_path}")
 
     generation_proc: subprocess.Popen | None = None
-    if args.run_generation and args.prepare_outreach and args.parallel_generation_outreach:
+    if (
+        args.run_generation
+        and args.prepare_outreach
+        and args.parallel_generation_outreach
+    ):
         run(
             [
                 OUTREACH_PYTHON,
@@ -1029,30 +1478,106 @@ def main() -> int:
             app_limit=max(args.app_outreach_limit, 0),
             relationship_limit=max(args.relationship_outreach_limit, 0),
         )
-        print(f"\nOutreach companies selected from {action_queue_path.name}: {companies}")
+        print(
+            f"\nOutreach companies selected from {action_queue_path.name}: {companies}"
+        )
         failures: list[str] = []
         for company in companies:
             result = run(
-                [OUTREACH_PYTHON, "main.py", "run", "--company", company, "--company-mode", "startup"],
+                [
+                    OUTREACH_PYTHON,
+                    "main.py",
+                    "run",
+                    "--company",
+                    company,
+                    "--company-mode",
+                    "startup",
+                ],
                 cwd=OUTREACH_ROOT,
                 check=False,
             )
             if result.returncode != 0:
                 failures.append(company)
-                print(f"[warn] Outreach artifact generation failed for {company}; continuing.")
+                print(
+                    f"[warn] Outreach artifact generation failed for {company}; continuing."
+                )
         if failures:
             print(f"[warn] Outreach failures: {failures}")
     else:
         if args.run_generation:
-            run([PYTHON, "jobs.py", "--no-color", "generate", "--queue", "--parallel", args.resume_parallel])
+            run(
+                [
+                    PYTHON,
+                    "jobs.py",
+                    "--no-color",
+                    "generate",
+                    "--queue",
+                    "--parallel",
+                    args.resume_parallel,
+                ]
+            )
         if args.prepare_outreach:
-            run_outreach_from_action_queue(args, action_queue_path)
+            run_manifest["outreach_execution"] = run_outreach_from_action_queue(
+                args,
+                action_queue_path,
+            )
 
     if generation_proc is not None:
         return_code = generation_proc.wait()
         if return_code != 0:
             raise SystemExit(return_code)
     return 0
+
+
+def _exception_returncode(exc: BaseException) -> int:
+    if isinstance(exc, KeyboardInterrupt):
+        return 130
+    if isinstance(exc, SystemExit):
+        return exc.code if isinstance(exc.code, int) and exc.code != 0 else 1
+    if isinstance(exc, subprocess.CalledProcessError):
+        return int(exc.returncode or 1)
+    return 1
+
+
+def main() -> int:
+    args = parse_args()
+    run_id = _manifest_run_id(args.run_id)
+    run_manifest: dict[str, object] = {
+        "manifest_version": 1,
+        "run_id": run_id,
+        "run_started_at": datetime.now().isoformat(timespec="seconds"),
+        "status": "running",
+        "argv": vars(args),
+        "stage_metrics": {},
+        "artifacts": {},
+        "outreach_execution": {},
+        "source_metrics": "",
+        "action_queue": "",
+    }
+    returncode = 1
+    try:
+        returncode = _run_daily_engine(args, run_manifest)
+        run_manifest["status"] = "completed" if returncode == 0 else "failed"
+    except BaseException as exc:
+        returncode = _exception_returncode(exc)
+        run_manifest["status"] = "failed"
+        run_manifest["failure"] = {
+            "type": type(exc).__name__,
+            "message": str(exc),
+            "returncode": returncode,
+        }
+        print(
+            f"[error] Daily engine failed: {type(exc).__name__}: {exc}", file=sys.stderr
+        )
+    finally:
+        for stage in (run_manifest.get("stage_metrics") or {}).values():
+            if isinstance(stage, dict) and stage.get("status") == "running":
+                stage["status"] = "failed_interrupted"
+        run_manifest["completed_at"] = datetime.now().isoformat(timespec="seconds")
+        run_manifest["returncode"] = returncode
+        manifest_path = write_daily_engine_manifest(run_manifest)
+        print(f"Run manifest: {manifest_path}")
+    return returncode
 
 
 if __name__ == "__main__":
