@@ -123,6 +123,291 @@ def test_track_2_timeout_defaults_to_four_hours_and_zero_disables(monkeypatch) -
     assert module.parse_args().track_2_timeout_seconds == 0
 
 
+def test_scheduled_daily_engine_always_disables_the_direct_followup_lane(
+    monkeypatch,
+) -> None:
+    module = _load_script("run_nightly_pipeline.py", "nightly_lane_owner_test")
+    monkeypatch.setattr(sys, "argv", ["run_nightly_pipeline.py"])
+    args = module.parse_args()
+    # Even an older programmatic caller carrying this legacy value must not
+    # forward it into the scheduled daily-engine subprocess.
+    args.execute_linkedin_followups = True
+
+    command = [str(part) for part in module._daily_engine_cmd(args, run_id="run-1")]
+
+    assert command.count("--skip-linkedin-followups") == 1
+    assert "--execute-linkedin-followups" not in command
+
+
+def test_nightly_rejects_legacy_direct_followup_execution_before_side_effects(
+    monkeypatch,
+) -> None:
+    module = _load_script("run_nightly_pipeline.py", "nightly_legacy_lane_test")
+    monkeypatch.setattr(
+        module,
+        "run",
+        lambda *args, **kwargs: pytest.fail("nightly side effects must not start"),
+    )
+
+    with pytest.raises(SystemExit, match="Track 2 owns inbox reconciliation"):
+        module._run_pipeline_body(
+            SimpleNamespace(execute_linkedin_followups=True),
+            summary={"run_id": "run-1"},
+            failures=[],
+        )
+
+
+def test_track_2_is_the_scheduled_refresh_and_followup_owner(monkeypatch) -> None:
+    module = _load_script("run_nightly_pipeline.py", "nightly_track2_owner_test")
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "run_nightly_pipeline.py",
+            "--skip-linkedin",
+            "--skip-company-news",
+            "--execute-track-2-daily-plan",
+            "--outreach-resolve-limit",
+            "0",
+            "--outreach-enrich-limit",
+            "0",
+        ],
+    )
+    args = module.parse_args()
+    captured: list[list[str]] = []
+
+    def fake_capture(command, **kwargs):
+        normalized = [str(part) for part in command]
+        captured.append(normalized)
+        result = _completed(command)
+        setattr(result, "timed_out", False)
+        return result
+
+    monkeypatch.setattr(module, "_run_capture_print", fake_capture)
+
+    summary = module._run_outreach_maintenance(args, run_id="run-1")
+
+    track_2 = next(command for command in captured if "run-track-2-daily-plan" in command)
+    assert "--refresh-linkedin" in track_2
+    assert "--send-linkedin" in track_2
+    assert track_2[track_2.index("--max-linkedin-followups") + 1] == "25"
+    assert summary["track_2_daily_run_status"] == "failed_missing_artifact"
+    assert summary["track_2_artifact_validation_returncode"] == 1
+    assert "did not emit a readable" in summary["track_2_daily_run_failure"]
+
+
+def test_daily_timeout_terminates_the_subprocess_group(tmp_path: Path, monkeypatch) -> None:
+    module = _load_script("run_daily_engine.py", "daily_timeout_process_test")
+    popen_kwargs: dict[str, object] = {}
+
+    class FakeProcess:
+        pid = 4343
+        returncode = -15
+
+        def __init__(self):
+            self.communicate_calls = 0
+
+        def communicate(self, timeout=None):
+            self.communicate_calls += 1
+            if self.communicate_calls == 1:
+                raise subprocess.TimeoutExpired(["daily-stage"], timeout)
+            return "partial stdout\n", "partial stderr\n"
+
+        def kill(self):
+            raise AssertionError("SIGKILL should not be needed after SIGTERM")
+
+    process = FakeProcess()
+
+    def fake_popen(command, **kwargs):
+        popen_kwargs.update(kwargs)
+        return process
+
+    signals: list[tuple[int, object]] = []
+    monkeypatch.setattr(module.subprocess, "Popen", fake_popen)
+    monkeypatch.setattr(
+        module.os, "killpg", lambda pid, sig: signals.append((pid, sig))
+    )
+
+    result = module.run_capture(["daily-stage"], cwd=tmp_path, timeout=1)
+
+    assert result.returncode == 124
+    assert result.stdout == "partial stdout\n"
+    assert popen_kwargs["start_new_session"] is True
+    assert signals == [(4343, module.signal.SIGTERM)]
+
+
+def test_chrome_preflight_resets_only_after_failure(monkeypatch) -> None:
+    module = _load_script("run_daily_engine.py", "daily_chrome_recovery_test")
+    reset_reasons: list[str] = []
+    monkeypatch.setattr(module, "run", lambda *args, **kwargs: _completed(args[0]))
+    monkeypatch.setattr(
+        module,
+        "reset_linkedin_chrome_session",
+        lambda reason: reset_reasons.append(reason) or True,
+    )
+
+    assert module.ensure_linkedin_chrome_session("healthy") is True
+    assert reset_reasons == []
+
+    monkeypatch.setattr(
+        module,
+        "run",
+        lambda *args, **kwargs: _completed(args[0], returncode=1),
+    )
+    assert module.ensure_linkedin_chrome_session("failed") is True
+    assert reset_reasons == ["failed"]
+
+
+def test_chrome_retry_wrapper_preserves_the_failed_check_status(tmp_path: Path) -> None:
+    scripts = tmp_path / "discovery" / "scripts"
+    scripts.mkdir(parents=True)
+    wrapper = scripts / "ensure_chrome_9222.sh"
+    wrapper.write_text(
+        (SCRIPTS / "ensure_chrome_9222.sh").read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+    wrapper.chmod(0o755)
+    check = scripts / "check_linkedin_live.sh"
+    check.write_text("#!/usr/bin/env bash\nexit 7\n", encoding="utf-8")
+    check.chmod(0o755)
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    lsof = fake_bin / "lsof"
+    lsof.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+    lsof.chmod(0o755)
+    env = {
+        **os.environ,
+        "PATH": f"{fake_bin}:{os.environ['PATH']}",
+        "LINKEDIN_BROWSER_CHECK_ATTEMPTS": "2",
+        "LINKEDIN_BROWSER_CHECK_RETRY_DELAY": "0",
+    }
+
+    result = subprocess.run([str(wrapper)], cwd=tmp_path, env=env, check=False)
+
+    assert result.returncode == 7
+
+    env["LINKEDIN_BROWSER_CHECK_ATTEMPTS"] = "0"
+    invalid = subprocess.run([str(wrapper)], cwd=tmp_path, env=env, check=False)
+    assert invalid.returncode == 2
+
+
+def test_direct_followup_pull_is_resumable_and_resolves_exact_artifact(
+    tmp_path: Path, monkeypatch
+) -> None:
+    module = _load_script("run_daily_engine.py", "daily_followup_pull_test")
+    outreach = tmp_path / "Outreach"
+    artifact = outreach / "artifacts" / "followup-drafts.json"
+    artifact.parent.mkdir(parents=True)
+    artifact.write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(module, "OUTREACH_ROOT", outreach)
+    captured: list[str] = []
+
+    def fake_capture(command, **kwargs):
+        captured.extend(str(part) for part in command)
+        return _completed(command, stdout="Draft artifact: artifacts/followup-drafts.json\n")
+
+    monkeypatch.setattr(module, "run_capture", fake_capture)
+    args = SimpleNamespace(
+        linkedin_followup_limit=75,
+        linkedin_followup_draft_limit=50,
+        linkedin_followup_timeout=180,
+    )
+
+    result = module.run_linkedin_followup_pull(args)
+
+    assert result.status == "completed"
+    assert result.artifact == artifact.resolve()
+    assert "--update-offset" in captured
+    assert "--no-include-seen" not in captured
+
+
+def test_direct_followup_send_requires_a_real_result_artifact(
+    tmp_path: Path, monkeypatch
+) -> None:
+    module = _load_script("run_daily_engine.py", "daily_followup_send_test")
+    outreach = tmp_path / "Outreach"
+    outreach.mkdir()
+    draft = outreach / "artifacts" / "draft.json"
+    draft.parent.mkdir()
+    draft.write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(module, "OUTREACH_ROOT", outreach)
+    captured: list[str] = []
+
+    def fake_capture(command, **kwargs):
+        captured.extend(str(part) for part in command)
+        return _completed(command, stdout="Artifact: artifacts/missing-send.json\n")
+
+    monkeypatch.setattr(module, "run_capture", fake_capture)
+    args = SimpleNamespace(
+        linkedin_followup_send_limit=10,
+        linkedin_followup_recommendation=[],
+        execute_linkedin_followups=True,
+        linkedin_followup_send_timeout=240,
+    )
+
+    result = module.run_linkedin_followup_send(args, draft)
+
+    assert result.status == "failed_missing_artifact"
+    assert result.returncode == 1
+    assert result.artifact is None
+    assert "--execute" in captured
+
+
+def test_failed_direct_send_does_not_erase_the_draft_pointer(
+    tmp_path: Path, monkeypatch
+) -> None:
+    module = _load_script("run_daily_engine.py", "daily_failed_send_manifest_test")
+    outreach = tmp_path / "Outreach"
+    draft = outreach / "artifacts" / "draft.json"
+    draft.parent.mkdir(parents=True)
+    draft.write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(module, "OUTREACH_ROOT", outreach)
+    monkeypatch.setattr(module, "SOURCE_VALIDATION_DIR", tmp_path / "validation")
+
+    path = module.write_daily_engine_manifest(
+        {
+            "run_id": "failed-send-1",
+            "artifacts": {
+                "linkedin_followup_drafts": draft,
+                "linkedin_followup_send": {
+                    "status": "failed_missing_artifact",
+                    "returncode": 1,
+                    "artifact": "",
+                },
+                "linkedin_followup_send_results": None,
+            },
+        }
+    )
+    payload = json.loads(path.read_text(encoding="utf-8"))
+
+    assert payload["linkedin_followup_draft_artifacts"] == [str(draft)]
+    assert payload["linkedin_followup_send_artifacts"] == []
+    assert payload["artifacts"]["linkedin_followup_send"]["status"] == (
+        "failed_missing_artifact"
+    )
+
+
+def test_direct_followup_execution_cannot_be_silently_skipped(monkeypatch) -> None:
+    module = _load_script("run_daily_engine.py", "daily_followup_flag_guard_test")
+    monkeypatch.setattr(
+        module,
+        "sync_applied_pdfs",
+        lambda: pytest.fail("guard must run before pipeline side effects"),
+    )
+    args = SimpleNamespace(
+        execute_sends=False,
+        parallel_generation_outreach=False,
+        execute_linkedin_followups=True,
+        prepare_outreach=False,
+    )
+
+    with pytest.raises(SystemExit, match="requires --prepare-outreach"):
+        module._run_daily_engine(
+            args,
+            {"run_started_at": "2026-07-11T01:00:00"},
+        )
+
+
 def test_daily_manifest_records_exact_typed_action_artifacts(
     tmp_path: Path, monkeypatch
 ) -> None:
@@ -223,6 +508,67 @@ def test_daily_manifest_records_exact_typed_action_artifacts(
     assert payload["track_2_email_draft_artifacts"] == []
     assert payload["track_2_email_send_artifacts"] == []
     assert payload["email_channel"]["status"] == "skipped_track_2_not_run"
+
+
+def test_manifest_normalizes_relative_reconcile_pointer_against_outreach(
+    tmp_path: Path, monkeypatch
+) -> None:
+    module = _load_script("run_daily_engine.py", "daily_relative_pointer_test")
+    validation = tmp_path / "validation"
+    outreach = tmp_path / "Outreach"
+    artifacts = outreach / "artifacts"
+    artifacts.mkdir(parents=True)
+    monkeypatch.setattr(module, "SOURCE_VALIDATION_DIR", validation)
+    monkeypatch.setattr(module, "OUTREACH_ROOT", outreach)
+    reconcile = artifacts / "reconcile.json"
+    reconcile.write_text("{}", encoding="utf-8")
+    draft = artifacts / "draft.json"
+    draft.write_text(
+        json.dumps({"source_artifact": "artifacts/reconcile.json"}),
+        encoding="utf-8",
+    )
+
+    path = module.write_daily_engine_manifest(
+        {
+            "run_id": "relative-1",
+            "artifacts": {"linkedin_followup_drafts": "artifacts/draft.json"},
+        }
+    )
+    payload = json.loads(path.read_text(encoding="utf-8"))
+
+    assert payload["linkedin_followup_draft_artifacts"] == [str(draft.resolve())]
+    assert payload["linkedin_reconcile_artifacts"] == [str(reconcile.resolve())]
+
+
+def test_source_metrics_and_manifest_share_the_normalized_run_id(
+    tmp_path: Path, monkeypatch
+) -> None:
+    module = _load_script("run_daily_engine.py", "daily_normalized_run_id_test")
+    monkeypatch.setattr(module, "SOURCE_VALIDATION_DIR", tmp_path)
+    args = SimpleNamespace(
+        run_id="nightly / run 1",
+        window="24h",
+        jobspy_score_limit=10,
+    )
+
+    source_metrics = module.write_source_run_metrics(
+        args=args,
+        run_started_at="2026-07-11T01:00:00",
+        stage_metrics={},
+        artifacts={},
+        action_queue_path=None,
+    )
+    normalized = module._manifest_run_id(args.run_id)
+    manifest_path = module.write_daily_engine_manifest(
+        {"run_id": normalized, "source_metrics": str(source_metrics)}
+    )
+    source_payload = json.loads(source_metrics.read_text(encoding="utf-8"))
+    manifest_payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+
+    assert normalized == "nightly-run-1"
+    assert source_payload["run_id"] == normalized
+    assert manifest_payload["run_id"] == normalized
+    assert manifest_path.name == f"{normalized}-daily-engine-run-manifest.json"
 
 
 def test_targeted_outreach_returns_exact_company_and_batch_counts(
@@ -392,6 +738,15 @@ def test_nightly_augments_manifest_with_exact_track_2_run_and_phases(
     phase_artifact.write_text("{}", encoding="utf-8")
     email_draft_artifact = artifacts / "track-2-email-drafts.json"
     email_draft_artifact.write_text("{}", encoding="utf-8")
+    company_news_artifact = artifacts / "company-news.json"
+    company_news_artifact.write_text("{}", encoding="utf-8")
+    company_discovery_artifact = artifacts / "company-discovery.json"
+    company_discovery_artifact.write_text("{}", encoding="utf-8")
+    shared_json = outreach / "workspace" / "shared_discovery" / "queue.json"
+    shared_json.parent.mkdir(parents=True)
+    shared_json.write_text("{}", encoding="utf-8")
+    shared_csv = shared_json.with_suffix(".csv")
+    shared_csv.write_text("company\nAcme\n", encoding="utf-8")
     track_artifact = artifacts / "track-2-run.json"
     track_artifact.write_text(
         json.dumps(
@@ -437,10 +792,22 @@ def test_nightly_augments_manifest_with_exact_track_2_run_and_phases(
         encoding="utf-8",
     )
     summary = {
+        "run_id": "nightly-1",
         "daily_engine_manifest": str(manifest),
+        "shared_discovery_queue": {
+            "status": "completed",
+            "returncode": 0,
+            "json": str(shared_json.relative_to(outreach)),
+            "csv": str(shared_csv.relative_to(outreach)),
+        },
         "outreach_maintenance": {
             "track_2_daily_run_returncode": 0,
             "track_2_daily_run_artifact": "artifacts/track-2-run.json",
+            "company_news_status": "completed",
+            "company_news_returncode": 0,
+            "company_news_artifact": "artifacts/company-news.json",
+            "company_discovery_returncode": 0,
+            "company_discovery_artifact": "artifacts/company-discovery.json",
         },
     }
 
@@ -465,6 +832,16 @@ def test_nightly_augments_manifest_with_exact_track_2_run_and_phases(
     assert payload["email_channel"]["draft_count"] == 1
     assert payload["email_channel"]["sent_count"] == 0
     assert len(payload["email_channel"]["blockers"]) == 2
+    assert payload["nightly_extensions"]["run_id"] == "nightly-1"
+    assert payload["nightly_extensions"]["linkedin_followup_owner"] == "track_2"
+    assert payload["company_news_artifacts"] == [str(company_news_artifact)]
+    assert payload["company_discovery_artifacts"] == [
+        str(company_discovery_artifact)
+    ]
+    assert payload["shared_discovery_artifacts"] == [
+        str(shared_json),
+        str(shared_csv),
+    ]
 
 
 def test_nightly_manifest_records_track_2_timeout_without_claiming_completion(

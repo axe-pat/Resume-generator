@@ -4,12 +4,14 @@ from __future__ import annotations
 import argparse
 from datetime import datetime
 import json
+import os
 import re
+import signal
 import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Iterable, NamedTuple
 
 ROOT = Path(__file__).resolve().parents[2]
 LOGS_DIR = ROOT / "discovery" / "auto" / "logs"
@@ -24,8 +26,8 @@ RELATIONSHIP_SOURCES = (
     "builtin_la_companies",
     "builtin_sf_companies",
 )
-DAILY_JOBSPY_QUERY_INDICES = (0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11)
-WEEKLY_JOBSPY_QUERY_INDICES = (0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11)
+DAILY_JOBSPY_QUERY_INDICES = (0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12)
+WEEKLY_JOBSPY_QUERY_INDICES = (0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12)
 WEEKLY_JOBSPY_RESULTS = 60
 
 COMMON_COMPANY_TOKENS = {
@@ -47,6 +49,19 @@ COMMON_COMPANY_TOKENS = {
 }
 
 
+class ArtifactCommandResult(NamedTuple):
+    status: str
+    returncode: int
+    artifact: Path | None = None
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "status": self.status,
+            "returncode": self.returncode,
+            "artifact": str(self.artifact or ""),
+        }
+
+
 def _cmd_text(cmd: Iterable[object]) -> str:
     return " ".join(str(part) for part in cmd)
 
@@ -66,33 +81,40 @@ def run_capture(
     timeout: int | None = None,
 ) -> subprocess.CompletedProcess:
     print(f"\n$ {_cmd_text(cmd)}")
+    popen_args = [str(part) for part in cmd]
     try:
-        result = subprocess.run(
-            [str(part) for part in cmd],
+        proc = subprocess.Popen(
+            popen_args,
             cwd=cwd,
-            check=False,
             text=True,
-            capture_output=True,
-            timeout=timeout,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            start_new_session=True,
         )
-    except subprocess.TimeoutExpired as exc:
+        stdout, stderr = proc.communicate(timeout=timeout)
+        result = subprocess.CompletedProcess(popen_args, proc.returncode, stdout, stderr)
+    except subprocess.TimeoutExpired:
         print(
             f"[warn] Command timed out after {timeout}s: {_cmd_text(cmd)}",
             file=sys.stderr,
         )
-        stdout = exc.stdout or ""
-        stderr = exc.stderr or ""
-        if isinstance(stdout, bytes):
-            stdout = stdout.decode(errors="replace")
-        if isinstance(stderr, bytes):
-            stderr = stderr.decode(errors="replace")
+        try:
+            os.killpg(proc.pid, signal.SIGTERM)
+        except Exception:
+            proc.kill()
+        try:
+            stdout, stderr = proc.communicate(timeout=5)
+        except subprocess.TimeoutExpired:
+            try:
+                os.killpg(proc.pid, signal.SIGKILL)
+            except Exception:
+                proc.kill()
+            stdout, stderr = proc.communicate()
         if stdout:
             print(stdout, end="")
         if stderr:
             print(stderr, end="", file=sys.stderr)
-        return subprocess.CompletedProcess(
-            [str(part) for part in cmd], 124, stdout, stderr
-        )
+        return subprocess.CompletedProcess(popen_args, 124, stdout, stderr)
     if result.stdout:
         print(result.stdout, end="")
     if result.stderr:
@@ -111,6 +133,79 @@ def start(cmd: list[object], *, cwd: Path = ROOT) -> subprocess.Popen:
 
 def sync_applied_pdfs() -> None:
     run([PYTHON, "discovery/scripts/sync_applied_pdfs.py"])
+
+
+def reset_linkedin_chrome_session(reason: str) -> bool:
+    """Restart the dedicated Chrome/CDP session when it becomes attach-hostile."""
+    print(f"\n==> Resetting LinkedIn Chrome session ({reason})")
+    port = os.environ.get("LINKEDIN_DEBUG_PORT", "9222").strip() or "9222"
+    try:
+        pids_result = subprocess.run(
+            ["lsof", f"-tiTCP:{port}", "-sTCP:LISTEN"],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+    except FileNotFoundError:
+        print("[warn] lsof not found; cannot reset Chrome by port.", file=sys.stderr)
+        return False
+
+    pids = [int(line) for line in pids_result.stdout.splitlines() if line.strip().isdigit()]
+    reset = False
+    for pid in pids:
+        command = subprocess.run(
+            ["ps", "-p", str(pid), "-o", "command="],
+            text=True,
+            capture_output=True,
+            check=False,
+        ).stdout
+        if (
+            "Google Chrome" not in command
+            or f"--remote-debugging-port={port}" not in command
+        ):
+            print(
+                f"[warn] Refusing to kill non-canonical port owner pid={pid}: {command.strip()}",
+                file=sys.stderr,
+            )
+            continue
+        try:
+            os.kill(pid, signal.SIGTERM)
+            reset = True
+        except ProcessLookupError:
+            pass
+    if reset:
+        deadline = time.monotonic() + 12
+        while time.monotonic() < deadline:
+            still_listening = subprocess.run(
+                ["lsof", f"-tiTCP:{port}", "-sTCP:LISTEN"],
+                text=True,
+                capture_output=True,
+                check=False,
+            ).stdout.strip()
+            if not still_listening:
+                break
+            time.sleep(0.5)
+    launch = run(
+        ["./discovery/scripts/ensure_chrome_9222.sh", "https://www.linkedin.com/feed/"],
+        check=False,
+    )
+    if launch.returncode != 0:
+        print(f"[warn] Chrome relaunch failed with {launch.returncode}.", file=sys.stderr)
+        return False
+    time.sleep(5)
+    check = run(["./discovery/scripts/check_linkedin_live.sh"], check=False)
+    return check.returncode == 0
+
+
+def ensure_linkedin_chrome_session(reason: str) -> bool:
+    """Keep a healthy CDP session, resetting it only after preflight fails."""
+    preflight = run(
+        ["./discovery/scripts/ensure_chrome_9222.sh", "https://www.linkedin.com/feed/"],
+        check=False,
+    )
+    if preflight.returncode == 0:
+        return True
+    return reset_linkedin_chrome_session(reason)
 
 
 def latest(pattern: str, directory: Path) -> Path:
@@ -311,6 +406,57 @@ def _source_row(
     }
 
 
+def _load_artifact_json(path: Path | None) -> dict:
+    if not path:
+        return {}
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def _linkedin_followup_draft_metrics(path: Path | None) -> dict:
+    payload = _load_artifact_json(path)
+    if not payload:
+        return {}
+    results = list(payload.get("results") or [])
+    recommendations: dict[str, int] = {}
+    kinds: dict[str, int] = {}
+    for draft in results:
+        recommendation = str(draft.get("send_recommendation") or "unknown")
+        kind = str(draft.get("draft_kind") or "unknown")
+        recommendations[recommendation] = recommendations.get(recommendation, 0) + 1
+        kinds[kind] = kinds.get(kind, 0) + 1
+    summary = payload.get("summary") or payload.get("action_summary") or {}
+    return {
+        "artifact": str(path),
+        "count": int(payload.get("count") or len(results)),
+        "recommendations": recommendations,
+        "kinds": kinds,
+        "follow_up_candidates": summary.get("follow_up_candidates"),
+        "reply_candidates": summary.get("reply_candidates"),
+        "external_action_items": summary.get("external_action_items"),
+        "action_items": summary.get("action_items") or [],
+        "by_company": summary.get("by_company") or {},
+    }
+
+
+def _linkedin_followup_send_metrics(path: Path | None) -> dict:
+    payload = _load_artifact_json(path)
+    if not payload:
+        return {}
+    return {
+        "artifact": str(path),
+        "execute": payload.get("execute"),
+        "total_drafts": payload.get("total_drafts", payload.get("count")),
+        "eligible_count": payload.get("eligible_count", payload.get("count")),
+        "sent_count": (payload.get("status_counts") or {}).get("sent", 0),
+        "skipped_by_recommendation_count": payload.get("skipped_by_recommendation_count", 0),
+        "status_counts": payload.get("status_counts") or {},
+        "touchpoints_added": payload.get("touchpoints_added"),
+    }
+
+
 def write_source_run_metrics(
     *,
     args: argparse.Namespace,
@@ -329,6 +475,8 @@ def write_source_run_metrics(
     startup_apply = _startup_apply_log_metrics(artifacts.get("startup_apply_log"))
     startup_report = _startup_report_metrics(artifacts.get("startup_report"))
     action_queue = _action_queue_metrics(action_queue_path)
+    linkedin_followup_drafts = _linkedin_followup_draft_metrics(artifacts.get("linkedin_followup_drafts"))
+    linkedin_followup_sends = _linkedin_followup_send_metrics(artifacts.get("linkedin_followup_send_results"))
     relationship_stage = stage_metrics.get("relationship_discovery", {})
 
     sources = {
@@ -377,6 +525,10 @@ def write_source_run_metrics(
         "sources": sources,
         "startup_source_report": startup_report,
         "action_queue": action_queue,
+        "linkedin_followups": {
+            "drafts": linkedin_followup_drafts,
+            "sends": linkedin_followup_sends,
+        },
     }
 
     SOURCE_VALIDATION_DIR.mkdir(parents=True, exist_ok=True)
@@ -435,6 +587,11 @@ def write_source_run_metrics_markdown(path: Path, payload: dict) -> None:
             "",
             f"- Counts: {payload['action_queue']['counts']}",
             f"- Source counts: {payload['action_queue']['source_counts']}",
+            "",
+            "## LinkedIn Follow-Ups",
+            "",
+            f"- Drafts: {payload.get('linkedin_followups', {}).get('drafts', {})}",
+            f"- Sends: {payload.get('linkedin_followups', {}).get('sends', {})}",
             "",
             "## Startup Split",
             "",
@@ -841,6 +998,103 @@ def run_outreach_from_action_queue(
     }
 
 
+def _outreach_artifact_from_text(value: str) -> Path | None:
+    path = _readable_artifact_path(value, base_dir=OUTREACH_ROOT)
+    return Path(path) if path else None
+
+
+def run_linkedin_followup_pull(args: argparse.Namespace) -> ArtifactCommandResult:
+    cmd: list[object] = [
+        OUTREACH_PYTHON,
+        "main.py",
+        "pull-linkedin-followups",
+        "--live",
+        "--deep",
+        "--apply-reconcile",
+        "--update-offset",
+        "--limit",
+        args.linkedin_followup_limit,
+        "--draft-limit",
+        args.linkedin_followup_draft_limit,
+    ]
+    result = run_capture(
+        cmd,
+        cwd=OUTREACH_ROOT,
+        check=False,
+        timeout=args.linkedin_followup_timeout,
+    )
+    if result.returncode != 0:
+        print(
+            f"[warn] LinkedIn follow-up pull failed with {result.returncode}; continuing.",
+            file=sys.stderr,
+        )
+        return ArtifactCommandResult("failed_command", int(result.returncode or 1))
+    match = re.search(r"Draft artifact:\s*(.+)", result.stdout)
+    if match:
+        candidate = _outreach_artifact_from_text(match.group(1).strip())
+        if candidate is not None:
+            return ArtifactCommandResult("completed", 0, candidate)
+    artifact = _artifact_from_output(result.stdout)
+    if artifact and artifact.is_file():
+        return ArtifactCommandResult("completed", 0, artifact.resolve())
+    return ArtifactCommandResult("failed_missing_artifact", 1)
+
+
+def run_linkedin_followup_send(
+    args: argparse.Namespace,
+    draft_artifact: Path,
+) -> ArtifactCommandResult:
+    cmd: list[object] = [
+        OUTREACH_PYTHON,
+        "main.py",
+        "send-linkedin-followups",
+        "--draft-artifact",
+        draft_artifact,
+        "--limit",
+        args.linkedin_followup_send_limit,
+    ]
+    for recommendation in args.linkedin_followup_recommendation or ["safe_to_review"]:
+        cmd.extend(["--recommendation", recommendation])
+    if args.execute_linkedin_followups:
+        cmd.append("--execute")
+    result = run_capture(
+        cmd,
+        cwd=OUTREACH_ROOT,
+        check=False,
+        timeout=args.linkedin_followup_send_timeout,
+    )
+    if result.returncode != 0:
+        print(
+            f"[warn] LinkedIn follow-up send failed with {result.returncode}; continuing.",
+            file=sys.stderr,
+        )
+        return ArtifactCommandResult("failed_command", int(result.returncode or 1))
+    match = re.search(r"Artifact:\s*(.+)", result.stdout)
+    if match:
+        candidate = _outreach_artifact_from_text(match.group(1).strip())
+        if candidate is not None:
+            return ArtifactCommandResult("completed", 0, candidate)
+    artifact = _artifact_from_output(result.stdout)
+    if artifact and artifact.is_file():
+        return ArtifactCommandResult("completed", 0, artifact.resolve())
+    return ArtifactCommandResult("failed_missing_artifact", 1)
+
+
+def score_partial_linkedin_raw(artifact_since: float) -> Path | None:
+    partial_raw = latest_since("linkedin_live_raw_inflight_*.json", LOGS_DIR, artifact_since)
+    if not partial_raw:
+        return None
+    print(f"[warn] Scoring partial LinkedIn raw artifact after timeout: {partial_raw}", file=sys.stderr)
+    result = run(
+        [PYTHON, "discovery/auto/linkedin_live.py", "--score-from-raw", partial_raw],
+        check=False,
+    )
+    if result.returncode != 0:
+        print(f"[warn] Partial LinkedIn scoring failed with {result.returncode}.", file=sys.stderr)
+        return None
+    return latest_since("linkedin_live_scored_*.json", LOGS_DIR, artifact_since)
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Supervised daily application + outreach engine."
@@ -866,6 +1120,12 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--jobspy-score-limit", type=int, default=10)
     parser.add_argument(
+        "--linkedin-discovery-timeout",
+        type=int,
+        default=900,
+        help="Timeout seconds for the LinkedIn discovery stage before scoring partial raw results.",
+    )
+    parser.add_argument(
         "--jobspy-fetch-timeout",
         type=int,
         default=0,
@@ -878,6 +1138,19 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--run-generation", action="store_true")
     parser.add_argument("--resume-parallel", type=int, default=3)
     parser.add_argument("--prepare-outreach", action="store_true")
+    parser.add_argument("--skip-linkedin-followups", action="store_true", help="Skip LinkedIn message reconcile/draft action list.")
+    parser.add_argument("--linkedin-followup-limit", type=int, default=75, help="Maximum LinkedIn message threads to read for follow-up/reply actions.")
+    parser.add_argument("--linkedin-followup-draft-limit", type=int, default=50, help="Maximum LinkedIn follow-up drafts to emit.")
+    parser.add_argument("--linkedin-followup-timeout", type=int, default=180, help="Timeout seconds for LinkedIn follow-up reconcile/draft pull.")
+    parser.add_argument("--execute-linkedin-followups", action="store_true", help="Actually send eligible LinkedIn follow-up drafts after reconcile.")
+    parser.add_argument("--linkedin-followup-send-limit", type=int, default=10, help="Maximum eligible LinkedIn follow-up drafts to send.")
+    parser.add_argument("--linkedin-followup-send-timeout", type=int, default=240, help="Timeout seconds for LinkedIn follow-up sends.")
+    parser.add_argument(
+        "--linkedin-followup-recommendation",
+        action="append",
+        default=[],
+        help="Allowed send_recommendation for automatic follow-up sends; repeatable. Default: safe_to_review.",
+    )
     parser.add_argument("--app-outreach-limit", type=int, default=3)
     parser.add_argument("--relationship-outreach-limit", type=int, default=2)
     parser.add_argument("--max-outreach-companies", type=int, default=24)
@@ -1025,13 +1298,24 @@ def _json_safe(value: Any) -> Any:
     return value
 
 
-def _artifact_path_list(value: object) -> list[str]:
+def _readable_artifact_path(value: object, *, base_dir: Path) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    path = Path(text).expanduser()
+    if not path.is_absolute():
+        path = base_dir / path
+    path = path.resolve(strict=False)
+    return str(path) if path.is_file() else ""
+
+
+def _artifact_path_list(value: object, *, base_dir: Path) -> list[str]:
     values = value if isinstance(value, (list, tuple, set)) else [value]
     paths: list[str] = []
     for item in values:
-        text = str(item or "").strip()
-        if text and text not in paths:
-            paths.append(text)
+        path = _readable_artifact_path(item, base_dir=base_dir)
+        if path and path not in paths:
+            paths.append(path)
     return paths
 
 
@@ -1039,7 +1323,10 @@ def _reconcile_artifacts_from_drafts(draft_artifacts: list[str]) -> list[str]:
     paths: list[str] = []
     for raw_path in draft_artifacts:
         payload = _load_json(Path(raw_path))
-        source = str(payload.get("source_artifact") or "").strip()
+        source = _readable_artifact_path(
+            payload.get("source_artifact"),
+            base_dir=OUTREACH_ROOT,
+        )
         if source and source not in paths:
             paths.append(source)
     return paths
@@ -1054,13 +1341,21 @@ def _typed_manifest_pointers(manifest: dict[str, object]) -> dict[str, object]:
         if isinstance(manifest.get("outreach_execution"), dict)
         else {}
     )
-    invite_send_artifacts = _artifact_path_list(outreach.get("invite_send_artifacts"))
-    followup_drafts = _artifact_path_list(artifacts.get("linkedin_followup_drafts"))
+    invite_send_artifacts = _artifact_path_list(
+        outreach.get("invite_send_artifacts"),
+        base_dir=OUTREACH_ROOT,
+    )
+    followup_drafts = _artifact_path_list(
+        artifacts.get("linkedin_followup_drafts"),
+        base_dir=OUTREACH_ROOT,
+    )
     followup_sends = _artifact_path_list(
-        artifacts.get("linkedin_followup_send_results")
+        artifacts.get("linkedin_followup_send_results"),
+        base_dir=OUTREACH_ROOT,
     )
     reconcile_artifacts = _artifact_path_list(
-        artifacts.get("linkedin_reconcile_artifacts")
+        artifacts.get("linkedin_reconcile_artifacts"),
+        base_dir=OUTREACH_ROOT,
     )
     for path in _reconcile_artifacts_from_drafts(followup_drafts):
         if path not in reconcile_artifacts:
@@ -1257,9 +1552,15 @@ def _run_daily_engine(args: argparse.Namespace, run_manifest: dict[str, object])
     run_manifest["stage_metrics"] = stage_metrics
     run_manifest["artifacts"] = artifacts
     run_manifest["outreach_execution"] = {}
+    direct_followup_failed = False
     if args.execute_sends and args.parallel_generation_outreach:
         raise SystemExit(
             "--execute-sends is intentionally not supported with --parallel-generation-outreach."
+        )
+    if args.execute_linkedin_followups and not args.prepare_outreach:
+        raise SystemExit(
+            "--execute-linkedin-followups requires --prepare-outreach so the "
+            "standalone inbox lane cannot be silently skipped."
         )
     hours_old = window_to_hours(args.window)
 
@@ -1267,16 +1568,25 @@ def _run_daily_engine(args: argparse.Namespace, run_manifest: dict[str, object])
 
     needs_linkedin = (not args.skip_linkedin) or bool(args.prepare_outreach)
     if needs_linkedin and not args.skip_linkedin_preflight:
-        run(["./discovery/scripts/ensure_chrome_9222.sh"])
+        if not ensure_linkedin_chrome_session("initial preflight failure"):
+            raise SystemExit("LinkedIn Chrome preflight failed after one guarded reset.")
 
     if not args.skip_linkedin:
         stage_started = _start_stage(stage_metrics, "linkedin")
         artifact_since = time.time()
-        run(["./discovery/scripts/run_linkedin_discovery.sh", args.window])
-        _finish_stage(stage_metrics, "linkedin", stage_started)
-        artifacts["linkedin_scored"] = latest_since(
-            "linkedin_live_scored_*.json", LOGS_DIR, artifact_since
+        result = run_capture(
+            ["./discovery/scripts/run_linkedin_discovery.sh", args.window],
+            check=False,
+            timeout=args.linkedin_discovery_timeout,
         )
+        if result.returncode == 0:
+            _finish_stage(stage_metrics, "linkedin", stage_started, returncode=result.returncode)
+            artifacts["linkedin_scored"] = latest_since("linkedin_live_scored_*.json", LOGS_DIR, artifact_since)
+        else:
+            status = "timed_out" if result.returncode == 124 else "failed"
+            _finish_stage(stage_metrics, "linkedin", stage_started, status=status, returncode=result.returncode)
+            artifacts["linkedin_scored"] = score_partial_linkedin_raw(artifact_since)
+            artifacts["linkedin_chrome_reset_after_failure"] = reset_linkedin_chrome_session(status)
     else:
         _skip_stage(stage_metrics, "linkedin")
 
@@ -1435,6 +1745,52 @@ def _run_daily_engine(args: argparse.Namespace, run_manifest: dict[str, object])
     _finish_stage(stage_metrics, "action_queue", stage_started)
     print(f"\nFinal action queue: {action_queue_path}")
     print(f"Final action report: {action_queue_path.with_suffix('.html')}")
+
+    if args.prepare_outreach and not args.skip_linkedin_followups:
+        stage_started = _start_stage(stage_metrics, "linkedin_followups")
+        pull_result = run_linkedin_followup_pull(args)
+        artifacts["linkedin_followup_pull"] = pull_result.as_dict()
+        followup_artifact = pull_result.artifact
+        artifacts["linkedin_followup_drafts"] = followup_artifact
+        _finish_stage(
+            stage_metrics,
+            "linkedin_followups",
+            stage_started,
+            status="ran" if pull_result.status == "completed" else pull_result.status,
+            returncode=pull_result.returncode,
+        )
+        direct_followup_failed = pull_result.status != "completed"
+        if args.execute_linkedin_followups and followup_artifact:
+            stage_started = _start_stage(stage_metrics, "linkedin_followup_sends")
+            chrome_ready = ensure_linkedin_chrome_session(
+                "before LinkedIn follow-up sends"
+            )
+            send_result = (
+                run_linkedin_followup_send(args, followup_artifact)
+                if chrome_ready
+                else ArtifactCommandResult("failed_chrome_unavailable", 1)
+            )
+            artifacts["linkedin_followup_send"] = send_result.as_dict()
+            followup_send_artifact = send_result.artifact
+            artifacts["linkedin_followup_send_results"] = followup_send_artifact
+            _finish_stage(
+                stage_metrics,
+                "linkedin_followup_sends",
+                stage_started,
+                status=(
+                    "ran" if send_result.status == "completed" else send_result.status
+                ),
+                returncode=send_result.returncode,
+            )
+            direct_followup_failed = (
+                direct_followup_failed or send_result.status != "completed"
+            )
+        else:
+            _skip_stage(stage_metrics, "linkedin_followup_sends")
+    else:
+        _skip_stage(stage_metrics, "linkedin_followups")
+        _skip_stage(stage_metrics, "linkedin_followup_sends")
+
     source_metrics_path = write_source_run_metrics(
         args=args,
         run_started_at=run_started_at,
@@ -1452,6 +1808,8 @@ def _run_daily_engine(args: argparse.Namespace, run_manifest: dict[str, object])
         and args.prepare_outreach
         and args.parallel_generation_outreach
     ):
+        if not ensure_linkedin_chrome_session("before parallel outreach"):
+            raise SystemExit("LinkedIn Chrome unavailable before parallel outreach.")
         run(
             [
                 OUTREACH_PYTHON,
@@ -1517,6 +1875,8 @@ def _run_daily_engine(args: argparse.Namespace, run_manifest: dict[str, object])
                 ]
             )
         if args.prepare_outreach:
+            if not ensure_linkedin_chrome_session("before outreach"):
+                raise SystemExit("LinkedIn Chrome unavailable before outreach.")
             run_manifest["outreach_execution"] = run_outreach_from_action_queue(
                 args,
                 action_queue_path,
@@ -1526,7 +1886,7 @@ def _run_daily_engine(args: argparse.Namespace, run_manifest: dict[str, object])
         return_code = generation_proc.wait()
         if return_code != 0:
             raise SystemExit(return_code)
-    return 0
+    return 1 if direct_followup_failed else 0
 
 
 def _exception_returncode(exc: BaseException) -> int:

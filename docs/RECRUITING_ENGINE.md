@@ -152,6 +152,14 @@ Important buckets:
 - `follow_up`: companies with existing touchpoints.
 - `skipped_internal`: blocklisted, duplicate, terminal, or low-fit records.
 
+The nightly wrapper now passes this exact current-run action queue into Outreach's
+shared discovery builder. The resulting
+`../Outreach/workspace/shared_discovery/shared_daily_queue.{json,csv}` merges
+application roles with YC/Built In company targets, approved company-watchlist
+entries, and warm Outreach contacts. It validates exact pointers, dedupes companies,
+preserves source provenance, and labels every row ready, human-review-required, or
+buffered. It does not write back into `jobs.xlsx` or authorize a send.
+
 Run the queue before scoring when you want intake visibility. Run it again after
 scoring/writes/generation to get the final daily operating view.
 
@@ -184,6 +192,13 @@ Useful controls:
 Handshake runs by default as part of the daily application sources. Real sends
 are deliberately explicit. Generation can run in parallel with Outreach artifact
 preparation, but workbook writes and LinkedIn sends stay serialized.
+
+The Daily Engine also retains a standalone, supervised LinkedIn inbox lane. It
+can reconcile messages, emit a reusable draft artifact, and optionally send the
+approved recommendation classes. Its offset pull remains resumable (previously
+seen threads are still eligible for reconciliation), and a successful command
+without a readable result artifact is recorded as a failure. This lane is not
+used by the scheduled nightly wrapper.
 
 ## Nightly Production Automation
 
@@ -226,6 +241,15 @@ Generation policy:
 - Handshake unknown flow: `fit_score >= 6.5`
 - Daily generation cap: `10`
 
+Scheduled LinkedIn inbox/follow-up ownership is deliberately singular: Track 2
+owns refresh, reconciliation, cadence selection, and sends. The nightly wrapper
+always passes `--skip-linkedin-followups` to the Daily Engine, then invokes the
+bounded Track 2 plan with `--refresh-linkedin`, `--send-linkedin`, and the cycle's
+follow-up limit. The deprecated nightly `--execute-linkedin-followups` flag is
+rejected before pipeline side effects begin. Use `run_daily_engine.py` directly
+only when intentionally operating the standalone supervised lane; never run both
+lanes for the same scheduled run.
+
 Every daily-engine invocation writes one exact manifest named
 `<run-id>-daily-engine-run-manifest.json`. The nightly summary records it as
 `daily_engine_manifest`; it is the authoritative pointer for:
@@ -248,6 +272,13 @@ pointers, and planned-versus-actual phase counts. Email is explicit too:
 present, while `email_channel` records draft/sent counts, SMTP readiness, and
 concrete blockers. The nightly path does not silently enable SMTP delivery;
 review-bound approval and the separate live email command remain required.
+
+The same augmentation writes `nightly_extensions` for the normalized run ID,
+canonical LinkedIn owner, company-news capture, reviewed company discovery, and
+the shared discovery queue. Only readable files are emitted into the typed
+`company_news_artifacts`, `company_discovery_artifacts`, and
+`shared_discovery_artifacts` lists; missing files remain explicit failed/skipped
+statuses rather than inheriting an older workspace artifact.
 
 The nightly finalizer always writes the JSON/Markdown summary and attempts the
 Outreach daily report, even when an earlier subprocess raises. A failed stage
@@ -315,6 +346,9 @@ must be fixed before enabling the production label; it commonly means a missing
 attestation, dirty/changed HEAD, or macOS Desktop/TCC denial.
 
 The installer only writes the plist unless `RESUMEGEN_NIGHTLY_LOAD=1` is set.
+Its `ProgramArguments` call the configured `PYTHON_BIN` and
+`nightly_prompt.py` directly, so launchd uses the same audited interpreter that
+was selected during installation.
 It checks every five minutes for catch-up after wake, but the scheduler records
 the day's attempt before execution so a partial LinkedIn send cannot be replayed
 blindly. Inspect the failed summary/report and explicitly force a retry only
@@ -326,11 +360,31 @@ To use the old prompt flow for a non-production/manual setup:
 RESUMEGEN_NIGHTLY_MODE=prompt ./discovery/scripts/install_nightly_launch_agent.sh 01:00
 ```
 
+The LaunchAgent `last exit code` is not the source of truth because the 5-minute
+prompt checker can later exit cleanly with "not due" and overwrite it. For run
+debugging, inspect:
+
+- timestamped pipeline logs in `~/Library/Logs/ResumeGenerator/nightly_pipeline_*.log`
+- scheduler state in `~/Library/Application Support/ResumeGenerator/nightly_scheduler_state.json`
+- summary artifacts in `discovery/source_validation/*nightly-pipeline-summary.{json,md}`
+
+LinkedIn/Chrome preflight retries the live-session check before failing. If the
+daily engine still fails, the nightly wrapper records `daily_engine_returncode`,
+continues non-LinkedIn maintenance where possible, rebuilds Outreach Track 2
+account artifacts, writes a failure summary, and exits nonzero so the failure is
+visible without making the whole run look like it did nothing.
+
 Nightly summaries link the per-run source metrics artifact and still include the
 temporary JobSpy block. The source metrics report shows raw/discovered counts,
 selected/new counts, fresh scoring, errors, accepted writes, outreach signals,
 runtime, and accepted-per-minute by source. Use it for source trend audits before
 changing filters again.
+
+The same nightly maintenance pass also captures the configured public company/news
+feeds into Outreach's reviewed watchlist contract. Source status and counts are
+recorded from the exact capture artifact; the cumulative candidate ledger is never
+presented as current-run source activity. Use `--skip-company-news` or
+`--skip-shared-discovery` only for an intentional degraded run.
 
 ## Weekly Caveat
 

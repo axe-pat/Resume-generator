@@ -34,7 +34,8 @@ xml_escape() {
 
 STDOUT_XML="$(xml_escape "${LOG_DIR}/nightly_launchd.out.log")"
 STDERR_XML="$(xml_escape "${LOG_DIR}/nightly_launchd.err.log")"
-LAUNCHER_XML="$(xml_escape "${ROOT_DIR}/discovery/scripts/nightly_prompt_launcher.sh")"
+PYTHON_XML="$(xml_escape "${PYTHON_BIN}")"
+PROMPT_XML="$(xml_escape "${ROOT_DIR}/discovery/scripts/nightly_prompt.py")"
 PIPELINE_ARGS_XML="$(xml_escape "$PIPELINE_ARGS")"
 LOG_DIR_XML="$(xml_escape "$LOG_DIR")"
 ATTESTATION_XML="$(xml_escape "$ATTESTATION_PATH")"
@@ -54,7 +55,8 @@ cat > "$PLIST_PATH" <<PLIST
   <string>${LABEL}</string>
   <key>ProgramArguments</key>
   <array>
-    <string>${LAUNCHER_XML}</string>
+    <string>${PYTHON_XML}</string>
+    <string>${PROMPT_XML}</string>
     <string>--scheduled-time</string>
     <string>${SCHEDULED_TIME}</string>
     <string>--require-production-attestation</string>

@@ -19,4 +19,23 @@ if ! lsof -nP -iTCP:${DEBUG_PORT} -sTCP:LISTEN >/dev/null 2>&1; then
   sleep "${LINKEDIN_BROWSER_LAUNCH_WAIT:-5}"
 fi
 
-./discovery/scripts/check_linkedin_live.sh
+attempts="${LINKEDIN_BROWSER_CHECK_ATTEMPTS:-4}"
+delay="${LINKEDIN_BROWSER_CHECK_RETRY_DELAY:-5}"
+if [[ ! "${attempts}" =~ ^[1-9][0-9]*$ ]]; then
+  echo "LINKEDIN_BROWSER_CHECK_ATTEMPTS must be an integer >= 1" >&2
+  exit 2
+fi
+last_status=0
+for attempt in $(seq 1 "${attempts}"); do
+  if ./discovery/scripts/check_linkedin_live.sh; then
+    exit 0
+  else
+    last_status=$?
+  fi
+  if [[ "${attempt}" -lt "${attempts}" ]]; then
+    echo "LinkedIn Chrome preflight failed on attempt ${attempt}/${attempts}; retrying in ${delay}s..." >&2
+    sleep "${delay}"
+  fi
+done
+
+exit "${last_status}"

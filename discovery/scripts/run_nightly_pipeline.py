@@ -105,6 +105,10 @@ def _daily_engine_cmd(args: argparse.Namespace, *, run_id: str = "") -> list[obj
     ]
     if run_id:
         cmd.extend(["--run-id", run_id])
+    # Scheduled nightly execution has one canonical inbox/follow-up owner:
+    # Track 2. The direct daily-engine lane remains available when that script
+    # is run standalone, but must not rescan or resend inside this wrapper.
+    cmd.append("--skip-linkedin-followups")
     for flag_name, cli_flag in (
         ("skip_linkedin", "--skip-linkedin"),
         ("skip_handshake", "--skip-handshake"),
@@ -130,16 +134,6 @@ def _daily_engine_cmd(args: argparse.Namespace, *, run_id: str = "") -> list[obj
         cmd.extend(["--target-sends", _app_queue_target_sends(args)])
         cmd.extend(["--per-company-send-limit", args.per_company_send_limit])
         cmd.extend(["--send-min-score", args.send_min_score])
-    if args.execute_linkedin_followups:
-        cmd.append("--execute-linkedin-followups")
-        cmd.extend(
-            ["--linkedin-followup-send-limit", args.linkedin_followup_send_limit]
-        )
-        cmd.extend(
-            ["--linkedin-followup-send-timeout", args.linkedin_followup_send_timeout]
-        )
-        for recommendation in args.linkedin_followup_recommendation:
-            cmd.extend(["--linkedin-followup-recommendation", recommendation])
     return cmd
 
 
@@ -347,10 +341,59 @@ def _resolve_outreach_artifact(value: object) -> Path | None:
     text = str(value or "").strip()
     if not text:
         return None
-    path = Path(text)
+    path = Path(text).expanduser()
     if not path.is_absolute():
         path = OUTREACH_ROOT / path
     return path.resolve(strict=False)
+
+
+def _labeled_path_from_output(output: str, label: str) -> str:
+    prefix = f"{label}:"
+    for line in output.splitlines():
+        if line.startswith(prefix):
+            return line.split(":", 1)[1].strip()
+    return ""
+
+
+def _run_shared_discovery_queue(action_queue: Path) -> dict[str, object]:
+    """Build the cross-repo queue from one exact current-run action artifact."""
+
+    result = _run_capture_print(
+        [
+            OUTREACH_PYTHON,
+            "-m",
+            "outreach.shared_discovery",
+            "--action-queue",
+            action_queue,
+            "--workspace",
+            "workspace",
+            "--output-dir",
+            "workspace/shared_discovery",
+            "--limit",
+            "50",
+        ],
+        cwd=OUTREACH_ROOT,
+    )
+    json_path = _resolve_outreach_artifact(
+        _labeled_path_from_output(result.stdout, "JSON")
+    )
+    csv_path = _resolve_outreach_artifact(
+        _labeled_path_from_output(result.stdout, "CSV")
+    )
+    if result.returncode != 0:
+        status = "failed_command"
+    elif json_path is None or csv_path is None:
+        status = "failed_missing_artifact_paths"
+    elif not json_path.is_file() or not csv_path.is_file():
+        status = "failed_missing_artifacts"
+    else:
+        status = "completed"
+    return {
+        "returncode": result.returncode,
+        "status": status,
+        "json": str(json_path or ""),
+        "csv": str(csv_path or ""),
+    }
 
 
 def _run_outreach_maintenance(
@@ -371,6 +414,7 @@ def _run_outreach_maintenance(
         "campaign_plan_artifact": "",
         "track_2_daily_run_artifact": "",
         "linkedin_intelligence_artifact": "",
+        "company_news_artifact": "",
         "company_discovery_artifact": "",
         "role_surface_artifact": "",
         "cadence_report_artifact": "",
@@ -413,13 +457,73 @@ def _run_outreach_maintenance(
             cwd=OUTREACH_ROOT,
         )
         summary["linkedin_intelligence_returncode"] = result.returncode
-        summary["linkedin_intelligence_artifact"] = _artifact_from_output(result.stdout)
+        linkedin_intelligence_path = _resolve_outreach_artifact(
+            _artifact_from_output(result.stdout)
+        )
+        summary["linkedin_intelligence_artifact"] = str(
+            linkedin_intelligence_path or ""
+        )
+        if result.returncode != 0:
+            summary["linkedin_intelligence_status"] = "failed_command"
+            summary["linkedin_intelligence_validation_returncode"] = None
+        elif linkedin_intelligence_path is None:
+            summary["linkedin_intelligence_status"] = "failed_missing_artifact_path"
+            summary["linkedin_intelligence_validation_returncode"] = 1
+        elif not linkedin_intelligence_path.is_file():
+            summary["linkedin_intelligence_status"] = "failed_missing_artifact"
+            summary["linkedin_intelligence_validation_returncode"] = 1
+        else:
+            summary["linkedin_intelligence_status"] = "completed"
+            summary["linkedin_intelligence_validation_returncode"] = 0
     else:
         summary["linkedin_intelligence_returncode"] = None
+        summary["linkedin_intelligence_validation_returncode"] = None
         summary["linkedin_intelligence_status"] = "skipped"
 
-    linkedin_capture_artifact = str(summary.get("linkedin_intelligence_artifact") or "")
-    if linkedin_capture_artifact or source_metrics:
+    if not getattr(args, "skip_company_news", False):
+        result = _run_capture_print(
+            _outreach_cmd(
+                "capture-company-news",
+                "--workspace",
+                "workspace",
+                "--run-id",
+                run_id or "nightly",
+            ),
+            cwd=OUTREACH_ROOT,
+        )
+        summary["company_news_returncode"] = result.returncode
+        company_news_path = _resolve_outreach_artifact(
+            _artifact_from_output(result.stdout)
+        )
+        summary["company_news_artifact"] = str(company_news_path or "")
+        if result.returncode != 0:
+            summary["company_news_status"] = "failed_command"
+            summary["company_news_validation_returncode"] = None
+        elif company_news_path is None:
+            summary["company_news_status"] = "failed_missing_artifact_path"
+            summary["company_news_validation_returncode"] = 1
+        elif not company_news_path.is_file():
+            summary["company_news_status"] = "failed_missing_artifact"
+            summary["company_news_validation_returncode"] = 1
+        else:
+            summary["company_news_status"] = "completed"
+            summary["company_news_validation_returncode"] = 0
+    else:
+        summary["company_news_returncode"] = None
+        summary["company_news_validation_returncode"] = None
+        summary["company_news_status"] = "skipped"
+
+    linkedin_capture_artifact = (
+        str(summary.get("linkedin_intelligence_artifact") or "")
+        if summary.get("linkedin_intelligence_status") == "completed"
+        else ""
+    )
+    company_news_artifact = (
+        str(summary.get("company_news_artifact") or "")
+        if summary.get("company_news_status") == "completed"
+        else ""
+    )
+    if linkedin_capture_artifact or company_news_artifact or source_metrics:
         company_discovery_cmd = _outreach_cmd(
             "build-company-discovery-review",
             "--workspace",
@@ -433,14 +537,34 @@ def _run_outreach_maintenance(
             )
         if source_metrics:
             company_discovery_cmd.extend(["--source-metrics", source_metrics])
+        if company_news_artifact:
+            company_discovery_cmd.extend(
+                ["--news-capture-artifact", company_news_artifact]
+            )
         result = _run_capture_print(
             company_discovery_cmd,
             cwd=OUTREACH_ROOT,
         )
         summary["company_discovery_returncode"] = result.returncode
-        summary["company_discovery_artifact"] = _artifact_from_output(result.stdout)
+        company_discovery_path = _resolve_outreach_artifact(
+            _artifact_from_output(result.stdout)
+        )
+        summary["company_discovery_artifact"] = str(company_discovery_path or "")
+        if result.returncode != 0:
+            summary["company_discovery_status"] = "failed_command"
+            summary["company_discovery_validation_returncode"] = None
+        elif company_discovery_path is None:
+            summary["company_discovery_status"] = "failed_missing_artifact_path"
+            summary["company_discovery_validation_returncode"] = 1
+        elif not company_discovery_path.is_file():
+            summary["company_discovery_status"] = "failed_missing_artifact"
+            summary["company_discovery_validation_returncode"] = 1
+        else:
+            summary["company_discovery_status"] = "completed"
+            summary["company_discovery_validation_returncode"] = 0
     else:
         summary["company_discovery_returncode"] = None
+        summary["company_discovery_validation_returncode"] = None
         summary["company_discovery_status"] = "skipped_no_current_capture"
 
     if source_metrics:
@@ -563,27 +687,36 @@ def _run_outreach_maintenance(
         )
         summary["track_2_daily_run_returncode"] = result.returncode
         summary["track_2_timeout_seconds"] = track_2_timeout
+        summary["track_2_daily_run_artifact"] = _artifact_from_output(result.stdout)
+        track_2_artifact = _resolve_outreach_artifact(
+            summary["track_2_daily_run_artifact"]
+        )
+        artifact_is_readable = (
+            track_2_artifact is not None and track_2_artifact.is_file()
+        )
+        summary["track_2_artifact_validation_returncode"] = (
+            0 if artifact_is_readable else 1
+        )
         if getattr(result, "timed_out", False):
             summary["track_2_daily_run_status"] = "timed_out"
             summary["track_2_daily_run_failure"] = (
                 f"Track 2 exceeded its {track_2_timeout}-second outer timeout; "
                 "the subprocess group was terminated and partial progress must be reconciled from its artifacts."
             )
-        elif result.returncode == 0:
-            summary["track_2_daily_run_status"] = "completed"
-            summary["track_2_daily_run_failure"] = ""
-        else:
+        elif result.returncode != 0:
             summary["track_2_daily_run_status"] = "failed"
             summary["track_2_daily_run_failure"] = (
                 f"Track 2 exited with return code {result.returncode}."
             )
-        summary["track_2_daily_run_artifact"] = _artifact_from_output(result.stdout)
-        track_2_artifact = _resolve_outreach_artifact(
-            summary["track_2_daily_run_artifact"]
-        )
-        summary["track_2_artifact_validation_returncode"] = (
-            0 if track_2_artifact is not None and track_2_artifact.is_file() else 1
-        )
+        elif not artifact_is_readable:
+            summary["track_2_daily_run_status"] = "failed_missing_artifact"
+            summary["track_2_daily_run_failure"] = (
+                "Track 2 exited successfully but did not emit a readable "
+                "authoritative run artifact."
+            )
+        else:
+            summary["track_2_daily_run_status"] = "completed"
+            summary["track_2_daily_run_failure"] = ""
     else:
         summary["track_2_daily_run_returncode"] = None
         summary["track_2_daily_run_status"] = "skipped"
@@ -635,6 +768,7 @@ def _write_summary(summary: dict, path: Path | None = None) -> Path:
         f"Selected for generation: {summary.get('generation_selected_count')}",
         f"Generation ran: {summary.get('generation_ran')}",
         f"Generation dry run: {summary.get('generation_dry_run')}",
+        f"LinkedIn follow-up owner: {summary.get('linkedin_followup_owner') or ''}",
         f"Failures: {', '.join(summary.get('failures') or []) or 'none'}",
     ]
     outreach = summary.get("outreach_maintenance") or {}
@@ -653,10 +787,23 @@ def _write_summary(summary: dict, path: Path | None = None) -> Path:
                 f"- Campaign plan: {outreach.get('campaign_plan_artifact') or ''}",
                 f"- Track 2 daily run: {outreach.get('track_2_daily_run_artifact') or ''}",
                 f"- LinkedIn feed/profile signals: {outreach.get('linkedin_intelligence_artifact') or outreach.get('linkedin_intelligence_status') or ''}",
+                f"- Company/news signals: {outreach.get('company_news_artifact') or outreach.get('company_news_status') or ''}",
                 f"- Company discovery review: {outreach.get('company_discovery_artifact') or ''}",
                 f"- Role-surface report: {outreach.get('role_surface_artifact') or outreach.get('role_surface_status') or ''}",
                 f"- Cadence report: {outreach.get('cadence_report_artifact') or ''}",
                 f"- Outcome learning: {outreach.get('outcome_learning_artifact') or ''}",
+            ]
+        )
+    shared_queue = summary.get("shared_discovery_queue") or {}
+    if shared_queue:
+        lines.extend(
+            [
+                "",
+                "## Shared Discovery Queue",
+                "",
+                f"- Status: {shared_queue.get('status') or ('completed' if shared_queue.get('returncode') == 0 else 'failed')}",
+                f"- JSON: {shared_queue.get('json') or ''}",
+                f"- CSV: {shared_queue.get('csv') or ''}",
             ]
         )
     outreach_report = summary.get("outreach_daily_report") or {}
@@ -783,6 +930,7 @@ def parse_args() -> argparse.Namespace:
         help="Deprecated no-op kept for old launch commands.",
     )
     parser.add_argument("--skip-linkedin", action="store_true")
+    parser.add_argument("--skip-company-news", action="store_true")
     parser.add_argument("--skip-handshake", action="store_true")
     parser.add_argument("--skip-jobspy", action="store_true")
     parser.add_argument("--skip-startup-apply", action="store_true")
@@ -803,7 +951,15 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--target-sends", type=str, default="auto")
     parser.add_argument("--per-company-send-limit", type=str, default="15")
     parser.add_argument("--send-min-score", type=str, default="20")
-    parser.add_argument("--execute-linkedin-followups", action="store_true")
+    parser.add_argument(
+        "--execute-linkedin-followups",
+        action="store_true",
+        help=(
+            "Deprecated nightly compatibility flag. Track 2 is the canonical "
+            "scheduled LinkedIn inbox/follow-up lane; run_daily_engine.py "
+            "directly for the standalone lane."
+        ),
+    )
     parser.add_argument("--linkedin-followup-send-limit", type=str, default="10")
     parser.add_argument("--linkedin-followup-send-timeout", type=str, default="240")
     parser.add_argument(
@@ -825,6 +981,11 @@ def parse_args() -> argparse.Namespace:
         "--skip-outreach-maintenance",
         action="store_true",
         help="Skip Track 2 account tracker/campaign maintenance.",
+    )
+    parser.add_argument(
+        "--skip-shared-discovery",
+        action="store_true",
+        help="Skip the merged cross-repo discovery queue.",
     )
     parser.add_argument(
         "--outreach-resolve-limit",
@@ -908,6 +1069,9 @@ def _initial_summary(
         "generation_dry_run": bool(args.generation_dry_run),
         "generation_selected_count": 0,
         "outreach_maintenance": {"ran": False},
+        "shared_discovery_queue": {"status": "not_started"},
+        "linkedin_followup_owner": "track_2",
+        "direct_daily_linkedin_followups": "disabled_in_scheduled_nightly",
         "outreach_daily_report": {},
         "cycle_config": args.cycle_config,
         "app_queue_target_sends": _app_queue_target_sends(args),
@@ -939,6 +1103,10 @@ def _outreach_maintenance_failures(maintenance: dict[str, object]) -> list[str]:
     return failures
 
 
+# Backwards-compatible name retained for existing callers and focused tests.
+_nonzero_returncode_failures = _outreach_maintenance_failures
+
+
 def _run_pipeline_body(
     args: argparse.Namespace,
     *,
@@ -946,7 +1114,15 @@ def _run_pipeline_body(
     failures: list[str],
 ) -> None:
     source_metrics: Path | None = None
+    action_queue: Path | None = None
     run_id = str(summary["run_id"])
+
+    if args.execute_linkedin_followups:
+        raise SystemExit(
+            "--execute-linkedin-followups is not valid in scheduled nightly mode: "
+            "Track 2 owns inbox reconciliation and follow-up sends. Run "
+            "run_daily_engine.py standalone for the direct lane."
+        )
 
     run(_sync_applied_pdfs_cmd())
     summary["applied_pdfs_synced"] = True
@@ -1013,9 +1189,27 @@ def _run_pipeline_body(
         summary["outreach_maintenance"] = _run_outreach_maintenance(
             args,
             source_metrics=source_metrics,
-            run_id=str(summary["created_at"]),
+            run_id=run_id,
         )
         failures.extend(_outreach_maintenance_failures(summary["outreach_maintenance"]))
+
+    # Older programmatic callers do not know this newer stage; preserve their
+    # prior behavior while the CLI parser opts in explicitly with False.
+    skip_shared_discovery = getattr(args, "skip_shared_discovery", True)
+    if action_queue and not skip_shared_discovery:
+        shared_queue = _run_shared_discovery_queue(action_queue)
+        summary["shared_discovery_queue"] = shared_queue
+        if shared_queue.get("status") != "completed":
+            failures.append(
+                "shared_discovery_queue:"
+                f"{shared_queue.get('status') or shared_queue.get('returncode')}"
+            )
+    elif skip_shared_discovery:
+        summary["shared_discovery_queue"] = {"status": "skipped"}
+    else:
+        summary["shared_discovery_queue"] = {
+            "status": "skipped_missing_current_action_queue"
+        }
 
 
 def _exception_returncode(exc: BaseException) -> int:
@@ -1265,6 +1459,62 @@ def _augment_daily_engine_manifest(summary: dict[str, object]) -> None:
         "details": track_2,
     }
     manifest["source_families"] = source_families
+    shared_queue = (
+        summary.get("shared_discovery_queue")
+        if isinstance(summary.get("shared_discovery_queue"), dict)
+        else {}
+    )
+
+    def existing_artifact(value: object) -> str:
+        path = _resolve_outreach_artifact(value)
+        return str(path) if path is not None and path.is_file() else ""
+
+    company_news_artifact = existing_artifact(
+        maintenance.get("company_news_artifact")
+    )
+    company_discovery_artifact = existing_artifact(
+        maintenance.get("company_discovery_artifact")
+    )
+    shared_json = existing_artifact(shared_queue.get("json"))
+    shared_csv = existing_artifact(shared_queue.get("csv"))
+    manifest["nightly_extensions"] = {
+        "schema": "resume_generator.nightly_extensions",
+        "version": 1,
+        "run_id": str(summary.get("run_id") or ""),
+        "linkedin_followup_owner": "track_2",
+        "direct_daily_linkedin_followups": "disabled_in_scheduled_nightly",
+        "company_news": {
+            "status": str(maintenance.get("company_news_status") or "skipped"),
+            "returncode": maintenance.get("company_news_returncode"),
+            "artifacts": [company_news_artifact] if company_news_artifact else [],
+        },
+        "company_discovery": {
+            "status": (
+                "completed"
+                if company_discovery_artifact
+                else str(maintenance.get("company_discovery_status") or "skipped")
+            ),
+            "returncode": maintenance.get("company_discovery_returncode"),
+            "artifacts": (
+                [company_discovery_artifact] if company_discovery_artifact else []
+            ),
+        },
+        "shared_discovery": {
+            "status": str(shared_queue.get("status") or "skipped"),
+            "returncode": shared_queue.get("returncode"),
+            "artifacts": [path for path in (shared_json, shared_csv) if path],
+            "action_queue": str(manifest.get("action_queue") or ""),
+        },
+    }
+    manifest["company_news_artifacts"] = (
+        [company_news_artifact] if company_news_artifact else []
+    )
+    manifest["company_discovery_artifacts"] = (
+        [company_discovery_artifact] if company_discovery_artifact else []
+    )
+    manifest["shared_discovery_artifacts"] = [
+        path for path in (shared_json, shared_csv) if path
+    ]
     manifest_path.write_text(
         json.dumps(manifest, indent=2, ensure_ascii=True) + "\n",
         encoding="utf-8",
