@@ -645,6 +645,104 @@ def test_targeted_outreach_returns_exact_company_and_batch_counts(
     assert result["company_runs"][0]["sent_count"] == 2
 
 
+def test_app_queue_target_send_blocks_failed_julia_company_filter(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    module = _load_script("run_daily_engine.py", "daily_julia_send_safety_test")
+    outreach_root = tmp_path / "Outreach"
+    artifacts_dir = outreach_root / "artifacts"
+    artifacts_dir.mkdir(parents=True)
+    monkeypatch.setattr(module, "OUTREACH_ROOT", outreach_root)
+    monkeypatch.setattr(module, "OUTREACH_PYTHON", Path("python"))
+    monkeypatch.setattr(module, "run", lambda cmd, **kwargs: _completed(cmd))
+    prep_artifact = artifacts_dir / "julia-failed-filter.json"
+    prep_artifact.write_text(
+        json.dumps(
+            {
+                "company": "Julia",
+                "company_mode": "startup",
+                "company_filter_status": "failed_exact_company_suggestion",
+                "company_filter_error": (
+                    "Could not find an exact company suggestion for 'Julia'."
+                ),
+                "startup_pool": {
+                    "raw_count": 1,
+                    "kept_count": 1,
+                    "pool_mode": "micro",
+                    "adaptive_send_min_score": -5,
+                    "coverage_only": True,
+                },
+                "pass_summaries": [
+                    {
+                        "pass_name": "startup_company_coverage",
+                        "fallback_used": True,
+                        "coverage_only": True,
+                        "alias_errors": [
+                            "Julia: Could not find an exact company suggestion for 'Julia'."
+                        ],
+                    }
+                ],
+                "results": [
+                    {
+                        "name": "Julia (Gromis) Feuer",
+                        "title": "MBA Candidate at UCLA Anderson Class of 2025",
+                        "subtitle": "Julia (Gromis) Feuer",
+                        "raw_text": (
+                            "Julia (Gromis) Feuer MBA Candidate at UCLA Anderson "
+                            "Class of 2025"
+                        ),
+                        "linkedin_url": "https://www.linkedin.com/in/juliagromis/",
+                        "connection_degree": "2nd",
+                        "score": 20,
+                        "passes": ["startup_company_coverage"],
+                        "target_company_match": True,
+                        "target_company_evidence_company": "julia",
+                        "note_qc": {"verdict": "send"},
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    capture_calls: list[list[str]] = []
+
+    def fake_capture(cmd, **_kwargs):
+        normalized = [str(item) for item in cmd]
+        capture_calls.append(normalized)
+        if "send-invites" in normalized:
+            raise AssertionError("failed-filter Julia candidate reached live send")
+        return _completed(cmd, stdout="Artifact: artifacts/julia-failed-filter.json\n")
+
+    monkeypatch.setattr(module, "run_capture", fake_capture)
+    queue = tmp_path / "queue.json"
+    queue.write_text(
+        json.dumps({"application_plus_outreach": [{"company": "Julia"}]}),
+        encoding="utf-8",
+    )
+    args = SimpleNamespace(
+        max_outreach_companies=5,
+        target_sends=1,
+        send_limit=0,
+        per_company_send_limit=1,
+        send_min_score=-5,
+        company_prep_timeout=30,
+        send_timeout=30,
+    )
+
+    result = module.run_targeted_outreach_from_action_queue(args, queue)
+
+    assert result["sent_total"] == 0
+    assert result["skipped_companies"] == ["Julia"]
+    assert result["company_runs"][0]["safe_candidate_count"] == 0
+    assert result["company_runs"][0]["status"] == "no_safe_candidates"
+    assert not any("send-invites" in call for call in capture_calls)
+    assert module._candidate_mentions_company(
+        "Julia",
+        json.loads(prep_artifact.read_text(encoding="utf-8"))["results"][0],
+    ) is False
+
+
 def test_nightly_binds_summary_to_exact_daily_manifest(
     tmp_path: Path, monkeypatch
 ) -> None:
