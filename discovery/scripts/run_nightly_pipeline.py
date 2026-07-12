@@ -1740,6 +1740,8 @@ def _track_2_phase_counts(phase_results: list[dict]) -> list[dict[str, object]]:
             int(phase.get("updated") or 0),
             int(phase.get("inspected_count") or 0),
             int(phase.get("draft_count") or 0),
+            int(phase.get("completed_count") or 0),
+            int(phase.get("completed_company_count") or 0),
             int(phase.get("count") or 0)
             if str(phase.get("status") or "") in {"ran", "inspected", "drafted"}
             else 0,

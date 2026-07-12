@@ -263,6 +263,28 @@ def _decision_counts(items: list[dict]) -> dict[str, int]:
     return counts
 
 
+def _decision_count(counts: dict[str, int], decision: str) -> int:
+    wanted = decision.casefold()
+    return sum(
+        count
+        for name, count in counts.items()
+        if str(name).strip().casefold() == wanted
+    )
+
+
+def _fresh_score_rows(payload: dict) -> tuple[int, list[dict]]:
+    try:
+        attempted = max(0, int(payload.get("scored") or 0))
+    except (TypeError, ValueError):
+        attempted = 0
+    jobs = payload.get("jobs") or []
+    if not isinstance(jobs, list):
+        jobs = []
+    # linkedin_live writes freshly scored rows first, followed by review-cache hits.
+    # The explicit scored count is therefore the artifact boundary between the two.
+    return attempted, [row for row in jobs[:attempted] if isinstance(row, dict)]
+
+
 def _accepted_per_minute(
     accepted: int, runtime_seconds: float | int | None
 ) -> float | None:
@@ -273,20 +295,64 @@ def _accepted_per_minute(
 
 def _score_artifact_metrics(path: Path | None) -> dict:
     payload = _load_json(path)
-    jobs = payload.get("jobs") or []
+    jobs = [row for row in (payload.get("jobs") or []) if isinstance(row, dict)]
     decision_counts = _decision_counts(jobs)
+    freshly_scored_count, freshly_scored_rows = _fresh_score_rows(payload)
+    fresh_decision_counts = _decision_counts(freshly_scored_rows)
     return {
         "artifact": str(path) if path else "",
         "raw_count": payload.get("extracted"),
         "reviewed_count": payload.get("reviewed"),
-        "freshly_scored_count": payload.get("scored"),
+        "freshly_scored_count": freshly_scored_count,
         "existing_skipped": payload.get("existing_skipped"),
         "cache_skipped": payload.get("cache_skipped"),
         "accepted_for_write": payload.get("accepted_for_write"),
         "new_after_dedup": payload.get("new_after_dedup"),
         "decision_counts": decision_counts,
-        "error_count": decision_counts.get("Error", 0),
+        "fresh_decision_counts": fresh_decision_counts,
+        "error_count": _decision_count(fresh_decision_counts, "Error"),
+        "reviewed_error_count": _decision_count(decision_counts, "Error"),
     }
+
+
+def _linkedin_scoring_stage_status(path: Path | None) -> str:
+    if path is None or path.is_symlink() or not path.is_file():
+        return "failed_missing_scored_artifact"
+    payload = _load_json(path)
+    jobs = payload.get("jobs")
+    try:
+        attempted_raw = payload["scored"]
+        reviewed_raw = payload["reviewed"]
+        cache_skipped_raw = payload["cache_skipped"]
+        if any(
+            isinstance(value, bool)
+            for value in (attempted_raw, reviewed_raw, cache_skipped_raw)
+        ):
+            raise ValueError
+        attempted = int(attempted_raw)
+        reviewed = int(reviewed_raw)
+        cache_skipped = int(cache_skipped_raw)
+    except (KeyError, TypeError, ValueError):
+        return "failed_invalid_scored_artifact"
+    if (
+        not isinstance(jobs, list)
+        or any(not isinstance(row, dict) for row in jobs)
+        or min(attempted, reviewed, cache_skipped) < 0
+        or reviewed != len(jobs)
+        or attempted + cache_skipped != reviewed
+    ):
+        return "failed_invalid_scored_artifact"
+    metrics = _score_artifact_metrics(path)
+    errors = int(metrics.get("error_count") or 0)
+    if attempted <= 0:
+        # A cache-only run did not attempt scoring and must not be treated as a
+        # scorer outage because cached review decisions happen to be present.
+        return "ran"
+    if errors >= attempted:
+        return "failed_scoring"
+    if errors:
+        return "partial_failed_scoring"
+    return "ran"
 
 
 def _handshake_metrics(path: Path | None) -> dict:
@@ -2232,8 +2298,17 @@ def _run_daily_engine(args: argparse.Namespace, run_manifest: dict[str, object])
             timeout=args.linkedin_discovery_timeout,
         )
         if result.returncode == 0:
-            _finish_stage(stage_metrics, "linkedin", stage_started, returncode=result.returncode)
-            artifacts["linkedin_scored"] = latest_since("linkedin_live_scored_*.json", LOGS_DIR, artifact_since)
+            scored_artifact = latest_since(
+                "linkedin_live_scored_*.json", LOGS_DIR, artifact_since
+            )
+            artifacts["linkedin_scored"] = scored_artifact
+            _finish_stage(
+                stage_metrics,
+                "linkedin",
+                stage_started,
+                status=_linkedin_scoring_stage_status(scored_artifact),
+                returncode=result.returncode,
+            )
         else:
             status = "timed_out" if result.returncode == 124 else "failed"
             _finish_stage(stage_metrics, "linkedin", stage_started, status=status, returncode=result.returncode)

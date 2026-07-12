@@ -51,6 +51,7 @@ CHROME_ARGS=(
   "--user-data-dir=${USER_DATA_DIR}"
   "--remote-debugging-port=${DEBUG_PORT}"
   "--enable-automation"
+  "--disable-extensions"
 )
 if [[ -n "${OWNER_TOKEN}" ]]; then
   if [[ ! "${OWNER_TOKEN}" =~ ^[A-Za-z0-9._-]+$ ]]; then

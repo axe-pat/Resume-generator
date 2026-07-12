@@ -412,6 +412,37 @@ def test_manifest_propagates_nested_track_2_partial_failure(
     ]
 
 
+def test_partial_track_2_mapping_preserves_completed_child_count() -> None:
+    module = _load_script(
+        "run_nightly_pipeline.py", "nightly_partial_mapping_count_test"
+    )
+
+    counts = module._track_2_phase_counts(
+        [
+            {
+                "phase": "4_contact_mapping",
+                "status": "partial_failed",
+                "budget": 15,
+                "completed_count": 14,
+                "failed_count": 1,
+                "runs": [
+                    *[{"status": "completed"} for _ in range(14)],
+                    {"status": "failed"},
+                ],
+            }
+        ]
+    )
+
+    assert counts == [
+        {
+            "phase": "4_contact_mapping",
+            "status": "partial_failed",
+            "planned_count": 15,
+            "actual_count": 14,
+        }
+    ]
+
+
 def test_scheduler_binds_success_to_exact_terminal_summary(tmp_path: Path) -> None:
     module = _load_script("nightly_prompt.py", "nightly_summary_outcome_test")
     summary = tmp_path / "summary.json"
@@ -529,6 +560,7 @@ def test_launcher_tags_only_run_owned_chrome() -> None:
     launcher = (SCRIPTS / "launch_linkedin_browser.sh").read_text(encoding="utf-8")
     assert "RESUMEGEN_LINKEDIN_BROWSER_OWNER_TOKEN" in launcher
     assert "--resume-generator-browser-owner=${OWNER_TOKEN}" in launcher
+    assert '"--disable-extensions"' in launcher
 
 
 def test_nightly_ensure_accepts_current_token_listener(tmp_path: Path) -> None:
