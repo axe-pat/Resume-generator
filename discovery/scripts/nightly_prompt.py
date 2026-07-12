@@ -21,6 +21,7 @@ from production_release import (  # noqa: E402
     ProductionReleaseError,
     validate_attestation,
 )
+from nightly_contract import validate_production_nightly_args  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 PYTHON = ROOT / "venv" / "bin" / "python"
@@ -169,10 +170,47 @@ def _prompt_snooze_time(default_time: str) -> datetime | None:
 
 
 def _pipeline_command(args: argparse.Namespace) -> list[str]:
-    extra_args = shlex.split(
+    extra_args = _pipeline_args(args)
+    return [str(PYTHON), "discovery/scripts/run_nightly_pipeline.py", *extra_args]
+
+
+def _pipeline_args(args: argparse.Namespace) -> list[str]:
+    return shlex.split(
         args.pipeline_args or os.environ.get("RESUMEGEN_NIGHTLY_ARGS", "--generate")
     )
-    return [str(PYTHON), "discovery/scripts/run_nightly_pipeline.py", *extra_args]
+
+
+def _pipeline_outcome(
+    log_path: Path, subprocess_returncode: int
+) -> tuple[int, str, Path | None]:
+    """Bind scheduler success to the exact terminal nightly summary."""
+
+    try:
+        lines = log_path.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        lines = []
+    summary_path: Path | None = None
+    prefix = "Nightly summary:"
+    for line in reversed(lines):
+        if line.startswith(prefix):
+            candidate = Path(line.removeprefix(prefix).strip()).expanduser()
+            if not candidate.is_absolute():
+                candidate = ROOT / candidate
+            summary_path = candidate
+            break
+    summary = (
+        _load_state(summary_path)
+        if summary_path and summary_path.is_file()
+        else {}
+    )
+    summary_status = str(summary.get("status") or "").strip().casefold()
+    if subprocess_returncode != 0:
+        return subprocess_returncode, "failed_or_incomplete", summary_path
+    if not summary:
+        return 1, "failed_missing_summary", summary_path
+    if summary_status != "completed":
+        return 1, "failed_or_incomplete", summary_path
+    return 0, "completed", summary_path
 
 
 def _run_pipeline(args: argparse.Namespace) -> tuple[int, Path]:
@@ -184,12 +222,24 @@ def _run_pipeline(args: argparse.Namespace) -> tuple[int, Path]:
         log.write(f"$ {' '.join(shlex.quote(part) for part in cmd)}\n\n")
         log.flush()
         result = subprocess.run(cmd, cwd=ROOT, stdout=log, stderr=subprocess.STDOUT)
+    returncode, status, summary_path = _pipeline_outcome(log_path, result.returncode)
+    if returncode == 0:
+        notification = "Nightly recruiting run completed successfully."
+    else:
+        notification = (
+            f"Nightly recruiting run failed or was incomplete (exit {returncode}). "
+            f"Review {log_path.name}."
+        )
     _osascript(
         "display notification "
-        f"{json.dumps(f'Nightly pipeline finished with exit code {result.returncode}.')} "
+        f"{json.dumps(notification)} "
         'with title "ResumeGenerator"'
     )
-    return result.returncode, log_path
+    if summary_path:
+        print(f"Nightly scheduler outcome: {status}; summary: {summary_path}")
+    else:
+        print(f"Nightly scheduler outcome: {status}; summary missing")
+    return returncode, log_path
 
 
 def parse_args() -> argparse.Namespace:
@@ -213,6 +263,14 @@ def parse_args() -> argparse.Namespace:
         "--require-production-attestation",
         action="store_true",
         help="Require clean main branches at the exact tested SHAs recorded in the release attestation.",
+    )
+    parser.add_argument(
+        "--require-live-delivery-contract",
+        action="store_true",
+        help=(
+            "Fail closed unless the configured unattended pipeline includes both "
+            "bounded app-queue and Track 2 LinkedIn delivery gates."
+        ),
     )
     parser.add_argument(
         "--production-attestation",
@@ -277,6 +335,21 @@ def main() -> int:
                 print(f"Not due: {reason}")
             return 0
 
+        if getattr(args, "require_live_delivery_contract", False):
+            try:
+                pipeline_args = _pipeline_args(args)
+            except ValueError as exc:
+                contract_errors = [f"invalid pipeline argument quoting: {exc}"]
+            else:
+                contract_errors = validate_production_nightly_args(pipeline_args)
+            if contract_errors:
+                message = "; ".join(contract_errors)
+                state["last_guard_failure_at"] = _now().isoformat(timespec="seconds")
+                state["last_guard_failure"] = f"unsafe live delivery contract: {message}"
+                _save_state(state_path, state)
+                print(state["last_guard_failure"], file=sys.stderr)
+                return 78
+
         if args.require_production_attestation:
             try:
                 attestation = validate_attestation(
@@ -312,11 +385,17 @@ def main() -> int:
         state["last_attempt_started_at"] = _now().isoformat(timespec="seconds")
         _save_state(state_path, state)
         return_code, log_path = _run_pipeline(args)
+        return_code, run_status, summary_path = _pipeline_outcome(
+            log_path, return_code
+        )
         state = _load_state(state_path)
         state["last_run_date"] = today
         state["last_run_completed_at"] = _now().isoformat(timespec="seconds")
         state["last_run_exit_code"] = return_code
+        state["last_run_status"] = run_status
+        state["last_run_was_actual_pipeline"] = True
         state["last_run_log"] = str(log_path)
+        state["last_run_summary"] = str(summary_path or "")
         _save_state(state_path, state)
         return return_code
 

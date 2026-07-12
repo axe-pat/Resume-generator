@@ -56,10 +56,33 @@ never blindly retry a timed-out live run before reconciling partial artifacts.
 
 `--execute-track-2-daily-plan` runs live refresh, planning, enrichment, and
 draft creation but does not deliver LinkedIn messages by itself. Delivery
-requires the separate `--track-2-send-linkedin` flag. A production LaunchAgent
-that is intentionally authorized to retain the prior bounded-send behavior
-must include that flag in `RESUMEGEN_NIGHTLY_ARGS` when it is reviewed and
-reinstalled; do not edit the loaded plist as an incidental code-release step.
+requires the separate `--track-2-send-linkedin` flag. The canonical unattended
+LaunchAgent is intentionally a bounded live-delivery service: it includes
+`--execute-sends --target-sends auto` for the app queue and
+`--execute-track-2-daily-plan --track-2-send-linkedin` for Track 2. The single
+source of truth is `discovery/scripts/nightly_contract.py`; print the exact
+reviewed argument vector with:
+
+```bash
+venv/bin/python discovery/scripts/nightly_contract.py print
+```
+
+The installer and due-time scheduler both validate that contract. An unattended
+install with `--target-sends 0`, either delivery gate missing, or bounded cycle
+limits drifting from the reviewed contract fails closed instead of silently
+becoming an enrichment-only or unexpectedly aggressive nightly.
+
+Track 2's process return code is not sufficient evidence of success. The
+orchestrator reads every exact-run `phase_results` row; `partial_failed`,
+`failed*`, `timed_out`, or `incomplete*` in a required phase propagates to the
+daily manifest, source breakdown, nightly summary, scheduler exit code, and
+macOS failure notification.
+Delivery uncertainty is equally non-green: `send_unknown_reserved`,
+`partial_send_unknown_reserved`, literal `unknown`, nested run/status-count
+evidence, and `planned`/`queued`/`prepared` after execution or delivery was
+requested all fail the run. Mode is explicit: those pending statuses remain
+valid for a pure preview, and invite `prepared` remains valid when execution was
+requested with LinkedIn delivery deliberately disabled.
 
 The production nightly, Daily Engine, and current-queue refresh paths never run
 `sync_applied_pdfs.py`. Each reports that legacy lane as
@@ -89,6 +112,16 @@ The pipeline owns `nightly_pipeline.lock` first and then holds the shared
 cockpit mutation lock for the whole run. A guarded cockpit write that already
 owns the shared lock finishes before nightly proceeds; a new cockpit write
 fails closed once the pipeline lock is busy.
+
+The pipeline also gives any dedicated LinkedIn Chrome it launches an opaque,
+per-run owner marker. Terminal cleanup closes only Chrome carrying that exact
+marker and debug port. Normal Chrome and a pre-existing/user-owned CDP session
+are never terminal-cleanup targets. If an unrelated debug session is unhealthy,
+the automated reset refuses to kill it and the run fails visibly instead. A
+nightly run never silently attaches to an unowned CDP listener: the listener
+must carry the current run token. A stale token is replaced only when the
+process is explicitly ResumeGenerator-owned and its Chrome binary, debug port,
+and approved user-data directory all match; otherwise the run fails closed.
 
 Legacy terminal summaries whose successful report was named by completion time
 can be rebound without rerunning report logic or touching mutable latest

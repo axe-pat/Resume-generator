@@ -6,6 +6,7 @@ BAD_USER_DATA_DIR="$ROOT/playwright/chrome-data"
 USER_DATA_DIR="${LINKEDIN_CHROME_USER_DATA_DIR:-}"
 DEBUG_PORT="${LINKEDIN_DEBUG_PORT:-9222}"
 TARGET_URL="${1:-https://www.linkedin.com/feed/}"
+OWNER_TOKEN="${RESUMEGEN_LINKEDIN_BROWSER_OWNER_TOKEN:-}"
 
 if [[ -z "${USER_DATA_DIR}" ]]; then
   cat <<'EOF' >&2
@@ -46,8 +47,20 @@ EOF
   exit 1
 fi
 
-open -na "Google Chrome" --args \
-  --user-data-dir="${USER_DATA_DIR}" \
-  --remote-debugging-port="${DEBUG_PORT}" \
-  --enable-automation \
-  "${TARGET_URL}"
+CHROME_ARGS=(
+  "--user-data-dir=${USER_DATA_DIR}"
+  "--remote-debugging-port=${DEBUG_PORT}"
+  "--enable-automation"
+)
+if [[ -n "${OWNER_TOKEN}" ]]; then
+  if [[ ! "${OWNER_TOKEN}" =~ ^[A-Za-z0-9._-]+$ ]]; then
+    echo "ERROR: Invalid RESUMEGEN_LINKEDIN_BROWSER_OWNER_TOKEN." >&2
+    exit 2
+  fi
+  # The opaque switch is only an ownership marker in the local process table.
+  # Chrome ignores it; terminal cleanup requires the exact token before kill.
+  CHROME_ARGS+=("--resume-generator-browser-owner=${OWNER_TOKEN}")
+fi
+CHROME_ARGS+=("${TARGET_URL}")
+
+open -na "Google Chrome" --args "${CHROME_ARGS[@]}"

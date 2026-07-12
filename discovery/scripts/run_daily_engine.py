@@ -19,6 +19,7 @@ SOURCE_VALIDATION_DIR = ROOT / "discovery" / "source_validation"
 OUTREACH_ROOT = ROOT.parent / "Outreach"
 PYTHON = ROOT / "venv" / "bin" / "python"
 OUTREACH_PYTHON = OUTREACH_ROOT / ".venv" / "bin" / "python"
+LINKEDIN_BROWSER_OWNER_ENV = "RESUMEGEN_LINKEDIN_BROWSER_OWNER_TOKEN"
 
 RELATIONSHIP_SOURCES = (
     "yc_sf_bay_hiring",
@@ -123,6 +124,25 @@ def applied_pdf_status_report() -> dict[str, object]:
     }
 
 
+def _env_flag(name: str) -> bool:
+    return os.environ.get(name, "").strip().casefold() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
+def _browser_is_owned_by_current_run(command: str, port: str) -> bool:
+    token = os.environ.get(LINKEDIN_BROWSER_OWNER_ENV, "").strip()
+    if not token:
+        return _env_flag("RESUMEGEN_ALLOW_UNOWNED_LINKEDIN_BROWSER_RESET")
+    return (
+        f"--resume-generator-browser-owner={token}" in command
+        and f"--remote-debugging-port={port}" in command
+    )
+
+
 def reset_linkedin_chrome_session(reason: str) -> bool:
     """Restart the dedicated Chrome/CDP session when it becomes attach-hostile."""
     print(f"\n==> Resetting LinkedIn Chrome session ({reason})")
@@ -153,6 +173,12 @@ def reset_linkedin_chrome_session(reason: str) -> bool:
         ):
             print(
                 f"[warn] Refusing to kill non-canonical port owner pid={pid}: {command.strip()}",
+                file=sys.stderr,
+            )
+            continue
+        if not _browser_is_owned_by_current_run(command, port):
+            print(
+                f"[warn] Refusing to reset an unowned LinkedIn debug session pid={pid}.",
                 file=sys.stderr,
             )
             continue

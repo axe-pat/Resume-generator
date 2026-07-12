@@ -5,12 +5,12 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 LABEL="${RESUMEGEN_NIGHTLY_LABEL:-com.akshat.resumegenerator.nightly}"
 PLIST_PATH="${HOME}/Library/LaunchAgents/${LABEL}.plist"
 SCHEDULED_TIME="${1:-01:00}"
-PIPELINE_ARGS="${RESUMEGEN_NIGHTLY_ARGS:---generate}"
 PYTHON_BIN="${PYTHON_BIN:-${ROOT_DIR}/venv/bin/python}"
 LOG_DIR="${RESUMEGEN_NIGHTLY_LOG_DIR:-${HOME}/Library/Logs/ResumeGenerator}"
 NIGHTLY_MODE="${RESUMEGEN_NIGHTLY_MODE:-unattended}"
 ATTESTATION_PATH="${RESUMEGEN_PRODUCTION_ATTESTATION:-${HOME}/Library/Application Support/ResumeGenerator/production_release.json}"
 LOAD_AFTER_WRITE="${RESUMEGEN_NIGHTLY_LOAD:-0}"
+CONTRACT_SCRIPT="${ROOT_DIR}/discovery/scripts/nightly_contract.py"
 
 if [[ ! "$SCHEDULED_TIME" =~ ^[0-2][0-9]:[0-5][0-9]$ ]]; then
   echo "Use HH:MM 24-hour time, for example 20:00" >&2
@@ -19,6 +19,20 @@ fi
 if [[ "$NIGHTLY_MODE" != "unattended" && "$NIGHTLY_MODE" != "prompt" && "$NIGHTLY_MODE" != "check" ]]; then
   echo "RESUMEGEN_NIGHTLY_MODE must be unattended, prompt, or check" >&2
   exit 2
+fi
+
+DEFAULT_PIPELINE_ARGS="$("${PYTHON_BIN}" "${CONTRACT_SCRIPT}" print)"
+if [[ -n "${RESUMEGEN_NIGHTLY_ARGS:-}" ]]; then
+  PIPELINE_ARGS="${RESUMEGEN_NIGHTLY_ARGS}"
+elif [[ "$NIGHTLY_MODE" == "unattended" ]]; then
+  PIPELINE_ARGS="${DEFAULT_PIPELINE_ARGS}"
+else
+  PIPELINE_ARGS="--generate"
+fi
+if [[ "$NIGHTLY_MODE" == "unattended" ]]; then
+  # Production is live by contract. This validation prevents an install from
+  # silently regressing to enrichment-only mode (for example target-sends 0).
+  "${PYTHON_BIN}" "${CONTRACT_SCRIPT}" validate "${PIPELINE_ARGS}"
 fi
 
 HOUR="${SCHEDULED_TIME%%:*}"
@@ -40,10 +54,13 @@ PIPELINE_ARGS_XML="$(xml_escape "$PIPELINE_ARGS")"
 LOG_DIR_XML="$(xml_escape "$LOG_DIR")"
 ATTESTATION_XML="$(xml_escape "$ATTESTATION_PATH")"
 PROMPT_ARGUMENT_XML=""
+CONTRACT_ARGUMENT_XML=""
 if [[ "$NIGHTLY_MODE" == "prompt" ]]; then
   PROMPT_ARGUMENT_XML="    <string>--prompt</string>"
 elif [[ "$NIGHTLY_MODE" == "check" ]]; then
   PROMPT_ARGUMENT_XML="    <string>--production-check-only</string>"
+else
+  CONTRACT_ARGUMENT_XML="    <string>--require-live-delivery-contract</string>"
 fi
 
 cat > "$PLIST_PATH" <<PLIST
@@ -63,6 +80,7 @@ cat > "$PLIST_PATH" <<PLIST
     <string>--production-attestation</string>
     <string>${ATTESTATION_XML}</string>
 ${PROMPT_ARGUMENT_XML}
+${CONTRACT_ARGUMENT_XML}
   </array>
   <key>EnvironmentVariables</key>
   <dict>

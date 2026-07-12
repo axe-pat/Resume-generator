@@ -319,7 +319,7 @@ def test_chrome_retry_wrapper_preserves_the_failed_check_status(tmp_path: Path) 
     fake_bin = tmp_path / "bin"
     fake_bin.mkdir()
     lsof = fake_bin / "lsof"
-    lsof.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+    lsof.write_text("#!/usr/bin/env bash\necho 999\nexit 0\n", encoding="utf-8")
     lsof.chmod(0o755)
     env = {
         **os.environ,
@@ -1618,6 +1618,9 @@ def test_scheduler_is_unattended_by_default_and_records_timestamped_log(
     module = _load_script("nightly_prompt.py", "nightly_unattended_test")
     state_path = tmp_path / "state.json"
     log_path = tmp_path / "nightly_pipeline_20260711-010000.log"
+    summary_path = tmp_path / "nightly-summary.json"
+    summary_path.write_text('{"status": "completed"}\n', encoding="utf-8")
+    log_path.write_text(f"Nightly summary: {summary_path}\n", encoding="utf-8")
     args = SimpleNamespace(
         scheduled_time="01:00",
         state_path=str(state_path),
@@ -1641,6 +1644,9 @@ def test_scheduler_is_unattended_by_default_and_records_timestamped_log(
     state = json.loads(state_path.read_text(encoding="utf-8"))
     assert state["last_attempt_date"]
     assert state["last_run_exit_code"] == 0
+    assert state["last_run_status"] == "completed"
+    assert state["last_run_was_actual_pipeline"] is True
+    assert state["last_run_summary"] == str(summary_path)
     assert state["last_run_log"] == str(log_path)
 
 
@@ -1827,8 +1833,8 @@ def test_launch_agent_installer_defaults_to_unattended_guarded_mode(
         **os.environ,
         "HOME": str(home),
         "RESUMEGEN_NIGHTLY_LOAD": "0",
-        "RESUMEGEN_NIGHTLY_ARGS": "--generate",
     }
+    env.pop("RESUMEGEN_NIGHTLY_ARGS", None)
     script = SCRIPTS / "install_nightly_launch_agent.sh"
     subprocess.run(
         [str(script)], cwd=ROOT, env=env, check=True, capture_output=True, text=True
@@ -1843,10 +1849,14 @@ def test_launch_agent_installer_defaults_to_unattended_guarded_mode(
 
     assert "<integer>1</integer>" in plist
     assert "--require-production-attestation" in plist
+    assert "--require-live-delivery-contract" in plist
+    assert "--execute-sends" in plist
+    assert "--track-2-send-linkedin" in plist
     assert "--prompt" not in plist
     assert "Library/Logs/ResumeGenerator" in plist
 
     env["RESUMEGEN_NIGHTLY_MODE"] = "prompt"
+    env["RESUMEGEN_NIGHTLY_ARGS"] = "--generate"
     subprocess.run(
         [str(script)], cwd=ROOT, env=env, check=True, capture_output=True, text=True
     )
@@ -1855,6 +1865,7 @@ def test_launch_agent_installer_defaults_to_unattended_guarded_mode(
     )
     prompt_plist = plist_path.read_text(encoding="utf-8")
     assert "--prompt" in prompt_plist
+    assert "--require-live-delivery-contract" not in prompt_plist
 
     env["RESUMEGEN_NIGHTLY_MODE"] = "check"
     subprocess.run(

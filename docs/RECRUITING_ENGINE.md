@@ -288,8 +288,11 @@ wrapper always passes `--skip-linkedin-followups` to the Daily Engine, then
 invokes the bounded Track 2 plan with `--refresh-linkedin` and the cycle's
 follow-up limit.
 It adds `--send-linkedin` only when the separate nightly
-`--track-2-send-linkedin` flag is present. This lets the operator run the full
-live preparation/draft flow without delivery. The deprecated nightly
+`--track-2-send-linkedin` flag is present. This lets a supervised/manual command
+run the full live preparation/draft flow without delivery. Production unattended
+automation is intentionally live: its canonical contract includes both
+`--execute-sends --target-sends auto` and
+`--execute-track-2-daily-plan --track-2-send-linkedin`. The deprecated nightly
 `--execute-linkedin-followups` flag is
 rejected before pipeline side effects begin. Use `run_daily_engine.py` directly
 only when intentionally operating the standalone supervised lane; never run both
@@ -344,6 +347,16 @@ isolated subprocess group, records return code `124`, `status: timed_out`, the
 configured deadline, and an explicit reconciliation warning in the exact
 summary/manifest, then still runs report finalization. Do not force a retry
 until the partial Track 2 artifacts have been reconciled against LinkedIn.
+Even when the Track 2 command exits `0`, a nested required phase with
+`partial_failed`, `failed*`, `timed_out`, or `incomplete*` makes the complete
+nightly non-green. That status reaches the exact manifest, source breakdown,
+summary, scheduler state/exit, and notification.
+The same applies to delivery-uncertain evidence such as
+`send_unknown_reserved`, `partial_send_unknown_reserved`, literal `unknown`, or
+unknown reservation counts hidden under a nominally sent phase. When
+`execute=true`/`send_linkedin=true`, terminal `planned`, `queued`, or `prepared`
+work is incomplete. Those statuses remain valid in a pure preview, and prepared
+invite candidates remain valid in an explicitly no-send execution.
 
 ### Release and install
 
@@ -367,12 +380,16 @@ venv/bin/python discovery/scripts/production_release.py check
 Then install the unattended 1:00am LaunchAgent:
 
 ```bash
-# Add --track-2-send-linkedin only after explicitly reviewing/authorizing
-# scheduled LinkedIn delivery. Omitting it preserves prep/drafts with no send.
-RESUMEGEN_NIGHTLY_ARGS="--cycle-config offcycle_light --generate ..." \
 RESUMEGEN_NIGHTLY_LOAD=1 \
 ./discovery/scripts/install_nightly_launch_agent.sh 01:00
 ```
+
+With no `RESUMEGEN_NIGHTLY_ARGS` override, the installer obtains the exact live
+argument vector from `discovery/scripts/nightly_contract.py`. In unattended mode
+it refuses a custom vector that omits app delivery, Track 2 delivery, selects
+zero app sends, or changes the reviewed bounded cycle values. For a supervised
+enrichment-only diagnostic, invoke `run_nightly_pipeline.py` directly or use
+prompt mode; do not weaken the production label.
 
 Before trusting the schedule, verify the same launchd context can read both
 Desktop repos and validate the recorded SHAs without triggering any pipeline
@@ -402,10 +419,13 @@ The installer only writes the plist unless `RESUMEGEN_NIGHTLY_LOAD=1` is set.
 Its `ProgramArguments` call the configured `PYTHON_BIN` and
 `nightly_prompt.py` directly, so launchd uses the same audited interpreter that
 was selected during installation.
-It checks every five minutes for catch-up after wake, but the scheduler records
-the day's attempt before execution so a partial LinkedIn send cannot be replayed
-blindly. Inspect the failed summary/report and explicitly force a retry only
-after reconciling partial actions.
+It checks every five minutes for catch-up after wake, but these `StartInterval`
+due checks are not recruiting runs: they do not launch the pipeline, show a run
+notification, touch the actual-run fields in scheduler state, or own a browser
+when the day is already handled/not due. The scheduler records the day's actual
+attempt before execution so a partial LinkedIn send cannot be replayed blindly.
+Inspect the failed summary/report and explicitly force a retry only after
+reconciling partial actions.
 
 To use the old prompt flow for a non-production/manual setup:
 
@@ -420,6 +440,20 @@ debugging, inspect:
 - timestamped pipeline logs in `~/Library/Logs/ResumeGenerator/nightly_pipeline_*.log`
 - scheduler state in `~/Library/Application Support/ResumeGenerator/nightly_scheduler_state.json`
 - summary artifacts in `discovery/source_validation/*nightly-pipeline-summary.{json,md}`
+
+The scheduler state also records `last_run_was_actual_pipeline`,
+`last_run_status`, and the exact `last_run_summary`. Product surfaces should use
+those fields rather than presenting a clean five-minute due-check exit as a new
+successful run.
+
+Any dedicated LinkedIn Chrome launched during the nightly receives a unique
+per-run owner marker. Finalization closes only the Chrome root carrying that
+exact marker and port, including after pipeline exceptions. Normal Chrome and an
+unrelated user-owned debug session are preserved. An automated reset likewise
+refuses to terminate an unowned CDP session. While a nightly token is active,
+preflight also refuses to reuse an unowned listener. It may replace an older
+ResumeGenerator token only after exact Chrome, port, and approved-profile
+validation; ambiguous listeners fail closed.
 
 LinkedIn/Chrome preflight retries the live-session check before failing. If the
 daily engine still fails, the nightly wrapper records `daily_engine_returncode`,

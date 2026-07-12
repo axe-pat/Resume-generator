@@ -9,6 +9,7 @@ import secrets
 import signal
 import subprocess
 import sys
+import time
 import traceback
 from contextlib import contextmanager
 from datetime import datetime
@@ -28,6 +29,7 @@ APP_SUPPORT = Path.home() / "Library" / "Application Support" / "ResumeGenerator
 LOCK_PATH = APP_SUPPORT / "nightly_pipeline.lock"
 OPERATOR_MUTATION_LOCK_PATH = APP_SUPPORT / "operator_mutation.lock"
 NIGHTLY_LOCK_TOKEN_ENV = "RESUMEGEN_NIGHTLY_LOCK_TOKEN"
+LINKEDIN_BROWSER_OWNER_ENV = "RESUMEGEN_LINKEDIN_BROWSER_OWNER_TOKEN"
 
 APP_QUEUE_SEND_TARGET_BY_CYCLE = {
     "offcycle_light": "5",
@@ -61,6 +63,168 @@ TRACK_2_COMPANIES_BY_CYCLE = {
     "offcycle_light": "55",
     "normal": "55",
 }
+NON_GREEN_SOURCE_STATUSES = {
+    "failed",
+    "timed_out",
+    "timeout",
+    "partial_failed",
+    "incomplete",
+}
+TRACK_2_DELIVERY_UNCERTAIN_STATUSES = {
+    "attempt_reserved",
+    "send_unknown_reserved",
+    "partial_send_unknown_reserved",
+    "unknown",
+}
+TRACK_2_PENDING_STATUSES = {"planned", "queued", "prepared"}
+
+
+def _normalized_status(value: object) -> str:
+    return str(value or "").strip().casefold().replace("-", "_")
+
+
+def _status_is_non_green(value: object) -> bool:
+    status = _normalized_status(value)
+    return (
+        status in NON_GREEN_SOURCE_STATUSES
+        or status.endswith("_failed")
+        or "_failed_" in status
+        or any(
+            status.startswith(f"{prefix}_") for prefix in NON_GREEN_SOURCE_STATUSES
+        )
+    )
+
+
+def _track_2_phase_is_delivery(phase: dict[str, object]) -> bool:
+    name = _normalized_status(phase.get("phase"))
+    return bool(
+        phase.get("send_enabled") is not None
+        or "linkedin_invite" in name
+        or "linkedin_followup" in name
+    )
+
+
+def _track_2_status_is_non_green(
+    value: object,
+    *,
+    execution_requested: bool,
+    delivery_requested: bool,
+    delivery_surface: bool,
+) -> bool:
+    status = _normalized_status(value)
+    if not status:
+        return False
+    if (
+        _status_is_non_green(status)
+        or status in TRACK_2_DELIVERY_UNCERTAIN_STATUSES
+        or "unknown_reserved" in status
+    ):
+        return True
+    if status in TRACK_2_PENDING_STATUSES:
+        return delivery_requested if delivery_surface else execution_requested
+    return False
+
+
+def _track_2_artifact_health(payload: dict[str, object]) -> dict[str, object]:
+    """Derive authoritative Track 2 health from its nested phase results."""
+
+    phase_results = [
+        item
+        for item in list(payload.get("phase_results") or [])
+        if isinstance(item, dict)
+    ]
+    failures: list[dict[str, str]] = []
+    seen_failures: set[tuple[str, str]] = set()
+    non_green_phase_count = 0
+    execution_requested = payload.get("execute") is True
+    delivery_requested = payload.get("send_linkedin") is True
+
+    def add_failure(phase: str, status: object) -> None:
+        normalized = _normalized_status(status) or "unknown"
+        key = (phase, normalized)
+        if key not in seen_failures:
+            failures.append({"phase": phase, "status": normalized})
+            seen_failures.add(key)
+
+    def positive_count(value: object) -> int:
+        try:
+            return max(0, int(value or 0))
+        except (TypeError, ValueError):
+            return 0
+
+    top_status = _normalized_status(payload.get("status"))
+    if top_status and _track_2_status_is_non_green(
+        top_status,
+        execution_requested=execution_requested,
+        delivery_requested=delivery_requested,
+        delivery_surface=delivery_requested,
+    ):
+        add_failure("track_2", top_status)
+    for phase in phase_results:
+        phase_name = str(phase.get("phase") or "unnamed_phase")
+        delivery_surface = _track_2_phase_is_delivery(phase)
+        phase_delivery_requested = delivery_requested or phase.get("send_enabled") is True
+        status = _normalized_status(phase.get("status")) or "unknown"
+        phase_status_is_non_green = _track_2_status_is_non_green(
+            status,
+            execution_requested=execution_requested,
+            delivery_requested=phase_delivery_requested,
+            delivery_surface=delivery_surface,
+        )
+        if phase_status_is_non_green:
+            non_green_phase_count += 1
+            add_failure(phase_name, status)
+        nested_rows = [
+            item
+            for item in list(phase.get("runs") or [])
+            if isinstance(item, dict)
+        ]
+        for index, row in enumerate(nested_rows, start=1):
+            row_label = str(
+                row.get("company") or row.get("person") or row.get("contact_id") or index
+            )
+            row_phase = f"{phase_name}/run:{row_label}"
+            row_status = _normalized_status(row.get("status"))
+            if row_status and _track_2_status_is_non_green(
+                row_status,
+                execution_requested=execution_requested,
+                delivery_requested=phase_delivery_requested,
+                delivery_surface=delivery_surface,
+            ):
+                add_failure(row_phase, row_status)
+            for count_status, raw_count in (
+                row.get("status_counts")
+                if isinstance(row.get("status_counts"), dict)
+                else {}
+            ).items():
+                count = positive_count(raw_count)
+                if count > 0 and _track_2_status_is_non_green(
+                    count_status,
+                    execution_requested=execution_requested,
+                    delivery_requested=phase_delivery_requested,
+                    delivery_surface=delivery_surface,
+                ):
+                    add_failure(row_phase, count_status)
+        for count_status, raw_count in (
+            phase.get("send_status_counts")
+            if isinstance(phase.get("send_status_counts"), dict)
+            else {}
+        ).items():
+            count = positive_count(raw_count)
+            if count > 0 and _track_2_status_is_non_green(
+                count_status,
+                execution_requested=execution_requested,
+                delivery_requested=phase_delivery_requested,
+                delivery_surface=delivery_surface,
+            ):
+                add_failure(phase_name, count_status)
+        if positive_count(phase.get("unknown_reserved_count")) > 0:
+            add_failure(phase_name, "send_unknown_reserved")
+    if not failures:
+        return {"status": "completed", "phase_failures": []}
+    green_phase_count = len(phase_results) - non_green_phase_count
+    status = "partial_failed" if green_phase_count else "failed"
+    return {"status": status, "phase_failures": failures}
 
 
 def _cmd_text(cmd: Iterable[object]) -> str:
@@ -306,6 +470,125 @@ def _terminate_process_group(
     except subprocess.TimeoutExpired:
         _signal_process_group(process, signal.SIGKILL)
         return process.communicate()
+
+
+def _linkedin_debug_port() -> str:
+    value = os.environ.get("LINKEDIN_DEBUG_PORT", "9222").strip() or "9222"
+    return value if value.isdigit() else "9222"
+
+
+def _listener_pids(port: str) -> list[int]:
+    try:
+        result = subprocess.run(
+            ["lsof", f"-tiTCP:{port}", "-sTCP:LISTEN"],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+    except FileNotFoundError:
+        return []
+    return sorted(
+        {
+            int(line)
+            for line in result.stdout.splitlines()
+            if line.strip().isdigit()
+        }
+    )
+
+
+def _owned_linkedin_browser_pids(token: str, port: str) -> list[int]:
+    """Find only Chrome roots carrying this invocation's opaque owner marker."""
+
+    try:
+        result = subprocess.run(
+            ["ps", "-axo", "pid=,command="],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+    except FileNotFoundError:
+        return []
+    owner_marker = f"--resume-generator-browser-owner={token}"
+    port_marker = f"--remote-debugging-port={port}"
+    pids: list[int] = []
+    for line in result.stdout.splitlines():
+        clean = line.strip()
+        if not clean:
+            continue
+        pid_text, _, command = clean.partition(" ")
+        if (
+            pid_text.isdigit()
+            and "Google Chrome" in command
+            and owner_marker in command
+            and port_marker in command
+        ):
+            pids.append(int(pid_text))
+    return sorted(set(pids))
+
+
+def _begin_linkedin_browser_lifecycle(
+    summary: dict[str, object]
+) -> tuple[str, str | None]:
+    port = _linkedin_debug_port()
+    token = secrets.token_urlsafe(24)
+    previous = os.environ.get(LINKEDIN_BROWSER_OWNER_ENV)
+    os.environ[LINKEDIN_BROWSER_OWNER_ENV] = token
+    summary["linkedin_browser_lifecycle"] = {
+        "debug_port": int(port),
+        "ownership": "exact_run_token",
+        "preexisting_listener_pids": _listener_pids(port),
+        "cleanup_status": "pending",
+        "owned_pids_at_cleanup": [],
+        "remaining_owned_pids": [],
+    }
+    return token, previous
+
+
+def _finish_linkedin_browser_lifecycle(
+    summary: dict[str, object], token: str, previous_token: str | None
+) -> bool:
+    """Close only Chrome processes launched with this exact run's owner token."""
+
+    port = _linkedin_debug_port()
+    lifecycle = (
+        summary.get("linkedin_browser_lifecycle")
+        if isinstance(summary.get("linkedin_browser_lifecycle"), dict)
+        else {}
+    )
+    owned = _owned_linkedin_browser_pids(token, port)
+    lifecycle["owned_pids_at_cleanup"] = owned
+    for pid in owned:
+        try:
+            os.kill(pid, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+    deadline = time.monotonic() + 10
+    remaining = _owned_linkedin_browser_pids(token, port)
+    while remaining and time.monotonic() < deadline:
+        time.sleep(0.25)
+        remaining = _owned_linkedin_browser_pids(token, port)
+    for pid in remaining:
+        try:
+            os.kill(pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+    if remaining:
+        time.sleep(0.25)
+    remaining = _owned_linkedin_browser_pids(token, port)
+    lifecycle["remaining_owned_pids"] = remaining
+    if remaining:
+        lifecycle["cleanup_status"] = "failed"
+    elif owned:
+        lifecycle["cleanup_status"] = "closed_run_owned_browser"
+    else:
+        lifecycle["cleanup_status"] = "no_run_owned_browser"
+    lifecycle["post_cleanup_listener_pids"] = _listener_pids(port)
+    summary["linkedin_browser_lifecycle"] = lifecycle
+    if previous_token is None:
+        os.environ.pop(LINKEDIN_BROWSER_OWNER_ENV, None)
+    else:
+        os.environ[LINKEDIN_BROWSER_OWNER_ENV] = previous_token
+    return not remaining
 
 
 def _run_capture_print(
@@ -728,14 +1011,23 @@ def _run_outreach_maintenance(
         artifact_is_readable = (
             track_2_artifact is not None and track_2_artifact.is_file()
         )
-        summary["track_2_artifact_validation_returncode"] = (
-            0 if artifact_is_readable else 1
+        track_2_payload = _load_json(track_2_artifact) if artifact_is_readable else {}
+        artifact_health = (
+            _track_2_artifact_health(track_2_payload)
+            if track_2_payload
+            else {"status": "failed_missing_artifact", "phase_failures": []}
         )
+        summary["track_2_artifact_validation_returncode"] = (
+            0 if track_2_payload else 1
+        )
+        summary["track_2_artifact_health_status"] = artifact_health["status"]
+        summary["track_2_phase_failures"] = artifact_health["phase_failures"]
         if getattr(result, "timed_out", False):
             summary["track_2_daily_run_status"] = "timed_out"
             summary["track_2_daily_run_failure"] = (
                 f"Track 2 exceeded its {track_2_timeout}-second outer timeout; "
-                "the subprocess group was terminated and partial progress must be reconciled from its artifacts."
+                "the subprocess group was terminated and partial progress must "
+                "be reconciled from its artifacts."
             )
         elif result.returncode != 0:
             summary["track_2_daily_run_status"] = "failed"
@@ -748,6 +1040,22 @@ def _run_outreach_maintenance(
                 "Track 2 exited successfully but did not emit a readable "
                 "authoritative run artifact."
             )
+        elif not track_2_payload:
+            summary["track_2_daily_run_status"] = "failed_invalid_artifact"
+            summary["track_2_daily_run_failure"] = (
+                "Track 2 exited successfully but its authoritative run artifact "
+                "was not valid JSON."
+            )
+        elif _status_is_non_green(artifact_health["status"]):
+            summary["track_2_daily_run_status"] = artifact_health["status"]
+            phase_failure_text = ", ".join(
+                f"{item['phase']}={item['status']}"
+                for item in artifact_health["phase_failures"]
+            )
+            summary["track_2_daily_run_failure"] = (
+                "Track 2 emitted a readable artifact but required phases were "
+                f"non-green: {phase_failure_text}."
+            )
         else:
             summary["track_2_daily_run_status"] = "completed"
             summary["track_2_daily_run_failure"] = ""
@@ -757,6 +1065,8 @@ def _run_outreach_maintenance(
         summary["track_2_timeout_seconds"] = track_2_timeout
         summary["track_2_daily_run_failure"] = ""
         summary["track_2_artifact_validation_returncode"] = None
+        summary["track_2_artifact_health_status"] = "skipped"
+        summary["track_2_phase_failures"] = []
 
     result = _run_capture_print(
         _outreach_cmd("build-outreach-cadence-report", "--workspace", "workspace"),
@@ -1230,11 +1540,16 @@ def _outreach_maintenance_failures(maintenance: dict[str, object]) -> list[str]:
         for key, value in maintenance.items()
         if key.endswith("_returncode") and value not in (0, None)
     ]
-    if maintenance.get("track_2_daily_run_status") == "timed_out":
+    track_2_status = _normalized_status(
+        maintenance.get("track_2_daily_run_status")
+    )
+    if track_2_status == "timed_out":
         failures.append(
             "track_2_daily_run:timed_out:"
             f"{maintenance.get('track_2_timeout_seconds', 0)}s"
         )
+    elif _status_is_non_green(track_2_status):
+        failures.append(f"track_2_daily_run:{track_2_status}")
     return failures
 
 
@@ -1465,16 +1780,24 @@ def _augment_daily_engine_manifest(summary: dict[str, object]) -> None:
     track_payload = (
         _load_json(track_path) if track_path and track_path.is_file() else {}
     )
+    maintenance_status = _normalized_status(
+        maintenance.get("track_2_daily_run_status")
+    )
     if returncode is None:
         status = "skipped"
-    elif maintenance.get("track_2_daily_run_status") == "timed_out":
-        status = "timed_out"
+    elif _status_is_non_green(maintenance_status):
+        status = maintenance_status
     elif returncode != 0:
         status = "failed"
     elif not track_payload:
         status = "failed_missing_artifact"
     else:
-        status = "ran"
+        artifact_health = _track_2_artifact_health(track_payload)
+        status = (
+            str(artifact_health["status"])
+            if _status_is_non_green(artifact_health["status"])
+            else "ran"
+        )
     phase_results = [
         item
         for item in list(track_payload.get("phase_results") or [])
@@ -1531,7 +1854,7 @@ def _augment_daily_engine_manifest(summary: dict[str, object]) -> None:
     elif status != "ran":
         email_status = (
             "skipped_track_2_failed"
-            if status.startswith("failed") or status == "timed_out"
+            if _status_is_non_green(status)
             else "skipped_track_2_not_run"
         )
         email_blockers.append(
@@ -1569,6 +1892,11 @@ def _augment_daily_engine_manifest(summary: dict[str, object]) -> None:
         "returncode": returncode,
         "timeout_seconds": int(maintenance.get("track_2_timeout_seconds") or 0),
         "failure": str(maintenance.get("track_2_daily_run_failure") or ""),
+        "phase_failures": list(
+            maintenance.get("track_2_phase_failures")
+            if isinstance(maintenance.get("track_2_phase_failures"), list)
+            else _track_2_artifact_health(track_payload).get("phase_failures", [])
+        ),
         "run_artifact": str(track_path or ""),
         "artifacts": list(dict.fromkeys([*run_artifacts, *phase_artifacts])),
         "planned_action_count": planned_count,
@@ -1660,15 +1988,6 @@ def _augment_daily_engine_manifest(summary: dict[str, object]) -> None:
     )
 
 
-NON_GREEN_SOURCE_STATUSES = {
-    "failed",
-    "timed_out",
-    "timeout",
-    "partial_failed",
-    "incomplete",
-}
-
-
 def _source_family_failures(summary: dict[str, object]) -> list[str]:
     """Return exact manifest source failures that must keep a run non-green."""
 
@@ -1684,16 +2003,8 @@ def _source_family_failures(summary: dict[str, object]) -> list[str]:
     failures: list[str] = []
     for name, raw in source_families.items():
         row = raw if isinstance(raw, dict) else {}
-        status = (
-            str(row.get("status") or "skipped")
-            .strip()
-            .casefold()
-            .replace("-", "_")
-        )
-        if status in NON_GREEN_SOURCE_STATUSES or any(
-            status.startswith(f"{failure_status}_")
-            for failure_status in NON_GREEN_SOURCE_STATUSES
-        ):
+        status = _normalized_status(row.get("status") or "skipped")
+        if _status_is_non_green(status):
             failures.append(f"source_family:{name}:{status}")
     return failures
 
@@ -1784,6 +2095,9 @@ def main() -> int:
     ):
         failures: list[str] = []
         summary = _initial_summary(args, created_at=created_at, run_id=run_id)
+        browser_token, previous_browser_token = _begin_linkedin_browser_lifecycle(
+            summary
+        )
         exception_returncode = 0
         try:
             _run_pipeline_body(args, summary=summary, failures=failures)
@@ -1803,6 +2117,25 @@ def main() -> int:
                 flush=True,
             )
         finally:
+            try:
+                cleanup_succeeded = _finish_linkedin_browser_lifecycle(
+                    summary, browser_token, previous_browser_token
+                )
+            except Exception as exc:
+                cleanup_succeeded = False
+                lifecycle = summary.get("linkedin_browser_lifecycle")
+                if isinstance(lifecycle, dict):
+                    lifecycle["cleanup_status"] = "failed_exception"
+                    lifecycle["cleanup_error"] = f"{type(exc).__name__}: {exc}"
+                if previous_browser_token is None:
+                    os.environ.pop(LINKEDIN_BROWSER_OWNER_ENV, None)
+                else:
+                    os.environ[LINKEDIN_BROWSER_OWNER_ENV] = previous_browser_token
+            if (
+                not cleanup_succeeded
+                and "linkedin_browser_cleanup:failed" not in failures
+            ):
+                failures.append("linkedin_browser_cleanup:failed")
             _finalize_summary_and_report(
                 summary=summary,
                 failures=failures,

@@ -21,6 +21,20 @@ The goal is to stop relearning the same browser-session failure.
    - `--enable-automation`
 4. Verify `9222` before running any LinkedIn automation.
 5. Prefer CDP attach flows once Chrome is already live on `9222`.
+
+For a nightly run, browser ownership is explicit. The orchestrator exports a
+unique `RESUMEGEN_LINKEDIN_BROWSER_OWNER_TOKEN`; the launcher adds its opaque
+process marker to Chrome. Terminal cleanup targets only a Chrome process with
+that exact marker and configured debug port. A pre-existing debug session is
+treated as user-owned and is left open, while ordinary Chrome is never a target.
+The Daily Engine also refuses to reset an unowned debug session; an unhealthy
+user-owned session therefore fails the run visibly rather than being killed.
+Nightly preflight also refuses to reuse that unowned listener even if LinkedIn is
+signed in. A listener with an older ResumeGenerator token may be terminated and
+relaunched only when its Chrome binary, configured port, and exact approved
+user-data directory all validate. A current-token listener passes through; any
+ambiguous or unsound owner fails closed. Standalone supervised commands without
+a nightly owner token retain the existing attach behavior.
 6. Do not rely on repo-relative `playwright/chrome-data` defaults.
 
 ## Why This Breaks
