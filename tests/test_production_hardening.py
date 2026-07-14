@@ -1839,41 +1839,50 @@ def test_launch_agent_installer_defaults_to_unattended_guarded_mode(
     subprocess.run(
         [str(script)], cwd=ROOT, env=env, check=True, capture_output=True, text=True
     )
-    plist_path = (
-        home / "Library" / "LaunchAgents" / "com.akshat.resumegenerator.nightly.plist"
-    )
-    subprocess.run(
-        ["plutil", "-lint", str(plist_path)], check=True, capture_output=True
-    )
-    plist = plist_path.read_text(encoding="utf-8")
+    plist_paths = [
+        home
+        / "Library"
+        / "LaunchAgents"
+        / "com.akshat.resumegenerator.nightly.plist",
+        home
+        / "Library"
+        / "LaunchAgents"
+        / "com.akshat.resumegenerator.nightly.overnight.plist",
+    ]
+    for plist_path in plist_paths:
+        subprocess.run(
+            ["plutil", "-lint", str(plist_path)], check=True, capture_output=True
+        )
+    plists = [path.read_text(encoding="utf-8") for path in plist_paths]
 
-    assert "<integer>1</integer>" in plist
-    assert "--require-production-attestation" in plist
-    assert "--require-live-delivery-contract" in plist
-    assert "--execute-sends" in plist
-    assert "--track-2-send-linkedin" in plist
-    assert "--prompt" not in plist
-    assert "Library/Logs/ResumeGenerator" in plist
+    assert "<string>20:00</string>" in plists[0]
+    assert "<string>01:00</string>" in plists[1]
+    assert "evening_delivery" in plists[0]
+    assert "overnight_maintenance" in plists[1]
+    for plist in plists:
+        assert "<integer>300</integer>" in plist
+        assert "--require-production-attestation" in plist
+        assert "--require-production-slot-contract" in plist
+        assert "--require-live-delivery-contract" not in plist
+        assert "--timezone" in plist
+        assert "Asia/Kolkata" in plist
+        assert "--prompt" not in plist
+        assert "Library/Logs/ResumeGenerator" in plist
 
     env["RESUMEGEN_NIGHTLY_MODE"] = "prompt"
-    env["RESUMEGEN_NIGHTLY_ARGS"] = "--generate"
     subprocess.run(
         [str(script)], cwd=ROOT, env=env, check=True, capture_output=True, text=True
     )
-    subprocess.run(
-        ["plutil", "-lint", str(plist_path)], check=True, capture_output=True
-    )
-    prompt_plist = plist_path.read_text(encoding="utf-8")
-    assert "--prompt" in prompt_plist
-    assert "--require-live-delivery-contract" not in prompt_plist
+    prompt_plists = [path.read_text(encoding="utf-8") for path in plist_paths]
+    for prompt_plist in prompt_plists:
+        assert "--prompt" in prompt_plist
+        assert "--require-production-slot-contract" not in prompt_plist
 
     env["RESUMEGEN_NIGHTLY_MODE"] = "check"
     subprocess.run(
         [str(script)], cwd=ROOT, env=env, check=True, capture_output=True, text=True
     )
-    subprocess.run(
-        ["plutil", "-lint", str(plist_path)], check=True, capture_output=True
-    )
-    check_plist = plist_path.read_text(encoding="utf-8")
-    assert "--production-check-only" in check_plist
-    assert "--prompt" not in check_plist
+    check_plists = [path.read_text(encoding="utf-8") for path in plist_paths]
+    for check_plist in check_plists:
+        assert "--production-check-only" in check_plist
+        assert "--prompt" not in check_plist

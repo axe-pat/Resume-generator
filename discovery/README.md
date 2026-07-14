@@ -213,14 +213,17 @@ Outputs:
 - `apps/Apply queues/current_apply_queue/generation_shortlist.json`
 - `apps/Apply queues/current_apply_queue/generation_shortlist.md`
 
-Local prompt/snooze setup:
+Two-slot prompt/snooze setup (20:00 and 01:00 Asia/Kolkata):
 
 ```bash
-./discovery/scripts/install_nightly_launch_agent.sh 20:00
+RESUMEGEN_NIGHTLY_MODE=prompt \
+./discovery/scripts/install_nightly_launch_agent.sh
 ```
 
-The installer writes the LaunchAgent but does not load it unless
-`RESUMEGEN_NIGHTLY_LOAD=1` is set. The prompt runner does not require Codex to
+The installer writes an evening delivery plist and an overnight maintenance
+plist, but does not load either unless `RESUMEGEN_NIGHTLY_LOAD=1` is set. Each
+slot has its own daily idempotency state; both share one overlap lock and one
+48-hour discovery-attempt state. The prompt runner does not require Codex to
 stay open.
 
 ### Filtered JobSpy scoring lane

@@ -8,7 +8,7 @@ import shlex
 import signal
 import subprocess
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -133,6 +133,56 @@ def test_canonical_unattended_contract_enables_both_delivery_lanes() -> None:
     assert "--execute-linkedin-followups" not in args
 
 
+def test_two_slot_contract_runs_delivery_once_and_zeroes_overnight_drafts() -> None:
+    module = _load_script("nightly_contract.py", "nightly_two_slot_contract_test")
+    evening = list(
+        module.production_slot_args(
+            module.EVENING_DELIVERY_SLOT, include_discovery=False
+        )
+    )
+    overnight = list(
+        module.production_slot_args(
+            module.OVERNIGHT_MAINTENANCE_SLOT, include_discovery=False
+        )
+    )
+
+    assert "--track-2-send-linkedin" in evening
+    assert evening[evening.index("--track-2-email-drafts") + 1] == "auto"
+    assert "--track-2-send-linkedin" not in overnight
+    for option in (
+        "--track-2-linkedin-invites",
+        "--track-2-linkedin-followups",
+        "--track-2-email-drafts",
+    ):
+        assert overnight[overnight.index(option) + 1] == "0"
+    for contract in (evening, overnight):
+        assert "--execute-track-2-daily-plan" in contract
+        assert "--skip-daily-engine" in contract
+        assert "--skip-shared-discovery" in contract
+        assert "--generate" not in contract
+        assert "--execute-sends" not in contract
+
+
+def test_discovery_overlay_is_available_to_either_slot_but_not_maintenance() -> None:
+    module = _load_script("nightly_contract.py", "nightly_discovery_overlay_test")
+
+    for slot in module.PRODUCTION_SLOTS:
+        discovery = list(module.production_slot_args(slot, include_discovery=True))
+        maintenance = list(module.production_slot_args(slot, include_discovery=False))
+        assert "--generate" in discovery
+        assert "--execute-sends" in discovery
+        assert "--skip-daily-engine" not in discovery
+        assert "--generate" not in maintenance
+        assert "--execute-sends" not in maintenance
+        assert "--skip-daily-engine" in maintenance
+        assert module.validate_production_slot_args(
+            discovery, slot=slot, include_discovery=True
+        ) == []
+        assert module.validate_production_slot_args(
+            maintenance, slot=slot, include_discovery=False
+        ) == []
+
+
 @pytest.mark.parametrize(
     "candidate,expected",
     [
@@ -154,7 +204,7 @@ def test_unattended_contract_rejects_silent_no_send_regressions(
     assert any(expected in error for error in errors)
 
 
-def test_installer_defaults_to_canonical_live_contract(tmp_path: Path) -> None:
+def test_installer_writes_two_isolated_slots_with_shared_guards(tmp_path: Path) -> None:
     home = tmp_path / "home"
     home.mkdir()
     env = {**os.environ, "HOME": str(home), "RESUMEGEN_NIGHTLY_LOAD": "0"}
@@ -169,15 +219,53 @@ def test_installer_defaults_to_canonical_live_contract(tmp_path: Path) -> None:
         text=True,
     )
 
-    plist_path = (
-        home / "Library" / "LaunchAgents" / "com.akshat.resumegenerator.nightly.plist"
+    plist_paths = [
+        home
+        / "Library"
+        / "LaunchAgents"
+        / "com.akshat.resumegenerator.nightly.plist",
+        home
+        / "Library"
+        / "LaunchAgents"
+        / "com.akshat.resumegenerator.nightly.overnight.plist",
+    ]
+    plists = []
+    for plist_path in plist_paths:
+        with plist_path.open("rb") as handle:
+            plists.append(plistlib.load(handle))
+
+    def option(plist: dict, name: str) -> str:
+        argv = plist["ProgramArguments"]
+        return argv[argv.index(name) + 1]
+
+    assert [option(plist, "--scheduled-time") for plist in plists] == [
+        "20:00",
+        "01:00",
+    ]
+    assert [option(plist, "--production-slot") for plist in plists] == [
+        "evening_delivery",
+        "overnight_maintenance",
+    ]
+    assert option(plists[0], "--state-path") != option(plists[1], "--state-path")
+    assert option(plists[0], "--lock-path") == option(plists[1], "--lock-path")
+    assert option(plists[0], "--discovery-state-path") == option(
+        plists[1], "--discovery-state-path"
     )
-    with plist_path.open("rb") as handle:
-        plist = plistlib.load(handle)
-    contract = _load_script("nightly_contract.py", "nightly_contract_installer_test")
-    installed_args = shlex.split(plist["EnvironmentVariables"]["RESUMEGEN_NIGHTLY_ARGS"])
-    assert installed_args == list(contract.PRODUCTION_NIGHTLY_ARGS)
-    assert "--require-live-delivery-contract" in plist["ProgramArguments"]
+    for plist in plists:
+        assert plist["StartInterval"] == 300
+        assert "StartCalendarInterval" not in plist
+        assert option(plist, "--timezone") == "Asia/Kolkata"
+        assert option(plist, "--discovery-cadence-hours") == "48"
+        assert "--require-production-slot-contract" in plist["ProgramArguments"]
+        assert plist["EnvironmentVariables"]["TZ"] == "Asia/Kolkata"
+        assert "RESUMEGEN_NIGHTLY_ARGS" not in plist["EnvironmentVariables"]
+    assert not (
+        home
+        / "Library"
+        / "Application Support"
+        / "ResumeGenerator"
+        / "nightly_discovery_cadence.json"
+    ).exists()
 
 
 def test_installer_refuses_unattended_no_send_override(tmp_path: Path) -> None:
@@ -200,7 +288,27 @@ def test_installer_refuses_unattended_no_send_override(tmp_path: Path) -> None:
     )
 
     assert result.returncode == 2
-    assert "Unsafe unattended nightly contract" in result.stderr
+    assert "RESUMEGEN_NIGHTLY_ARGS is not supported" in result.stderr
+
+
+def test_discovery_attempt_gate_uses_a_shared_48_hour_interval() -> None:
+    module = _load_script("nightly_prompt.py", "nightly_discovery_gate_test")
+    now = datetime.fromisoformat("2026-07-13T20:00:00+05:30")
+
+    assert module._discovery_due({}, now=now) == (
+        True,
+        "no_previous_discovery_attempt",
+    )
+    is_due, reason = module._discovery_due(
+        {"last_attempt_at": (now - timedelta(hours=47, minutes=59)).isoformat()},
+        now=now,
+    )
+    assert not is_due
+    assert reason.startswith("discovery_due_in_")
+    assert module._discovery_due(
+        {"last_attempt_at": (now - timedelta(hours=48)).isoformat()},
+        now=now,
+    ) == (True, "discovery_cadence_elapsed")
 
 
 def test_track_2_nested_partial_failure_is_non_green() -> None:

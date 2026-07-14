@@ -11,6 +11,7 @@ import sys
 from contextlib import contextmanager
 from datetime import datetime, time, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 if str(SCRIPT_DIR) not in sys.path:
@@ -21,13 +22,22 @@ from production_release import (  # noqa: E402
     ProductionReleaseError,
     validate_attestation,
 )
-from nightly_contract import validate_production_nightly_args  # noqa: E402
+from nightly_contract import (  # noqa: E402
+    PRODUCTION_SLOT_TIMES,
+    PRODUCTION_SLOTS,
+    production_slot_args,
+    validate_production_nightly_args,
+    validate_production_slot_args,
+)
 
 ROOT = Path(__file__).resolve().parents[2]
 PYTHON = ROOT / "venv" / "bin" / "python"
 APP_SUPPORT = Path.home() / "Library" / "Application Support" / "ResumeGenerator"
 STATE_PATH = APP_SUPPORT / "nightly_scheduler_state.json"
+DISCOVERY_STATE_PATH = APP_SUPPORT / "nightly_discovery_cadence.json"
 LOCK_PATH = APP_SUPPORT / "nightly_scheduler.lock"
+DEFAULT_TIMEZONE = "Asia/Kolkata"
+DEFAULT_DISCOVERY_CADENCE_HOURS = 48.0
 LOG_DIR = Path(
     os.environ.get(
         "RESUMEGEN_NIGHTLY_LOG_DIR",
@@ -40,8 +50,15 @@ def _env_flag(name: str) -> bool:
     return os.environ.get(name, "").strip().casefold() in {"1", "true", "yes", "on"}
 
 
+def _timezone() -> ZoneInfo:
+    try:
+        return ZoneInfo(DEFAULT_TIMEZONE)
+    except ZoneInfoNotFoundError as exc:  # pragma: no cover - macOS ships tzdata
+        raise RuntimeError(f"Required timezone is unavailable: {DEFAULT_TIMEZONE}") from exc
+
+
 def _now() -> datetime:
-    return datetime.now()
+    return datetime.now(_timezone())
 
 
 def _today_key(dt: datetime | None = None) -> str:
@@ -90,13 +107,37 @@ def _scheduled_at(today: datetime, scheduled_time: str) -> datetime:
     )
 
 
-def _parse_iso(value: str) -> datetime | None:
+def _parse_iso(value: str, *, reference: datetime | None = None) -> datetime | None:
     if not value:
         return None
     try:
-        return datetime.fromisoformat(value)
+        parsed = datetime.fromisoformat(value)
     except ValueError:
         return None
+    if reference is not None and reference.tzinfo is not None and parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=reference.tzinfo)
+    return parsed
+
+
+def _discovery_due(
+    state: dict,
+    *,
+    now: datetime,
+    cadence_hours: float = DEFAULT_DISCOVERY_CADENCE_HOURS,
+) -> tuple[bool, str]:
+    """Gate discovery by attempt time, not success, to avoid unsafe replay."""
+
+    last_attempt = _parse_iso(str(state.get("last_attempt_at") or ""), reference=now)
+    if last_attempt is None:
+        return True, "no_previous_discovery_attempt"
+    elapsed = now - last_attempt
+    if elapsed < timedelta(0):
+        return False, "clock_before_last_discovery_attempt"
+    remaining = timedelta(hours=max(cadence_hours, 0)) - elapsed
+    if remaining <= timedelta(0):
+        return True, "discovery_cadence_elapsed"
+    seconds = max(0, int(remaining.total_seconds()))
+    return False, f"discovery_due_in_{seconds}s"
 
 
 def _due(state: dict, args: argparse.Namespace) -> tuple[bool, str]:
@@ -108,7 +149,9 @@ def _due(state: dict, args: argparse.Namespace) -> tuple[bool, str]:
         return False, "already_ran_today"
     if state.get("last_skip_date") == today:
         return False, "skipped_today"
-    snooze_until = _parse_iso(str(state.get("snooze_until") or ""))
+    snooze_until = _parse_iso(
+        str(state.get("snooze_until") or ""), reference=now
+    )
     if snooze_until and now < snooze_until:
         return False, f"snoozed_until_{snooze_until.isoformat(timespec='minutes')}"
     if now >= _scheduled_at(now, args.scheduled_time):
@@ -121,11 +164,15 @@ def _osascript(script: str) -> subprocess.CompletedProcess:
 
 
 def _prompt_choice(args: argparse.Namespace, reason: str) -> str:
+    try:
+        pipeline_args = shlex.join(_pipeline_args(args))
+    except ValueError as exc:
+        pipeline_args = f"invalid: {exc}"
     message = (
         "ResumeGenerator nightly pipeline is due.\\n\\n"
         f"Reason: {reason}\\n"
         f"Scheduled time: {args.scheduled_time}\\n"
-        f"Pipeline args: {args.pipeline_args or '(default)'}"
+        f"Pipeline args: {pipeline_args}"
     )
     script = (
         f"display dialog {json.dumps(message)} "
@@ -175,8 +222,26 @@ def _pipeline_command(args: argparse.Namespace) -> list[str]:
 
 
 def _pipeline_args(args: argparse.Namespace) -> list[str]:
+    production_slot = str(getattr(args, "production_slot", "") or "")
+    if production_slot:
+        explicit = str(getattr(args, "pipeline_args", "") or "").strip()
+        inherited = os.environ.get("RESUMEGEN_NIGHTLY_ARGS", "").strip()
+        if explicit or inherited:
+            raise ValueError(
+                "production slots use the reviewed dynamic contract; "
+                "RESUMEGEN_NIGHTLY_ARGS/--pipeline-args overrides are forbidden"
+            )
+        return list(
+            production_slot_args(
+                production_slot,
+                include_discovery=bool(
+                    getattr(args, "include_discovery", False)
+                ),
+            )
+        )
     return shlex.split(
-        args.pipeline_args or os.environ.get("RESUMEGEN_NIGHTLY_ARGS", "--generate")
+        getattr(args, "pipeline_args", "")
+        or os.environ.get("RESUMEGEN_NIGHTLY_ARGS", "--generate")
     )
 
 
@@ -220,8 +285,15 @@ def _run_pipeline(args: argparse.Namespace) -> tuple[int, Path]:
     cmd = _pipeline_command(args)
     with log_path.open("w", encoding="utf-8") as log:
         log.write(f"$ {' '.join(shlex.quote(part) for part in cmd)}\n\n")
+        log.write(f"TZ={DEFAULT_TIMEZONE}\n\n")
         log.flush()
-        result = subprocess.run(cmd, cwd=ROOT, stdout=log, stderr=subprocess.STDOUT)
+        result = subprocess.run(
+            cmd,
+            cwd=ROOT,
+            stdout=log,
+            stderr=subprocess.STDOUT,
+            env={**os.environ, "TZ": DEFAULT_TIMEZONE},
+        )
     returncode, status, summary_path = _pipeline_outcome(log_path, result.returncode)
     if returncode == 0:
         notification = "Nightly recruiting run completed successfully."
@@ -251,6 +323,27 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--state-path", default=str(STATE_PATH))
     parser.add_argument(
+        "--production-slot",
+        choices=PRODUCTION_SLOTS,
+        default="",
+        help="Select one reviewed two-slot production contract.",
+    )
+    parser.add_argument(
+        "--timezone",
+        choices=(DEFAULT_TIMEZONE,),
+        default=DEFAULT_TIMEZONE,
+        help="IANA timezone used for due dates and daily slot idempotency.",
+    )
+    parser.add_argument(
+        "--discovery-state-path", default=str(DISCOVERY_STATE_PATH)
+    )
+    parser.add_argument(
+        "--discovery-cadence-hours",
+        type=float,
+        default=DEFAULT_DISCOVERY_CADENCE_HOURS,
+    )
+    parser.add_argument("--lock-path", default=str(LOCK_PATH))
+    parser.add_argument(
         "--pipeline-args", default="", help="Arguments for run_nightly_pipeline.py."
     )
     parser.add_argument("--force", action="store_true", help="Run even if not due.")
@@ -271,6 +364,11 @@ def parse_args() -> argparse.Namespace:
             "Fail closed unless the configured unattended pipeline includes both "
             "bounded app-queue and Track 2 LinkedIn delivery gates."
         ),
+    )
+    parser.add_argument(
+        "--require-production-slot-contract",
+        action="store_true",
+        help="Fail closed unless the selected slot/mode matches its reviewed contract.",
     )
     parser.add_argument(
         "--production-attestation",
@@ -322,12 +420,45 @@ def main() -> int:
         )
         return 0
     state_path = Path(args.state_path).expanduser()
-    with _lock(LOCK_PATH):
+    lock_path = Path(getattr(args, "lock_path", LOCK_PATH)).expanduser()
+    with _lock(lock_path):
         state = _load_state(state_path)
         is_due, reason = _due(state, args)
+        production_slot = str(getattr(args, "production_slot", "") or "")
+        discovery_state_path = Path(
+            getattr(args, "discovery_state_path", DISCOVERY_STATE_PATH)
+        ).expanduser()
+        discovery_state = _load_state(discovery_state_path) if production_slot else {}
+        if production_slot:
+            include_discovery, discovery_reason = _discovery_due(
+                discovery_state,
+                now=_now(),
+                cadence_hours=float(
+                    getattr(
+                        args,
+                        "discovery_cadence_hours",
+                        DEFAULT_DISCOVERY_CADENCE_HOURS,
+                    )
+                ),
+            )
+        else:
+            include_discovery, discovery_reason = False, "legacy_single_slot"
+        args.include_discovery = include_discovery
         if args.check_only:
             print(
-                json.dumps({"due": is_due, "reason": reason, "state": state}, indent=2)
+                json.dumps(
+                    {
+                        "due": is_due,
+                        "reason": reason,
+                        "timezone": getattr(args, "timezone", DEFAULT_TIMEZONE),
+                        "production_slot": production_slot,
+                        "discovery_due": include_discovery,
+                        "discovery_reason": discovery_reason,
+                        "state": state,
+                        "discovery_state": discovery_state,
+                    },
+                    indent=2,
+                )
             )
             return 0
         if not is_due:
@@ -335,7 +466,49 @@ def main() -> int:
                 print(f"Not due: {reason}")
             return 0
 
-        if getattr(args, "require_live_delivery_contract", False):
+        if getattr(args, "require_production_slot_contract", False):
+            if not production_slot:
+                contract_errors = ["--production-slot is required"]
+            else:
+                contract_errors = []
+                expected_time = PRODUCTION_SLOT_TIMES[production_slot]
+                if args.scheduled_time != expected_time:
+                    contract_errors.append(
+                        f"{production_slot} must run at {expected_time} {DEFAULT_TIMEZONE}"
+                    )
+                cadence_hours = float(
+                    getattr(
+                        args,
+                        "discovery_cadence_hours",
+                        DEFAULT_DISCOVERY_CADENCE_HOURS,
+                    )
+                )
+                if cadence_hours != DEFAULT_DISCOVERY_CADENCE_HOURS:
+                    contract_errors.append(
+                        "production discovery cadence must be exactly 48 hours"
+                    )
+                try:
+                    pipeline_args = _pipeline_args(args)
+                except ValueError as exc:
+                    contract_errors.append(str(exc))
+                else:
+                    contract_errors.extend(
+                        validate_production_slot_args(
+                            pipeline_args,
+                            slot=production_slot,
+                            include_discovery=include_discovery,
+                        )
+                    )
+            if contract_errors:
+                message = "; ".join(contract_errors)
+                state["last_guard_failure_at"] = _now().isoformat(timespec="seconds")
+                state["last_guard_failure"] = (
+                    f"unsafe production slot contract: {message}"
+                )
+                _save_state(state_path, state)
+                print(state["last_guard_failure"], file=sys.stderr)
+                return 78
+        elif getattr(args, "require_live_delivery_contract", False):
             try:
                 pipeline_args = _pipeline_args(args)
             except ValueError as exc:
@@ -380,10 +553,33 @@ def main() -> int:
             return 0
 
         state["snooze_until"] = ""
+        state["production_slot"] = production_slot
+        state["timezone"] = getattr(args, "timezone", DEFAULT_TIMEZONE)
+        state["discovery_requested"] = include_discovery
+        state["discovery_reason"] = discovery_reason
         state["last_decision_at"] = _now().isoformat(timespec="seconds")
         state["last_attempt_date"] = today
         state["last_attempt_started_at"] = _now().isoformat(timespec="seconds")
         _save_state(state_path, state)
+        discovery_attempt_at = ""
+        if include_discovery:
+            discovery_attempt_at = _now().isoformat(timespec="seconds")
+            discovery_state.update(
+                {
+                    "timezone": getattr(args, "timezone", DEFAULT_TIMEZONE),
+                    "cadence_hours": float(
+                        getattr(
+                            args,
+                            "discovery_cadence_hours",
+                            DEFAULT_DISCOVERY_CADENCE_HOURS,
+                        )
+                    ),
+                    "last_attempt_at": discovery_attempt_at,
+                    "last_attempt_slot": production_slot,
+                    "last_attempt_status": "running",
+                }
+            )
+            _save_state(discovery_state_path, discovery_state)
         return_code, log_path = _run_pipeline(args)
         return_code, run_status, summary_path = _pipeline_outcome(
             log_path, return_code
@@ -397,6 +593,16 @@ def main() -> int:
         state["last_run_log"] = str(log_path)
         state["last_run_summary"] = str(summary_path or "")
         _save_state(state_path, state)
+        if include_discovery:
+            discovery_state = _load_state(discovery_state_path)
+            if discovery_state.get("last_attempt_at") == discovery_attempt_at:
+                discovery_state["last_attempt_status"] = run_status
+                discovery_state["last_attempt_exit_code"] = return_code
+                discovery_state["last_attempt_completed_at"] = _now().isoformat(
+                    timespec="seconds"
+                )
+                discovery_state["last_attempt_summary"] = str(summary_path or "")
+                _save_state(discovery_state_path, discovery_state)
         return return_code
 
 

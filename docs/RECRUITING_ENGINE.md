@@ -245,8 +245,23 @@ used by the scheduled nightly wrapper.
 
 Nightly automation is the production entrypoint for discovery, the app-outreach
 lane, shortlist/generation, Outreach Track 2, and the final run-scoped report.
-The LaunchAgent runs unattended at 1:00am by default. Prompt/Snooze/Skip mode is
-still available, but it is an explicit opt-in and is not the production default.
+Production uses two unattended slots in `Asia/Kolkata`: the evening delivery
+slot at 20:00 and the overnight maintenance slot at 01:00. Prompt/Snooze/Skip
+mode is still available, but it is an explicit opt-in and is not the production
+default.
+
+| Slot | Track 2 behavior | Discovery behavior |
+|---|---|---|
+| 20:00 `evening_delivery` | The sole daily LinkedIn-send and LinkedIn/email-draft owner; reviewed caps apply | Runs only when the shared 48-hour discovery attempt is due |
+| 01:00 `overnight_maintenance` | Refresh/reconciliation, account maintenance, mapping, research, and enrichment; invite, follow-up, and email-draft budgets are explicitly `0` | May claim an overdue shared 48-hour discovery attempt, but retains the zeroed Track 2 delivery/draft limits |
+
+Each slot has a separate daily scheduler-state file, so completion of one does
+not suppress the other. Both plist jobs use the same scheduler overlap lock and
+the same discovery cadence state. Discovery is reserved before execution and
+gated from the last attempt, not the last success, so a partial app send cannot
+be replayed automatically by the next slot. The Daily Engine currently owns
+discovery, generation, and app-queue sends as one lane; consequently those
+three operations run together only on the 48-hour discovery attempt.
 
 ```bash
 venv/bin/python discovery/scripts/run_nightly_pipeline.py
@@ -289,10 +304,11 @@ invokes the bounded Track 2 plan with `--refresh-linkedin` and the cycle's
 follow-up limit.
 It adds `--send-linkedin` only when the separate nightly
 `--track-2-send-linkedin` flag is present. This lets a supervised/manual command
-run the full live preparation/draft flow without delivery. Production unattended
-automation is intentionally live: its canonical contract includes both
-`--execute-sends --target-sends auto` and
-`--execute-track-2-daily-plan --track-2-send-linkedin`. The deprecated nightly
+run the full live preparation/draft flow without delivery. In production the
+20:00 contract is the only Track 2 delivery/draft owner. The 01:00 contract
+still executes Track 2 maintenance but forbids LinkedIn delivery and hard-zeros
+invite, follow-up, and email-draft limits. A discovery-enabled contract also
+includes `--execute-sends --target-sends auto` for the app queue. The deprecated nightly
 `--execute-linkedin-followups` flag is
 rejected before pipeline side effects begin. Use `run_daily_engine.py` directly
 only when intentionally operating the standalone supervised lane; never run both
@@ -377,19 +393,20 @@ venv/bin/python discovery/scripts/production_release.py record \
 venv/bin/python discovery/scripts/production_release.py check
 ```
 
-Then install the unattended 1:00am LaunchAgent:
+Then write the unattended 20:00/01:00 LaunchAgent pair:
 
 ```bash
-RESUMEGEN_NIGHTLY_LOAD=1 \
-./discovery/scripts/install_nightly_launch_agent.sh 01:00
+./discovery/scripts/install_nightly_launch_agent.sh
 ```
 
-With no `RESUMEGEN_NIGHTLY_ARGS` override, the installer obtains the exact live
-argument vector from `discovery/scripts/nightly_contract.py`. In unattended mode
-it refuses a custom vector that omits app delivery, Track 2 delivery, selects
-zero app sends, or changes the reviewed bounded cycle values. For a supervised
-enrichment-only diagnostic, invoke `run_nightly_pipeline.py` directly or use
-prompt mode; do not weaken the production label.
+This command only writes plists; it does not load or reload either job unless
+`RESUMEGEN_NIGHTLY_LOAD=1` is explicitly supplied. The existing base label is
+reused for the evening slot and `.overnight` is added for the second slot, so a
+reload does not leave the former single-slot label running as a third job.
+`RESUMEGEN_NIGHTLY_ARGS` overrides are rejected: the scheduler selects and
+revalidates the exact slot/discovery vector from
+`discovery/scripts/nightly_contract.py`. For a supervised diagnostic, invoke
+`run_nightly_pipeline.py` directly; do not weaken a production slot.
 
 Before trusting the schedule, verify the same launchd context can read both
 Desktop repos and validate the recorded SHAs without triggering any pipeline
@@ -398,24 +415,21 @@ action. Install a separate, temporary check-only label:
 ```bash
 RESUMEGEN_NIGHTLY_LABEL=com.akshat.resumegenerator.nightly.preflight \
 RESUMEGEN_NIGHTLY_MODE=check \
-RESUMEGEN_NIGHTLY_LOAD=1 \
-./discovery/scripts/install_nightly_launch_agent.sh 01:00
+./discovery/scripts/install_nightly_launch_agent.sh
 
-launchctl kickstart -k \
-  "gui/$(id -u)/com.akshat.resumegenerator.nightly.preflight"
-launchctl print \
-  "gui/$(id -u)/com.akshat.resumegenerator.nightly.preflight"
+# Review the two generated check-only plists before explicitly loading them.
 ```
 
 Exit code `0` plus a JSON `status: valid` record in
-`~/Library/Logs/ResumeGenerator/nightly_launchd.out.log` proves the launchd
+the matching `~/Library/Logs/ResumeGenerator/nightly_{evening,overnight}_launchd.out.log`
+proves the launchd
 process could read the Desktop repos and match the attestation. The check-only
 path does not read or mutate scheduler state and cannot invoke the pipeline.
 Boot out the temporary preflight label after verification. A nonzero result
 must be fixed before enabling the production label; it commonly means a missing
 attestation, dirty/changed HEAD, or macOS Desktop/TCC denial.
 
-The installer only writes the plist unless `RESUMEGEN_NIGHTLY_LOAD=1` is set.
+The installer only writes the two plists unless `RESUMEGEN_NIGHTLY_LOAD=1` is set.
 Its `ProgramArguments` call the configured `PYTHON_BIN` and
 `nightly_prompt.py` directly, so launchd uses the same audited interpreter that
 was selected during installation.
@@ -427,10 +441,10 @@ attempt before execution so a partial LinkedIn send cannot be replayed blindly.
 Inspect the failed summary/report and explicitly force a retry only after
 reconciling partial actions.
 
-To use the old prompt flow for a non-production/manual setup:
+To use prompt flow for a non-production/manual setup:
 
 ```bash
-RESUMEGEN_NIGHTLY_MODE=prompt ./discovery/scripts/install_nightly_launch_agent.sh 01:00
+RESUMEGEN_NIGHTLY_MODE=prompt ./discovery/scripts/install_nightly_launch_agent.sh
 ```
 
 The LaunchAgent `last exit code` is not the source of truth because the 5-minute
@@ -438,7 +452,9 @@ prompt checker can later exit cleanly with "not due" and overwrite it. For run
 debugging, inspect:
 
 - timestamped pipeline logs in `~/Library/Logs/ResumeGenerator/nightly_pipeline_*.log`
-- scheduler state in `~/Library/Application Support/ResumeGenerator/nightly_scheduler_state.json`
+- per-slot scheduler state in `~/Library/Application Support/ResumeGenerator/nightly_scheduler_state.{evening,overnight}.json`
+- shared discovery state in `~/Library/Application Support/ResumeGenerator/nightly_discovery_cadence.json`
+- shared overlap lock in `~/Library/Application Support/ResumeGenerator/nightly_scheduler.lock`
 - summary artifacts in `discovery/source_validation/*nightly-pipeline-summary.{json,md}`
 
 The scheduler state also records `last_run_was_actual_pipeline`,

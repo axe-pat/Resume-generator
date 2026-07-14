@@ -2,7 +2,7 @@
 
 The nightly recruiting engine runs only released code. New sources, messaging
 rules, browser selectors, and report features are developed and exercised in a
-branch or isolated worktree. They enter the 1:00am pipeline only after their
+branch or isolated worktree. They enter the 20:00/01:00 Asia/Kolkata schedule only after their
 focused tests pass, the combined smoke suite passes, and both repos are merged
 to clean `main` commits.
 
@@ -19,7 +19,7 @@ to clean `main` commits.
    fill-to-review runner cannot become production through an unattested edit.
 5. Record the exact tested HEADs with `production_release.py record`, including
    concise test evidence.
-6. Run `production_release.py check`, then install/reload the LaunchAgent.
+6. Run `production_release.py check`, then install/reload both LaunchAgent slots.
 7. Run `nightly_prompt.py --production-check-only` from the intended execution
    context—or use a separate `RESUMEGEN_NIGHTLY_MODE=check` LaunchAgent label—to
    prove Desktop/TCC access without touching scheduler state or live actions.
@@ -57,20 +57,25 @@ never blindly retry a timed-out live run before reconciling partial artifacts.
 `--execute-track-2-daily-plan` runs live refresh, planning, enrichment, and
 draft creation but does not deliver LinkedIn messages by itself. Delivery
 requires the separate `--track-2-send-linkedin` flag. The canonical unattended
-LaunchAgent is intentionally a bounded live-delivery service: it includes
-`--execute-sends --target-sends auto` for the app queue and
-`--execute-track-2-daily-plan --track-2-send-linkedin` for Track 2. The single
-source of truth is `discovery/scripts/nightly_contract.py`; print the exact
-reviewed argument vector with:
+schedule has two reviewed contracts. The 20:00 `evening_delivery` slot is the
+only Track 2 delivery/draft owner. The 01:00 `overnight_maintenance` slot still
+runs reconciliation and maintenance but forbids LinkedIn delivery and sets
+invite, follow-up, and email-draft limits to `0`. Both slots may claim the same
+discovery lane only when its shared 48-hour attempt cadence is due; that lane
+includes `--execute-sends --target-sends auto` for the app queue. The source of
+truth is `discovery/scripts/nightly_contract.py`; inspect exact vectors with:
 
 ```bash
-venv/bin/python discovery/scripts/nightly_contract.py print
+venv/bin/python discovery/scripts/nightly_contract.py print-slot evening_delivery maintenance
+venv/bin/python discovery/scripts/nightly_contract.py print-slot overnight_maintenance maintenance
+venv/bin/python discovery/scripts/nightly_contract.py print-slot evening_delivery discovery
 ```
 
-The installer and due-time scheduler both validate that contract. An unattended
-install with `--target-sends 0`, either delivery gate missing, or bounded cycle
-limits drifting from the reviewed contract fails closed instead of silently
-becoming an enrichment-only or unexpectedly aggressive nightly.
+The installer and due-time scheduler both validate the exact selected contract;
+custom `RESUMEGEN_NIGHTLY_ARGS` vectors are rejected. Discovery, generation,
+and app-queue sending remain one Daily Engine lane, so they all run at the
+48-hour discovery cadence. Track 2 maintenance remains twice daily, but only
+the evening slot can send or produce the reviewed draft batches.
 
 Track 2's process return code is not sufficient evidence of success. The
 orchestrator reads every exact-run `phase_results` row; `partial_failed`,
@@ -98,8 +103,14 @@ production merely because it exists in the shared checkout.
 
 - Release attestation:
   `~/Library/Application Support/ResumeGenerator/production_release.json`
-- Scheduler state:
-  `~/Library/Application Support/ResumeGenerator/nightly_scheduler_state.json`
+- Evening scheduler state:
+  `~/Library/Application Support/ResumeGenerator/nightly_scheduler_state.evening.json`
+- Overnight scheduler state:
+  `~/Library/Application Support/ResumeGenerator/nightly_scheduler_state.overnight.json`
+- Shared discovery-attempt state:
+  `~/Library/Application Support/ResumeGenerator/nightly_discovery_cadence.json`
+- Shared scheduler overlap lock:
+  `~/Library/Application Support/ResumeGenerator/nightly_scheduler.lock`
 - Shared cockpit mutation lock:
   `~/Library/Application Support/ResumeGenerator/operator_mutation.lock`
 - Timestamped logs: `~/Library/Logs/ResumeGenerator/`
@@ -108,7 +119,9 @@ production merely because it exists in the shared checkout.
 - Final HTML report:
   `../Outreach/workspace/reports/daily_html/daily_run_report.html`
 
-The pipeline owns `nightly_pipeline.lock` first and then holds the shared
+Both scheduler slots first serialize through `nightly_scheduler.lock`, which is
+held for the complete selected run. The pipeline then owns
+`nightly_pipeline.lock` and holds the shared
 cockpit mutation lock for the whole run. A guarded cockpit write that already
 owns the shared lock finishes before nightly proceeds; a new cockpit write
 fails closed once the pipeline lock is busy.
