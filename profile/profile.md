@@ -15,6 +15,11 @@ His core strength lies at the intersection of technical architecture, product th
 
 **Internship target:** Summer 2026 (May–August). Full-time availability. F-1 visa, eligible for CPT.
 
+### Private outreach context (do not add to public resume/profile)
+
+- Akshat spent roughly one month at Fivetran immediately before joining Hevo Data. Use this selectively when contacting Fivetran people or adjacent data-integration companies: it gives him first-hand category context, but it is not a standalone public work-history entry.
+- For Airbyte, Fivetran, and other connector/data-movement companies, lead with the Hevo Data experience and concrete familiarity with connectors, ETL/integrations, customer onboarding, and pipeline reliability rather than a generic data-platform claim.
+
 ---
 
 ## 2. Target Roles (Priority Order)

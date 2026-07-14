@@ -16,6 +16,9 @@ This file is the human-readable index for reusable stories and answer material. 
 - `docs/reference/STORY_BANK_RICH.md`
   Weak-variant reference and high-signal story material used to audit/rescue resume and cover-letter variants.
 
+- `docs/career_workbench/story_sources/interview_story_scripts.md`
+  Polished spoken versions of reusable stories. Best for interview prep, TMAY/Why Company drafts, and behavioral/product answer scripts.
+
 - `resume/freeform/prompts/freeform_master_v2.txt`
   PM-track resume bullet source. Use this when a story is ready to become resume-grade.
 
