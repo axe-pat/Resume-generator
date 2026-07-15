@@ -603,7 +603,37 @@ def main() -> int:
                 )
                 discovery_state["last_attempt_summary"] = str(summary_path or "")
                 _save_state(discovery_state_path, discovery_state)
+        _record_discovery_run_count(args, discovery_state_path, run_status)
         return return_code
+
+
+def _record_discovery_run_count(
+    args: argparse.Namespace, discovery_state_path: Path, run_status: str
+) -> None:
+    """Keep the 1-in-N operator cadence counter in sync with every real run.
+
+    Attempt-based like the 48h gate: a discovery attempt resets the counter
+    even when the run later fails, so a broken run cannot force discovery to
+    replay on every subsequent attempt.
+    """
+
+    try:
+        executed_args = _pipeline_args(args)
+    except ValueError:
+        executed_args = []
+    discovery_state = _load_state(discovery_state_path)
+    if "--generate" in executed_args:
+        discovery_state["runs_since_discovery"] = 0
+        discovery_state.setdefault(
+            "last_attempt_at", _now().isoformat(timespec="seconds")
+        )
+        discovery_state["last_counted_run_status"] = run_status
+    else:
+        previous = discovery_state.get("runs_since_discovery")
+        count = previous if isinstance(previous, int) and previous >= 0 else 0
+        discovery_state["runs_since_discovery"] = count + 1
+        discovery_state["last_counted_run_status"] = run_status
+    _save_state(discovery_state_path, discovery_state)
 
 
 if __name__ == "__main__":

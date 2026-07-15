@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import importlib.util
 import json
 import os
@@ -202,6 +203,82 @@ def test_unattended_contract_rejects_silent_no_send_regressions(
     errors = module.validate_production_nightly_args(shlex.split(candidate))
 
     assert any(expected in error for error in errors)
+
+
+def test_operator_contract_accepts_both_reviewed_evening_shapes() -> None:
+    module = _load_script("nightly_contract.py", "nightly_contract_dual_shape_test")
+
+    assert module.validate_production_nightly_args(
+        list(module.PRODUCTION_NIGHTLY_ARGS)
+    ) == []
+    assert module.validate_production_nightly_args(
+        list(module.MAINTENANCE_NIGHTLY_ARGS)
+    ) == []
+    assert "--skip-daily-engine" in module.MAINTENANCE_NIGHTLY_ARGS
+    assert "--track-2-send-linkedin" in module.MAINTENANCE_NIGHTLY_ARGS
+    assert "--generate" not in module.MAINTENANCE_NIGHTLY_ARGS
+
+
+def test_discovery_run_count_gate_is_one_in_four_and_fails_open(
+    tmp_path: Path,
+) -> None:
+    module = _load_script("nightly_contract.py", "nightly_contract_cadence_test")
+    state_path = tmp_path / "cadence.json"
+
+    due, reason = module.discovery_due_by_run_count(state_path)
+    assert due and reason == "no_discovery_cadence_state"
+
+    for count, expected in ((0, False), (1, False), (2, False), (3, True), (7, True)):
+        state_path.write_text(json.dumps({"runs_since_discovery": count}))
+        due, _ = module.discovery_due_by_run_count(state_path)
+        assert due is expected, f"count={count}"
+
+    state_path.write_text(json.dumps({"runs_since_discovery": "bad"}))
+    due, reason = module.discovery_due_by_run_count(state_path)
+    assert due and reason == "invalid_runs_since_discovery"
+
+
+def test_contract_print_selects_vector_from_the_run_count_state(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module = _load_script("nightly_contract.py", "nightly_contract_print_cadence")
+    state_path = tmp_path / "cadence.json"
+    monkeypatch.setattr(module, "DISCOVERY_CADENCE_STATE_PATH", state_path)
+
+    vector, include_discovery, _ = module.current_operator_nightly_args()
+    assert include_discovery and vector == module.PRODUCTION_NIGHTLY_ARGS
+
+    state_path.write_text(json.dumps({"runs_since_discovery": 1}))
+    vector, include_discovery, _ = module.current_operator_nightly_args()
+    assert not include_discovery and vector == module.MAINTENANCE_NIGHTLY_ARGS
+
+
+def test_operator_run_counter_resets_on_discovery_and_increments_otherwise(
+    tmp_path: Path,
+) -> None:
+    prompt = _load_script("nightly_prompt.py", "nightly_prompt_counter_test")
+    contract = _load_script("nightly_contract.py", "nightly_contract_counter_test")
+    state_path = tmp_path / "cadence.json"
+
+    maintenance = argparse.Namespace(
+        production_slot="",
+        pipeline_args=shlex.join(contract.MAINTENANCE_NIGHTLY_ARGS),
+    )
+    discovery = argparse.Namespace(
+        production_slot="",
+        pipeline_args=shlex.join(contract.PRODUCTION_NIGHTLY_ARGS),
+    )
+
+    for expected in (1, 2, 3):
+        prompt._record_discovery_run_count(maintenance, state_path, "completed")
+        state = json.loads(state_path.read_text())
+        assert state["runs_since_discovery"] == expected
+    assert contract.discovery_due_by_run_count(state_path)[0] is True
+
+    prompt._record_discovery_run_count(discovery, state_path, "failed_or_incomplete")
+    state = json.loads(state_path.read_text())
+    assert state["runs_since_discovery"] == 0
+    assert contract.discovery_due_by_run_count(state_path)[0] is False
 
 
 def test_installer_writes_two_isolated_slots_with_shared_guards(tmp_path: Path) -> None:

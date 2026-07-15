@@ -3,9 +3,11 @@
 
 from __future__ import annotations
 
+import json
 import shlex
 import sys
 from collections.abc import Sequence
+from pathlib import Path
 
 
 EVENING_DELIVERY_SLOT = "evening_delivery"
@@ -15,6 +17,18 @@ PRODUCTION_SLOT_TIMES = {
     EVENING_DELIVERY_SLOT: "20:00",
     OVERNIGHT_MAINTENANCE_SLOT: "01:00",
 }
+
+# Operator-triggered runs include the discovery lane once every N runs; the
+# other runs are delivery-only maintenance. The counter lives in the shared
+# discovery cadence state and is updated by the scheduler at run time.
+DISCOVERY_RUN_INTERVAL = 4
+DISCOVERY_CADENCE_STATE_PATH = (
+    Path.home()
+    / "Library"
+    / "Application Support"
+    / "ResumeGenerator"
+    / "nightly_discovery_cadence.json"
+)
 
 _DISCOVERY_ARGS: tuple[str, ...] = (
     "--generate",
@@ -105,9 +119,50 @@ PRODUCTION_NIGHTLY_ARGS: tuple[str, ...] = production_slot_args(
     EVENING_DELIVERY_SLOT, include_discovery=True
 )
 
+# The delivery-only counterpart used by operator runs between discovery runs.
+MAINTENANCE_NIGHTLY_ARGS: tuple[str, ...] = production_slot_args(
+    EVENING_DELIVERY_SLOT, include_discovery=False
+)
+
+
+def discovery_due_by_run_count(
+    state_path: Path | None = None,
+    *,
+    interval: int = DISCOVERY_RUN_INTERVAL,
+) -> tuple[bool, str]:
+    """Read-only 1-in-N gate for operator-triggered runs.
+
+    The scheduler owns the counter writes; this only decides whether the next
+    run should include the discovery lane. A missing or unreadable state fails
+    open to discovery so a fresh install starts with a full run.
+    """
+
+    if state_path is None:
+        state_path = DISCOVERY_CADENCE_STATE_PATH
+    try:
+        state = json.loads(state_path.read_text(encoding="utf-8"))
+    except Exception:
+        return True, "no_discovery_cadence_state"
+    raw = state.get("runs_since_discovery")
+    if not isinstance(raw, int) or raw < 0:
+        return True, "invalid_runs_since_discovery"
+    if raw >= max(interval, 1) - 1:
+        return True, f"runs_since_discovery_{raw}_of_{interval}"
+    return False, f"runs_since_discovery_{raw}_of_{interval}"
+
 
 def production_nightly_args_text() -> str:
     return shlex.join(PRODUCTION_NIGHTLY_ARGS)
+
+
+def current_operator_nightly_args() -> tuple[tuple[str, ...], bool, str]:
+    """The exact evening vector the next operator-triggered run must use."""
+
+    include_discovery, reason = discovery_due_by_run_count()
+    vector = (
+        PRODUCTION_NIGHTLY_ARGS if include_discovery else MAINTENANCE_NIGHTLY_ARGS
+    )
+    return vector, include_discovery, reason
 
 
 def production_slot_args_text(slot: str, *, include_discovery: bool) -> str:
@@ -208,13 +263,29 @@ def validate_production_slot_args(
 
 
 def validate_production_nightly_args(argv: Sequence[str]) -> list[str]:
-    """Validate the backwards-compatible discovery-enabled evening vector."""
+    """Validate an operator-run evening vector (discovery or maintenance).
 
-    return validate_production_slot_args(
-        argv,
+    Both reviewed shapes deliver: discovery adds the Daily Engine lane once
+    per DISCOVERY_RUN_INTERVAL runs, maintenance skips it explicitly. Any
+    other vector is rejected with the discovery-shape violations.
+    """
+
+    tokens = list(argv)
+    discovery_errors = validate_production_slot_args(
+        tokens,
         slot=EVENING_DELIVERY_SLOT,
         include_discovery=True,
     )
+    if not discovery_errors:
+        return []
+    maintenance_errors = validate_production_slot_args(
+        tokens,
+        slot=EVENING_DELIVERY_SLOT,
+        include_discovery=False,
+    )
+    if not maintenance_errors:
+        return []
+    return discovery_errors
 
 
 def _parse_candidate(value: str) -> tuple[list[str] | None, str | None]:
@@ -227,7 +298,21 @@ def _parse_candidate(value: str) -> tuple[list[str] | None, str | None]:
 def main(argv: Sequence[str] | None = None) -> int:
     args = list(argv if argv is not None else sys.argv[1:])
     if args == ["print"]:
-        print(production_nightly_args_text())
+        vector, _, _ = current_operator_nightly_args()
+        print(shlex.join(vector))
+        return 0
+    if args == ["print-cadence"]:
+        include_discovery, reason = discovery_due_by_run_count()
+        print(
+            json.dumps(
+                {
+                    "include_discovery": include_discovery,
+                    "reason": reason,
+                    "interval_runs": DISCOVERY_RUN_INTERVAL,
+                    "state_path": str(DISCOVERY_CADENCE_STATE_PATH),
+                }
+            )
+        )
         return 0
     if len(args) == 3 and args[0] == "print-slot":
         slot, mode = args[1:]
