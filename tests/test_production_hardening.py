@@ -192,7 +192,7 @@ def test_track_2_is_the_scheduled_refresh_and_followup_owner(monkeypatch) -> Non
     track_2 = next(command for command in captured if "run-track-2-daily-plan" in command)
     assert "--refresh-linkedin" in track_2
     assert "--send-linkedin" not in track_2
-    assert track_2[track_2.index("--max-linkedin-followups") + 1] == "25"
+    assert track_2[track_2.index("--max-linkedin-followups") + 1] == "40"
     assert summary["track_2_linkedin_delivery_requested"] is False
     assert summary["track_2_daily_run_status"] == "failed_missing_artifact"
     assert summary["track_2_artifact_validation_returncode"] == 1
