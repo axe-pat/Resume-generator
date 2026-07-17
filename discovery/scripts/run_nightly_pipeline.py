@@ -36,16 +36,21 @@ APP_QUEUE_SEND_TARGET_BY_CYCLE = {
     "normal": "25",
 }
 TRACK_2_INVITE_TARGET_BY_CYCLE = {
-    "offcycle_light": "25",
-    "normal": "25",
+    # ~190/week ceiling (safely under LinkedIn's ~200 weekly invite cap).
+    "offcycle_light": "27",
+    "normal": "27",
 }
 TRACK_2_FOLLOWUP_TARGET_BY_CYCLE = {
-    "offcycle_light": "25",
-    "normal": "25",
+    # Follow-ups are free (no LinkedIn invite cap); keep headroom to drain the
+    # accepted-but-no-conversation backlog.
+    "offcycle_light": "40",
+    "normal": "40",
 }
 TRACK_2_MAPPING_TARGET_BY_CYCLE = {
-    "offcycle_light": "15",
-    "normal": "15",
+    # More mapping/day so freshly-mapped people feed the same-run invite drain
+    # instead of piling up as queued contacts.
+    "offcycle_light": "25",
+    "normal": "25",
 }
 TRACK_2_EMAIL_RESEARCH_TARGET_BY_CYCLE = {
     "offcycle_light": "10",
@@ -56,8 +61,10 @@ TRACK_2_EMAIL_DRAFT_TARGET_BY_CYCLE = {
     "normal": "5",
 }
 TRACK_2_TOTAL_ACTIONS_BY_CYCLE = {
-    "offcycle_light": "80",
-    "normal": "80",
+    # Must exceed invites + follow-ups + mapping (27 + 40 + 25) so the global
+    # governor never starves the invite phase.
+    "offcycle_light": "110",
+    "normal": "110",
 }
 TRACK_2_COMPANIES_BY_CYCLE = {
     "offcycle_light": "55",
