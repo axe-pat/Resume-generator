@@ -21,7 +21,7 @@ PRODUCTION_SLOT_TIMES = {
 # Operator-triggered runs include the discovery lane once every N runs; the
 # other runs are delivery-only maintenance. The counter lives in the shared
 # discovery cadence state and is updated by the scheduler at run time.
-DISCOVERY_RUN_INTERVAL = 4
+DISCOVERY_RUN_INTERVAL = 3
 DISCOVERY_CADENCE_STATE_PATH = (
     Path.home()
     / "Library"

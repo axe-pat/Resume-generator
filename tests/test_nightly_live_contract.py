@@ -219,7 +219,7 @@ def test_operator_contract_accepts_both_reviewed_evening_shapes() -> None:
     assert "--generate" not in module.MAINTENANCE_NIGHTLY_ARGS
 
 
-def test_discovery_run_count_gate_is_one_in_four_and_fails_open(
+def test_discovery_run_count_gate_is_one_in_three_and_fails_open(
     tmp_path: Path,
 ) -> None:
     module = _load_script("nightly_contract.py", "nightly_contract_cadence_test")
@@ -228,7 +228,7 @@ def test_discovery_run_count_gate_is_one_in_four_and_fails_open(
     due, reason = module.discovery_due_by_run_count(state_path)
     assert due and reason == "no_discovery_cadence_state"
 
-    for count, expected in ((0, False), (1, False), (2, False), (3, True), (7, True)):
+    for count, expected in ((0, False), (1, False), (2, True), (3, True), (7, True)):
         state_path.write_text(json.dumps({"runs_since_discovery": count}))
         due, _ = module.discovery_due_by_run_count(state_path)
         assert due is expected, f"count={count}"
@@ -269,7 +269,7 @@ def test_operator_run_counter_resets_on_discovery_and_increments_otherwise(
         pipeline_args=shlex.join(contract.PRODUCTION_NIGHTLY_ARGS),
     )
 
-    for expected in (1, 2, 3):
+    for expected in (1, 2):
         prompt._record_discovery_run_count(maintenance, state_path, "completed")
         state = json.loads(state_path.read_text())
         assert state["runs_since_discovery"] == expected
