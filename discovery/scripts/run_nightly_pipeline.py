@@ -37,8 +37,11 @@ APP_QUEUE_SEND_TARGET_BY_CYCLE = {
 }
 TRACK_2_INVITE_TARGET_BY_CYCLE = {
     # ~190/week ceiling (safely under LinkedIn's ~200 weekly invite cap).
-    "offcycle_light": "27",
-    "normal": "27",
+    # Default day target stays moderate; Monday/catch-up bulk runs should pass
+    # an explicit --track-2-linkedin-invites 60 (or higher) rather than relying
+    # on this alone — see catch-up notes in relationship_engine.md.
+    "offcycle_light": "40",
+    "normal": "40",
 }
 TRACK_2_FOLLOWUP_TARGET_BY_CYCLE = {
     # Follow-ups are free (no LinkedIn invite cap); keep headroom to drain the
@@ -61,14 +64,15 @@ TRACK_2_EMAIL_DRAFT_TARGET_BY_CYCLE = {
     "normal": "5",
 }
 TRACK_2_TOTAL_ACTIONS_BY_CYCLE = {
-    # Must exceed invites + follow-ups + mapping (27 + 40 + 25) so the global
-    # governor never starves the invite phase.
-    "offcycle_light": "110",
-    "normal": "110",
+    # Must exceed invites + follow-ups + mapping (40 + 40 + 25) so the global
+    # governor never starves the invite phase. Bulk catch-up (60 invites) needs
+    # ~150+ when passed explicitly.
+    "offcycle_light": "130",
+    "normal": "130",
 }
 TRACK_2_COMPANIES_BY_CYCLE = {
-    "offcycle_light": "55",
-    "normal": "55",
+    "offcycle_light": "70",
+    "normal": "70",
 }
 NON_GREEN_SOURCE_STATUSES = {
     "failed",

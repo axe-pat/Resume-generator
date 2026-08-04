@@ -81,3 +81,5 @@ discovery/jobs.xlsx.bak
 # Personal interview prep
 docs/interview_prep/
 docs/career_workbench/interview_prep/private/
+
+.cursor/
