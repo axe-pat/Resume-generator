@@ -2,6 +2,8 @@
 
 *Author pass: 2026-07-08. Purpose: audit the raw story material scattered across ResumeGenerator + Outreach, find the gaps, and propose the architecture for a single "story engine" that feeds resume bullets, behavioral interviews, and outreach angles from one source of truth.*
 
+> **2026-07-19 isolation note:** `profile_maxing_lab/` is a separate counterfactual reference experiment containing invented or amplified material. It is not factual Story Engine content and must not feed resumes, interviews, cover letters, or outreach. Existing `_GOLD_REFERENCE_` filenames describe narrative quality, not factual clearance.
+
 ---
 
 ## 0. The Vision (restated so we're aligned)
