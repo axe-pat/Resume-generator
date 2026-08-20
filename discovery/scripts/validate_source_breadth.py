@@ -19,6 +19,11 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from shared.job_eligibility import (  # noqa: E402
+    LANE_B,
+    classify_role_surface,
+    normalize_discovery_lane,
+    pre_filter_discovery_scope,
+    pre_filter_discovery_timing,
     pre_filter_full_time_level,
     pre_filter_immigration,
     pre_filter_role_type,
@@ -28,7 +33,8 @@ from shared.job_eligibility import (  # noqa: E402
 EARLY_SIGNAL_RE = re.compile(
     r"\b("
     r"intern|internship|co-?op|coop|summer|mba|apm|associate product manager|"
-    r"new grad|recent grad|entry[- ]level|early career|rotational|leadership program"
+    r"new grad|recent grad|university grad|entry[- ]level|early career|rotational|"
+    r"leadership program|class of 2027|2027 start|start(?:ing)? (?:in )?(?:june|july|fall) 2027"
     r")\b",
     re.I,
 )
@@ -55,6 +61,11 @@ TARGET_SIGNAL_PATTERNS = [
     ("growth_strategy_ops", NARROW_GROWTH_TITLE_RE),
     ("strategy_ops", re.compile(r"\b(strategy|strategic|business operations|bizops|biz ops|gtm|revenue operations|revops)\b", re.I)),
     ("program_ops", re.compile(r"\b(program manager|technical program manager|operations project|special project)\b", re.I)),
+    ("solutions_deployment", re.compile(
+        r"\b(forward deployed (?:software )?engineer|solutions? engineer|applied ai engineer|"
+        r"solutions? architect|deployment engineer|technical solutions? consultant|partner engineer)\b",
+        re.I,
+    )),
     ("startup_operator", re.compile(r"\b(chief of staff|founder'?s associate|founding operator|business associate|venture|new ventures)\b", re.I)),
 ]
 
@@ -88,7 +99,8 @@ WEAK_APM_TITLE_RE = re.compile(
 )
 
 STRONG_EARLY_SIGNAL_RE = re.compile(
-    r"\b(intern|internship|co-?op|coop|summer|mba|student|campus|university|new grad|recent grad|rotational)\b",
+    r"\b(intern|internship|co-?op|coop|summer|mba|student|campus|university|"
+    r"new grad|recent grad|class of 2027|2027 start|rotational)\b",
     re.I,
 )
 
@@ -131,7 +143,7 @@ NOISE_TITLE_RE = re.compile(
     r"\b("
     r"product marketing manager|marketing product manager|marketing manager|sales manager|account executive|"
     r"customer success|recruiter|talent acquisition|software engineer|data scientist|"
-    r"solutions architect|legal|counsel|human resources|hr intern"
+    r"legal|counsel|human resources|hr intern"
     r")\b",
     re.I,
 )
@@ -156,6 +168,7 @@ class ClassifiedJob:
     role_title: str
     url: str
     source: str
+    lane: str
     jobspy_query_id: str
     jobspy_search_term: str
     reasons: list[str]
@@ -221,9 +234,18 @@ def classify_job(job: dict[str, Any], source_bucket: str) -> ClassifiedJob:
     jd_head = jd_text[:1200]
     combined = f"{title}\n{jd_head}"
     reasons: list[str] = []
+    lane = normalize_discovery_lane(job.get("lane"))
 
     if RECRUITER_COMPANY_RE.search(company):
         return _classified("skip_noise", source_bucket, job, ["Recruiter/aggregator posting"])
+
+    timing_reject, timing_reason = pre_filter_discovery_timing(title, jd_text, lane)
+    if timing_reject:
+        return _classified("skip_noise", source_bucket, job, [timing_reason])
+
+    scope_reject, scope_reason = pre_filter_discovery_scope(title, lane)
+    if scope_reject:
+        return _classified("skip_noise", source_bucket, job, [scope_reason])
 
     role_reject, role_reason = pre_filter_role_type(title)
     if role_reject:
@@ -239,10 +261,17 @@ def classify_job(job: dict[str, Any], source_bucket: str) -> ClassifiedJob:
     early_signal = title_early_signal or body_early_signal
     title_signals = target_signals(title)
     body_signals = target_signals(jd_head)
+    surface_disposition, surface_reason, surface_family = classify_role_surface(title, jd_text)
+    if surface_disposition == "unsure":
+        return _classified("unsure", source_bucket, job, [surface_reason])
+    if surface_disposition == "reject":
+        return _classified("skip_noise", source_bucket, job, [surface_reason])
+    if surface_family:
+        title_signals.append(f"role_family:{surface_family}")
     signals = list(dict.fromkeys([*title_signals, *body_signals]))
     outreach_signals = relationship_signals(title, company, jd_head)
 
-    if NOISE_TITLE_RE.search(title):
+    if NOISE_TITLE_RE.search(title) and "solutions_deployment" not in title_signals:
         return _classified("skip_noise", source_bucket, job, ["Noisy non-target title pattern"])
 
     if source_bucket == "jobspy_only" and JOBSPY_NOISE_TITLE_RE.search(title):
@@ -292,6 +321,9 @@ def classify_job(job: dict[str, Any], source_bucket: str) -> ClassifiedJob:
             [*reasons, "APM/associate PM title without explicit internship, MBA, student, or new-grad signal"],
         )
 
+    if lane == LANE_B and title_signals and early_signal:
+        return _classified("app_score_now", source_bucket, job, reasons)
+
     if title_signals and title_early_signal:
         return _classified("app_score_now", source_bucket, job, reasons)
 
@@ -324,6 +356,7 @@ def _classified(verdict: str, source_bucket: str, job: dict[str, Any], reasons: 
         role_title=str(job.get("role_title") or job.get("title") or "").strip(),
         url=str(job.get("url") or "").strip(),
         source=str(job.get("source") or "").strip(),
+        lane=normalize_discovery_lane(job.get("lane")),
         jobspy_query_id=str(job.get("jobspy_query_id") or job.get("_query_id") or "").strip(),
         jobspy_search_term=str(job.get("jobspy_search_term") or "").strip(),
         reasons=list(dict.fromkeys(reason for reason in reasons if reason)),
@@ -348,6 +381,7 @@ def summarize_classified(items: list[ClassifiedJob]) -> dict[str, Any]:
         "verdict_counts": dict(verdict_counts.most_common()),
         "app_score_now": [asdict(item) for item in items if item.verdict == "app_score_now"],
         "app_review": [asdict(item) for item in items if item.verdict == "app_review"],
+        "unsure": [asdict(item) for item in items if item.verdict == "unsure"],
         "outreach_signal": [asdict(item) for item in items if item.verdict == "outreach_signal"],
         "skip_noise_count": verdict_counts.get("skip_noise", 0),
     }
@@ -380,7 +414,7 @@ def write_markdown(path: Path, payload: dict[str, Any]) -> None:
         lines.append(f"- Total: {summary['count']}")
         lines.append(f"- Verdicts: {summary['verdict_counts']}")
         lines.append("")
-        for verdict in ("app_score_now", "app_review", "outreach_signal"):
+        for verdict in ("app_score_now", "app_review", "unsure", "outreach_signal"):
             rows = summary[verdict]
             if not rows:
                 continue
@@ -402,6 +436,7 @@ def write_markdown(path: Path, payload: dict[str, Any]) -> None:
             "- Add JobSpy to the daily lane only after applying these hard relevance filters before Claude scoring.",
             "- Treat `app_score_now` as candidates worth scoring immediately.",
             "- Treat `app_review` as a bounded manual or cheap-review queue.",
+            "- Treat `unsure` as a separate human-review list: unknown title, target signals in the JD body.",
             "- Treat `outreach_signal` as relationship/company discovery, not normal application scoring.",
             "- Never spend API calls on `skip_noise`.",
         ]

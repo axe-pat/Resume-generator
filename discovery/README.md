@@ -1,7 +1,7 @@
 # Discovery Layer
 
-Populates `jobs.xlsx` with scored job listings from LinkedIn and Indeed.
-Two input paths: automated keyword scraping (every 3h) and manual LinkedIn screenshot scoring (on demand).
+Populates `jobs.xlsx` with scored job listings from LinkedIn, Indeed, and Handshake.
+Discovery is explicitly lane-tagged: Fall 2026 internships (A), 2027 new-grad/full-time (B), and Handshake income-now work (C).
 
 For the combined application + relationship workflow, use
 [`docs/RECRUITING_ENGINE.md`](../docs/RECRUITING_ENGINE.md) as the higher-level
@@ -17,7 +17,7 @@ discovery/
 ├── blocklist.txt               Companies excluded from promotion (fnmatch wildcards, one per line)
 ├── auto/
 │   ├── pipeline.py             Orchestrator: scrape → score → sort → fully format xlsx
-│   ├── scraper.py              JobSpy wrapper — 9 query clusters
+│   ├── scraper.py              JobSpy wrapper — 60 Lane A/B query clusters
 │   ├── scorer.py               Claude Haiku fit scorer (pre-filters + 0–10 rubric)
 │   ├── scorer_prompt.md        Scoring rubric and profile context
 │   ├── score_screenshots.py    LinkedIn screenshot PDF → vision extract → JD fetch → score
@@ -56,11 +56,28 @@ python discovery/auto/pipeline.py --dry-run
 # Override results per query per site
 python discovery/auto/pipeline.py --results 200
 
+# Override safety caps (defaults: 120s/query, 5400s total)
+python discovery/auto/pipeline.py --query-timeout 120 --run-timeout 5400
+
 # Use a different model (default: claude-haiku-4-5-20251001)
 python discovery/auto/pipeline.py --model claude-sonnet-4-6
 
 # Suppress verbose per-job output
 python discovery/auto/pipeline.py --quiet
+```
+
+Each JobSpy query runs in its own killable process. Its results and status are
+checkpointed under `discovery/auto/checkpoints/` before the next query starts;
+a timed-out query is logged and skipped. The pipeline also has a total
+wall-clock cap (including time spent asleep/closed-lid), and in-flight scoring
+requests share that deadline, so completed query checkpoints survive a stalled
+or terminated run without background scoring threads extending it.
+
+To validate discovery classification against the current workbook without any
+network calls:
+
+```bash
+venv/bin/python discovery/scripts/replay_discovery_eligibility.py
 ```
 
 ### Startup apply pipeline
@@ -456,6 +473,11 @@ accepted rows to `jobs.xlsx`, and refresh `current_apply_queue`.
 # Override the saved filter after tuning Handshake
 HANDSHAKE_SEARCH_URL="https://app.joinhandshake.com/job-search/..." \
   ./discovery/scripts/run_handshake_discovery.sh 24h
+
+# Lane C income-now search (saved Handshake on-campus/part-time URL required)
+HANDSHAKE_LANE=C \
+HANDSHAKE_SEARCH_URL="https://app.joinhandshake.com/job-search/..." \
+  ./discovery/scripts/run_handshake_discovery.sh 24h
 ```
 
 Handshake search does not offer the same reliable 24h/weekly URL filter as
@@ -509,7 +531,9 @@ venv/bin/python discovery/scripts/validate_source_breadth.py \
 ```
 
 Output goes to `discovery/source_validation/` with `app_score_now`, `app_review`,
-`outreach_signal`, and `skip_noise` buckets. Only `app_score_now` should be
+`unsure`, `outreach_signal`, and `skip_noise` buckets. `unsure` is the explicit
+human-review list for unknown titles whose JD bodies contain target signals; it
+must not be silently dropped. Only `app_score_now` should be
 considered for automatic application scoring by default; `outreach_signal` belongs
 in the relationship lane.
 

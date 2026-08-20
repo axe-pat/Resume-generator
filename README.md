@@ -396,7 +396,7 @@ Managed via Claude Cowork scheduled tasks.
 | date_posted   | scraper            | Date the job was originally posted (from JobSpy); blank for seeded/manual rows |
 | company       | scraper            | Aggregator names resolved to real employer     |
 | role_title    | scraper            |                                                |
-| role_type     | scorer             | PM / Strategy / Ops / TPM / Other             |
+| role_type     | scorer             | PM / Strategy / Ops / TPM / Solutions / Other |
 | location      | scraper            |                                                |
 | url           | scraper            | Canonical ATS URL preferred over redirect      |
 | url_hash      | pipeline.py        | MD5 of canonical URL (primary dedup key)       |
@@ -406,8 +406,16 @@ Managed via Claude Cowork scheduled tasks.
 | status        | lifecycle          | new→queued→promoted→generated→applied          |
 | date_applied  | manual             |                                                |
 | folder_path   | jobs.py            | Absolute path to apps/<Company>/               |
+| resume_run    | jobs.py            | Resume-generation run tag                      |
 | jd_text       | scraper            | Full JD text                                   |
-| notes         | manual/script      | Injected into intel.txt on promote             |
+| notes         | manual/script      | Human-readable notes only                       |
+| lane          | discovery          | A = Fall 2026 internship, B = 2027 full-time, C = income-now |
+| deadline      | discovery          | Application deadline when stated                |
+| deadline_source | discovery        | Provenance for `deadline`                        |
+| everify_status | discovery         | E-Verify lookup/status signal                    |
+| sponsorship_flag | discovery      | Sponsorship constraint signal                    |
+| classification | discovery/scorer | keep / reject / unsure                           |
+| reject_reason | discovery/scorer  | Structured reason for reject/unsure review       |
 
 ---
 

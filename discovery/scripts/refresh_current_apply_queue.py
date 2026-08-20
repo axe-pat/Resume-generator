@@ -128,6 +128,14 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
             "PDFs, writing jobs.xlsx, swapping queue directories, or deleting app dirs."
         ),
     )
+    parser.add_argument(
+        "--no-tracker-write",
+        action="store_true",
+        help=(
+            "Build and promote the queue without writing derived folder paths back "
+            "to jobs.xlsx. Intended for an artifact-controlled workbook update."
+        ),
+    )
     return parser.parse_args(argv)
 
 
@@ -187,6 +195,18 @@ def _write_job_files(role_dir: Path, row: dict, *, bucket: str, latest_run_name:
     status = str(row.get("status") or "").strip()
     if status:
         lines.append(f"tracker_status={status}")
+    source = str(row.get("source") or "").strip()
+    if source:
+        lines.append(f"source={source}")
+    lane = str(row.get("lane") or "").strip().upper()
+    if lane:
+        lines.append(f"lane={lane}")
+    deadline = str(row.get("deadline") or "").strip()
+    if deadline:
+        lines.append(f"deadline={deadline}")
+    deadline_source = str(row.get("deadline_source") or "").strip()
+    if deadline_source:
+        lines.append(f"deadline_source={deadline_source}")
     lines.append(f"queue_bucket={bucket}")
     lines.append(f"in_latest_run={'true' if in_latest_run else 'false'}")
     if latest_run_name:
@@ -207,6 +227,10 @@ def _write_job_files(role_dir: Path, row: dict, *, bucket: str, latest_run_name:
         "fit_score": str(row.get("fit_score") or ""),
         "priority_score": str(row.get("priority_score") or ""),
         "status": str(row.get("status") or ""),
+        "source": source,
+        "lane": lane,
+        "deadline": deadline,
+        "deadline_source": deadline_source,
         "url": url,
         "date_found": str(row.get("date_found") or ""),
         "queue_bucket": bucket,
@@ -435,6 +459,10 @@ def _load_manual_queue_entries() -> list[dict]:
                 "fit_score": str(entry.get("fit_score") or ""),
                 "priority_score": str(entry.get("priority_score") or ""),
                 "status": str(entry.get("status") or "manual_queue"),
+                "source": str(entry.get("source") or "manual"),
+                "lane": str(entry.get("lane") or ""),
+                "deadline": str(entry.get("deadline") or ""),
+                "deadline_source": str(entry.get("deadline_source") or ""),
                 "url": str(entry.get("url") or ""),
                 "queue_bucket": str(entry.get("queue_bucket") or "manual"),
                 "in_latest_run": bool(entry.get("in_latest_run")),
@@ -471,7 +499,8 @@ def _origin_runs_by_url() -> dict[str, list[str]]:
 
 
 def _priority_components(row: pd.Series) -> tuple[float, dict]:
-    fit_score = float(row.get("fit_score_num") or 0.0)
+    fit_score_raw = pd.to_numeric(row.get("fit_score_num"), errors="coerce")
+    fit_score = 0.0 if pd.isna(fit_score_raw) else float(fit_score_raw)
     status = str(row.get("status") or "").strip().lower()
     in_latest_run = bool(row.get("in_latest_run"))
 
@@ -523,6 +552,16 @@ def _is_inactive_queue_row(row: pd.Series) -> bool:
     return False
 
 
+def _lane_c_ready_mask(df: pd.DataFrame) -> pd.Series:
+    """Lane C is admitted by its deterministic pay/shift gate, not a PM fit score."""
+    return (
+        df.get("source", pd.Series("", index=df.index)).astype(str).str.casefold().eq("handshake_jobs_v1")
+        & df.get("lane", pd.Series("", index=df.index)).astype(str).str.upper().eq("C")
+        & df.get("classification", pd.Series("", index=df.index)).astype(str).str.casefold().eq("keep")
+        & df.get("status", pd.Series("", index=df.index)).astype(str).str.casefold().eq("review")
+    )
+
+
 def _refresh_queue_locked(
     args: argparse.Namespace,
     *,
@@ -541,13 +580,20 @@ def _refresh_queue_locked(
     df = tracker_df.copy()
     df = df[df["source"].isin(APPLY_QUEUE_SOURCES)].copy()
     df["fit_score_num"] = pd.to_numeric(df["fit_score"], errors="coerce")
-    df = df[df["status"].isin(["queued", "promoted", "generated"])]
+    lane_c_ready = _lane_c_ready_mask(df)
+    df = df[df["status"].isin(["queued", "promoted", "generated"]) | lane_c_ready].copy()
     df = df[~df.apply(_is_inactive_queue_row, axis=1)]
+    # Status and deterministic classification can drift in legacy rows. A row
+    # explicitly classified as reject must never be made applyable merely
+    # because an older status still says queued/generated.
+    classification = df.get("classification", pd.Series("", index=df.index))
+    df = df[~classification.astype(str).str.casefold().eq("reject")].copy()
     df["source_min_score"] = df.apply(
         lambda row: min_apply_queue_score_for_row(str(row.get("source") or ""), str(row.get("notes") or ""), MIN_SCORE),
         axis=1,
     )
-    df = df[df["fit_score_num"] >= df["source_min_score"]]
+    lane_c_ready = _lane_c_ready_mask(df)
+    df = df[(df["fit_score_num"] >= df["source_min_score"]) | lane_c_ready].copy()
 
     df["url_str"] = df["url"].astype(str).str.strip()
     df["in_latest_run"] = df["url_str"].isin(latest_urls)
@@ -591,6 +637,10 @@ def _refresh_queue_locked(
                 "role_title": manual_entry["role_title"],
                 "fit_score": manual_entry["fit_score"],
                 "status": manual_entry["status"],
+                "source": manual_entry.get("source") or "manual",
+                "lane": manual_entry.get("lane") or "",
+                "deadline": manual_entry.get("deadline") or "",
+                "deadline_source": manual_entry.get("deadline_source") or "",
                 "url": manual_entry["url"],
                 "date_found": date.today().isoformat(),
                 "priority_score": manual_entry["priority_score"],
@@ -651,6 +701,10 @@ def _refresh_queue_locked(
             "fit_score": metadata["fit_score"],
             "priority_score": str(row_dict.get("priority_score") or ""),
             "status": metadata["status"],
+            "source": metadata["source"],
+            "lane": metadata["lane"],
+            "deadline": metadata["deadline"],
+            "deadline_source": metadata["deadline_source"],
             "url": metadata["url"],
             "queue_bucket": bucket,
             "in_latest_run": in_latest_run,
@@ -700,7 +754,7 @@ def _refresh_queue_locked(
     folder_path_changes = _update_folder_paths_locked(
         tracker_df,
         ready_entries + manual_entries,
-        dry_run=args.dry_run,
+        dry_run=args.dry_run or args.no_tracker_write,
     )
 
     priority_txt = staging_dir / "priority_order.txt"
@@ -720,7 +774,9 @@ def _refresh_queue_locked(
         bucket = "NEW" if entry.get("in_latest_run") else "CARRY"
         return (
             f"{entry['priority_rank']}. [{bucket}] {entry['company']} | {entry['role_title']} | "
-            f"score={entry['fit_score']} | priority={entry.get('priority_score','')} | status={entry['status']}"
+            f"lane={entry.get('lane') or '?'} | score={entry['fit_score']} | "
+            f"priority={entry.get('priority_score','')} | status={entry['status']} | "
+            f"deadline={entry.get('deadline') or 'not captured'}"
         )
 
     priority_txt.write_text("\n".join(_line(entry) for entry in ready_entries), encoding="utf-8")
@@ -791,7 +847,8 @@ def _refresh_queue_locked(
     print(f"Latest discovery run: {latest_run_name or 'none'}")
     print(f"Ready jobs: {len(ready_entries)}")
     print(f"Manual review jobs: {len(manual_entries)}")
-    print(f"Tracker folder paths to update: {folder_path_changes}")
+    tracker_write_state = "deferred" if args.no_tracker_write else "dry-run" if args.dry_run else "written"
+    print(f"Tracker folder paths to update: {folder_path_changes} [{tracker_write_state}]")
     if removed_dirs:
         print(f"Removed redundant top-level app dirs: {len(removed_dirs)}")
     print(f"Generate command: bash {final_command_sh}")

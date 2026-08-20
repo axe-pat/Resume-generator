@@ -15,11 +15,18 @@ Your job is to evaluate the JD against the candidate's profile and return a stru
 
 ## Step 1 — Hard Filter Check
 
+The input includes an explicit discovery lane. Do not infer or change it:
+- **Lane A:** Fall 2026 internship
+- **Lane B:** 2027 new-grad / early-career full-time, starting mid-2027 or later
+- **Lane C:** income-now roles; these are handled by a deterministic filter and should not reach this prompt
+
+Lane B timing has already been checked before this prompt. A bare `2027` string is not a timing signal; Summer 2027 internships and immediate/unspecified-start full-time roles are rejected before scoring.
+
 Before scoring, check for hard reject conditions:
 
 **Immigration (ABSOLUTE — never overridden):**
 
-Akshat is an F-1 visa holder. CPT (Curricular Practical Training) is his work authorization for internships — it does NOT require employer visa sponsorship. The employer simply provides an offer letter; the university grants CPT. Only reject on immigration if the JD contains one of the following:
+Akshat is an F-1 visa holder. Lane A uses CPT. Lane B uses post-graduation OPT, with a possible STEM OPT extension. Neither CPT nor the first 12 months of OPT requires the employer to sponsor an H-1B. Only reject on immigration if the JD contains one of the following:
 
 **Hard reject (explicit CPT/F-1 exclusion):**
 - Explicitly names CPT, OPT, F-1, or F1 as excluded (e.g. "no CPT/OPT", "F-1 visa programs are not eligible")
@@ -28,7 +35,7 @@ Akshat is an F-1 visa holder. CPT (Curricular Practical Training) is his work au
 - States "permanent work authorization required" or "authorized on a permanent basis" (implies citizen/GC)
 - Requires ITAR compliance as "US Person" under 22 C.F.R. 120.15 (explicitly excludes F-1)
 
-**Do NOT reject on these alone (H-1B boilerplate, CPT is unaffected):**
+**Do NOT reject on these alone (H-1B boilerplate):**
 - "We do not sponsor visas" — refers to H-1B, not CPT
 - "No visa sponsorship available" — refers to H-1B, not CPT
 - "Must be authorized to work without sponsorship" — ambiguous; CPT provides authorization without employer sponsoring a visa
@@ -37,19 +44,23 @@ Akshat is an F-1 visa holder. CPT (Curricular Practical Training) is his work au
 - "Must be authorized to work for the US without visa sponsorship now or in the future" — still ambiguous unless CPT/OPT/F-1 is explicitly excluded
 - Export control / export license language (e.g. "authorization to receive technology controlled under export laws without sponsorship for an export license") — this is NOT immigration language
 
-**If the language is ambiguous** (generic "no sponsorship" without naming CPT/OPT/F-1): score the role normally and add a note in the rationale: "Immigration: JD has generic no-sponsorship language — verify CPT eligibility before applying."
+For Lane B, "will not sponsor H-1B" alone is a soft flag, not a reject. An explicit requirement for **permanent** work authorization without sponsorship is a hard reject because it excludes OPT. E-Verify status is captured separately: `no` or `unknown` is a flag for the STEM-extension horizon, not a scoring override or automatic reject.
+
+**If the language is ambiguous** (generic "no sponsorship" without naming CPT/OPT/F-1): score the role normally and add a note in the rationale: "Immigration: JD has generic no-sponsorship language — verify OPT acceptance before applying."
 
 If a hard reject condition is met → Decision: REJECT. Stop here. Do not score.
 
 **Role Type Mismatch:**
 - Is the role primarily Software Engineering, QA/SDET, DevOps/SRE, pure Data Engineering/Analyst, or IT/Support?
 - If YES and there is no clear product ownership or decision-making component → Decision: REJECT. Stop here.
+- **Lane B Technical GTM exception:** Forward-Deployed Engineer / Forward-Deployed Software Engineer, Solutions or Sales / Pre-Sales Engineer, Applied AI Engineer, Solutions / Partner Solutions Architect, Customer or Partner Engineer, Technical Account Manager, Implementation Engineer / Consultant, Deployment Engineer / Strategist, Technical Solutions Consultant, Field Engineer, and Value Engineer are explicit target roles when they combine customer discovery, solution design, and hands-on technical delivery. Do not reject these as generic engineering, sales, or implementation roles. Do not require product-roadmap ownership from Technical GTM roles; their equivalent ownership signals are customer discovery, technical solution design, demos, and hands-on enablement. Generic Software Engineer, Backend Engineer, Frontend Engineer, and Full-Stack Engineer roles remain out of scope.
 
 **Full-Time Senior Role (Level Mismatch):**
 - Does the title include "Senior", "Principal", "Staff", "Director", "VP", or "Lead" **and** there is no "Intern", "Internship", "Co-op", "New Grad", or "Associate Program" signal anywhere in the title or JD?
 - **And** does the JD require 4 or more years of PM/product experience?
 - If BOTH conditions are true → Decision: REJECT. Rationale: "Full-time senior hire, not an internship — level mismatch."
 - Note: "years of experience preferred" language in an otherwise clear internship JD is aspirational, not a hard requirement. Only reject if the role itself is not an internship.
+- For Lane B, do not penalize the role merely for being full-time. Timing/new-grad eligibility has already been validated; reject only a genuinely senior level mismatch.
 
 If the JD passes all hard filters, proceed to scoring.
 
@@ -61,7 +72,7 @@ Score the JD across five dimensions using the rubrics below.
 
 ### Dimension 1: PM Fit (0–5)
 How directly does this role involve product ownership, decision-making, or strategic product work?
-- 5 — Clear PM role: feature ownership, roadmap input, product decisions, user-facing impact
+- 5 — Clear PM role with ownership, or a targeted forward-deployed/solutions role combining customer discovery, solution design, and hands-on technical delivery
 - 4 — Strong product adjacency: Growth, Platform, Technical PM with clear ownership
 - 3 — Adjacent roles (Product Ops, TPM, Strategy, BizOps) with meaningful product or business impact
 - 2 — Partial product exposure but mostly execution or support
@@ -104,6 +115,10 @@ How likely is Akshat to be competitive for this role given his profile?
 - 1 — Poor fit; unlikely to advance
 - 0 — Mismatch; should not apply
 
+**Lane-specific target priority:** Compare a job only with the target hierarchy for its lane in `profile.md`. Lane B Primary targets are equivalent priority to Lane A Primary targets, not fallback roles. In Lane B, Technical Program Manager, Data/Platform/Developer-Tools PM, and Forward-Deployed/Solutions/Applied AI roles are Primary targets.
+
+The discovery layer separately surfaces `unsure` rows when the title is unfamiliar but the JD body contains candidate signals. Those rows do not reach this scoring prompt until a human confirms the family; do not force an unknown title into a known family.
+
 **MBA targeting bonus:** If the JD explicitly targets MBA students, MBA candidates, or an MBA internship program (phrases like "MBA intern", "MBA students only", "for current MBA students"), add +1 to this dimension score (capped at 5). MBA-specific roles have a narrower candidate pool — non-MBAs are automatically excluded — which meaningfully increases Akshat's relative competitiveness.
 
 ---
@@ -142,7 +157,7 @@ Category: [High Priority / Medium Priority / Low Priority / N/A]
 fit_score: [X.X / 10]
 Breakdown: PM Fit: X | Tech: X | Brand: X | Quality: X | Conversion: X | Total: X/25
 Rationale: [One sentence referencing specific profile criteria — why this role fits or doesn't, naming the key signal]
-role_type: [PM / Strategy / Ops / TPM / Other]
+role_type: [PM / Strategy / Ops / TPM / Solutions / Other]
 ```
 
 ### Output rules
@@ -150,7 +165,7 @@ role_type: [PM / Strategy / Ops / TPM / Other]
 - `Decision: Deprioritize` → score normally but flag the deprioritization reason in the Rationale
 - `Decision: Proceed` → full score and rationale required
 - Rationale must be exactly one sentence. Reference at least one specific dimension or profile criterion.
-- role_type must be one of: PM, Strategy, Ops, TPM, Other
+- role_type must be one of: PM, Strategy, Ops, TPM, Solutions, Other
 
 ---
 

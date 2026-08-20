@@ -8,6 +8,12 @@ cd "$ROOT_DIR"
 
 PYTHON_BIN="${PYTHON_BIN:-venv/bin/python}"
 HANDSHAKE_SEARCH_URL="${HANDSHAKE_SEARCH_URL:-}"
+HANDSHAKE_LANE="${HANDSHAKE_LANE:-A}"
+
+if [[ "$HANDSHAKE_LANE" != "A" && "$HANDSHAKE_LANE" != "C" ]]; then
+  echo "HANDSHAKE_LANE must be A or C (got: ${HANDSHAKE_LANE})" >&2
+  exit 2
+fi
 
 case "$WINDOW" in
   24h|past-24h)
@@ -27,6 +33,7 @@ Usage:
 
 Environment overrides:
   HANDSHAKE_SEARCH_URL
+  HANDSHAKE_LANE (A or C; Lane C requires a saved search URL)
   HANDSHAKE_MAX_PAGES
   HANDSHAKE_MAX_RESULTS
   HANDSHAKE_STOP_AFTER_EXISTING
@@ -36,7 +43,7 @@ USAGE
 esac
 
 echo "==> Handshake discovery (${WINDOW})"
-echo "    max_pages=${MAX_PAGES} max_results=${MAX_RESULTS} stop_after_existing=${STOP_AFTER_EXISTING}"
+echo "    lane=${HANDSHAKE_LANE} max_pages=${MAX_PAGES} max_results=${MAX_RESULTS} stop_after_existing=${STOP_AFTER_EXISTING}"
 
 if ! command -v "$PYTHON_BIN" >/dev/null 2>&1 && [[ ! -x "$PYTHON_BIN" ]]; then
   echo "Python not found at ${PYTHON_BIN}" >&2
@@ -48,6 +55,7 @@ fi
 CMD=(
   "$PYTHON_BIN"
   discovery/auto/import_handshake_csv.py
+  --lane "$HANDSHAKE_LANE"
   --max-pages "$MAX_PAGES"
   --max-search-results "$MAX_RESULTS"
   --stop-after-existing "$STOP_AFTER_EXISTING"
@@ -59,6 +67,9 @@ CMD=(
 
 if [[ -n "$HANDSHAKE_SEARCH_URL" ]]; then
   CMD+=(--search-url "$HANDSHAKE_SEARCH_URL")
+elif [[ "$HANDSHAKE_LANE" == "C" ]]; then
+  echo "Lane C requires HANDSHAKE_SEARCH_URL for a saved on-campus/part-time search." >&2
+  exit 2
 else
   CMD+=(--default-search)
 fi

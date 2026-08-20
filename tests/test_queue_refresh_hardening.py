@@ -103,6 +103,10 @@ def _configure_isolated_repo(module, tmp_path: Path, monkeypatch) -> dict[str, P
                 "folder_path": "",
                 "jd_text": "Own a product roadmap and customer research.",
                 "notes": "",
+                "lane": "A",
+                "deadline": "Rolling (inferred) — apply ASAP",
+                "deadline_source": "Inferred: no employer-stated deadline captured",
+                "classification": "keep",
             }
         ]
     )
@@ -249,6 +253,66 @@ def test_tracker_read_modify_write_stays_inside_one_jobs_lock(
         / ".current_apply_queue_prev"
         / "existing-marker.txt"
     ).read_text(encoding="utf-8") == "keep"
+
+
+def test_no_tracker_write_promotes_queue_with_lane_and_deadline_metadata(
+    tmp_path: Path, monkeypatch
+) -> None:
+    module = _load_script(
+        "refresh_current_apply_queue.py", "queue_refresh_deferred_tracker_test"
+    )
+    paths = _configure_isolated_repo(module, tmp_path, monkeypatch)
+    workbook_before = paths["JOBS_XLSX"].read_bytes()
+    monkeypatch.setattr(
+        module.jobs,
+        "save_jobs",
+        lambda df: pytest.fail("--no-tracker-write must not write jobs.xlsx"),
+    )
+
+    assert module.main(["--no-tracker-write"]) == 0
+    assert paths["JOBS_XLSX"].read_bytes() == workbook_before
+
+    entries = json.loads(
+        (paths["QUEUE_DIR"] / "priority_order.json").read_text(encoding="utf-8")
+    )
+    assert entries[0]["lane"] == "A"
+    assert entries[0]["deadline"] == "Rolling (inferred) — apply ASAP"
+    assert entries[0]["deadline_source"].startswith("Inferred:")
+
+    role_dir = Path(entries[0]["folder_path"])
+    metadata = json.loads((role_dir / "metadata.json").read_text(encoding="utf-8"))
+    assert metadata["lane"] == "A"
+    assert metadata["deadline"] == "Rolling (inferred) — apply ASAP"
+    intel = (role_dir / "intel.txt").read_text(encoding="utf-8")
+    assert "lane=A" in intel
+    assert "deadline=Rolling (inferred) — apply ASAP" in intel
+
+
+def test_explicit_reject_classification_cannot_enter_apply_queue(
+    tmp_path: Path, monkeypatch
+) -> None:
+    module = _load_script(
+        "refresh_current_apply_queue.py", "queue_refresh_classification_gate_test"
+    )
+    paths = _configure_isolated_repo(module, tmp_path, monkeypatch)
+    tracker = pd.read_excel(paths["JOBS_XLSX"], dtype=str).fillna("")
+    rejected = tracker.iloc[0].copy()
+    rejected["id"] = "2"
+    rejected["company"] = "Rejected Co"
+    rejected["url"] = "https://example.com/jobs/2"
+    rejected["url_hash"] = "hash-2"
+    rejected["classification"] = "reject"
+    rejected["reject_reason"] = "deterministic hard reject"
+    pd.concat([tracker, rejected.to_frame().T], ignore_index=True).to_excel(
+        paths["JOBS_XLSX"], sheet_name="Jobs", index=False
+    )
+    monkeypatch.setattr(module.jobs, "save_jobs", lambda df: None)
+
+    assert module.main(["--no-tracker-write"]) == 0
+    entries = json.loads(
+        (paths["QUEUE_DIR"] / "priority_order.json").read_text(encoding="utf-8")
+    )
+    assert [entry["id"] for entry in entries] == ["1"]
 
 
 def test_busy_queue_lock_fails_before_tracker_or_sync(

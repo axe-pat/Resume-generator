@@ -39,11 +39,16 @@ discovery/~$jobs.xlsx
 
 # Generated discovery logs and bundled vendor packages
 discovery/auto/logs/
+discovery/auto/checkpoints/
 discovery/auto/*.dist-info/
 discovery/auto/async_timeout/
 discovery/auto/redis/
 discovery/playwright/chrome-data/
 discovery/source_validation/*
+discovery/*.inspect.ndjson
+
+# Conversation-local spreadsheet inspection outputs
+outputs/
 
 # Generated resume and cover-letter runs
 resume/compiler/runs/

@@ -26,10 +26,12 @@ JOBS_XLSX  = Path(__file__).parent.parent / "jobs.xlsx"   # discovery/jobs.xlsx
 SHEET_NAME = "Jobs"
 
 COLUMNS = [
-    "id", "date_found", "company", "role_title", "role_type",
+    "id", "date_found", "date_posted", "company", "role_title", "role_type",
     "location", "url", "url_hash", "source",
     "fit_score", "fit_rationale", "status",
-    "date_applied", "folder_path", "jd_text", "notes",
+    "date_applied", "folder_path", "resume_run", "jd_text", "notes",
+    "lane", "deadline", "deadline_source", "everify_status",
+    "sponsorship_flag", "classification", "reject_reason",
 ]
 
 # ── Email / junk title patterns ───────────────────────────────────────────────
@@ -418,7 +420,9 @@ def main():
         "id": 6, "date_found": 13, "company": 22, "role_title": 35,
         "role_type": 12, "location": 16, "url": 40, "url_hash": 14,
         "source": 10, "fit_score": 10, "fit_rationale": 50, "status": 12,
-        "date_applied": 13, "folder_path": 40, "jd_text": 18, "notes": 40,
+        "date_applied": 13, "folder_path": 40, "resume_run": 12, "jd_text": 18, "notes": 40,
+        "lane": 8, "deadline": 22, "deadline_source": 18, "everify_status": 16,
+        "sponsorship_flag": 28, "classification": 14, "reject_reason": 50,
     }
 
     for i, col in enumerate(df_out.columns, start=1):

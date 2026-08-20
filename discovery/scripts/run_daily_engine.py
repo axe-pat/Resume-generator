@@ -27,8 +27,11 @@ RELATIONSHIP_SOURCES = (
     "builtin_la_companies",
     "builtin_sf_companies",
 )
-DAILY_JOBSPY_QUERY_INDICES = (0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12)
-WEEKLY_JOBSPY_QUERY_INDICES = (0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12)
+# JobSpy remains available for ad-hoc Lane B breadth tests, but its active daily
+# and weekly write path is deliberately demoted to the 13 Lane A queries. Lane B
+# discovery is owned by the higher-yield LinkedIn browser path.
+DAILY_JOBSPY_QUERY_INDICES = tuple(range(13))
+WEEKLY_JOBSPY_QUERY_INDICES = tuple(range(13))
 WEEKLY_JOBSPY_RESULTS = 60
 
 class ArtifactCommandResult(NamedTuple):
@@ -394,6 +397,7 @@ def _jobspy_metrics_from_artifacts(
         "verdict_counts": verdict_counts,
         "app_score_now": len(jobspy_bucket.get("app_score_now") or []),
         "app_review": len(jobspy_bucket.get("app_review") or []),
+        "unsure": len(jobspy_bucket.get("unsure") or []),
         "outreach_signal": len(jobspy_bucket.get("outreach_signal") or []),
         "selected_for_scoring": scored.get("raw_count"),
         "freshly_scored_count": scored.get("freshly_scored_count"),

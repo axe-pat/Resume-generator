@@ -101,6 +101,7 @@ DEFAULT_SEARCHES = [
 TIME_LABELS = {
     "r86400": "past_24h",
     "r604800": "past_week",
+    "r2592000": "past_30d",
 }
 # search-results can render empty without a location scope; matches prior /jobs/search defaults.
 # Override with LINKEDIN_JOBS_GEO_ID / LINKEDIN_JOBS_DISTANCE (e.g. another metro).
@@ -473,24 +474,106 @@ def _terminal_cache_rows(scored_jobs: list[dict]) -> list[dict]:
 
 
 def _split_existing_jobs(jobs: list[dict], df_existing: pd.DataFrame) -> tuple[list[dict], list[dict]]:
-    existing_url_hashes = {
-        str(value).strip()
-        for value in df_existing.get("url_hash", pd.Series(dtype=str)).fillna("").tolist()
-        if str(value).strip()
-    }
-    existing_tc_hashes = {
-        title_company_hash(str(row.get("role_title") or ""), str(row.get("company") or ""))
-        for _, row in df_existing.iterrows()
-    }
+    existing_by_url: dict[str, tuple[int, pd.Series]] = {}
+    existing_by_tc: dict[str, tuple[int, pd.Series]] = {}
+    for idx, row in df_existing.iterrows():
+        url_key = str(row.get("url_hash") or "").strip()
+        tc_key = title_company_hash(
+            str(row.get("role_title") or ""),
+            str(row.get("company") or ""),
+        )
+        if url_key and url_key not in existing_by_url:
+            existing_by_url[url_key] = (int(idx), row)
+        if tc_key and tc_key not in existing_by_tc:
+            existing_by_tc[tc_key] = (int(idx), row)
 
     unseen: list[dict] = []
     existing_hits: list[dict] = []
     for job in jobs:
-        if job["url_hash"] in existing_url_hashes or job["tc_hash"] in existing_tc_hashes:
+        match = existing_by_url.get(str(job.get("url_hash") or "")) or existing_by_tc.get(
+            str(job.get("tc_hash") or "")
+        )
+        if not match:
+            unseen.append(job)
+            continue
+
+        row_index, existing_row = match
+        existing_source = str(existing_row.get("source") or "").strip().lower()
+        existing_status = str(existing_row.get("status") or "").strip().lower()
+        existing_score = pd.to_numeric(existing_row.get("fit_score"), errors="coerce")
+        terminal_status = existing_status in {
+            "applied",
+            "closed",
+            "rejected",
+            "skip",
+            "generated",
+            "promoted",
+        }
+        repairable = not terminal_status and (
+            existing_source in {"linkedin", "indeed"}
+            or existing_status in {"error", "new"}
+            or pd.isna(existing_score)
+        )
+        if not repairable:
             existing_hits.append(job)
             continue
-        unseen.append(job)
+
+        repaired = dict(job)
+        repaired["__existing_row_index"] = row_index
+        repaired["__existing_id"] = str(existing_row.get("id") or "")
+        repaired["__existing_source"] = str(existing_row.get("source") or "")
+        repaired["__existing_status"] = str(existing_row.get("status") or "")
+        unseen.append(repaired)
     return unseen, existing_hits
+
+
+def _cached_decision_is_stale(job: dict, cached: dict[str, str]) -> bool:
+    """Invalidate only cached rejects contradicted by the current deterministic rules."""
+    if job.get("__existing_row_index") is not None:
+        return True
+
+    from shared.job_eligibility import (  # imported lazily for standalone CLI compatibility
+        annotate_discovery_job,
+        classify_role_surface,
+        normalize_discovery_lane,
+        pre_filter_discovery_timing,
+        pre_filter_immigration,
+    )
+
+    rationale = str(cached.get("fit_rationale") or "").lower()
+    current = annotate_discovery_job(dict(job))
+    lane = normalize_discovery_lane(current.get("lane"))
+    title = str(current.get("role_title") or "")
+    jd_text = str(current.get("jd_text") or "")
+    cached_decision = str(cached.get("decision") or "").strip().lower()
+
+    immigration_reject, _ = pre_filter_immigration(jd_text)
+    if immigration_reject and cached_decision not in {"reject", "deprioritize"}:
+        return True
+
+    if "timing reject" in rationale:
+        cached_lane_match = re.search(r"\blane\s+([abc])\s+timing\s+reject\b", rationale)
+        if cached_lane_match and cached_lane_match.group(1).upper() != lane:
+            return True
+        timing_reject, _ = pre_filter_discovery_timing(title, jd_text, lane)
+        if not timing_reject:
+            return True
+
+    sponsorship_reject = "sponsor" in rationale or "employment authorization" in rationale
+    if sponsorship_reject and not pre_filter_immigration(jd_text)[0]:
+        return True
+
+    surface_decision, _, surface_family = classify_role_surface(title, jd_text)
+    if "unknown title with jd signals" in rationale and surface_decision == "keep":
+        return True
+    if surface_family == "Technical GTM" and (
+        "outside" in rationale
+        or "role type mismatch" in rationale
+        or "does not meet the technical gtm" in rationale
+    ):
+        return True
+
+    return False
 
 
 def _split_cached_review_jobs(jobs: list[dict], cache_df: pd.DataFrame) -> tuple[list[dict], list[dict]]:
@@ -511,7 +594,7 @@ def _split_cached_review_jobs(jobs: list[dict], cache_df: pd.DataFrame) -> tuple
     cache_hits: list[dict] = []
     for job in jobs:
         cached = cache_by_url.get(str(job.get("url_hash") or "")) or cache_by_tc.get(str(job.get("tc_hash") or ""))
-        if not cached:
+        if not cached or _cached_decision_is_stale(job, cached):
             to_score.append(job)
             continue
         reused = dict(job)
@@ -2042,17 +2125,16 @@ def scrape_search(
                 if page_size <= 0:
                     break
 
-                # LinkedIn semantic pages can show "N results" but return an empty list
-                # for offset URLs like start=25 when N is small. Only advance offset when
-                # we have evidence there are still unseen rows.
-                if observed_ui_count is None:
-                    break
+                # The semantic route frequently omits the UI total even when additional
+                # offset pages exist. Continue under the caller's page/limit guard and let
+                # the duplicate/empty-page guards stop the scan. Requiring a UI total here
+                # silently reduced every "30-day" search to its first result page.
                 if observed_ui_count is not None and len(seen_urls) >= observed_ui_count:
                     break
                 if observed_ui_count is not None and start + page_size >= observed_ui_count:
                     break
 
-                start += page_size
+                start += max(page_size, SEARCH_RESULTS_OFFSET_PAGE_SIZE)
                 page_index += 1
             return cards, observed_ui_count
 
@@ -2201,6 +2283,16 @@ def cards_to_jobs(cards: Iterable[LinkedInJobCard]) -> list[dict]:
     jobs: list[dict] = []
     today = datetime.now().strftime("%Y-%m-%d")
     for card in cards:
+        lane = (
+            "B"
+            if re.search(
+                r"\b(?:2027|new\s+grad(?:uate)?|university\s+grad(?:uate)?|"
+                r"leadership\s+development\s+program|graduate\s+(?:program|rotational))\b",
+                card.search_term or "",
+                re.I,
+            )
+            else "A"
+        )
         jobs.append(
             {
                 "id": None,
@@ -2225,6 +2317,7 @@ def cards_to_jobs(cards: Iterable[LinkedInJobCard]) -> list[dict]:
                     f"window={TIME_LABELS.get(card.time_filter, card.time_filter)} "
                     f"insight={card.insight}"
                 ).strip(),
+                "lane": lane,
                 "tc_hash": title_company_hash(card.title, card.company),
             }
         )
@@ -2232,6 +2325,10 @@ def cards_to_jobs(cards: Iterable[LinkedInJobCard]) -> list[dict]:
 
 
 def append_new_jobs(df_existing: pd.DataFrame, jobs: list[dict]) -> tuple[pd.DataFrame, list[dict]]:
+    df_existing = df_existing.copy()
+    for column in COLUMNS:
+        if column in df_existing.columns:
+            df_existing[column] = df_existing[column].astype(object)
     existing_url_hashes = {
         str(v).strip()
         for v in df_existing.get("url_hash", pd.Series(dtype=str)).fillna("").tolist()
@@ -2242,10 +2339,29 @@ def append_new_jobs(df_existing: pd.DataFrame, jobs: list[dict]) -> tuple[pd.Dat
         for _, row in df_existing.iterrows()
     }
 
+    written: list[dict] = []
     fresh: list[dict] = []
     seen_new_urls: set[str] = set()
     seen_new_tcs: set[str] = set()
     for job in jobs:
+        existing_row_index = job.get("__existing_row_index")
+        if existing_row_index is not None:
+            row_index = int(existing_row_index)
+            if row_index not in df_existing.index:
+                continue
+            existing_row = df_existing.loc[row_index]
+            updated = dict(job)
+            updated["id"] = str(existing_row.get("id") or job.get("__existing_id") or "")
+            updated["date_found"] = str(existing_row.get("date_found") or job.get("date_found") or "")
+            for preserve_col in ("date_applied", "folder_path", "resume_run"):
+                if not str(updated.get(preserve_col) or "").strip():
+                    updated[preserve_col] = existing_row.get(preserve_col)
+            for col in COLUMNS:
+                if col in updated:
+                    df_existing.at[row_index, col] = updated.get(col)
+            updated["__write_action"] = "updated_existing"
+            written.append(updated)
+            continue
         if job["url_hash"] in existing_url_hashes or job["url_hash"] in seen_new_urls:
             continue
         if job["tc_hash"] in existing_tc_hashes or job["tc_hash"] in seen_new_tcs:
@@ -2255,7 +2371,7 @@ def append_new_jobs(df_existing: pd.DataFrame, jobs: list[dict]) -> tuple[pd.Dat
         seen_new_tcs.add(job["tc_hash"])
 
     if not fresh:
-        return df_existing, []
+        return df_existing, written
 
     start_id = 1
     if not df_existing.empty and "id" in df_existing.columns:
@@ -2266,12 +2382,14 @@ def append_new_jobs(df_existing: pd.DataFrame, jobs: list[dict]) -> tuple[pd.Dat
     rows_for_df = []
     for idx, job in enumerate(fresh, start=start_id):
         job["id"] = str(idx)
+        job["__write_action"] = "inserted_new"
         rows_for_df.append({col: job.get(col) for col in COLUMNS})
+        written.append(job)
 
     df_new = pd.DataFrame(rows_for_df, columns=COLUMNS)
     if df_existing.empty:
-        return df_new, fresh
-    return pd.concat([df_existing[COLUMNS], df_new], ignore_index=True), fresh
+        return df_new, written
+    return pd.concat([df_existing[COLUMNS], df_new], ignore_index=True), written
 
 
 def filter_jobs_for_write(jobs: list[dict]) -> tuple[list[dict], list[dict]]:
@@ -2312,8 +2430,8 @@ def _refresh_apply_queue_best_effort(*, quiet: bool) -> None:
     try:
         from discovery.scripts.refresh_current_apply_queue import main as refresh_queue_main
 
-        refresh_queue_main()
-    except Exception as exc:
+        refresh_queue_main([])
+    except (Exception, SystemExit) as exc:
         if not quiet:
             print(f"[warn] Could not refresh apply queue (jobs still in jobs.xlsx): {exc}")
 
@@ -2492,14 +2610,17 @@ def score_from_raw_artifacts(
     for path, payload in payloads:
         searches.extend(_searches_from_payload(payload))
         search_runs.extend(payload.get("search_runs", []))
+        cards = _cards_from_payload(payload)
         jobs = payload.get("jobs")
-        if isinstance(jobs, list) and jobs:
-            replay_jobs.extend(dict(job) for job in jobs)
-            extracted_count += int(payload.get("count") or len(jobs))
-        else:
-            cards = _cards_from_payload(payload)
+        # Raw jobs are a derived snapshot of the cards. Rebuild them on replay so
+        # fixes to lane inference and metadata propagation apply without scraping
+        # or hydrating LinkedIn again.
+        if cards:
             replay_jobs.extend(cards_to_jobs(cards))
             extracted_count += int(payload.get("count") or len(cards))
+        elif isinstance(jobs, list) and jobs:
+            replay_jobs.extend(dict(job) for job in jobs)
+            extracted_count += int(payload.get("count") or len(jobs))
 
     replay_jobs = _dedupe_jobs_for_replay(replay_jobs)
     if not replay_jobs:
@@ -2526,6 +2647,98 @@ def score_from_raw_artifacts(
         max_workers=max_workers,
         source_raw_artifacts=[str(path) for path, _ in payloads],
     )
+
+
+def hydrate_from_raw_artifacts(
+    raw_artifact_paths: list[str],
+    debug_port: int,
+    quiet: bool,
+    max_jobs: int | None = None,
+) -> Path:
+    """Open the JDs for card-only artifacts without repeating LinkedIn searches."""
+    payloads: list[tuple[Path, dict]] = []
+    cards: list[LinkedInJobCard] = []
+    searches: list[tuple[str, str]] = []
+    search_runs: list[dict] = []
+    seen_urls: set[str] = set()
+
+    for raw_path in raw_artifact_paths:
+        path = Path(raw_path).expanduser().resolve()
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        payloads.append((path, payload))
+        searches.extend(_searches_from_payload(payload))
+        search_runs.extend(payload.get("search_runs", []))
+        for card in _cards_from_payload(payload):
+            if not card.url or card.url in seen_urls:
+                continue
+            seen_urls.add(card.url)
+            cards.append(card)
+
+    if not cards:
+        raise SystemExit("No LinkedIn cards found in the provided raw artifact(s).")
+
+    hydrate_limit = len(cards) if max_jobs in (None, 0) else min(max_jobs, len(cards))
+    if not quiet:
+        print(
+            f"Loaded {len(cards)} unique LinkedIn cards from {len(payloads)} artifact(s); "
+            f"hydrating up to {hydrate_limit} JDs."
+        )
+
+    with sync_playwright() as playwright:
+        session = _open_linkedin_browser_session(playwright, debug_port)
+        page: Page | None = None
+        detail_page: Page | None = None
+        try:
+            context = session["context"]
+            preflight = _session_preflight(context)
+            if not preflight.get("ok"):
+                raise RuntimeError(
+                    "LinkedIn live preflight failed while hydrating cards. "
+                    f"URL={preflight.get('current_url', '')} "
+                    f"authwall_or_login={preflight.get('authwall_or_login')}"
+                )
+            page = context.new_page()
+            detail_page = context.new_page()
+            page.set_default_timeout(15000)
+            detail_page.set_default_timeout(15000)
+            repair_summary = _repair_scraped_cards(
+                page=page,
+                detail_page=detail_page,
+                cards=cards,
+                quiet=quiet,
+                max_jobs=hydrate_limit,
+            )
+        finally:
+            _close_page_safely(detail_page)
+            _close_page_safely(page)
+            try:
+                session["cleanup"]()
+            except Exception:
+                pass
+
+    artifact = _write_run_artifact(
+        "linkedin_live_raw_hydrated",
+        {
+            "count": len(cards),
+            "searches": [
+                {"search_term": search_term, "time_filter": time_filter}
+                for search_term, time_filter in searches
+            ],
+            "search_runs": search_runs,
+            "source_raw_artifacts": [str(path) for path, _ in payloads],
+            "jd_repair_summary": asdict(repair_summary),
+            "cards": [asdict(card) for card in cards],
+            "jobs": cards_to_jobs(cards),
+        },
+    )
+    print(f"Hydrated raw artifact: {artifact}")
+    print(
+        "JD hydration summary: "
+        f"attempted={repair_summary.attempted} "
+        f"repaired={repair_summary.repaired} "
+        f"remaining_failed={repair_summary.remaining_failed}"
+    )
+    return artifact
 
 
 def run_live_discovery(
@@ -2913,6 +3126,21 @@ def _parse_args() -> argparse.Namespace:
         default=[],
         help="Replay scoring/write from a saved linkedin_live_raw_*.json artifact. Repeat for multiple artifacts.",
     )
+    parser.add_argument(
+        "--hydrate-from-raw",
+        action="append",
+        default=[],
+        help=(
+            "Open JDs for cards in a saved count-only raw artifact without repeating the search. "
+            "Repeat for multiple artifacts."
+        ),
+    )
+    parser.add_argument(
+        "--max-hydrate",
+        type=int,
+        default=0,
+        help="Maximum card JDs to hydrate. Use 0 for every card in the supplied artifact(s).",
+    )
     parser.add_argument("--max-workers", type=int, default=2, help="Parallel scoring workers for the full scored run.")
     parser.add_argument("--quiet", action="store_true", help="Reduce terminal output")
     parser.add_argument("--search", action="append", default=[], help="Override search term. Repeat for multiple values.")
@@ -2951,7 +3179,19 @@ def _resolve_searches(args: argparse.Namespace) -> list[tuple[str, str]]:
 
 if __name__ == "__main__":
     args = _parse_args()
-    if args.score_from_raw:
+    if args.score_from_raw and args.hydrate_from_raw:
+        raise SystemExit("Use --hydrate-from-raw and --score-from-raw as separate steps.")
+    if args.hydrate_from_raw:
+        _ensure_chrome_cdp(args.debug_port, launch_chrome=args.launch_chrome, quiet=args.quiet)
+        if not _cdp_port_listening("127.0.0.1", args.debug_port):
+            raise SystemExit(f"Nothing is listening on 127.0.0.1:{args.debug_port}.")
+        hydrate_from_raw_artifacts(
+            raw_artifact_paths=args.hydrate_from_raw,
+            debug_port=args.debug_port,
+            quiet=args.quiet,
+            max_jobs=None if args.max_hydrate in (None, 0) else args.max_hydrate,
+        )
+    elif args.score_from_raw:
         score_from_raw_artifacts(
             raw_artifact_paths=args.score_from_raw,
             dry_run=args.dry_run,

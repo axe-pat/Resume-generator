@@ -40,6 +40,12 @@ if str(HERE) not in sys.path:
 import jobs  # noqa: E402
 from scorer import DEFAULT_MODEL, score_batch  # noqa: E402
 from shared.discovery_sources import min_apply_queue_score_for_row  # noqa: E402
+from shared.job_eligibility import (  # noqa: E402
+    LANE_A,
+    LANE_C,
+    annotate_discovery_job,
+    normalize_discovery_lane,
+)
 
 SOURCE_TAG = "handshake_jobs_v1"
 HANDSHAKE_RUN_ARTIFACT_SCHEMA = "resume_generator.handshake_import_run"
@@ -52,6 +58,21 @@ DEFAULT_SEARCH_URL = (
     "workAuthorization=openToCurricularPracticalTraining&workAuthorization=workAuthNotSpecified&"
     "jobType=3&sort=posted_date_desc&per_page=25&page=1"
 )
+HANDSHAKE_QUERY_PACKS = {
+    "A": (
+        "fall internship",
+        "product manager intern",
+        "strategy operations intern",
+        "technical program manager intern",
+    ),
+    "C": (
+        "on-campus",
+        "part-time",
+        "student worker",
+        "research assistant",
+        "teaching assistant",
+    ),
+}
 HANDSHAKE_JOB_ID_RE = re.compile(r"/job-search/(\d+)")
 GENERIC_LINK_TEXT = {
     "apply",
@@ -234,6 +255,12 @@ async def _discover_search_with_cdp(
             body_text = await page.locator("body").inner_text(timeout=10000)
             blocker = _looks_like_blocker(body_text, "")
             if blocker:
+                if discovered:
+                    print(
+                        f"Handshake search page {page_number} could not be read ({blocker}); "
+                        f"keeping {len(discovered)} result(s) from completed page(s)."
+                    )
+                    break
                 raise SystemExit(f"Handshake search page could not be read: {blocker}")
 
             cards = await page.evaluate(
@@ -328,19 +355,18 @@ def _detect_apply_flow(text: str) -> str:
     return "unknown"
 
 
-def _source_notes(job: CsvJob, *, apply_flow: str = "") -> str:
-    import_flag = "handshake_search_import=true" if job.origin == "search" else "handshake_csv_import=true"
+def _source_notes(job: CsvJob, *, apply_flow: str = "", lane: str = LANE_A) -> str:
+    import_label = "Handshake search import" if job.origin == "search" else "Handshake CSV import"
     flow = (apply_flow or job.apply_flow or "").strip().lower()
     parts = [
-        import_flag,
-        f"csv_row={job.row_number}" if job.row_number else "",
-        f"handshake_apply_flow={flow}" if flow else "",
-        f"industry={job.industry}" if job.industry else "",
-        f"pay={job.pay}" if job.pay else "",
-        f"deadline={job.deadline}" if job.deadline else "",
-        f"urgency={job.urgency}" if job.urgency else "",
+        import_label,
+        f"CSV row {job.row_number}" if job.row_number else "",
+        f"Apply flow: {flow}" if flow else "",
+        f"Industry: {job.industry}" if job.industry else "",
+        f"Pay: {job.pay}" if job.pay else "",
+        f"Urgency: {job.urgency}" if job.urgency else "",
     ]
-    return " ".join(part for part in parts if part)
+    return "; ".join(part for part in parts if part)
 
 
 def _candidate_dict(
@@ -350,11 +376,12 @@ def _candidate_dict(
     company: str = "",
     role_title: str = "",
     apply_flow: str = "",
+    lane: str = LANE_A,
 ) -> dict[str, Any]:
     today = datetime.now().strftime("%Y-%m-%d")
     effective_company = _clean(company) or job.company or "Unknown"
     effective_title = _clean(role_title) or job.role_title or "Unknown Handshake Role"
-    return {
+    candidate = {
         "id": "",
         "date_found": today,
         "date_posted": "",
@@ -372,8 +399,18 @@ def _candidate_dict(
         "folder_path": "",
         "resume_run": "",
         "jd_text": jd_text,
-        "notes": _source_notes(job, apply_flow=apply_flow),
+        "notes": _source_notes(job, apply_flow=apply_flow, lane=lane),
+        "lane": normalize_discovery_lane(lane),
+        "pay_text": job.pay,
+        "application_deadline": job.deadline,
+        "deadline": job.deadline,
+        "deadline_source": "provided" if job.deadline else "",
+        "everify_status": "",
+        "sponsorship_flag": "",
+        "classification": "",
+        "reject_reason": "",
     }
+    return annotate_discovery_job(candidate, default_lane=lane)
 
 
 def _looks_like_blocker(text: str, title: str) -> str:
@@ -423,8 +460,17 @@ def _trim_jd_text(text: str, company: str, title: str) -> str:
 
     lower = text.lower()
     start = 0
-    title_idx = lower.find(title.lower()) if title else -1
-    company_idx = lower.find(company.lower()) if company else -1
+    detail_idx = lower.rfind("job description")
+    title_idx = (
+        lower.rfind(title.lower(), 0, detail_idx)
+        if title and detail_idx != -1
+        else lower.find(title.lower()) if title else -1
+    )
+    company_idx = (
+        lower.rfind(company.lower(), max(0, title_idx - 600), title_idx)
+        if company and title_idx != -1
+        else lower.find(company.lower()) if company else -1
+    )
     if title_idx != -1 and company_idx != -1 and 0 <= title_idx - company_idx <= 600:
         start = company_idx
     elif title_idx != -1:
@@ -437,6 +483,20 @@ def _trim_jd_text(text: str, company: str, title: str) -> str:
                 break
 
     trimmed = text[start:]
+    end_markers = (
+        "\nWhat they're looking for",
+        "\nWhat your school says",
+        "\nAbout the employer",
+        "\nSimilar Jobs",
+        "\nAlumni at this employer",
+    )
+    end_positions = [
+        trimmed.find(marker)
+        for marker in end_markers
+        if trimmed.find(marker) >= 0
+    ]
+    if end_positions:
+        trimmed = trimmed[: min(end_positions)]
     if company and company.lower() not in trimmed.lower():
         trimmed = f"{company}\n{title}\n\n{trimmed}"
     return trimmed[:12000]
@@ -449,6 +509,8 @@ def _parse_detail_metadata(text: str, fallback_company: str = "", fallback_title
 
     safe_fallback_title = "" if _is_generic_link_text(fallback_title) else _clean(fallback_title)
     safe_fallback_company = "" if _is_generic_link_text(fallback_company) else _clean(fallback_company)
+    if safe_fallback_company and safe_fallback_title:
+        return safe_fallback_company, safe_fallback_title
     title = safe_fallback_title
     company = safe_fallback_company
 
@@ -627,6 +689,7 @@ def _handshake_run_payload(
     accepted: list[dict[str, Any]],
     rejected: list[dict[str, Any]],
 ) -> dict[str, Any]:
+    lane = normalize_discovery_lane(getattr(args, "lane", LANE_A))
     health = _handshake_health(
         candidate_count=len(candidates),
         fetch_ok_count=len(fetch_ok),
@@ -641,6 +704,8 @@ def _handshake_run_payload(
         "csv": "" if args.search_url else str(csv_path),
         "search_url": args.search_url or "",
         "source": SOURCE_TAG,
+        "lane": lane,
+        "query_terms": list(HANDSHAKE_QUERY_PACKS[lane]),
         "write": bool(args.write),
         "counts": {
             "input_rows": input_count,
@@ -656,6 +721,7 @@ def _handshake_run_payload(
             "fetch_failed": len(fetch_failed),
             "scored": len(scored),
             "accepted_min_score": len(accepted),
+            "accepted_lane_gate": len(accepted),
             "rejected_or_below_min": len(rejected),
             "error_count": health["error_count"],
             "fetch_error_count": health["fetch_error_count"],
@@ -672,6 +738,13 @@ def _handshake_run_payload(
                 "status": row.get("status"),
                 "decision": row.get("decision"),
                 "category": row.get("category"),
+                "lane": row.get("lane"),
+                "start_timing": row.get("start_timing"),
+                "application_deadline": row.get("application_deadline"),
+                "deadline_lookup": row.get("deadline_lookup"),
+                "e_verify_status": row.get("e_verify_status"),
+                "eligibility_flags": row.get("eligibility_flags"),
+                "rejection_reason": row.get("rejection_reason"),
                 "url": row.get("url"),
                 "queue_min_score": row.get("queue_min_score"),
                 "notes": row.get("notes"),
@@ -685,6 +758,9 @@ def _handshake_run_payload(
                 "role_title": row.get("role_title"),
                 "fit_score": row.get("fit_score"),
                 "queue_min_score": row.get("queue_min_score"),
+                "lane": row.get("lane"),
+                "start_timing": row.get("start_timing"),
+                "application_deadline": row.get("application_deadline"),
                 "url": row.get("url"),
                 "notes": row.get("notes"),
                 "fit_rationale": row.get("fit_rationale"),
@@ -701,6 +777,7 @@ def _refresh_queue() -> None:
 
 
 def run(args: argparse.Namespace) -> int:
+    lane = normalize_discovery_lane(getattr(args, "lane", LANE_A))
     csv_path = Path(args.csv).expanduser()
     if args.search_url:
         import asyncio
@@ -754,7 +831,7 @@ def run(args: argparse.Namespace) -> int:
         if url_key in seen_urls:
             skipped.append({"url": item.url, "company": item.company, "role_title": item.role_title, "reason": "duplicate_in_csv"})
             continue
-        if not args.no_title_prefilter:
+        if not args.no_title_prefilter and lane != LANE_C:
             prefilter_reason = _handshake_title_prefilter_reason(item)
             if prefilter_reason:
                 skipped.append(
@@ -805,7 +882,7 @@ def run(args: argparse.Namespace) -> int:
                 "role_title": item.role_title,
                 "url": item.url,
                 "ok": True,
-                "jd_text": f"{item.company}\n{item.role_title}\n\n{_source_notes(item)}",
+                "jd_text": f"{item.company}\n{item.role_title}\n\n{_source_notes(item, lane=lane)}",
                 "apply_flow": item.apply_flow or "unknown",
                 "warning": "no_fetch placeholder; not scoreable as a real JD",
             }
@@ -830,6 +907,7 @@ def run(args: argparse.Namespace) -> int:
                 company=str(fetched_item.get("company") or ""),
                 role_title=str(fetched_item.get("role_title") or ""),
                 apply_flow=str(fetched_item.get("apply_flow") or ""),
+                lane=lane,
             )
         )
 
@@ -843,18 +921,28 @@ def run(args: argparse.Namespace) -> int:
     if args.include_deprioritized:
         allowed_decisions.add("deprioritize")
     for row in scored:
-        row["queue_min_score"] = min_apply_queue_score_for_row(
-            str(row.get("source") or ""),
-            str(row.get("notes") or ""),
-            args.min_score,
-        )
+        if lane == LANE_C:
+            row["queue_min_score"] = None
+        else:
+            row["queue_min_score"] = min_apply_queue_score_for_row(
+                str(row.get("source") or ""),
+                str(row.get("notes") or ""),
+                args.min_score,
+            )
 
-    accepted = [
-        row for row in scored
-        if str(row.get("status") or "").lower() == "queued"
-        and str(row.get("decision") or "").lower() in allowed_decisions
-        and pd.to_numeric(row.get("fit_score"), errors="coerce") >= row.get("queue_min_score", args.min_score)
-    ]
+    if lane == LANE_C:
+        accepted = [
+            row for row in scored
+            if str(row.get("status") or "").lower() == "review"
+            and str(row.get("decision") or "").lower() == "proceed"
+        ]
+    else:
+        accepted = [
+            row for row in scored
+            if str(row.get("status") or "").lower() == "queued"
+            and str(row.get("decision") or "").lower() in allowed_decisions
+            and pd.to_numeric(row.get("fit_score"), errors="coerce") >= row.get("queue_min_score", args.min_score)
+        ]
     rejected = [row for row in scored if row not in accepted]
 
     log_payload = _handshake_run_payload(
@@ -880,7 +968,10 @@ def run(args: argparse.Namespace) -> int:
 
     if scored:
         print(f"Scored: {len(scored)}")
-        print(f"Accepted using Handshake flow-aware min scores (fallback {args.min_score}): {len(accepted)}")
+        if lane == LANE_C:
+            print(f"Accepted by Lane C pay/shift gate: {len(accepted)}")
+        else:
+            print(f"Accepted using Handshake flow-aware min scores (fallback {args.min_score}): {len(accepted)}")
         print("Top scored:")
         for row in sorted(scored, key=lambda r: float(r.get("fit_score") or 0), reverse=True)[:8]:
             print(
@@ -916,6 +1007,12 @@ def run(args: argparse.Namespace) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Import Handshake jobs into ResumeGenerator.")
     parser.add_argument("--csv", default=str(DEFAULT_CSV), help="Handshake CSV export path.")
+    parser.add_argument(
+        "--lane",
+        choices=(LANE_A, LANE_C),
+        default=LANE_A,
+        help="Handshake discovery lane: A for Fall 2026 internships, C for income-now roles.",
+    )
     parser.add_argument(
         "--search-url",
         default="",

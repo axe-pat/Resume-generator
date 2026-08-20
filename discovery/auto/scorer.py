@@ -7,7 +7,7 @@ Akshat's profile using Claude.
 For each job it returns:
   fit_score      float  0.0–10.0  (normalised from 25-pt rubric)
   fit_rationale  str    one-sentence rationale from Claude
-  role_type      str    PM / Strategy / Ops / TPM / Other
+  role_type      str    PM / Strategy / Ops / TPM / Solutions / Other
   decision       str    Proceed / Reject / Deprioritize
   category       str    High Priority / Medium Priority / Low Priority / N/A
   breakdown      str    raw dimension breakdown string e.g. "PM Fit: 4 | Tech: 3 | ..."
@@ -29,7 +29,7 @@ import re
 import sys
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from pathlib import Path
 
 import pandas as pd
@@ -50,6 +50,13 @@ PROFILE  = _ROOT.parent / "profile" / "profile.md"
 SCORER   = _HERE / "scorer_prompt.md"
 sys.path.insert(0, str(_ROOT.parent))
 from shared.job_eligibility import (  # noqa: E402
+    LANE_C,
+    annotate_discovery_job,
+    classify_role_surface,
+    evaluate_lane_c,
+    normalize_discovery_lane,
+    pre_filter_discovery_scope,
+    pre_filter_discovery_timing,
     pre_filter_full_time_level,
     pre_filter_immigration,
     pre_filter_role_type,
@@ -140,6 +147,10 @@ Company:    {_job_text(job, 'company', 'Unknown')}
 Role Title: {_job_text(job, 'role_title', 'Unknown')}
 Location:   {_job_text(job, 'location', 'Unknown')}
 Source:     {_job_text(job, 'source', 'unknown')}
+Lane:       {_job_text(job, 'lane', 'A')}
+Start:      {_job_text(job, 'start_timing', 'unknown')}
+Deadline:   {_job_text(job, 'application_deadline', 'not stated')}
+E-Verify:   {_job_text(job, 'e_verify_status', 'not applicable/unknown')}
 
 {jd_text}
 """
@@ -182,9 +193,12 @@ def parse_response(text: str) -> dict:
     # Normalise decision/category casing
     decision  = decision.strip().title().replace("_", " ")
     role_type = role_type.strip()
-    if role_type not in ("PM", "Strategy", "Ops", "TPM", "Other"):
+    if role_type not in ("PM", "Strategy", "Ops", "TPM", "Solutions", "Other"):
         role_type = "Other"
 
+    classification = "reject" if decision in {"Reject", "Deprioritize"} else "keep"
+    if decision == "Unsure":
+        classification = "unsure"
     return {
         "decision":  decision,
         "category":  category,
@@ -192,6 +206,8 @@ def parse_response(text: str) -> dict:
         "breakdown": breakdown,
         "fit_rationale": f"[{decision} | {category}] {rationale}",
         "role_type": role_type,
+        "classification": classification,
+        "reject_reason": rationale if classification in {"reject", "unsure"} else "",
         "_raw_response": text,
     }
 
@@ -205,6 +221,49 @@ def _rejected_result(reason: str) -> dict:
         "fit_rationale": f"[Reject | N/A] {reason}",
         "role_type":     "Other",
         "_raw_response": f"Pre-filter: {reason}",
+        "rejection_reason": reason,
+        "classification": "reject",
+        "reject_reason": reason,
+    }
+
+
+def _lane_c_result(
+    eligible: bool,
+    reason: str,
+    hourly_low: float | None,
+    hourly_high: float | None,
+) -> dict:
+    if not eligible:
+        return _rejected_result(reason)
+    rate = (
+        f"${hourly_low:g}-${hourly_high:g}/hour"
+        if hourly_low is not None and hourly_high is not None and hourly_high != hourly_low
+        else f"${hourly_low:g}/hour"
+    )
+    return {
+        "decision": "Proceed",
+        "category": "Income Now",
+        "fit_score": None,
+        "breakdown": "Lane C: pay floor + shift compatibility",
+        "fit_rationale": f"[Proceed | Income Now] {reason}; {rate}.",
+        "role_type": "Other",
+        "classification": "keep",
+        "reject_reason": "",
+        "_raw_response": f"Lane C deterministic filter: {reason}",
+    }
+
+
+def _unsure_result(reason: str, role_type: str = "Other") -> dict:
+    return {
+        "decision": "Unsure",
+        "category": "Review",
+        "fit_score": None,
+        "breakdown": "Unscored: title/body review gate",
+        "fit_rationale": f"[Unsure | Review] {reason}",
+        "role_type": role_type if role_type in ("PM", "Strategy", "Ops", "TPM", "Solutions") else "Other",
+        "classification": "unsure",
+        "reject_reason": reason,
+        "_raw_response": f"Discovery review gate: {reason}",
     }
 
 
@@ -242,20 +301,68 @@ def _jd_quality_issue(jd_text: str) -> str:
 # Core score function
 # ---------------------------------------------------------------------------
 
-def score_job(job: dict, client: anthropic.Anthropic,
+def score_job(job: dict, client: anthropic.Anthropic | None,
               profile_text: str, scorer_text: str,
               model: str = DEFAULT_MODEL,
-              verbose: bool = True) -> dict:
+              verbose: bool = True,
+              deadline_epoch: float | None = None) -> dict:
     """
     Score a single job dict. Returns a result dict with fit_score etc.
     Merges result back into the job dict and returns the enriched job.
     """
     company = _job_text(job, "company", "?")
     title   = _job_text(job, "role_title", "?")
+    annotate_discovery_job(job)
+    lane = normalize_discovery_lane(job.get("lane"))
 
     with _print_lock:
         if verbose:
             print(f"  Scoring: {company} — {title}")
+
+    jd_text = _job_text(job, "jd_text")
+
+    # ── Lane C: income-now gate; never pass through PM fit filters/scoring ───
+    if lane == LANE_C:
+        immigration_reject, immigration_reason = pre_filter_immigration(jd_text)
+        if immigration_reject:
+            result = _rejected_result(immigration_reason)
+            job.update(result)
+            job["status"] = "skipped"
+            return job
+        eligible, reason, hourly_low, hourly_high = evaluate_lane_c(
+            title,
+            jd_text,
+            _job_text(job, "pay_text") or _job_text(job, "pay"),
+        )
+        result = _lane_c_result(eligible, reason, hourly_low, hourly_high)
+        job.update(result)
+        job["status"] = "review" if eligible else "skipped"
+        with _print_lock:
+            if verbose:
+                symbol = "→" if eligible else "✗"
+                print(f"    {symbol} Lane C deterministic gate: {reason}")
+        return job
+
+    # ── Pre-filter: lane timing and scope (no API call) ─────────────────────
+    is_reject, reason = pre_filter_discovery_timing(title, jd_text, lane)
+    if is_reject:
+        result = _rejected_result(reason)
+        job.update(result)
+        job["status"] = "skipped"
+        with _print_lock:
+            if verbose:
+                print(f"    ✗ Timing reject: {reason}")
+        return job
+
+    is_reject, reason = pre_filter_discovery_scope(title, lane)
+    if is_reject:
+        result = _rejected_result(reason)
+        job.update(result)
+        job["status"] = "skipped"
+        with _print_lock:
+            if verbose:
+                print(f"    ✗ Scope reject: {reason}")
+        return job
 
     # ── Pre-filter: role-type mismatch (title check — no API call) ───────────
     is_role_reject, role_reason = pre_filter_role_type(title)
@@ -269,7 +376,6 @@ def score_job(job: dict, client: anthropic.Anthropic,
         return job
 
     # ── Pre-filter: immigration ───────────────────────────────────────────────
-    jd_text = _job_text(job, "jd_text")
     is_reject, reason = pre_filter_immigration(jd_text)
     if is_reject:
         result = _rejected_result(reason)
@@ -292,6 +398,30 @@ def score_job(job: dict, client: anthropic.Anthropic,
         job["status"] = "skipped"
         return job
 
+    # ── Three-way discovery failure mode: keep / reject / unsure ─────────────
+    disposition = str(job.get("discovery_disposition") or "keep").strip().lower()
+    disposition_reason = str(job.get("discovery_reason") or "").strip()
+    if disposition == "reject":
+        reason = disposition_reason or "Discovery reject — no target role or JD-body signal"
+        result = _rejected_result(reason)
+        job.update(result)
+        job["status"] = "skipped"
+        with _print_lock:
+            if verbose:
+                print(f"    ✗ Discovery reject: {reason}")
+        return job
+    if disposition == "unsure":
+        result = _unsure_result(
+            disposition_reason or "Unknown title with target signals in the JD body",
+            _job_text(job, "role_type", "Other"),
+        )
+        job.update(result)
+        job["status"] = "review"
+        with _print_lock:
+            if verbose:
+                print(f"    ? Unsure — review: {result['fit_rationale']}")
+        return job
+
     # ── No JD text — can't score meaningfully ─────────────────────────────────
     if not jd_text.strip():
         result = _error_result("No JD text available — cannot score")
@@ -311,18 +441,168 @@ def score_job(job: dict, client: anthropic.Anthropic,
         return job
 
     # ── Claude call (with retry) ───────────────────────────────────────────────
+    if client is None:
+        result = _error_result("Scoring client unavailable for Lane A/B role")
+        job.update(result)
+        return job
+
     prompt = build_prompt(job, profile_text, scorer_text)
     last_error = ""
 
     for attempt in range(1, RETRY_ATTEMPTS + 1):
+        remaining = None if deadline_epoch is None else deadline_epoch - time.time()
+        if remaining is not None and remaining <= 0:
+            result = _error_result("Total pipeline wall-clock cap reached before API scoring completed")
+            job.update(result)
+            job["_run_timeout_unscored"] = True
+            return job
         try:
+            request_timeout = None if remaining is None else max(min(remaining, 60.0), 0.1)
+            request_kwargs = {
+                "model": model,
+                "max_tokens": MAX_TOKENS,
+                "messages": [{"role": "user", "content": prompt}],
+            }
+            if request_timeout is not None:
+                request_kwargs["timeout"] = request_timeout
             response = client.messages.create(
-                model=model,
-                max_tokens=MAX_TOKENS,
-                messages=[{"role": "user", "content": prompt}],
+                **request_kwargs,
             )
             raw = response.content[0].text.strip()
             result = parse_response(raw)
+            surface_disposition, _, surface_family = classify_role_surface(title, jd_text)
+
+            # The model occasionally turns generic "no visa sponsorship" boilerplate
+            # into a hard F-1 rejection even though OPT itself needs no employer
+            # sponsorship. Deterministic hard-reject checks already ran above, so keep
+            # such contradictions visible for review instead of silently discarding them.
+            invalid_sponsorship_reject = (
+                lane == "B"
+                and str(result.get("decision") or "").strip().lower() == "reject"
+                and not pre_filter_immigration(jd_text)[0]
+                and (
+                    "sponsor" in jd_text.lower()
+                    or "employment authorization" in jd_text.lower()
+                )
+                and (
+                    "sponsor" in str(result.get("fit_rationale") or "").lower()
+                    or "authorization" in str(result.get("fit_rationale") or "").lower()
+                )
+            )
+            if invalid_sponsorship_reject:
+                correction_prompt = (
+                    prompt
+                    + "\n\nCRITICAL CORRECTION: The JD does not explicitly exclude F-1, OPT, or CPT, "
+                    "and the deterministic hard-immigration filter has passed it. Generic no-sponsorship "
+                    "or no-new-employment-authorization-sponsorship language is a soft flag for Lane B. "
+                    "You MUST score the role normally and may not reject it on immigration grounds."
+                )
+                correction_kwargs = dict(request_kwargs)
+                correction_kwargs["messages"] = [
+                    {"role": "user", "content": correction_prompt}
+                ]
+                corrected_response = client.messages.create(**correction_kwargs)
+                corrected_raw = corrected_response.content[0].text.strip()
+                corrected = parse_response(corrected_raw)
+                corrected_still_invalid = (
+                    str(corrected.get("decision") or "").strip().lower() == "reject"
+                    and (
+                        "sponsor" in str(corrected.get("fit_rationale") or "").lower()
+                        or "authorization" in str(corrected.get("fit_rationale") or "").lower()
+                    )
+                )
+                if corrected_still_invalid:
+                    result = _unsure_result(
+                        "Lane B sponsorship review — JD has generic no-sponsorship language "
+                        "but does not explicitly exclude F-1, OPT, or CPT",
+                        _job_text(job, "role_type", "Other"),
+                    )
+                    result["_raw_response"] = f"{raw}\n\nCORRECTION ATTEMPT:\n{corrected_raw}"
+                else:
+                    result = corrected
+                    result["_raw_response"] = corrected_raw
+
+            rationale_lower = str(result.get("fit_rationale") or "").lower()
+            invalid_technical_gtm_reject = (
+                lane == "B"
+                and surface_disposition == "keep"
+                and surface_family == "Technical GTM"
+                and str(result.get("decision") or "").strip().lower() == "reject"
+                and any(
+                    phrase in rationale_lower
+                    for phrase in (
+                        "role type mismatch",
+                        "outside",
+                        "target scope",
+                        "product ownership",
+                        "sales execution",
+                    )
+                )
+            )
+            if invalid_technical_gtm_reject:
+                correction_prompt = (
+                    prompt
+                    + "\n\nCRITICAL CORRECTION: This title is in the canonical Lane B Technical GTM "
+                    "primary family. Sales Engineer and Technical Sales Engineer are explicit targets. "
+                    "Technical GTM roles are not required to own a product roadmap; customer discovery, "
+                    "technical solution design, demos, and hands-on enablement are the relevant ownership "
+                    "signals. You MUST score the role normally and may not reject it merely as sales, "
+                    "implementation, or for lacking product ownership."
+                )
+                correction_kwargs = dict(request_kwargs)
+                correction_kwargs["messages"] = [
+                    {"role": "user", "content": correction_prompt}
+                ]
+                corrected_response = client.messages.create(**correction_kwargs)
+                corrected_raw = corrected_response.content[0].text.strip()
+                corrected = parse_response(corrected_raw)
+                corrected_rationale = str(corrected.get("fit_rationale") or "").lower()
+                corrected_still_invalid = (
+                    str(corrected.get("decision") or "").strip().lower() == "reject"
+                    and any(
+                        phrase in corrected_rationale
+                        for phrase in (
+                            "role type mismatch",
+                            "outside",
+                            "target scope",
+                            "product ownership",
+                            "sales execution",
+                        )
+                    )
+                )
+                if corrected_still_invalid:
+                    result = _unsure_result(
+                        "Technical GTM role-type review — canonical Lane B target was still rejected "
+                        "by the model after correction",
+                        "Solutions",
+                    )
+                    result["_raw_response"] = f"{raw}\n\nCORRECTION ATTEMPT:\n{corrected_raw}"
+                else:
+                    result = corrected
+                    result["_raw_response"] = corrected_raw
+
+            # A role-type correction can expose a second model error: turning
+            # generic no-sponsorship boilerplate into an F-1/OPT hard reject.
+            # The deterministic immigration gate above is authoritative.
+            post_correction_sponsorship_reject = (
+                lane == "B"
+                and str(result.get("decision") or "").strip().lower() == "reject"
+                and not pre_filter_immigration(jd_text)[0]
+                and (
+                    "sponsor" in str(result.get("fit_rationale") or "").lower()
+                    or "authorization" in str(result.get("fit_rationale") or "").lower()
+                    or "f-1" in str(result.get("fit_rationale") or "").lower()
+                    or "opt" in str(result.get("fit_rationale") or "").lower()
+                )
+            )
+            if post_correction_sponsorship_reject:
+                previous_raw = str(result.get("_raw_response") or raw)
+                result = _unsure_result(
+                    "Lane B sponsorship review — JD has generic no-sponsorship language "
+                    "but does not explicitly exclude F-1, OPT, or CPT",
+                    "Solutions" if surface_family == "Technical GTM" else _job_text(job, "role_type", "Other"),
+                )
+                result["_raw_response"] = previous_raw
 
             with _print_lock:
                 if verbose:
@@ -336,6 +616,8 @@ def score_job(job: dict, client: anthropic.Anthropic,
             # Auto-set status based on decision
             if result["decision"] == "Reject":
                 job["status"] = "skipped"
+            elif result["decision"] == "Unsure":
+                job["status"] = "review"
             elif result["fit_score"] is not None and result["fit_score"] >= 0:
                 job["status"] = "queued"
 
@@ -345,6 +627,10 @@ def score_job(job: dict, client: anthropic.Anthropic,
             last_error = str(e)
             err_str    = str(e)
             is_rate_limit = "429" in err_str or "rate_limit" in err_str.lower()
+            if is_rate_limit:
+                job["_scoring_rate_limit_events"] = int(
+                    job.get("_scoring_rate_limit_events") or 0
+                ) + 1
 
             with _print_lock:
                 if verbose:
@@ -361,9 +647,16 @@ def score_job(job: dict, client: anthropic.Anthropic,
                     with _print_lock:
                         if verbose:
                             print(f"       Rate limit hit — waiting {wait}s before retry…")
-                    time.sleep(wait)
+                    if deadline_epoch is not None:
+                        wait = min(wait, max(deadline_epoch - time.time(), 0))
+                    if wait > 0:
+                        time.sleep(wait)
                 else:
-                    time.sleep(3)   # non-rate-limit errors: short wait then retry
+                    wait = 3
+                    if deadline_epoch is not None:
+                        wait = min(wait, max(deadline_epoch - time.time(), 0))
+                    if wait > 0:
+                        time.sleep(wait)   # non-rate-limit errors: short wait then retry
 
     result = _error_result(f"All {RETRY_ATTEMPTS} attempts failed: {last_error}")
     job.update(result)
@@ -378,7 +671,8 @@ def score_batch(jobs: list[dict],
                 client: anthropic.Anthropic | None = None,
                 model: str = DEFAULT_MODEL,
                 verbose: bool = True,
-                max_workers: int = 2) -> list[dict]:
+                max_workers: int = 2,
+                deadline_epoch: float | None = None) -> list[dict]:
     """
     Score a list of job dicts. Returns the same list with scoring fields filled in.
     Uses ThreadPoolExecutor for parallel API calls.
@@ -399,7 +693,10 @@ def score_batch(jobs: list[dict],
     if not jobs:
         return []
 
-    if client is None:
+    has_api_scoring_jobs = any(
+        normalize_discovery_lane(job.get("lane")) != LANE_C for job in jobs
+    )
+    if client is None and has_api_scoring_jobs:
         api_key = _load_api_key()
         client  = anthropic.Anthropic(api_key=api_key)
 
@@ -417,27 +714,62 @@ def score_batch(jobs: list[dict],
     def _score_one(idx_job: tuple[int, dict]) -> tuple[int, dict]:
         idx, job = idx_job
         result = score_job(
-            job, client, profile_text, scorer_text,
-            model=model, verbose=verbose,
+            dict(job), client, profile_text, scorer_text,
+            model=model, verbose=verbose, deadline_epoch=deadline_epoch,
         )
         return idx, result
 
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = {
-            executor.submit(_score_one, (i, job)): i
-            for i, job in enumerate(jobs)
-        }
-        for future in as_completed(futures):
-            try:
-                idx, result = future.result()
-                scored[idx] = result
-            except Exception as exc:
-                # Shouldn't happen — score_job catches its own errors,
-                # but guard against unexpected executor failures.
-                orig_idx = futures[future]
-                scored[orig_idx] = jobs[orig_idx]
-                with _print_lock:
-                    print(f"  ✗ Executor error at index {orig_idx}: {exc}")
+    executor = ThreadPoolExecutor(max_workers=max_workers)
+    futures = {
+        executor.submit(_score_one, (i, job)): i
+        for i, job in enumerate(jobs)
+    }
+    pending = set(futures)
+    deadline_hit = False
+    try:
+        while pending:
+            timeout = None
+            if deadline_epoch is not None:
+                timeout = max(0.0, deadline_epoch - time.time())
+                if timeout <= 0:
+                    deadline_hit = True
+                    break
+            done, pending = wait(pending, timeout=timeout, return_when=FIRST_COMPLETED)
+            if not done:
+                deadline_hit = True
+                break
+            for future in done:
+                try:
+                    idx, result = future.result()
+                    scored[idx] = result
+                except Exception as exc:
+                    # Shouldn't happen — score_job catches its own errors,
+                    # but guard against unexpected executor failures.
+                    orig_idx = futures[future]
+                    scored[orig_idx] = dict(jobs[orig_idx])
+                    scored[orig_idx].update(_error_result(f"Executor error: {exc}"))
+                    with _print_lock:
+                        print(f"  ✗ Executor error at index {orig_idx}: {exc}")
+    finally:
+        if deadline_hit:
+            for future in pending:
+                future.cancel()
+            # Running API calls receive the same epoch deadline as their request
+            # timeout, so they can be reaped without leaving non-daemon executor
+            # threads alive after the pipeline has written its final report.
+            executor.shutdown(wait=True, cancel_futures=True)
+        else:
+            executor.shutdown(wait=True)
+
+    if deadline_hit:
+        for idx, value in enumerate(scored):
+            if value is None:
+                timed_out = dict(jobs[idx])
+                timed_out.update(_error_result("Total pipeline wall-clock cap reached before scoring completed"))
+                timed_out["_run_timeout_unscored"] = True
+                scored[idx] = timed_out
+        if verbose:
+            print("  ⚠  Total pipeline wall-clock cap reached during scoring; remaining rows marked Error")
 
     # Filter out any None slots (shouldn't occur, but be safe)
     scored = [j for j in scored if j is not None]
@@ -446,16 +778,20 @@ def score_batch(jobs: list[dict],
     if verbose:
         proceeds = [j for j in scored if j.get("decision") == "Proceed"]
         rejects  = [j for j in scored if j.get("decision") == "Reject"]
+        unsure   = [j for j in scored if j.get("decision") == "Unsure"]
         errors   = [j for j in scored if j.get("decision") == "Error"]
         high     = [j for j in proceeds if j.get("category") == "High Priority"]
         mid      = [j for j in proceeds if j.get("category") == "Medium Priority"]
+        income   = [j for j in proceeds if j.get("category") == "Income Now"]
 
         print(f"\n{'─'*60}")
         print(f"  Scored:      {len(scored)}")
         print(f"  Proceed:     {len(proceeds)}  "
               f"(High: {len(high)}  Mid: {len(mid)}  "
-              f"Low: {len(proceeds) - len(high) - len(mid)})")
+              f"Low: {len(proceeds) - len(high) - len(mid) - len(income)}"
+              f"  Income Now: {len(income)})")
         print(f"  Rejected:    {len(rejects)}")
+        print(f"  Unsure:      {len(unsure)}")
         print(f"  Errors:      {len(errors)}")
         if high:
             print(f"\n  Top picks:")

@@ -5,7 +5,7 @@ Ties scraper → scorer → jobs.xlsx into a single run.
 
 What it does each run:
   1. Load existing url_hashes from jobs.xlsx (for dedup)
-  2. Scrape new jobs via JobSpy (6 queries)
+  2. Scrape new jobs via JobSpy (Lane A + Lane B query packs)
   3. Score each new job via Claude
   4. Write results to jobs.xlsx (append, never overwrite existing rows)
   5. Print a run digest
@@ -23,7 +23,11 @@ import argparse
 import hashlib
 import io
 import os
+import re
+import subprocess
 import sys
+import time
+from collections import Counter
 from datetime import datetime
 from pathlib import Path
 
@@ -39,6 +43,19 @@ JOBS_XLSX  = _ROOT / "jobs.xlsx"
 LOGS_DIR   = _HERE / "logs"
 SHEET_NAME = "Jobs"
 
+
+def _wait_process_wall_clock(process: subprocess.Popen, timeout_seconds: float) -> int:
+    """Wait using epoch time so machine sleep counts toward the hard run cap."""
+    deadline_epoch = time.time() + max(timeout_seconds, 0.1)
+    while True:
+        remaining = deadline_epoch - time.time()
+        if remaining <= 0:
+            raise subprocess.TimeoutExpired(process.args, timeout_seconds)
+        try:
+            return process.wait(timeout=min(1.0, remaining))
+        except subprocess.TimeoutExpired:
+            continue
+
 # ---------------------------------------------------------------------------
 # xlsx helpers
 # ---------------------------------------------------------------------------
@@ -48,12 +65,19 @@ COLUMNS = [
     "id", "date_found", "date_posted", "company", "role_title", "role_type",
     "location", "url", "url_hash", "source",
     "fit_score", "fit_rationale", "status",
-    "date_applied", "folder_path", "jd_text", "notes",
+    "date_applied", "folder_path", "resume_run", "jd_text", "notes",
+    "lane", "deadline", "deadline_source", "everify_status",
+    "sponsorship_flag", "classification", "reject_reason",
 ]
 
 # Columns written by scraper+scorer (tc_hash is internal, not stored)
 _INTERNAL_COLS = {"tc_hash", "_query_id", "_raw_response", "breakdown",
-                  "decision", "category"}
+                  "decision", "category", "lane", "start_timing",
+                  "application_deadline", "deadline_source", "deadline_lookup",
+                  "e_verify_status", "eligibility_flags", "hourly_rate_min",
+                  "hourly_rate_max", "rejection_reason", "discovery_disposition",
+                  "discovery_reason", "role_family", "query_lane",
+                  "_scoring_rate_limit_events", "_run_timeout_unscored"}
 
 # ---------------------------------------------------------------------------
 # Formatting constants (keep in sync with jobs.py)
@@ -94,8 +118,10 @@ _COL_WIDTHS = {
     "id": 6, "date_found": 13, "date_posted": 13, "company": 22,
     "role_title": 32, "role_type": 12, "location": 16, "url": 40,
     "url_hash": 14, "source": 12, "fit_score": 10, "fit_rationale": 50,
-    "status": 12, "date_applied": 13, "folder_path": 40, "jd_text": 18,
-    "notes": 40,
+    "status": 12, "date_applied": 13, "folder_path": 40, "resume_run": 12, "jd_text": 18,
+    "notes": 40, "lane": 8, "deadline": 22, "deadline_source": 18,
+    "everify_status": 16, "sponsorship_flag": 28, "classification": 14,
+    "reject_reason": 50,
 }
 
 
@@ -286,6 +312,36 @@ def jobs_to_rows(jobs: list[dict], start_id: int) -> list[dict]:
     for i, job in enumerate(jobs):
         url = str(job.get("url") or "").strip()
         row = {col: job.get(col) for col in COLUMNS}
+        decision = str(job.get("decision") or "").strip().lower()
+        classification = str(
+            job.get("classification") or job.get("discovery_disposition") or ""
+        ).strip().lower()
+        if decision in {"reject", "deprioritize"}:
+            classification = "reject"
+        elif decision == "unsure":
+            classification = "unsure"
+        elif decision == "proceed":
+            classification = "keep"
+
+        flags = job.get("eligibility_flags") or []
+        if isinstance(flags, str):
+            flags = [part.strip() for part in re.split(r"[,|]", flags) if part.strip()]
+        sponsorship_flag = str(job.get("sponsorship_flag") or "").strip()
+        if not sponsorship_flag and "h1b_sponsorship_unavailable" in flags:
+            sponsorship_flag = "h1b_sponsorship_unavailable"
+
+        row["lane"] = str(job.get("lane") or "").strip()
+        row["deadline"] = job.get("deadline") or job.get("application_deadline") or ""
+        row["deadline_source"] = job.get("deadline_source") or ""
+        row["everify_status"] = job.get("everify_status") or job.get("e_verify_status") or ""
+        row["sponsorship_flag"] = sponsorship_flag
+        row["classification"] = classification
+        row["reject_reason"] = (
+            job.get("reject_reason")
+            or job.get("rejection_reason")
+            or (job.get("discovery_reason") if classification in {"reject", "unsure"} else "")
+            or ""
+        )
         row["id"]       = start_id + i
         row["url_hash"] = job.get("url_hash") or (_url_hash(url) if url else "")
         # Clean up None-ish values
@@ -300,10 +356,29 @@ def jobs_to_rows(jobs: list[dict], start_id: int) -> list[dict]:
 # Digest printer
 # ---------------------------------------------------------------------------
 
-def print_digest(new_jobs: list[dict], run_start: datetime) -> None:
+def _watched_programs(new_jobs: list[dict]) -> dict[str, list[dict]]:
+    google_apm: list[dict] = []
+    meta_rpm: list[dict] = []
+    for job in new_jobs:
+        company = str(job.get("company") or "")
+        title = str(job.get("role_title") or "")
+        if re.search(r"\b(?:google|alphabet)\b", company, re.I) and re.search(
+            r"\b(?:APM|associate\s+product\s+manager)\b", title, re.I
+        ):
+            google_apm.append(job)
+        if re.search(r"\b(?:meta|facebook)\b", company, re.I) and re.search(
+            r"\b(?:RPM|rotational\s+product\s+manager)\b", title, re.I
+        ):
+            meta_rpm.append(job)
+    return {"Google APM": google_apm, "Meta RPM": meta_rpm}
+
+
+def print_digest(new_jobs: list[dict], run_start: datetime,
+                 scrape_report: dict | None = None) -> None:
     elapsed = (datetime.now() - run_start).seconds
     proceed = [j for j in new_jobs if j.get("decision") == "Proceed"]
     skipped = [j for j in new_jobs if j.get("decision") in ("Reject", "Deprioritize")]
+    unsure  = [j for j in new_jobs if j.get("decision") == "Unsure"]
     errors  = [j for j in new_jobs if j.get("decision") == "Error"]
     high    = [j for j in proceed if j.get("category") == "High Priority"]
     mid     = [j for j in proceed if j.get("category") == "Medium Priority"]
@@ -316,7 +391,47 @@ def print_digest(new_jobs: list[dict], run_start: datetime) -> None:
     print(f"  Queued (proceed): {len(proceed)}  "
           f"[High: {len(high)}  Mid: {len(mid)}  Low: {len(low)}]")
     print(f"  Rejected/skipped: {len(skipped)}")
+    print(f"  Unsure / review:  {len(unsure)}")
     print(f"  Scoring errors:   {len(errors)}")
+    scoring_throttles = sum(int(j.get("_scoring_rate_limit_events") or 0) for j in new_jobs)
+    print(f"  Scoring throttles:{scoring_throttles:>4}")
+
+    if scrape_report:
+        status_counts = scrape_report.get("query_status_counts") or {}
+        print(
+            f"  Query runtime:    {scrape_report.get('elapsed_seconds', 0):.1f}s | "
+            f"completed={status_counts.get('completed', 0)} | "
+            f"timed_out={status_counts.get('timed_out', 0)} | "
+            f"failed={status_counts.get('failed', 0)} | "
+            f"run-cap-skipped={status_counts.get('skipped_run_timeout', 0)}"
+        )
+        print(f"  Source throttles: {int(scrape_report.get('throttle_events') or 0)}")
+        print(f"  Checkpoints:      {scrape_report.get('checkpoint_dir', '')}")
+
+    print("\n  Volume by discovery lane:")
+    for lane in ("A", "B", "C"):
+        lane_jobs = [j for j in new_jobs if str(j.get("lane") or "A").upper() == lane]
+        lane_proceed = sum(j.get("decision") == "Proceed" for j in lane_jobs)
+        lane_reject = sum(j.get("decision") in ("Reject", "Deprioritize") for j in lane_jobs)
+        lane_unsure = sum(j.get("decision") == "Unsure" for j in lane_jobs)
+        lane_errors = sum(j.get("decision") == "Error" for j in lane_jobs)
+        print(
+            f"    Lane {lane}: {len(lane_jobs)} found | {lane_proceed} proceed | "
+            f"{lane_reject} rejected/deprioritized | {lane_unsure} unsure | {lane_errors} errors"
+        )
+
+    rejection_reasons = Counter(_rejection_reason(j) for j in skipped)
+    rejection_reasons.pop("", None)
+    if rejection_reasons:
+        print("\n  Rejects by reason:")
+        for reason, count in rejection_reasons.most_common():
+            print(f"    {count:>3}  {reason}")
+
+    print("\n  Programme watch:")
+    for label, matches in _watched_programs(new_jobs).items():
+        print(f"    {label}: {len(matches)}")
+        for job in matches:
+            print(f"      {job.get('company')} — {job.get('role_title')} | {job.get('url', '')}")
 
     if high:
         print(f"\n  ★  Top picks this run:")
@@ -328,12 +443,22 @@ def print_digest(new_jobs: list[dict], run_start: datetime) -> None:
     print(f"{'═'*60}\n")
 
 
+def _rejection_reason(job: dict) -> str:
+    explicit = str(job.get("reject_reason") or job.get("rejection_reason") or "").strip()
+    if explicit:
+        return explicit
+    rationale = str(job.get("fit_rationale") or "").strip()
+    rationale = re.sub(r"^\[(?:Reject|Deprioritize)\s*\|[^]]*\]\s*", "", rationale, flags=re.I)
+    return rationale or "Unspecified rejection/deprioritization"
+
+
 # ---------------------------------------------------------------------------
 # Run log writer
 # ---------------------------------------------------------------------------
 
 def write_run_log(new_jobs: list[dict], run_start: datetime,
-                  hours_old: int, dry_run: bool) -> Path:
+                  hours_old: int, dry_run: bool,
+                  scrape_report: dict | None = None) -> Path:
     """
     Write a structured log file for this run to discovery/auto/logs/.
     Returns the log file path.
@@ -345,6 +470,7 @@ def write_run_log(new_jobs: list[dict], run_start: datetime,
 
     proceed  = [j for j in new_jobs if j.get("decision") == "Proceed"]
     rejected = [j for j in new_jobs if j.get("decision") in ("Reject", "Deprioritize")]
+    unsure   = [j for j in new_jobs if j.get("decision") == "Unsure"]
     errors   = [j for j in new_jobs if j.get("decision") == "Error"]
     high     = sorted([j for j in proceed if j.get("category") == "High Priority"],
                       key=lambda j: j.get("fit_score") or 0, reverse=True)
@@ -364,9 +490,66 @@ def write_run_log(new_jobs: list[dict], run_start: datetime,
         f"Queued (proceed):  {len(proceed)}  "
             f"[High: {len(high)}  Mid: {len(mid)}  Low: {len(low)}]",
         f"Rejected/skipped:  {len(rejected)}",
+        f"Unsure / review:   {len(unsure)}",
         f"Scoring errors:    {len(errors)}",
+        f"Scoring throttles: {sum(int(j.get('_scoring_rate_limit_events') or 0) for j in new_jobs)}",
         f"",
     ]
+
+    if scrape_report:
+        status_counts = scrape_report.get("query_status_counts") or {}
+        lines += [
+            f"── Scrape execution ──────────────────────────────────────",
+            f"Runtime:             {scrape_report.get('elapsed_seconds', 0):.1f}s",
+            f"Completed queries:    {status_counts.get('completed', 0)}",
+            f"Timed-out queries:    {status_counts.get('timed_out', 0)}",
+            f"Failed queries:       {status_counts.get('failed', 0)}",
+            f"Run-cap skipped:      {status_counts.get('skipped_run_timeout', 0)}",
+            f"Source throttles:     {int(scrape_report.get('throttle_events') or 0)}",
+            f"Checkpoint directory: {scrape_report.get('checkpoint_dir', '')}",
+            "",
+        ]
+        problem_queries = [
+            record for record in scrape_report.get("queries") or []
+            if record.get("status") != "completed"
+        ]
+        if problem_queries:
+            lines += ["Problem queries:"]
+            for record in problem_queries:
+                lines.append(
+                    f"  {record.get('query_id')} | {record.get('status')} | "
+                    f"{record.get('elapsed_seconds', 0)}s | {record.get('error', '')}"
+                )
+            lines.append("")
+
+    lines += ["── Programme watch ───────────────────────────────────────"]
+    for label, matches in _watched_programs(new_jobs).items():
+        lines.append(f"{label}: {len(matches)}")
+        for job in matches:
+            lines.append(f"  {job.get('company')} — {job.get('role_title')} | {job.get('url', '')}")
+    lines.append("")
+
+    lines += ["── Volume by lane ────────────────────────────────────────"]
+
+    for lane in ("A", "B", "C"):
+        lane_jobs = [j for j in new_jobs if str(j.get("lane") or "A").upper() == lane]
+        lane_proceed = sum(j.get("decision") == "Proceed" for j in lane_jobs)
+        lane_reject = sum(j.get("decision") in ("Reject", "Deprioritize") for j in lane_jobs)
+        lane_unsure = sum(j.get("decision") == "Unsure" for j in lane_jobs)
+        lane_errors = sum(j.get("decision") == "Error" for j in lane_jobs)
+        lines.append(
+            f"Lane {lane}: {len(lane_jobs)} found | {lane_proceed} proceed | "
+            f"{lane_reject} rejected/deprioritized | {lane_unsure} unsure | {lane_errors} errors"
+        )
+    lines.append("")
+
+    rejection_reasons = Counter(_rejection_reason(j) for j in rejected)
+    rejection_reasons.pop("", None)
+    if rejection_reasons:
+        lines += ["── Rejects by reason ──────────────────────────────────────"]
+        for reason, count in rejection_reasons.most_common():
+            lines.append(f"{count:>3}  {reason}")
+        lines.append("")
 
     if high:
         lines += ["── High Priority ─────────────────────────────────────────"]
@@ -405,6 +588,15 @@ def write_run_log(new_jobs: list[dict], run_start: datetime,
             ]
         lines += [""]
 
+    if unsure:
+        lines += ["── Unsure / Review ────────────────────────────────────────"]
+        for j in unsure:
+            lines += [
+                f"  ?  {j.get('company')} — {j.get('role_title')}",
+                f"     {j.get('fit_rationale', '')}",
+            ]
+        lines += [""]
+
     if errors:
         lines += ["── Scoring Errors (will retry next run) ──────────────────"]
         for j in errors:
@@ -429,6 +621,8 @@ def run(hours_old: int = 24,
         skip_scrape: bool = False,
         model: str = "claude-haiku-4-5-20251001",
         results_override: int | None = None,
+        query_timeout_seconds: int = 120,
+        run_timeout_seconds: int = 5400,
         with_startup_apply: bool = False,
         startup_limit_companies: int = 12,
         startup_limit_jobs: int = 30,
@@ -438,6 +632,7 @@ def run(hours_old: int = 24,
     Full pipeline run. Returns list of newly added + scored job dicts.
     """
     run_start = datetime.now()
+    run_deadline_epoch = time.time() + max(run_timeout_seconds, 1)
 
     # Lazy imports — keeps startup fast and errors localised
     sys.path.insert(0, str(_HERE))
@@ -460,6 +655,7 @@ def run(hours_old: int = 24,
         print(f"  Existing jobs in xlsx: {len(df_existing)}")
 
     # ── Step 2: Scrape (or load unscored 'new' jobs) ─────────────────────────
+    scrape_report: dict = {}
     if skip_scrape:
         # Re-score any jobs already in xlsx with status=new and no fit_score.
         # fillna("") required — xlsx NaN cells read back as float NaN, not "".
@@ -473,6 +669,9 @@ def run(hours_old: int = 24,
             existing_hashes=existing_hashes,
             results_override=results_override,
             verbose=verbose,
+            per_query_timeout_seconds=max(query_timeout_seconds, 1),
+            total_timeout_seconds=max(int(run_deadline_epoch - time.time() - 30), 1),
+            run_report=scrape_report,
         )
 
     scored_jobs: list[dict] = []
@@ -500,7 +699,11 @@ def run(hours_old: int = 24,
             print(f"  Estimated API cost: ~${est_cost:.2f}  ({n} × ${cost_per:.5f}/job)")
 
         scored_jobs = score_batch(
-            new_jobs, client=client, model=model, verbose=verbose
+            new_jobs,
+            client=client,
+            model=model,
+            verbose=verbose,
+            deadline_epoch=max(run_deadline_epoch - 15, time.time()),
         )
 
         # ── Step 4: Write to xlsx ─────────────────────────────────────────────
@@ -522,12 +725,19 @@ def run(hours_old: int = 24,
         if verbose and not dry_run:
             print(f"\n  ✓ jobs.xlsx updated  ({len(df_all)} total rows)")
 
-        # ── Step 5: Digest + log ──────────────────────────────────────────────
-        print_digest(scored_jobs, run_start)
+    # ── Step 5: Digest + log ──────────────────────────────────────────────────
+    # Always emit a run-scoped report, including successful zero-result runs.
+    print_digest(scored_jobs, run_start, scrape_report=scrape_report)
 
-        log_path = write_run_log(scored_jobs, run_start, hours_old, dry_run)
-        if verbose:
-            print(f"  Run log → {log_path}")
+    log_path = write_run_log(
+        scored_jobs,
+        run_start,
+        hours_old,
+        dry_run,
+        scrape_report=scrape_report,
+    )
+    if verbose:
+        print(f"  Run log → {log_path}")
 
     startup_jobs: list[dict] = []
     if with_startup_apply:
@@ -581,6 +791,14 @@ if __name__ == "__main__":
         help="Override RESULTS_WANTED per query per site (e.g. --results 200 for validation runs)"
     )
     parser.add_argument(
+        "--query-timeout", type=int, default=120,
+        help="Hard wall-clock timeout for each JobSpy query in seconds (default: 120)",
+    )
+    parser.add_argument(
+        "--run-timeout", type=int, default=5400,
+        help="Hard total pipeline wall-clock cap in seconds (default: 5400)",
+    )
+    parser.add_argument(
         "--with-startup-apply", action="store_true",
         help="Also run the startup-apply lane after the standard LinkedIn/Indeed lane"
     )
@@ -596,7 +814,50 @@ if __name__ == "__main__":
         "--startup-source", action="append", default=[],
         help="Optional startup source_id filter, repeatable (for example: --startup-source builtin_sf_job_lists)"
     )
+    parser.add_argument("--_supervised-worker", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args()
+
+    if not args._supervised_worker:
+        supervisor_started = datetime.now()
+        command = [
+            sys.executable,
+            str(Path(__file__).resolve()),
+            *sys.argv[1:],
+            "--_supervised-worker",
+        ]
+        process = subprocess.Popen(
+            command,
+            env={**os.environ, "PYTHONUNBUFFERED": "1"},
+        )
+        try:
+            raise SystemExit(_wait_process_wall_clock(process, max(args.run_timeout, 1) + 5))
+        except subprocess.TimeoutExpired:
+            process.terminate()
+            try:
+                _wait_process_wall_clock(process, 5)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                _wait_process_wall_clock(process, 5)
+            LOGS_DIR.mkdir(exist_ok=True)
+            timeout_log = LOGS_DIR / f"run_{supervisor_started.strftime('%Y-%m-%d_%H%M')}_timeout.txt"
+            timeout_log.write_text(
+                "\n".join(
+                    [
+                        "Pipeline supervisor timeout",
+                        "=" * 60,
+                        f"Started: {supervisor_started.isoformat(timespec='seconds')}",
+                        f"Hard cap: {max(args.run_timeout, 1)}s",
+                        "Action: child process terminated; completed query checkpoints remain usable",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            print(
+                f"\n  ✗ Pipeline hard wall-clock cap reached; worker terminated. "
+                f"Timeout log → {timeout_log}",
+                flush=True,
+            )
+            raise SystemExit(124)
 
     run(
         hours_old=args.hours_old,
@@ -604,6 +865,8 @@ if __name__ == "__main__":
         skip_scrape=args.skip_scrape,
         model=args.model,
         results_override=args.results,
+        query_timeout_seconds=max(args.query_timeout, 1),
+        run_timeout_seconds=max(args.run_timeout, 1),
         with_startup_apply=args.with_startup_apply,
         startup_limit_companies=max(args.startup_limit_companies, 1),
         startup_limit_jobs=max(args.startup_limit_jobs, 1),

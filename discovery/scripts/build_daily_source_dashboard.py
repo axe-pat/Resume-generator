@@ -180,7 +180,8 @@ def _build_payload(
     source_breadth = _load_json(source_breadth_path)
     startup_report = _load_json(startup_report_path)
     app_score_now = _collect_jobs(source_breadth, startup_report, ("app_score_now",))
-    app_review = _collect_jobs(source_breadth, startup_report, ("app_review",))
+    app_review = _collect_jobs(source_breadth, startup_report, ("app_review", "unsure"))
+    unsure = _collect_jobs(source_breadth, startup_report, ("unsure",))
     relationship_targets = _collect_relationship_targets(source_breadth, startup_report)
 
     return {
@@ -192,6 +193,7 @@ def _build_payload(
         "summary": {
             "app_score_now": len(app_score_now),
             "app_review": len(app_review),
+            "unsure": len(unsure),
             "relationship_targets": len(relationship_targets),
             "skip_noise": _skip_noise_count(source_breadth, startup_report),
         },
@@ -202,6 +204,8 @@ def _build_payload(
             "review_by_source": _counts_by(app_review, "lane_source"),
             "score_now": _top_jobs(app_score_now, top_limit),
             "review": _top_jobs(app_review, top_limit),
+            "unsure_count": len(unsure),
+            "unsure": _top_jobs(unsure, top_limit),
         },
         "relationship_lane": {
             "target_count": len(relationship_targets),
@@ -220,6 +224,7 @@ def _build_payload(
         "policy": [
             "Score app_score_now candidates in the application lane.",
             "Triage app_review before normal scoring.",
+            "Review unsure rows separately; their titles are unknown but their JDs contain target signals.",
             "Send relationship_targets to Outreach/contact enrichment.",
             "Do not spend API calls on skip_noise.",
         ],
@@ -249,6 +254,7 @@ def _write_markdown(path: Path, payload: dict[str, Any]) -> None:
         "",
         f"- App score now: {summary['app_score_now']}",
         f"- App review: {summary['app_review']}",
+        f"- Unsure (unknown title, JD signals): {summary['unsure']}",
         f"- Relationship targets: {summary['relationship_targets']}",
         f"- Skip noise: {summary['skip_noise']}",
         "",
@@ -271,6 +277,15 @@ def _write_markdown(path: Path, payload: dict[str, Any]) -> None:
         lines.append(f"- {item['company']} | {item['role_title']} | {item['url']}")
         lines.append(f"  - {item['lane_source']}")
     if not payload["application_lane"]["review"]:
+        lines.append("- None")
+
+    lines.extend(["", "### Unsure", ""])
+    for item in payload["application_lane"]["unsure"]:
+        lines.append(f"- {item['company']} | {item['role_title']} | {item['url']}")
+        lines.append(f"  - {item['lane_source']}")
+        if item["reasons"]:
+            lines.append(f"  - {item['reasons']}")
+    if not payload["application_lane"]["unsure"]:
         lines.append("- None")
 
     lines.extend(["", "## Relationship Lane", ""])
