@@ -1,0 +1,83 @@
+{
+  "kind": "resume",
+  "output_path": "/Users/akshat/Desktop/Claude Projects/ResumeGenerator v1/apps/Apply queues/current_apply_queue/jobs/20_08-18_CARRY_na_University_of_Southern_California_-_Viterbi_School_of_Engineering/Student_Services_Assistant/resume_2026-08-20_final.docx",
+  "name": "AKSHAT PATHAK",
+  "contact": "Los Angeles, CA • Akshat.Pathak.2027@marshall.usc.edu • (213) 325-0609 • linkedin.com/in/akshats-pathak",
+  "profile": "USC Marshall MBA candidate and international student with campus leadership, current product work on international-student services, and five years coordinating detail-sensitive work across global technology teams.",
+  "education": [
+    {
+      "school": "University of Southern California, Marshall School of Business — Los Angeles, CA",
+      "date": "May 2027",
+      "degree": "Master of Business Administration (STEM)",
+      "bullets": [
+        "Dean's Merit Scholarship; Marshall Leadership Fellow"
+      ]
+    },
+    {
+      "school": "Thapar Institute of Engineering and Technology — Patiala, India",
+      "date": "Aug 2020",
+      "degree": "Bachelor of Engineering, Computer Engineering — GPA 3.73",
+      "bullets": [
+        "Merit Scholarship (2×); General Secretary, Creative Computing Society, serving programs with 1,000+ participants"
+      ]
+    }
+  ],
+  "sections": [
+    {
+      "title": "Campus & Student-Facing Experience",
+      "entries": [
+        {
+          "organization": "USC Marshall School of Business — Los Angeles, CA",
+          "date": "Aug 2025 – Present",
+          "role": "AVP Alumni Relations, South Asian Business Association; AVP External Relations, High Tech Association",
+          "bullets": [
+            "Support alumni and external-relations outreach, speaker coordination, and student-facing communications across two graduate business organizations."
+          ]
+        },
+        {
+          "organization": "Fluo — Los Angeles, CA",
+          "date": "Jul 2026 – Present",
+          "role": "Product Strategy & Build, Founder Engagement",
+          "bullets": [
+            "Mapped a 35-step international-student arrival journey and built an interactive plan that adapts when visa, housing, banking, or campus tasks are delayed.",
+            "Used USC program calendars to resize the reachable cohort from ~300 to ~2,200 students and redirect outreach toward Viterbi's pre-departure window."
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Professional Experience",
+      "entries": [
+        {
+          "organization": "FlairX AI — Remote",
+          "date": "Jun 2026 – Aug 2026",
+          "role": "AI Product Manager Intern",
+          "bullets": [
+            "Led 4 engineers and 2 designers through 32 scheduling edge cases to launch an internal-interview product with privacy-safe Microsoft 365 availability."
+          ]
+        },
+        {
+          "organization": "Gojek — Gurgaon, India",
+          "date": "Jan 2025 – Jul 2025",
+          "role": "Senior Software Engineer | Product & Marketplace Scope",
+          "bullets": [
+            "Defined API requirements and partner-validation workflows for commercial fleets across Singapore and Bali, balancing partner needs with precise launch checks."
+          ]
+        },
+        {
+          "organization": "Intuit — Bengaluru, India",
+          "date": "Aug 2022 – Oct 2023",
+          "role": "Software Engineer 2",
+          "bullets": [
+            "Coordinated Engineering, QA, and Support through a billing issue affecting 1,500+ businesses, maintaining clear owners and validation steps while fixes shipped."
+          ]
+        }
+      ]
+    }
+  ],
+  "skills": [
+    ["Student Services", "Written and oral communication, scheduling, documentation, administrative follow-through, sensitive-data judgment"],
+    ["Tools", "Microsoft 365, Outlook, Excel, PowerPoint, Google Workspace, SQL, Python"],
+    ["Languages", "English and Hindi"]
+  ]
+}

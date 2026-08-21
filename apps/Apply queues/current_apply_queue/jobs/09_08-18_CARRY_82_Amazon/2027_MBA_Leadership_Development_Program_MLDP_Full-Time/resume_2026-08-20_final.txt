@@ -1,0 +1,38 @@
+FINAL CURATED RESUME — 2026-08-20
+
+SECTION 0 — PROFESSIONAL SUMMARY (paste-ready)
+------------------------------------------------------------------------
+
+SECTION 3 — FULL EXPERIENCE SECTION (paste-ready)
+------------------------------------------------------------------------
+FLAIRX AI | AI Product Manager Intern | Jun 2026 – Aug 2026 | Remote
+• Reworked avatar vendor economics from a $3,000 monthly fee to $0.10-per-minute pricing; evaluated in-house alternatives and defined multi-provider routing to remove single-vendor lock-in.
+• Launched FlairX's first internal-interview suite in 2 weeks, leading 4 engineers and 2 designers to pair M365 scheduling with transcript-grounded AI scoring for Genpact.
+• Built FlairX's first commercial data spine in HubSpot, connecting product usage, expert services, and account history for shared Product and GTM visibility.
+
+GOJEK | Senior Software Engineer | Jan 2025 – Jul 2025 | Gurgaon, India
+• Synthesized funnel data, pricing elasticity, and 20+ rider interviews to define a cost-tiered ride product; A/B tests lifted conversion 9% and generated $3.2M in incremental revenue.
+• Defined API requirements and partner-validation workflows for commercial fleets across Singapore and Bali, expanding marketplace supply 18% and cutting pickup ETAs by 1.5 minutes.
+
+HEVO DATA | Software Engineer 2 | Nov 2023 – Jan 2025 | Bengaluru, India
+• Helped shift Hevo 2.0 from streaming-first to batch-first execution after enterprise buyers prioritized auditability, enabling 8 customer onboardings within 90 days.
+• Cut release cycles from 14 to 4 days by scaling an automated regression suite across 4 engineering teams and catching integration failures before manual QA.
+
+INTUIT | Software Engineer 2 | Aug 2022 – Oct 2023 | Bengaluru, India
+• Diagnosed billing accuracy as the root of silent SMB cancellations; designed a cross-system reconciliation framework and helped redirect the roadmap from feature velocity to auditability.
+• Caught a billing failure affecting 1,500+ businesses and coordinated Engineering, QA, and Support in parallel, cutting resolution from days to hours.
+
+SECTION 3B — PROJECTS & CONSULTING (paste-ready)
+------------------------------------------------------------------------
+PROJECTS & CONSULTING
+FLUO | Product Strategy & Build, Founder Engagement | Jul 2026 – Present
+• Work daily with Fluo's founder to turn a settling-service concept into a 35-step dependency model, interactive product prototype, and phased campus GTM plan.
+
+SECTION 4 — SKILLS & INTERESTS (paste-ready)
+------------------------------------------------------------------------
+SKILLS & INTERESTS
+● Leadership Focus: Product Strategy, Pricing & Unit Economics, Vendor Strategy, Enterprise SaaS, Cross-functional Execution
+● Analytics & Operations: SQL, Tableau, Excel, KPI Definition, A/B Testing, Business Cases, Roadmaps, Process Improvement
+● Tools: SQL, Tableau, Excel, Python, Figma; Jira, Confluence; AWS, Docker; Agile, Git
+● Community: Supported education for 400+ underserved children; led a $20K fundraiser for an anti-human trafficking nonprofit.
+● Interests: Fitness & strength training, DJing house music, behavioral psychology, astrophysics, trekking the Himalayas
