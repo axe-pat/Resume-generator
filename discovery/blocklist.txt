@@ -19,7 +19,9 @@
 
 TikTok*
 Nvidia
-IBM
+# IBM removed 2026-08-26: the blanket block predated the 2027 recruiting
+# cycle and incorrectly stranded valid early-career roles. Role-level timing,
+# eligibility, and sponsorship checks still apply.
 ByteDance
 
 # (TikTok is listed above; ByteDance blocks non-TikTok ByteDance postings.)
