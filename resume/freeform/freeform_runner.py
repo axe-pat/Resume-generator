@@ -82,6 +82,8 @@ def _sanitize_summary_section(text: str) -> str:
     if not text:
         return ""
     clean = text.strip().strip('"')
+    if clean.upper() in {"NONE", "N/A", "NO SUMMARY"}:
+        return ""
     # Drop any leaked divider line or section label the model appended on the
     # same line after the summary text.
     clean = re.split(r"\s*[─═\-]{6,}\s*", clean, maxsplit=1)[0]
@@ -456,14 +458,14 @@ def extract_sections(response: str) -> dict:
     if m:
         result["summary_section"] = _sanitize_summary_section(m.group(1))
 
-    # Section 3 — from GOJEK header up to the optional Projects section or Skills section.
+    # Section 3 — from the active track's first company header up to Projects/Skills.
     m = re.search(
-        r"(GOJEK \| Senior Software Engineer.*?)(?=\nSECTION 3B|\nPROJECTS & CONSULTING|\nSKILLS & INTERESTS|\nSECTION 4|\Z)",
+        rf"({_company_anchor_pattern()} \|.*?)(?=\nSECTION 3B|\nPROJECTS & CONSULTING|\nSKILLS & INTERESTS|\nSECTION 4|\Z)",
                   response, re.S | re.I)
     if m:
         result["experience_section"] = m.group(1).strip()
 
-    # Section 3B — optional Projects & Consulting block (non-PM routes only).
+    # Section 3B — optional Projects & Consulting block (used by non-PM routes).
     m = re.search(
         r"SECTION 3B[^\n]*\n[─═\-=\u2500-\u257F]*\n?"
         r"(PROJECTS & CONSULTING.*?)(?=\nSECTION 4|\Z)",
@@ -519,21 +521,21 @@ def run_voice_rewrite(
         log = m_log.group(1).strip()
 
     # ── Extract rewritten experience section ──────────────────────────────────
-    # Strategy: find the LAST occurrence of a GOJEK header in the raw output
+    # Strategy: find the LAST occurrence of the active track's first header
     # before the REWRITES LOG.  The model sometimes self-corrects multiple times
     # within the REWRITTEN EXPERIENCE SECTION block, producing intermediate
     # drafts.  Taking the LAST GOJEK block avoids capturing that intermediate
     # deliberation as part of the experience section.
     raw_before_log = raw[:m_log.start()] if m_log else raw
 
-    # All GOJEK-header positions in the pre-log output
-    gojek_hits = list(re.finditer(
-        r"GOJEK \| Senior Software Engineer", raw_before_log, re.I,
+    # All first-company header positions in the pre-log output
+    first_company_hits = list(re.finditer(
+        rf"{_company_anchor_pattern()} \|", raw_before_log, re.I,
     ))
 
     rewritten = ""
-    if gojek_hits:
-        last_start = gojek_hits[-1].start()
+    if first_company_hits:
+        last_start = first_company_hits[-1].start()
         rewritten  = raw_before_log[last_start:].strip()
     else:
         # Fallback: parse via section header (multiple separator styles)
@@ -697,7 +699,7 @@ def _sanitize_experience_section(text: str) -> str:
         clean = re.sub(r'\*\*([^*]+)\*\*', r'\1', stripped)
         clean = re.sub(r'\*([^*]+)\*',   r'\1', clean)
         # Drop stray per-bullet sub-headers ("GOJEK #1", "HEVO DATA #2", etc.)
-        if re.match(r'^(GOJEK|HEVO DATA|HEVO|INTUIT|OPTUM)\s*#\d+\s*$', clean, re.I):
+        if re.match(rf'^{_any_company_pattern()}\s*#\d+\s*$', clean, re.I):
             continue
         # Drop log-internal labels ("ORIGINAL:", "FIXED:", "FAILURE:", "FIX:", "CHANGE:")
         if re.match(r'^(ORIGINAL|FIXED|FAILURE|FIX|CHANGE|REWRITTEN)\s*:', clean, re.I):
@@ -720,7 +722,7 @@ def _extract_bullet_by_ref(experience_section: str, company: str, index: int) ->
     count = 0
     for line in experience_section.splitlines():
         stripped = line.strip().lstrip("*").strip()
-        for key in ["GOJEK", "HEVO DATA", "INTUIT", "OPTUM"]:
+        for key in _COMPANY_KEYS:
             if stripped.upper().startswith(key):
                 current_company = key
                 count = 0
@@ -943,7 +945,7 @@ def run_length_trim(
         # Fallback: find the last occurrence of a company header block
         # (GOJEK is always first in the section, so finding GOJEK anchors the whole block)
         _company_matches = list(re.finditer(
-            r"((?:GOJEK|HEVO|INTUIT|OPTUM)\s*\|[^\n]+\n.*?)(?=\n\s*FIX LOG|\Z)",
+            rf"({_company_anchor_pattern()}\s*\|[^\n]+\n.*?)(?=\n\s*FIX LOG|\Z)",
             raw, re.S | re.I,
         ))
         if _company_matches:
@@ -1059,7 +1061,7 @@ def run_targeted_fixes(
     if not revised:
         # Fallback: find the last company-anchored block (GOJEK is always first)
         _company_matches = list(re.finditer(
-            r"((?:GOJEK|HEVO|INTUIT|OPTUM)\s*\|[^\n]+\n.*?)(?=\n\s*FIX LOG|\Z)",
+            rf"({_company_anchor_pattern()}\s*\|[^\n]+\n.*?)(?=\n\s*FIX LOG|\Z)",
             raw, re.S | re.I,
         ))
         if _company_matches:
@@ -1128,16 +1130,52 @@ def _word_wrap_bullet(text: str, line_chars: int = 100) -> list[str]:
     return lines if lines else [text]
 
 
-COMPANY_HEADERS = [
+PM_COMPANY_HEADERS = [
+    "FLAIRX AI | AI Product Manager Intern | Jun 2026 – Aug 2026 | San Francisco, CA",
+    "GOJEK | Senior Software Engineer | Jan 2025 – Jul 2025 | Gurgaon, India",
+    "HEVO DATA | Software Engineer 2 | Nov 2023 – Jan 2025 | Bengaluru, India",
+    "INTUIT | Software Engineer 2 | Aug 2022 – Oct 2023 | Bengaluru, India",
+]
+NONPM_COMPANY_HEADERS = [
     "GOJEK | Senior Software Engineer | Jan 2025 – Jul 2025 | Gurgaon, India",
     "HEVO DATA | Software Engineer 2 | Nov 2023 – Jan 2025 | Bengaluru, India",
     "INTUIT | Software Engineer 2 | Aug 2022 – Oct 2023 | Bengaluru, India",
     "OPTUM | Software Engineer | Jul 2020 – Aug 2022 | Gurgaon, India",
 ]
 
+PM_COMPANY_SLOTS = {"FLAIRX AI": 3, "GOJEK": 3, "HEVO DATA": 3, "INTUIT": 2}
+NONPM_COMPANY_SLOTS = {"GOJEK": 3, "HEVO DATA": 3, "INTUIT": 3, "OPTUM": 2}
+
+# Active contract is configured at the start of each run. Keeping one active
+# contract lets the existing QC/fix helpers stay simple while preserving the
+# legacy non-PM resume shape.
+COMPANY_HEADERS = list(PM_COMPANY_HEADERS)
+COMPANY_SLOTS = dict(PM_COMPANY_SLOTS)
+_COMPANY_KEYS = list(PM_COMPANY_SLOTS)
+
+
+def _configure_track_contract(track: str) -> None:
+    global COMPANY_HEADERS, COMPANY_SLOTS, _COMPANY_KEYS
+    if track == "nonpm":
+        COMPANY_HEADERS = list(NONPM_COMPANY_HEADERS)
+        COMPANY_SLOTS = dict(NONPM_COMPANY_SLOTS)
+    else:
+        COMPANY_HEADERS = list(PM_COMPANY_HEADERS)
+        COMPANY_SLOTS = dict(PM_COMPANY_SLOTS)
+    _COMPANY_KEYS = list(COMPANY_SLOTS)
+
+
+def _company_anchor_pattern() -> str:
+    """Regex alternation for the active track's first company header."""
+    return re.escape(_COMPANY_KEYS[0])
+
+
+def _any_company_pattern() -> str:
+    """Regex alternation for any active company key, longest first."""
+    return "(?:" + "|".join(re.escape(k) for k in sorted(_COMPANY_KEYS, key=len, reverse=True)) + ")"
+
 _INCIDENT_NUM = re.compile(r"1[,.]?500", re.I)  # unique to the billing-failure story
 
-COMPANY_SLOTS = {"GOJEK": 3, "HEVO DATA": 3, "INTUIT": 3, "OPTUM": 2}
 BULLET_RE     = re.compile(r"^[\•\-\*]\s+\S")
 
 
@@ -1425,6 +1463,36 @@ def run_quality_checks(sections: dict, track: str = "pm") -> list[dict]:
                    if not qc13_issues else " | ".join(qc13_issues)),
     })
 
+    # QC-14: Current Fluo proof belongs in one compact Skills & Interests row on the
+    # PM track. The USC partnership is confirmed, but its office, counterparty wording,
+    # scope, date, and writing status remain open; keep those mechanics unspecified.
+    if track == "pm":
+        skills_text = sections.get("skills_section", "")
+        fluo_rows = re.findall(
+            r"(?im)^\s*[●•-]\s*Venture Product:\s*Fluo\s*[—-]\s*.+$",
+            skills_text,
+        )
+        project_issues = []
+        if len(fluo_rows) != 1:
+            project_issues.append(
+                f"expected 1 Venture Product: Fluo skills row, got {len(fluo_rows)}"
+            )
+        forbidden_fluo = [
+            r"partnered with (?:usc )?(?:viterbi|marshall|dornsife|rossier)",
+            r"(?:viterbi|marshall|dornsife|rossier) (?:office|school|program)",
+            r"validated adoption",
+            r"generated .*revenue",
+        ]
+        for pattern in forbidden_fluo:
+            if re.search(pattern, skills_text, re.I):
+                project_issues.append(f"unsupported Fluo claim matched: {pattern}")
+        checks.append({
+            "name": "QC-14 Fluo skills-row truth boundary",
+            "status": "FAIL" if project_issues else "PASS",
+            "detail": "1 inline venture-product row; partnership and outcome boundaries preserved"
+                      if not project_issues else " | ".join(project_issues),
+        })
+
     return checks
 
 
@@ -1610,7 +1678,7 @@ def print_experience(exp: str, label: str = "PASTE-READY EXPERIENCE SECTION"):
     print()
     for line in exp.splitlines():
         stripped = line.strip()
-        if any(stripped.startswith(co) for co in ["GOJEK", "HEVO", "INTUIT", "OPTUM"]):
+        if any(stripped.startswith(co) for co in _COMPANY_KEYS):
             print(c(BOLD, line))
         else:
             print(line)
@@ -1622,7 +1690,6 @@ def print_experience(exp: str, label: str = "PASTE-READY EXPERIENCE SECTION"):
 # ─────────────────────────────────────────────────────────────────────────────
 import math as _math
 
-_COMPANY_KEYS   = ["GOJEK", "HEVO DATA", "INTUIT", "OPTUM"]
 DOCX_SCRIPT     = BASE_DIR.parent / "resume_docx.js"
 NODE_PATH       = str(BASE_DIR.parent / "node_modules")   # resume/node_modules — portable
 _CHARS_PER_LINE = 100  # calibrated from resume_docx.js: Times New Roman 10pt,
@@ -2100,6 +2167,7 @@ def run_single(
     if track not in VALID_TRACKS:
         print(c(YELLOW, f"  [!] Unknown track '{track}' — defaulting to 'pm'"))
         track = "pm"
+    _configure_track_contract(track)
     master_prompt_path = NONPM_PROMPT_PATH if track == "nonpm" else PROMPT_PATH
     score_model = score_model or model
 
@@ -2239,6 +2307,7 @@ Hard guidance:
             # Detected a non-PM role family (e.g. "strategy-consulting",
             # "ops-execution", "consulting", "strategy").
             track = "nonpm"
+            _configure_track_contract(track)
             master_prompt_path = NONPM_PROMPT_PATH
             role_preamble = _NONPM_SCORER_PREAMBLE
             print(c(YELLOW, f"  [i] Track auto-switched to 'nonpm' "

@@ -1,6 +1,7 @@
 AKSHAT PATHAK — FREEFORM RESUME GENERATOR v2
 ============================================================
-You are generating the Experience section of Akshat Pathak's PM internship resume.
+You are generating the Experience and Projects & Consulting sections of Akshat
+Pathak's PM resume.
 This is a single-pass, high-quality generation. Output must be paste-ready.
 
 ══════════════════════════════════════════════════════════════
@@ -45,7 +46,7 @@ FOUR-ARCHETYPE SYSTEM — DISTRIBUTION ACROSS 11 BULLETS:
                       this is a scorer -0.5 deduction — break the run with action/context
 
 PER-SECTION MONOTONY CONSTRAINT:
-  • No company block (Gojek, Hevo, Intuit, Optum) may have 3 or more consecutive
+  • No company block (FlairX, Gojek, Hevo, Intuit) may have 3 or more consecutive
     diagnostic openers in the same block.
   • If a company has 2 diagnostic bullets, the 3rd bullet in that section must use
     an action or impact-first opener.
@@ -79,9 +80,33 @@ Your job:
      instead. Don't force it — if no variant fits secondary for that slot, use primary.
      Spread secondary picks across company blocks where possible.
    — If primary = secondary (or no secondary provided): use primary for all 11 bullets.
-4. For flexible slots (marked ★), let the secondary_framing_axis guide which story
-   option to pick (H-REGRESSION vs H-QUERY vs H-MONITORING-AI; I-PRIORITIZATION vs
-   I-ROADMAP vs I-STRATEGIC-NO vs I-RECONCILIATION).
+4. For flexible slots (marked ★), let the JD signals plus primary and secondary
+   framing axes guide which story option to pick.
+
+   FLAIRX FLEX DECISION RULES — choose exactly 3 DISTINCT stories from 5:
+   a) AI workflow, enterprise SaaS, 0-to-1, user adoption, interviewer experience
+      → F-ENTERPRISE
+   b) AI infrastructure, platform resilience, build-vs-buy, vendor economics,
+      real-time media, trust or fraud controls → F-AVATAR
+   c) integrations, APIs, partner ecosystems, systems of record, enterprise adoption
+      → F-CEIPAL
+   d) growth, sourcing, marketplaces, product discovery, partnerships, pricing
+      → F-SOURCING
+   e) RevOps, BizOps, GTM systems, CRM, analytics, founder influence
+      → F-OPS
+   f) Default AI PM / mixed PM → F-ENTERPRISE + F-AVATAR + F-SOURCING
+
+   Selection safeguards:
+   • Never select two variants from the same FlairX story.
+   • F-OPS is specialist evidence. Select it only when the JD explicitly values
+     commercial operations, GTM systems, CRM, analytics, or founder-facing execution.
+   • F-AVATAR is a flagship AI PM story, not merely a technical fallback.
+   • F-CEIPAL replaces F-AVATAR when the JD prioritizes APIs, integrations,
+     enterprise systems of record, or ecosystem distribution over AI infrastructure.
+   • Across the three selected FlairX bullets, cover three distinct value signals and
+     include at least one ACTION or CONTEXT opener. Do not output three diagnostics.
+
+   For the remaining flexible slots:
 
    H-FLEX DECISION RULES — apply in order, stop at first match:
    a) JD emphasizes AI/ML product, AI infrastructure, GenAI platforms, or LLM tooling
@@ -91,25 +116,14 @@ Your job:
    c) JD emphasizes execution velocity, release ops, or PLG → H-REGRESSION
    d) Default → H-REGRESSION
 
-   I-FLEX DECISION RULES — apply in order, stop at first match:
-   a) JD mentions security, enterprise accounts, data integrity, compliance, audit,
-      or cross-team data consistency → I-RECONCILIATION (hard metrics: 3K/month,
-      50K accounts; insight: aggregate vs. siloed view exposes the real scope)
-   b) JD emphasizes PM judgment, prioritization trade-offs, or risk management →
-      I-STRATEGIC-NO ($1.2M overbilling prevented, 3-month deprioritization hold)
-   c) JD emphasizes cross-functional execution, delivery, or broad stakeholder PM →
-      I-PRIORITIZATION (customer-impact scoring framework, 20K+ issue backlog)
-   d) JD emphasizes strategy, consulting, or senior leadership positioning →
-      I-ROADMAP (BRDs, financial auditability vs feature density framing)
-
-   IMPORTANT: I-ROADMAP is the weakest signal match for most PM roles — only pick it
-   when the other three options clearly do NOT match the JD's emphasis.
+   Intuit is fixed to two stories on the PM track: I-BILLING + I-INCIDENT.
 5. Within each company block, reorder the stories freely to lead with the most
    JD-relevant story first.
 6. For Section 3 (experience bullets): output chosen variants verbatim — do NOT
    reword or polish. Every number, metric, and factual claim exactly as written.
-   For Section 4 (skills): select tags, template, and community variant as instructed
-   in the SKILLS POOL — this section requires active selection and ordering.
+   For Section 4 (skills): select exactly one Fluo venture-product variant verbatim,
+   plus tags, template, and community variant as instructed in the SKILLS POOL —
+   this section requires active selection and ordering.
 
 ══════════════════════════════════════════════════════════════
 POSITIONING STRATEGY (generated from JD + intel — use to anchor framing)
@@ -120,12 +134,12 @@ POSITIONING STRATEGY (generated from JD + intel — use to anchor framing)
 HARD CONSTRAINTS — READ BEFORE GENERATING
 ══════════════════════════════════════════════════════════════
 STRUCTURE: Use exactly these company headers, verbatim:
+  FLAIRX AI | AI Product Manager Intern | Jun 2026 – Aug 2026 | San Francisco, CA
   GOJEK | Senior Software Engineer | Jan 2025 – Jul 2025 | Gurgaon, India
   HEVO DATA | Software Engineer 2 | Nov 2023 – Jan 2025 | Bengaluru, India
   INTUIT | Software Engineer 2 | Aug 2022 – Oct 2023 | Bengaluru, India
-  OPTUM | Software Engineer | Jul 2020 – Aug 2022 | Gurgaon, India
 
-BULLET COUNTS: Gojek=3, Hevo Data=3, Intuit=3, Optum=2. Total=11. No exceptions.
+BULLET COUNTS: FlairX=3, Gojek=3, Hevo Data=3, Intuit=2. Total=11. No exceptions.
 
 BULLET LENGTH RULE (calibration guide — pipeline QC enforces the limit automatically):
 
@@ -140,12 +154,124 @@ BULLET LENGTH RULE (calibration guide — pipeline QC enforces the limit automat
   generation; the pipeline enforces limits automatically after output.
 
 ATTRIBUTION GUARD — THIS IS A HARD CONSTRAINT, NOT A GUIDELINE:
-  NEVER include '$110M', '$20M', '50M members', or any platform-level revenue or
+  NEVER include '$110M', '$20M', '50M members', '42%', '80% duplicate entry',
+  'retained the account', or any platform-level revenue, customer-retention, or
   scale figure unless it appears verbatim in the specific variant text you selected.
   These figures also appear in the POSITIONING STRATEGY context block above — that
   is background for framing only. Do NOT add them to a bullet if the variant you
   chose does not already contain them. If a variant contains them, reproduce them
   exactly as written. Output only what is in the variant text — nothing from strategy.
+
+══════════════════════════════════════════════════════════════
+STORY POOL — FLAIRX AI (choose exactly 3 DISTINCT stories from 5)
+══════════════════════════════════════════════════════════════
+
+Truth boundary: Akshat confirmed that the internal-interview product launched, the
+Ceipal integration launched publicly, and the sourcing product shipped completely.
+42% is the baseline recruiter-bandwidth burden, not a measured reduction. Do NOT add
+an 80% reduction, account retention, ARR/ACV lift, pricing adoption, or deal closure.
+
+─── STORY F-ENTERPRISE: Internal Interview Workflow / Enterprise Suite ─────────
+Core facts: enterprise buyers required internal final-round panels; cross-functional
+product and engineering team; two-week delivery; privacy-safe M365 free/busy scheduling; 32 scheduling
+edge cases; split-mode questionnaires; transcript-linked AI scorecards; Genpact pilot.
+
+[zero-to-one]  ← ★ DEFAULT for general PM, ownership, and execution roles  [ACTION]
+"Turned Genpact's ban on outsourced final rounds into FlairX's client-run interview suite; led the product and engineering team to ship M365 scheduling with transcript-grounded AI scoring in 2 weeks."
+
+[enterprise-discovery]  ← enterprise SaaS, discovery, or customer-objection roles  [DIAGNOSTIC]
+"Turned Genpact's rejection of outsourced final rounds into FlairX's enterprise wedge; converted its internal-panel bottleneck into an integrated scheduling and AI-evaluation product."
+
+[AI-workflow]  ← AI product, workflow design, or adoption roles  [ACTION]
+"Designed a split-mode interview experience that let executives skip rigid questionnaires while a post-call GenAI pipeline converted transcripts into evidence-linked competency scores."
+
+[workflow-reliability]  ← platform, systems, or execution-rigor roles  [ACTION]
+"Defined 32 failure states for global panel scheduling, from Outlook declines to quorum fallbacks; kept live interviews intact until replacement slots were confirmed."
+
+[enterprise-platform]  ← product strategy, platform expansion, or enterprise roles  [ACTION]
+"Expanded FlairX from AI screening into an enterprise interview operating system, unifying automated screens, internal panels, privacy-safe scheduling, and evidence-grounded evaluations."
+
+─── STORY F-AVATAR: AI Avatar Infrastructure / Build-vs-Partner ───────────────
+Core facts: incumbent vendor imposed a 20-minute cap while enterprise rounds ran
+45–60 minutes; open-source build audit; 14-day vendor evaluation; usage-only LiveGen
+contract at $0.10/min; $0.009/min fallback endpoints; two-tier provider strategy;
+Ziva Guard anti-fraud telemetry kept below 8% browser CPU.
+
+[platform-turnaround]  ← ★ DEFAULT for AI PM, ownership, or infrastructure roles  [ACTION]
+"Rebuilt FlairX's avatar infrastructure after a 20-minute vendor cap threatened 45–60-minute interviews; ran build-vs-partner diligence, negotiated usage pricing, and shipped multi-provider routing."
+
+[unit-economics]  ← vendor negotiation, procurement, or margin roles  [ACTION]
+"Reworked avatar unit economics from a $3,000 monthly platform fee to $0.10-per-minute usage pricing, with $0.009 fallbacks for high-volume screening."
+
+[platform-resilience]  ← AI infrastructure, reliability, or platform roles  [ACTION]
+"Shipped a provider-agnostic routing layer that sent enterprise interviews to LiveGen and volume screens to $0.009 endpoints, eliminating single-vendor lock-in."
+
+[technical-diligence]  ← build-vs-buy, technical strategy, or roadmap roles  [ACTION]
+"Audited MuseTalk/EchoMimic across GPU cost, VRAM, latency, plus maintenance burden; rejected an in-house build to protect core roadmap velocity."
+
+[trust-performance]  ← responsible AI, trust, fraud, or real-time product roles  [ACTION]
+"Shipped Ziva Guard across gaze, face-mesh, plus voice signals; held browser CPU below 8% and interruption latency under 150ms on low-spec candidate devices."
+
+─── STORY F-OPS: Commercial Data Spine / Founder-to-System Transition ─────────
+Core facts: commercial context lived in founder knowledge and Slack; HubSpot object
+model; backend product-event ingestion; AI-screening versus human-expert usage split;
+account-linked feedback timelines; fulfillment evidence used in enterprise diligence.
+
+[commercial-ops]  ← RevOps, BizOps, or operating-system roles  [ACTION]
+"Built FlairX's first commercial data spine in HubSpot, turning backend product events into live account-level views of AI-screening usage, expert services, and revenue."
+
+[data-product]  ← analytics, data product, or internal-tools roles  [ACTION]
+"Designed a HubSpot data model that separated AI-screening usage from expert services, giving Product and GTM a shared source of truth for revenue plus fulfillment."
+
+[influence-without-authority]  ← founder-facing, ambiguity, or influence roles  [DIAGNOSTIC]
+"Converted founder-held deal context into self-serve CRM workflows, giving Product and GTM a shared account history without routing every decision through the CEO."
+
+[GTM-enablement]  ← enterprise GTM, sales enablement, or diligence roles  [ACTION]
+"Turned platform usage into enterprise diligence evidence for Genpact/L&T, giving buyers defensible views of fulfillment capacity, service mix, and delivery history."
+
+[feedback-system]  ← voice-of-customer, product ops, or CRM workflow roles  [ACTION]
+"Mapped customer emails, objections, and feature requests into account timelines, creating a queryable voice-of-customer system for roadmap plus GTM decisions."
+
+─── STORY F-CEIPAL: Ceipal ATS Marketplace Integration ────────────────────────
+Core facts: GTECH used Ceipal as its system of record; duplicate job/candidate setup;
+Ceipal APIs supported pull but not score write-back; pull-first MVP; normalized encoded
+IDs and compound fields; public Ceipal marketplace launch. No quantified retention claim.
+
+[ecosystem-platform]  ← platform, integrations, or ecosystem roles  [ACTION]
+"Embedded FlairX inside recruiters' system of record by shipping native Ceipal job and candidate imports, turning a customer workflow gap into a public marketplace channel."
+
+[MVP-tradeoff]  ← ★ DEFAULT for general PM, judgment, ambiguity, or prioritization  [DIAGNOSTIC]
+"Publicly launched FlairX's Ceipal Marketplace integration after a vendor API audit exposed no write-back path; scoped a pull-first MVP that eliminated duplicate recruiter setup."
+
+[customer-adoption]  ← enterprise adoption, workflow, or customer success roles  [DIAGNOSTIC]
+"Traced GTECH's adoption friction to duplicate work across FlairX/Ceipal; shipped job and candidate imports that kept AI screening inside its system-of-record workflow."
+
+[technical-integration]  ← API, data platform, or technical PM roles  [ACTION]
+"Specified a translation layer for Ceipal's Base64 entity IDs and compound fields, converting inconsistent ATS payloads into clean, attributable FlairX records."
+
+[marketplace-GTM]  ← ecosystem GTM, partnerships, or distribution roles  [ACTION]
+"Designed idempotent Ceipal webhooks with duplicate-event caching and key-rotation alerts, preventing retry storms or silent authentication failures from corrupting candidate syncs."
+
+─── STORY F-SOURCING: Full-Funnel Candidate Sourcing Product ──────────────────
+Core facts: repeated client demand; recruiting-ops shadowing; criteria already held in
+JD/questionnaire/rubric; inbound/outbound split; zero-input Sourced flow; candidate-data
+vendor evaluation; corrected 25× estimate to 2.3×; LinkedIn Basic Jobs XML approval;
+end-to-end spec handed to engineering. Pricing and commercial adoption were not shipped.
+
+[product-discovery]  ← discovery or user-research roles  [DIAGNOSTIC]
+"Found recruiters manually rebuilding criteria FlairX already owned; turned each JD, questionnaire, and rubric into a prefilled search plus evidence-grounded candidate ranking."
+
+[zero-to-one]  ← ★ DEFAULT for general PM, product definition, workflow, or 0-to-1 roles  [ACTION]
+"Shipped FlairX's first AI sourcing engine, turning JDs plus rubrics into zero-input candidate ranking; corrected a 25× vendor estimate to 2.3× and secured LinkedIn XML distribution."
+
+[build-vs-rent]  ← product strategy, vendor selection, or platform roles  [DIAGNOSTIC]
+"Split one sourcing request into inbound distribution and outbound discovery; kept matching intelligence in-house while narrowing build-vs-rent to raw candidate data."
+
+[unit-economics]  ← analytics, economics, or decision-quality roles  [DIAGNOSTIC]
+"Corrected Coresignal economics from a headline 25× advantage to an honest 2.3× per shortlisted candidate; designed preview-before-unlock controls around the real cost driver."
+
+[partnership-GTM]  ← partnerships, distribution, or growth roles  [ACTION]
+"Secured LinkedIn Basic Jobs XML approval after Apply Connect proved uneconomic, opening automated job distribution without client Page authorization or webhook dependencies."
 
 ══════════════════════════════════════════════════════════════
 STORY POOL — GOJEK (always 3 bullets; reorder freely)
@@ -332,7 +458,7 @@ CONSTRAINT: Do NOT use contrast phrasing ("not X but Y", "rather than X", "X ins
   "Shipped an AI monitoring surface as the primary observability layer for 120K+ enterprise pipelines; a GenAI synthesizer trained on a 20+ failure taxonomy replaced alert storms with structured incident cards, cutting MTTR 40%."
 
 ══════════════════════════════════════════════════════════════
-STORY POOL — INTUIT (3 bullets: I-BILLING + I-INCIDENT + ★ I-FLEX)
+STORY POOL — INTUIT (2 bullets: I-BILLING + I-INCIDENT)
 ══════════════════════════════════════════════════════════════
 
 ─── STORY I-BILLING: Billing Accuracy / Churn / Renewals ───────────────────────
@@ -382,7 +508,7 @@ Core facts: 1,500+ businesses/SMBs affected, high-risk billing incident, faulty
 [stakeholder-coord]
 "Surfaced a billing failure affecting 1,500+ SMBs and coordinated response across Product, Support, and Engineering; aligned teams on remediation sequencing, refund decisions, and customer communications to limit financial exposure."
 
-─── STORY I-FLEX ★ (pick ONE of four based on JD signal) ───────────────────────
+─── LEGACY INTUIT STORY REFERENCE — DO NOT SELECT OR OUTPUT ON PM TRACK ────────
 
   ── Option I-PRIORITIZATION: Customer-Impact Framework ──────────────────────
   Core facts: 20K+ issue backlog, 8 cross-functional teams, feature delivery vs
@@ -443,7 +569,7 @@ Core facts: 1,500+ businesses/SMBs affected, high-risk billing incident, faulty
   "Halted a subscription tier launch to fix a 15% data mismatch in the legacy billing engine; diagnosed it as systemic overbilling risk accumulating below incident thresholds and redirected 3 months of engineering capacity, preventing a projected $1.2M in disputes."
 
 ══════════════════════════════════════════════════════════════
-STORY POOL — OPTUM (2 bullets: O-PROVIDER + O-AFFORDABILITY)
+LEGACY STORY POOL — OPTUM (REFERENCE ONLY; DO NOT SELECT OR OUTPUT ON PM TRACK)
 ══════════════════════════════════════════════════════════════
 
 ─── STORY O-PROVIDER: Provider Integration & Care Network ──────────────────────
@@ -494,18 +620,61 @@ Core facts: ML-based affordability solution, predictive risk scoring to identify
 "Reframed Optum's affordability outreach from reactive to predictive; designed a risk model on prescription fill rate, ER frequency, and deductible utilization with a three-tier intervention playbook, piloted as Optum's first AI affordability tool."
 
 ══════════════════════════════════════════════════════════════
+VENTURE PRODUCT POOL — FLUO (choose exactly 1 variant for SECTION 4)
+══════════════════════════════════════════════════════════════
+
+Context: Fluo is an active founder engagement, not a formal full-time role. Keep one
+compact Venture Product: Fluo row inside Skills & Interests, never a standalone
+section or Experience entry on the current shared new-grad resume.
+
+Truth boundary: Work is ongoing and the USC partnership is confirmed. The exact
+office, counterparty wording, scope, date, and written status are still being worked,
+so state only `a USC partnership`; do not name a program office or invent mechanics.
+Student adoption and realized revenue are not established. Never upgrade market-size
+or funnel planning inputs into outcomes. The ATS data is a prototype snapshot.
+
+SELECTION RULES — apply in order, stop at first match:
+a) JD emphasizes data platforms, APIs, SQL, Python, ETL, developer products, or search
+   → [fluo-data-platform]
+b) JD emphasizes customer insight, roadmap, product strategy, higher education,
+   institutional distribution, partnerships, or GTM
+   → [fluo-roadmap-partnership]
+c) JD emphasizes leadership, ambiguity, operating cadence, or founder-facing execution
+   → [fluo-founder-execution]
+d) Default PM, workflow, zero-to-one, roadmap, or product design
+   → [fluo-product-system]
+
+[fluo-product-system]
+"Reframed Fluo's static international-student checklist as a 35-step dependency engine; built an interactive prototype with a 12-question intake, delay cascades, and plan reshaping."
+
+[fluo-data-platform]
+"Built a public-ATS sourcing prototype across 31 H-1B-verified employers and 8,145 postings with zero duplicate entries, then isolated company mapping as the scaling bottleneck."
+
+[fluo-roadmap-partnership]
+"Secured a USC partnership after concluding Fluo could not win students post-arrival, when they trust peers over an app; reset the roadmap around pre-arrival acquisition and long-term retention."
+
+[fluo-founder-execution]
+"Worked daily with Fluo's founder to turn a settling-service concept into a 35-step dependency model, interactive product prototype, and phased campus GTM plan."
+
+══════════════════════════════════════════════════════════════
 PROFESSIONAL SUMMARY POOL — for SECTION 0
 ══════════════════════════════════════════════════════════════
 
-PURPOSE: A 1–2 line positioning statement at the top of the resume, between the
-header and education. JD-tailored. Addresses the SE→PM narrative directly.
+CURRENT PM RULE: Output exactly `NONE` for Section 0. FlairX now supplies a real,
+recent PM title as the first experience line, so a transition summary adds density
+without adding proof. The variants below are retained as reference only and must not
+be selected unless a future explicit override changes this rule.
+
+PURPOSE: A single factual identity line at the top of the resume, between the
+header and education. JD-tailored. Addresses the SE→PM narrative directly without
+repeating bullet outcomes or implying that prior engineering titles were PM titles.
 Start from one base variant below. You may add a small JD-aware qualifier only
 under the controlled injection rules below. Do NOT otherwise paraphrase, merge,
-or polish. Base variants are pre-written to be 10/10.
+or polish.
 
 SELECTION RULES — apply in order, stop at first match:
 a) JD emphasizes AI/ML product, GenAI, LLM, or AI infrastructure
-   → [PM-ai]  (L'Oréal GenAI line — use only when AI is a primary signal)
+   → [PM-ai]  (use only when AI is a primary signal)
 b) JD emphasizes marketplace, supply, consumer platform, or ride/delivery
    → [PM-growth]
 c) JD emphasizes fintech, billing, monetization, SMB financial systems, or payments
@@ -522,16 +691,8 @@ SUMMARY INJECTION RULES — PM track only, apply after selecting the base varian
    "analytics-led enterprise workflows", "cross-functional product execution",
    "AI-enabled internal tooling", "requirements-driven platform decisions".
 4. Maximum payload: 2 compressed JD terms total. Keep the qualifier under ~8 words.
-5. PRIORITY ORDER FOR INSERTION:
-   a) Zone 1 (preferred): inject into the opening identity frame.
-      Example pattern: "Five years shaping product decisions for [qualifier]: ..."
-      or "Five years shaping product decisions in [qualifier], ..."
-   b) Zone 3 (fallback only): inject into the USC Marshall transition line if
-      Zone 1 becomes awkward or too long.
-      Example pattern: "... owning them for [qualifier]."
-6. NEVER inject into Zone 2, the proof chain with company facts/metrics. Do not
-   replace nouns like "customer discovery", "product roadmap", or any factual
-   evidence phrase inside the body of the summary.
+5. Insert only after "engineering experience" when the qualifier reads naturally.
+6. Never add metrics or outcome claims to the summary. Those belong in bullets.
 7. If no clean qualifier exists, output the base variant unchanged.
 
 CRITICAL:
@@ -541,28 +702,29 @@ CRITICAL:
 - Do NOT rewrite the entire summary; adapt minimally.
 
 [PM-default]  ← default for mixed signals or general PM roles
-"Five years shaping product decisions through the systems behind them, from generating $3.2M in incremental revenue at Gojek through customer discovery to shifting the product roadmap for 80K+ businesses at Intuit. Now at USC Marshall to move from pressure-testing product decisions to owning them."
+"AI Product Manager Intern at FlairX with five years of engineering experience across marketplace, data infrastructure, and fintech products; USC Marshall MBA candidate, May 2027."
 
 [PM-standout]  ← BEST for enterprise SaaS, reliability, data pipelines, or technical PM roles
-"Five years shaping product decisions: diagnosing reliability tradeoffs for 120K+ pipelines at Hevo and protecting financial trust for 80K+ Intuit businesses. Now at USC Marshall to move from validating product direction to defining it."
+"AI Product Manager Intern at FlairX with five years of engineering experience across enterprise data, marketplace, and billing systems; USC Marshall MBA candidate, May 2027."
 
 [PM-ai]  ← BEST for AI/ML, GenAI, LLM, or AI infrastructure roles
-"Five years architecting the product decisions behind production AI: data pipelines for 120K+ enterprise environments at Hevo, predictive risk models at Optum, and GenAI workflow strategy for L'Oréal. Now at USC Marshall to move from building the AI engine to leading AI product strategy."
+"AI Product Manager Intern at FlairX with five years of engineering experience and recent ownership of AI workflow, platform, and hiring products; USC Marshall MBA candidate, May 2027."
 
 [PM-growth]  ← BEST for marketplace, supply, consumer platform, or ride/delivery roles
-"Five years finding the revenue ceilings hidden in marketplace data, from a $3.2M ride tier launch at Gojek through customer discovery to an 18% supply expansion via fleet API platforms. Now at USC Marshall to move from identifying growth bottlenecks to owning marketplace product strategy."
+"AI Product Manager Intern at FlairX with five years of engineering experience across consumer marketplaces, platform integrations, and growth systems; USC Marshall MBA candidate, May 2027."
 
 [PM-fintech]  ← BEST for fintech, billing, monetization, or SMB/payments roles
-"Five years shaping monetization roadmaps where financial accuracy is the product: resolved $1.2M in overbilling risk for 80K+ Intuit businesses by prioritizing data consistency over feature density. Now at USC Marshall to move from pressure-testing financial tradeoffs to owning fintech product strategy."
+"AI Product Manager Intern at FlairX with five years of engineering experience across billing, monetization, and customer-trust systems; USC Marshall MBA candidate, May 2027."
 
 ══════════════════════════════════════════════════════════════
 PRE-GENERATION CHECKLIST (verify silently before writing Section 3)
 ══════════════════════════════════════════════════════════════
 □ Exactly 3 JD signals identified
 □ Primary and secondary framing axes noted from positioning strategy
-□ Professional summary variant selected from PROFESSIONAL SUMMARY POOL
+□ Professional summary set to NONE under the current PM rule
+□ Exactly 1 role-relevant Fluo variant selected from VENTURE PRODUCT POOL — FLUO
 □ For each of the 11 slots: one variant chosen, framing axis noted
-□ Flexible slots (H-FLEX, I-FLEX) resolved — secondary axis used to pick story option
+□ Flexible slots (FlairX, H-FLEX) resolved — secondary axis used to pick story option
 □ Story ordering within each company block decided (lead with primary-axis story)
 □ If primary_framing_axis is workflow-discovery-to-product or research-to-proposal:
   lead with discovery-to-product bullets; avoid a section that reads like generic
@@ -575,7 +737,7 @@ PRE-GENERATION CHECKLIST (verify silently before writing Section 3)
 □ All 4 company headers exact
 
 ══════════════════════════════════════════════════════════════
-OUTPUT FORMAT — produce exactly four sections
+OUTPUT FORMAT — produce exactly five sections
 ══════════════════════════════════════════════════════════════
 
 SECTION 1 — TOP 3 JD SIGNALS
@@ -586,10 +748,11 @@ SECTION 1 — TOP 3 JD SIGNALS
 ---
 
 SECTION 2 — SELECTION NOTES
-Note which professional summary variant was chosen and why (1 sentence).
-For each story slot (G1, G2, G3, H1, H2, H3, I1, I2, I3, O1, O2):
+Confirm that Section 0 is NONE under the current PM rule (1 sentence).
+Note which Fluo variant was chosen for the Skills & Interests venture row and why (1 sentence).
+For each story slot (F1, F2, F3, G1, G2, G3, H1, H2, H3, I1, I2):
 - Which variant/story chosen and why (1 sentence each)
-- Opener type: ACTION / DIAGNOSTIC / IMPACT-FIRST  ← label each slot explicitly
+- Opener type: ACTION / CONTEXT / DIAGNOSTIC / IMPACT-FIRST  ← label each slot explicitly
 Also note: story ordering decisions within each company block.
 
 ACTION-FIRST TALLY (mandatory — compute before writing Section 3):
@@ -600,13 +763,18 @@ ACTION-FIRST TALLY (mandatory — compute before writing Section 3):
 
 ---
 
-SECTION 0 — PROFESSIONAL SUMMARY (paste-ready, base variant with optional controlled qualifier)
+SECTION 0 — PROFESSIONAL SUMMARY (paste-ready)
 
-[chosen summary variant, with optional Zone 1 or Zone 3 qualifier only]
+NONE
 
 ---
 
 SECTION 3 — FULL EXPERIENCE SECTION (paste-ready, no markdown bold)
+
+FLAIRX AI | AI Product Manager Intern | Jun 2026 – Aug 2026 | San Francisco, CA
+• [bullet]
+• [bullet]
+• [bullet]
 
 GOJEK | Senior Software Engineer | Jan 2025 – Jul 2025 | Gurgaon, India
 • [bullet]
@@ -619,11 +787,6 @@ HEVO DATA | Software Engineer 2 | Nov 2023 – Jan 2025 | Bengaluru, India
 • [bullet]
 
 INTUIT | Software Engineer 2 | Aug 2022 – Oct 2023 | Bengaluru, India
-• [bullet]
-• [bullet]
-• [bullet]
-
-OPTUM | Software Engineer | Jul 2020 – Aug 2022 | Gurgaon, India
 • [bullet]
 • [bullet]
 
@@ -721,22 +884,6 @@ Full list: SQL, Tableau, Mixpanel, Google Analytics, Excel, Figma; Java, Python;
 For security/reliability JDs: append "incident analysis & monitoring workflows" after Git.
 For AI/ML JDs: append "AI-assisted development & workflow automation" after Git.
 
-─── STRATEGY PROJECT (always include; pick one variant) ─────────────────────────
-Row 5 of 6. Always included — this line appears in 42 of 49 historical resumes.
-For AI JDs: use [loreal-consulting] AND skip [ai-automation] row (L'Oréal covers AI signal).
-For non-AI JDs: use [cloud-startup] (default) or [loreal-consulting] if strategy/consulting.
-
-SELECTION RULE — apply in order, stop at first match:
-a) JD emphasizes AI, GenAI, LLM, or strategy consulting → [loreal-consulting]
-b) JD emphasizes marketplace, platform, early-stage, or product strategy → [cloud-startup]
-c) Default → [cloud-startup]
-
-[loreal-consulting]  ← for AI, GenAI, or strategy-consulting JDs
-"Strategy Project: Advised L'Oréal on resolving creative supply-chain bottlenecks; mapped GenAI use cases across 2 business units and presented 3 workflow recommendations for executive review."
-
-[cloud-startup]  ← default for marketplace, platform, or general PM roles
-"Strategy Project: Partnered with a cloud startup founder on platform positioning and early adoption strategy; contributed to a Series A growth trajectory leading to acquisition."
-
 ─── COMMUNITY (pick one) ────────────────────────────────────────────────────────
 
 [community-full]  ← default
@@ -753,16 +900,15 @@ SECTION 4 — SKILLS & INTERESTS (paste-ready)
 ══════════════════════════════════════════════════════════════
 Output format — use ● bullets, no markdown:
 
-ROW COUNT RULE: Maximum 6 rows total (excluding the SKILLS & INTERESTS header).
-  Non-AI JDs:  Product Focus · Analytics · Strategy Project · Tools · Community · Interests  (6 rows)
-  AI JDs:      Product Focus · Analytics · Strategy Project · Tools · Community · Interests  (6 rows)
-               NOTE: For AI JDs, use [loreal-consulting] for Strategy Project and
-               OMIT [ai-automation] row — the L'Oréal line covers the AI signal.
+ROW COUNT RULE: Exactly 6 rows total (excluding the SKILLS & INTERESTS header).
+  All PM JDs: Product Focus · Analytics · Venture Product · Tools · Community · Interests.
+  Fluo stays inline here so current product work is visible without creating another
+  company block or a standalone project section.
 
 SKILLS & INTERESTS
 ● Product Focus: [4–5 tags from pool, separated by COMMAS — do NOT use · middle dots; ATS systems parse commas correctly]
 ● [analytics/skills row from template]
-● [Strategy Project variant — always include, one of loreal-consulting or cloud-startup]
+● Venture Product: Fluo — [exactly one selected Fluo variant, verbatim]
 ● Tools: [ordered tools line]
 ● [community variant]
 ● Interests: Fitness & strength training, DJing house music, behavioral psychology, astrophysics, trekking the Himalayas

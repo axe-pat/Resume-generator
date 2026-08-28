@@ -30,8 +30,11 @@ VARIANT BOUNDARY RULE — ABSOLUTE:
 
 STRUCTURAL HARD CONSTRAINTS:
   - Preserve the exact bullet count and company-level distribution from Pass 1.
-    If Pass 1 has 3 / 3 / 3 / 2 bullets across the four company blocks, output
-    exactly 3 / 3 / 3 / 2 bullets. Never add a duplicate or split one bullet into two.
+    Infer the distribution from the input company blocks and reproduce it exactly.
+    Never add a duplicate or split one bullet into two.
+  - For FlairX bullets, never introduce 42%, 80% duplicate-entry reduction,
+    account retention, ARR/ACV lift, pricing-package adoption, or deal closure unless
+    that exact claim already appears in the selected Pass 1 bullet.
   - Do not create near-duplicate bullets within the same company block. If two bullets
     would communicate the same decision, mechanism, or result, keep the stronger one
     distinct and rewrite the other around a different value signal already present in

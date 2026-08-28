@@ -509,6 +509,7 @@ def _categorize_bullet_opener(text: str) -> str:
         "unblocked", "cut", "reduced", "improve", "improved", "accelerate",
         "accelerated", "introduced", "unified", "converted", "prototyped",
         "scaled", "expanded", "defined", "designed", "architected",
+        "negotiated", "secured",
     }
 
     # Impact verbs: metrics first, outcome-driven
@@ -588,6 +589,7 @@ def _validate_resume_constraints(resume_text: str) -> dict:
     ownership_verbs = {
         "led", "owned", "own", "built", "shipped", "established",
         "unblocked", "drove", "drive", "restored", "won", "converted",
+        "negotiated", "secured",
     }
 
     for company, bullets in companies.items():
@@ -1264,6 +1266,8 @@ def _sanitize_summary_section_local(text: str) -> str:
     if not text:
         return ""
     clean = text.strip().strip('"')
+    if clean.upper() in {"NONE", "N/A", "NO SUMMARY"}:
+        return ""
     clean = re.sub(r"\s*\u2014\s*", ", ", clean)
     clean = re.sub(r"\s{2,}", " ", clean)
     clean = re.sub(r",\s*,", ", ", clean)
@@ -1271,7 +1275,7 @@ def _sanitize_summary_section_local(text: str) -> str:
 
 
 def _parse_experience_blocks_local(exp_text: str) -> list[dict]:
-    company_keys = ["GOJEK", "HEVO DATA", "INTUIT", "OPTUM"]
+    company_keys = ["FLAIRX AI", "GOJEK", "HEVO DATA", "INTUIT", "OPTUM"]
     blocks, current_key, current_bullets = [], None, []
     for line in exp_text.splitlines():
         stripped = line.strip().lstrip("*").strip()

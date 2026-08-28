@@ -350,7 +350,7 @@ Section-level penalties (applied once each, flat):
   JD_FIT: -0.2 if fewer than 2 of the 3 top JD signals are clearly foregrounded
     across the section (see Positioning Strategy below for the top signals)
 
-PROJECTS & CONSULTING ADJUSTMENT (mainly for non-PM routes):
+PROJECTS & CONSULTING ADJUSTMENT:
   If a Projects & Consulting section is provided below and it directly covers a
   missing JD signal, use it as supporting evidence for JD fit and narrative
   coherence. It may soften a JD_FIT or narrative concern, but it does NOT erase
@@ -403,7 +403,7 @@ collectively reinforce a single professional identity — the one defined by the
 primary_framing_axis in the strategy. A hiring manager who reads the section
 should finish with a clear, specific impression of what kind of PM Akshat is.
 If a Projects & Consulting block is present, treat it as supporting identity
-evidence for non-PM routes — especially when it adds founder, workflow, or
+evidence — especially when it adds current founder, workflow, data-product, or
 consulting proof the main section cannot naturally carry — but do not let it
 fully rescue a main section whose strongest bullets still point at the wrong job.
 
@@ -424,7 +424,9 @@ OUTPUT
 Output ONLY the JSON object below. No preamble. No markdown fences.
 No explanations outside the JSON fields.
 
-Score each bullet in order: GOJEK 1-3, HEVO DATA 1-3, INTUIT 1-3, OPTUM 1-2.
+Score every bullet in the EXPERIENCE SECTION in input order. Return exactly one JSON object per bullet, preserving its company header and 1-based index within that
+company. The generator supports different company distributions by resume track;
+do not assume a fixed company list beyond the supplied input.
 
 Note field format:
   Score ≥ 8: "[archetype] — [what earns it: specifically name the earned detail
@@ -434,98 +436,8 @@ Note field format:
 {
   "bullets": [
     {
-      "company": "GOJEK",
+      "company": "[company name from input header]",
       "index": 1,
-      "text": "[first ~60 chars of bullet]",
-      "score": 0,
-      "archetype_used": "",
-      "failure_mode": null,
-      "note": "[see note format above]"
-    },
-    {
-      "company": "GOJEK",
-      "index": 2,
-      "text": "[first ~60 chars of bullet]",
-      "score": 0,
-      "archetype_used": "",
-      "failure_mode": null,
-      "note": "[see note format above]"
-    },
-    {
-      "company": "GOJEK",
-      "index": 3,
-      "text": "[first ~60 chars of bullet]",
-      "score": 0,
-      "archetype_used": "",
-      "failure_mode": null,
-      "note": "[see note format above]"
-    },
-    {
-      "company": "HEVO DATA",
-      "index": 1,
-      "text": "[first ~60 chars of bullet]",
-      "score": 0,
-      "archetype_used": "",
-      "failure_mode": null,
-      "note": "[see note format above]"
-    },
-    {
-      "company": "HEVO DATA",
-      "index": 2,
-      "text": "[first ~60 chars of bullet]",
-      "score": 0,
-      "archetype_used": "",
-      "failure_mode": null,
-      "note": "[see note format above]"
-    },
-    {
-      "company": "HEVO DATA",
-      "index": 3,
-      "text": "[first ~60 chars of bullet]",
-      "score": 0,
-      "archetype_used": "",
-      "failure_mode": null,
-      "note": "[see note format above]"
-    },
-    {
-      "company": "INTUIT",
-      "index": 1,
-      "text": "[first ~60 chars of bullet]",
-      "score": 0,
-      "archetype_used": "",
-      "failure_mode": null,
-      "note": "[see note format above]"
-    },
-    {
-      "company": "INTUIT",
-      "index": 2,
-      "text": "[first ~60 chars of bullet]",
-      "score": 0,
-      "archetype_used": "",
-      "failure_mode": null,
-      "note": "[see note format above]"
-    },
-    {
-      "company": "INTUIT",
-      "index": 3,
-      "text": "[first ~60 chars of bullet]",
-      "score": 0,
-      "archetype_used": "",
-      "failure_mode": null,
-      "note": "[see note format above]"
-    },
-    {
-      "company": "OPTUM",
-      "index": 1,
-      "text": "[first ~60 chars of bullet]",
-      "score": 0,
-      "archetype_used": "",
-      "failure_mode": null,
-      "note": "[see note format above]"
-    },
-    {
-      "company": "OPTUM",
-      "index": 2,
       "text": "[first ~60 chars of bullet]",
       "score": 0,
       "archetype_used": "",

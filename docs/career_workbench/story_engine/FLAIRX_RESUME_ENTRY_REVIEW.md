@@ -1,59 +1,67 @@
-# FlairX Resume Entry — Review Draft
+# FlairX Resume Entry — Integrated Review Draft
 
-> **DRAFT — NOT YET WIRED INTO RESUME GENERATION.** This file separates resume-ready framing from claims that still need Akshat's confirmation. The `_GOLD_REFERENCE_` files remain quarantined and are not treated as fact-cleared sources.
+> **INTEGRATED FOR REVIEW.** FlairX is now part of the PM resume generator with five story families and five JD-selectable framings per story. The generator selects exactly three distinct FlairX stories. Claims from `_GOLD_REFERENCE_` files remain quarantined.
 
-## Proposed header
+## Resume header
 
-`FLAIRX AI | AI PRODUCT MANAGER INTERN | [May 2026 – Aug 2026] | [Remote / location to confirm]`
+`FLAIRX AI | AI Product Manager Intern | Jun 2026 – Aug 2026 | San Francisco, CA`
 
-Confirm the company's public spelling (`FlairX AI` appears in the internship JD), exact dates, and location label.
+## Default flagship AI PM set
 
-## Recommended generalist PM set
+- Turned Genpact's ban on outsourced final rounds into FlairX's client-run interview suite; led the product and engineering team to ship M365 scheduling with transcript-grounded AI scoring in 2 weeks.
+- Rebuilt FlairX's avatar infrastructure after a 20-minute vendor cap threatened 45–60-minute interviews; ran build-vs-partner diligence, negotiated usage pricing, and shipped multi-provider routing.
+- Shipped FlairX's first AI sourcing engine, turning JDs plus rubrics into zero-input candidate ranking; corrected a 25× vendor estimate to 2.3× and secured LinkedIn XML distribution.
 
-- Led a 4-engineer, 2-designer pod to deliver FlairX's first internal-interview workflow in two weeks, pairing privacy-safe M365 scheduling with AI-generated scorecards for Genpact.
-- Owned FlairX's Ceipal ATS integration from discovery to marketplace launch; shipped a pull-first MVP when vendor APIs blocked write-back, reducing duplicate entry for a key account.
-- Turned client demand into a 0-to-1 sourcing product; designed inbound distribution and AI-assisted outbound sourcing, secured LinkedIn XML-feed approval, and handed the spec to engineering.
+This set positions Akshat as a current AI PM across enterprise workflow launch, AI infrastructure and economics, plus a shipped AI-native sourcing product. Ceipal is now the enterprise-integration swap rather than the default AI PM story.
 
-Why this set: together the bullets show 0-to-1 product delivery, enterprise discovery, AI-workflow design, platform/API judgment, MVP scoping, partner-channel work, and current formal PM ownership without making the section read like an engineering role.
+## Story and framing matrix
 
-## Targeted swap variants
+Each story has five framings in `resume/freeform/prompts/freeform_master_v2.txt`:
 
-### Technical / platform PM
+| Story | Available framings | Default use |
+|---|---|---|
+| F-ENTERPRISE | zero-to-one, enterprise discovery, AI workflow, workflow reliability, enterprise platform | Always considered; default generalist anchor |
+| F-AVATAR | build-vs-partner, unit economics, platform resilience, technical diligence, trust/performance | Technical, AI infrastructure, vendor, or platform JDs |
+| F-OPS | commercial ops, data product, influence without authority, GTM enablement, feedback system | RevOps, BizOps, CRM, analytics, or founder-facing JDs |
+| F-CEIPAL | ecosystem platform, MVP trade-off, customer adoption, technical integration, marketplace GTM | Default generalist anchor; enterprise SaaS and integration JDs |
+| F-SOURCING | product discovery, zero-to-one, build-vs-rent, unit economics, partnership GTM | Default generalist anchor; growth, marketplace, sourcing, or partnership JDs |
 
-- Resolved a 20-minute avatar-vendor cap blocking enterprise interviews; led build-vs-buy analysis, negotiated usage-based pricing, and defined a provider-agnostic routing layer.
+Selection guardrails:
 
-Potential quantified version, only after confirmation:
+- Pick exactly three distinct stories, never two variants from the same story.
+- Default to F-ENTERPRISE + F-AVATAR + F-SOURCING for AI PM and mixed PM roles.
+- Use F-CEIPAL as the API/integration/enterprise-ecosystem swap.
+- Use F-OPS only when the JD clearly values commercial operations, GTM systems, CRM, analytics, or founder-facing execution.
+- Do not output three diagnostic openers or three bullets with the same value signal.
 
-- Resolved a 20-minute avatar-vendor cap blocking enterprise interviews; led build-vs-buy analysis, negotiated $0.10/min pricing, and defined a routing layer with $0.009/min fallback providers.
+## Claims intentionally excluded
 
-### Strategy / BizOps
+The generator is explicitly prohibited from introducing these until confirmed:
 
-- Built FlairX's first commercial data spine in HubSpot, translating product usage events and customer feedback into self-serve account intelligence for enterprise diligence and GTM decisions.
+- `42%` scheduling reduction
+- `80%` duplicate-entry reduction
+- account retention or deal closure
+- ARR or ACV lift
+- pricing-package adoption
+- sourcing adoption or post-launch commercial results
 
-## Claims requiring confirmation before external use
+## Confirmed facts and remaining gaps
 
-1. Internal-interview workflow: did the team deliver this to production or to a pilot-ready state in two weeks? Were the pod size (4 engineers, 2 designers) and Genpact attribution exact?
-2. Scheduling metric: was `42%` the baseline share of recruiter time spent coordinating, or a measured post-launch reduction? Do not claim "cut 42%" unless the latter is defensible.
-3. Ceipal: did the pull-first MVP launch publicly on the marketplace? Can we say it reduced roughly 80% of duplicate entry and/or retained the account, or should the outcome stay qualitative?
-4. Sourcing: confirm that LinkedIn XML-feed approval was secured and that the end-to-end Sourced spec was handed to engineering. Commercial pricing, ACV lift, and adoption results are explicitly excluded because the story marks them as proposed/invented.
-5. Avatar infrastructure: confirm which elements shipped versus were designed—LiveGen contract, provider wrapper, cost routing, anti-fraud layer, and fallback endpoints—and whether vendor pricing can appear publicly.
+1. Confirmed: the Internal Interview Suite launched within two weeks.
+2. Confirmed: the Ceipal Marketplace integration launched publicly.
+3. Confirmed: the AI sourcing product shipped completely before the internship ended.
+4. `42%` remains a baseline recruiter-bandwidth burden, not a measured reduction.
+5. Still useful: confirm whether LiveGen, Ziva Guard, $0.10/min, $0.009/min, and the 8% CPU threshold can appear publicly.
+6. Still useful: quantify adoption, interview volume, recruiter hours saved, sourcing usage, or commercial impact if defensible.
 
-## Proposed resume architecture after approval
+## Resume architecture
 
-Keep the established 11-bullet one-page budget, but change the experience mix to:
+The PM track preserves the 11-bullet one-page budget:
 
 - FlairX: 3
 - Gojek: 3
 - Hevo Data: 3
 - Intuit: 2
-- Optum: remove from the primary generalist resume
+- Optum: removed from the PM track
 
-This preserves recentness and formal PM ownership while retaining the strongest marketplace, enterprise-data, and financial-trust evidence. Role-title decisions for Gojek and Hevo should be handled as a separate factual-positioning review.
-
-## Engine work after wording approval
-
-- Add fact-cleared FlairX story variants to the PM story pool.
-- Refresh `profile/profile.md` with the internship and verified facts.
-- Update hard-coded company headers and bullet counts in generation, rewrite, scorer, parsing, DOCX, and test paths.
-- Add FlairX to strategy-story routing so role-specific runs can choose the generalist set or the technical/BizOps swap.
-- Regenerate, inspect saved text, render the DOCX, and verify one-page fit.
+The non-PM generator remains on its existing Gojek/Hevo/Intuit/Optum structure. Gojek and Hevo title positioning is a separate review.

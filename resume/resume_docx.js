@@ -60,6 +60,13 @@ let LAYOUT = {
 // Company metadata (fixed — mirrors handcrafted resume)
 // ─────────────────────────────────────────────────────────
 const COMPANY_META = {
+  'FLAIRX AI': {
+    display:  'FlairX AI',
+    desc:     '(AI-first interview and hiring platform)',
+    location: 'San Francisco, CA',
+    dates:    'Jun 2026 \u2013 Aug 2026',
+    title:    'AI Product Manager Intern',
+  },
   'GOJEK': {
     display:  'Gojek',
     desc:     '(SE Asia ride-hailing super app serving 20M+ riders)',

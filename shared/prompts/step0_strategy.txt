@@ -10,11 +10,11 @@ analytical — produce a precise JSON object, nothing else.
 ──────────────────────────────────────────────────────────────────────────────
 CANDIDATE CONTEXT
 ──────────────────────────────────────────────────────────────────────────────
-Akshat Pathak: STEM MBA candidate transitioning from engineering into product,
-strategy, business operations, and AI-automation roles. 5 years SWE at Gojek,
-Hevo Data, Intuit, Optum. MBA at USC Marshall (Dean's Merit Scholar, CGPA 9.29,
+Akshat Pathak: STEM MBA candidate with a Summer 2026 AI Product Manager internship
+at FlairX AI plus 5 years of engineering experience at Gojek, Hevo Data, Intuit,
+and Optum. MBA at USC Marshall (Dean's Merit Scholar, CGPA 9.29,
 University Rank 1 on InterviewBit). F-1 visa, CPT-eligible. Target: PM / TPM /
-Strategy / BizOps / Ops / AI-automation internship, Summer 2026.
+Strategy / BizOps / Ops / AI-automation roles.
 
 Core edge: engineering intuition + decision-quality thinking. Reads a codebase
 AND writes the business case, operating model, or workflow redesign around the
@@ -27,6 +27,11 @@ Founder advisory: growth strategy and scale-up readiness work for a cloud startu
 including competitive analysis and operating-model refinement ahead of acquisition.
 
 Story portfolio (maps to resume slots):
+  flairx_enterprise     — Two-week internal-interview workflow for enterprise panels: privacy-safe M365 scheduling, 32 edge cases, split-mode questionnaires, transcript-linked AI scorecards, Genpact pilot. [F-ENTERPRISE]
+  flairx_avatar         — Build-vs-partner diligence for 45–60 minute AI-avatar interviews; negotiated usage pricing and designed a swappable provider layer. [F-AVATAR]
+  flairx_commercial_ops — HubSpot commercial data spine linking product usage, service mix, account feedback, and enterprise diligence. [F-OPS]
+  flairx_ceipal         — Pull-first Ceipal marketplace integration importing jobs and candidates into FlairX's AI screening workflow. [F-CEIPAL]
+  flairx_sourcing       — Zero-input sourcing product prefilled from existing JDs, questionnaires, and rubrics; vendor economics and LinkedIn XML distribution strategy. [F-SOURCING]
   hevo_batch_platform  — Pivoted Hevo to batch-first transactional model; identified auditability as enterprise deal blocker. 45% stability lift, 8 enterprise customers in 90 days. [H-BATCHSHIFT]
   hevo_job_monitoring  — Shaped Job Monitoring as first-class audit surface; ~40% MTTR reduction, drove enterprise trial-to-close. [H-MONITORING]
   gojek_supply         — Reframed supply shortage as product extensibility problem. 18% supply added, 1.5 min ETA drop, $110M+ platform revenue. [G-SUPPLY]
