@@ -2,12 +2,12 @@
 
 Updated: 2026-08-27 after a fresh signed-in LinkedIn past-24-hours pass, a signed-in USC Handshake Lane C pass, and live posting validation.
 
-Ready now: **48 roles** — Lane A: **9**, Lane B: **32**, Lane C: **7**.
+Ready now: **47 roles** — Lane A: **9**, Lane B: **32**, Lane C: **6**.
 
 Work straight down this list. The order balances hard deadlines, likelihood of rolling roles closing, importance, and profile fit.
 
 1. **USC Viterbi — Student Services Assistant**
-   Lane C · Hard deadline: **August 28**
+   Lane C · Hard deadline: **August 28** · Eligible as a USC Marshall graduate student; Rossier graduate students are preferred, not required, and Viterbi students alone are excluded · In-person, 10–20 hours/week · Resume and cover letter required
    https://app.joinhandshake.com/job-search/11181695
 
 2. **Databricks — Associate Product Manager, New Grad (2027 Start)**
@@ -139,62 +139,58 @@ Work straight down this list. The order balances hard deadlines, likelihood of r
     https://app.joinhandshake.com/job-search/11306065
 
 34. **Children's Hospital Los Angeles — Research Administration Analytics Intern**
-    Lane C · Hard deadline: **September 13**
+    Lane C · Hard deadline: **September 13** · USC graduate students are eligible; external-employer work authorization/CPT must be confirmed before accepting employment
     https://app.joinhandshake.com/job-search/11310172
 
 35. **USC Marshall — Communications Assistant**
     Lane C · Hard deadline: **September 16**
     https://app.joinhandshake.com/job-search/11316593
 
-36. **USC Human Resources, Ethics, and Compliance — Digital Design Assistant**
-    Lane C · Hard deadline: **September 18**
-    https://app.joinhandshake.com/job-search/11326906
-
-37. **GALLO — Technical Management Development Program 2027**
+36. **GALLO — Technical Management Development Program 2027**
     Lane B · Hard deadline: **October 4** · OPT/E-Verify review flag, not a rejection
     https://careers.gallo.com/job/Modesto-Technical-Management-Development-Program-2027-CA-95354/1419774000/?feedId=426200
 
-38. **GALLO — Operations Management Development Program 2027**
+37. **GALLO — Operations Management Development Program 2027**
     Lane B · Hard deadline: **October 4** · OPT/E-Verify review flag, not a rejection
     https://careers.gallo.com/job/Modesto-Operations-Management-Development-Program-2027-CA-95354/1419782300/
 
-39. **Solar Turbines — 2027 Entry Level Project Applications Engineer**
+38. **Solar Turbines — 2027 Entry Level Project Applications Engineer**
     Lane B · Hard deadline: **December 30** · Technical-GTM stretch; no sponsorship
     https://www.linkedin.com/jobs/view/4441440296/
 
-40. **Netic — Forward Deployed Engineer, New Grad 2026–2027**
+39. **Netic — Forward Deployed Engineer, New Grad 2026–2027**
     Lane B · Rolling
     https://www.linkedin.com/jobs/view/4438453689/
 
-41. **LangChain — Deployed Engineer, Early Career**
+40. **LangChain — Deployed Engineer, Early Career**
     Lane B · Rolling · Stretch because the listing asks for 3+ years and substantial travel
     https://www.linkedin.com/jobs/view/4446290483/
 
-42. **Axon — Leadership Development Program 2027, Sales**
+41. **Axon — Leadership Development Program 2027, Sales**
     Lane B · Rolling
     https://www.linkedin.com/jobs/view/4455905056/
 
-43. **Momentum — 2027 Launch Graduate Program, Associate Enterprise Systems Analyst**
+42. **Momentum — 2027 Launch Graduate Program, Associate Enterprise Systems Analyst**
     Lane B · June 2027 start · Rolling
     https://job-boards.greenhouse.io/momentumcompany3/jobs/8606824002
 
-44. **IBM — Delivery Consultant, Entry Level Sales Program 2027**
+43. **IBM — Delivery Consultant, Entry Level Sales Program 2027**
     Lane B · Technical GTM · Rolling
     https://www.linkedin.com/jobs/view/4452529765/
 
-45. **IBM — Solution Architect, Entry Level Sales Program 2027**
+44. **IBM — Solution Architect, Entry Level Sales Program 2027**
     Lane B · Technical GTM · Rolling
     https://www.linkedin.com/jobs/view/4452534689/
 
-46. **IBM — Technical Sales Engineer, Entry-Level Sales Program 2027**
+45. **IBM — Technical Sales Engineer, Entry-Level Sales Program 2027**
     Lane B · Technical GTM · Rolling
     https://www.linkedin.com/jobs/view/4449214981/
 
-47. **IBM — Associate Application Consultant 2027, IBM Tech**
+46. **IBM — Associate Application Consultant 2027, IBM Tech**
     Lane B · Technical implementation · Rolling
     https://www.linkedin.com/jobs/view/4451261837/
 
-48. **HNI Corporation — Development Program, Operations Management 2027**
+47. **HNI Corporation — Development Program, Operations Management 2027**
     Lane B · Rolling · Lower-priority operations backup
     https://jobs.jobvite.com/hnicareers/job/oEBoAfwX
 
@@ -206,6 +202,7 @@ Work straight down this list. The order balances hard deadlines, likelihood of r
 
 ## Not in the ready order
 
+- **USC Human Resources, Ethics, and Compliance — Digital Design Assistant:** removed from ready after full-JD review. It requires a degree in design, visual communications, digital media, UX/UI, or a related field and a visual/digital-design portfolio. Reconsider only if both can be supported credibly.
 - **Appian — Associate Solutions Consultant, 2027 Graduates:** now explicitly says “no longer accepting applications.”
 - **Ubicept — Fall Co-op / Internship:** expired.
 - **USC Libraries — Marketing and Media Assistant:** unavailable in Handshake.
