@@ -23,11 +23,26 @@ resume/
                                         only bullets scoring below 8.0; all others verbatim
 ```
 
+Architecture contracts being validated before live-runner integration:
+
+- `shared/resume_profiles.py` — deterministic assembly adapter. It consumes the
+  existing Step 0 taxonomy and owns company counts, summary/title mode, Skills rows,
+  and Fluo placement; it does not create a competing role taxonomy.
+- `shared/variant_admission.py` — one-time gate for variants entering the selectable
+  pool, including per-variant rulebook approval and significance metadata.
+- `docs/resume_generator_reviews/RULE_OWNERSHIP_MAP.md` — canonical ownership map
+  separating fact, variant, selection, rewrite, assembly, scoring, and release rules.
+- `docs/resume_generator_reviews/STEP_01_PROFILE_AND_VARIANT_CONTRACT_REVIEW.md` —
+  short human review packet for the isolated Step 1 contracts.
+
+These files are not yet wired into `freeform_runner.py`; until that integration lands,
+the live prompt contracts described below remain authoritative.
+
 ---
 
 ## How the system works
 
-Five API passes produce a polished 11-bullet experience section. The PM track uses FlairX/Gojek/Hevo/Intuit at 3/3/3/2; the non-PM track preserves Gojek/Hevo/Intuit/Optum at 3/3/3/2.
+Five API passes currently produce a polished 11-bullet experience section. The PM track uses FlairX/Gojek/Hevo/Intuit at 3/3/3/2; the non-PM track preserves Gojek/Hevo/Intuit/Optum at 3/3/3/2. The isolated assembly adapter above is the reviewed replacement for these prompt constants, but does not change live behavior until explicitly integrated.
 
 **Pass 0 — Signal extraction**
 Reads the JD and identifies the 3 strongest hiring signals (e.g. "pricing strategy", "cross-functional execution", "AI/ML product thinking"). These drive all downstream decisions. In `run_app.py` smart-cost mode, strategy runs on Haiku by default; a cheap title router keeps this pass on for likely non-PM roles even when the fit score is below the normal lean cutoff.
@@ -139,6 +154,14 @@ The node package (`resume/node_modules/docx`) is installed locally and works acr
 **Node PATH note:** When running from inside a Python venv on macOS, `node` may not be on PATH. The pipeline now uses `shutil.which("node")` and falls back to `/opt/homebrew/bin/node` (Apple Silicon) and `/usr/local/bin/node` (Intel) automatically. If docx generation still fails with `node not found`, verify with `which node` and ensure it's in one of those locations.
 
 ## Prompt update log
+
+**2026-08-28 (assembly + variant contracts, isolated)** — added a deterministic
+adapter over the existing Step 0 taxonomy and a one-time variant-admission contract.
+Professional presets build at 10 bullets by default; 11 requires a distinct-signal
+addition and 9 is reserved for page-fit repair. The rule ownership map explicitly
+keeps `VARIANT_FINALS_v4` Section 9 at assembly time rather than misclassifying all
+playbook rules as one-time variant checks. This change is not yet wired into the live
+PM/NONPM runner.
 
 **2026-08-05 (FlairX PM-track integration)** — added the Summer 2026 AI Product Manager internship throughout the resume system.
 - **Five-story variant bank** (`freeform_master_v2.txt`): added F-ENTERPRISE, F-AVATAR, F-OPS, F-CEIPAL, and F-SOURCING with five JD-aware framings each; the PM generator selects exactly three distinct stories.
