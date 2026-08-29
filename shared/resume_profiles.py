@@ -18,7 +18,7 @@ from enum import Enum
 from typing import Iterable, Mapping, Sequence
 
 
-PROFILE_REGISTRY_VERSION = "2026-08-28.3"
+PROFILE_REGISTRY_VERSION = "2026-08-28.4"
 PROFESSIONAL_COMPANY_ORDER = (
     "FLAIRX AI",
     "GOJEK",
@@ -98,7 +98,7 @@ class ResumeProfile:
     experience_slots: tuple[CompanySlot, ...]
     bullet_budget: BulletBudget
     summary_mode: SummaryMode
-    summary_heading: str
+    identity_heading: str
     title_mode: TitleMode
     skill_rows: tuple[str, ...]
     fluo: FluoPolicy
@@ -113,6 +113,15 @@ class ResumeProfile:
     def is_professional(self) -> bool:
         return self.family is not ProfileFamily.CAMPUS
 
+    @property
+    def summary_heading(self) -> str:
+        """Backward-compatible alias for callers not yet migrated.
+
+        The rendered line is a professional identity headline above the summary
+        body, not the semantic name of a parser-dependent ``SUMMARY`` section.
+        """
+        return self.identity_heading
+
     def slots_dict(self) -> dict[str, int]:
         return {slot.company: slot.target for slot in self.experience_slots}
 
@@ -121,6 +130,21 @@ class ResumeProfile:
             slot.company: (slot.minimum, slot.target, slot.maximum)
             for slot in self.experience_slots
         }
+
+
+def skills_section_heading(row_labels: Iterable[str]) -> str:
+    """Return the accurate standard heading for the rows actually rendered.
+
+    ``Community``, ``Additional``, venture rows, and prose proof rows do not
+    silently count as interests.  The longer heading is earned only by an
+    explicit Interests row, so this remains deterministic at assembly time.
+    """
+    normalized = {
+        str(label).strip().rstrip(":").casefold()
+        for label in row_labels
+        if str(label).strip()
+    }
+    return "SKILLS & INTERESTS" if "interests" in normalized else "SKILLS"
 
 
 @dataclass(frozen=True)
@@ -149,7 +173,7 @@ def _professional_profile(
     family: ProfileFamily,
     allocation: Sequence[int],
     *,
-    summary_heading: str,
+    identity_heading: str,
     summary_mode: SummaryMode,
     title_mode: TitleMode,
     skill_rows: Sequence[str],
@@ -181,7 +205,7 @@ def _professional_profile(
         experience_slots=slots,
         bullet_budget=BulletBudget(minimum=9, target=10, maximum=11),
         summary_mode=summary_mode,
-        summary_heading=summary_heading,
+        identity_heading=identity_heading,
         title_mode=title_mode,
         skill_rows=tuple(skill_rows),
         fluo=fluo,
@@ -215,7 +239,7 @@ PROFILE_REGISTRY: dict[str, ResumeProfile] = {
         "product-general",
         ProfileFamily.PRODUCT,
         (2, 3, 2, 2, 1),
-        summary_heading="PRODUCT MANAGEMENT",
+        identity_heading="PRODUCT MANAGEMENT",
         summary_mode=SummaryMode.REQUIRED,
         title_mode=TitleMode.FUNCTIONAL_PRODUCT_OWNER,
         skill_rows=(
@@ -238,7 +262,7 @@ PROFILE_REGISTRY: dict[str, ResumeProfile] = {
         "product-ai-zero-to-one",
         ProfileFamily.PRODUCT,
         (3, 2, 2, 2, 1),
-        summary_heading="PRODUCT MANAGEMENT",
+        identity_heading="PRODUCT MANAGEMENT",
         summary_mode=SummaryMode.REQUIRED,
         title_mode=TitleMode.FUNCTIONAL_PRODUCT_OWNER,
         skill_rows=(
@@ -261,7 +285,7 @@ PROFILE_REGISTRY: dict[str, ResumeProfile] = {
         "product-data-platform",
         ProfileFamily.PRODUCT,
         (2, 2, 3, 2, 1),
-        summary_heading="PRODUCT MANAGEMENT",
+        identity_heading="PRODUCT MANAGEMENT",
         summary_mode=SummaryMode.REQUIRED,
         title_mode=TitleMode.FUNCTIONAL_PRODUCT_OWNER,
         skill_rows=(
@@ -284,7 +308,7 @@ PROFILE_REGISTRY: dict[str, ResumeProfile] = {
         "business-enterprise-leadership",
         ProfileFamily.BUSINESS_LEADERSHIP,
         (1, 3, 2, 2, 2),
-        summary_heading="PROFILE SUMMARY",
+        identity_heading="STRATEGY & OPERATIONS",
         summary_mode=SummaryMode.REQUIRED,
         title_mode=TitleMode.OFFICIAL_WITH_FUNCTIONAL_QUALIFIER,
         skill_rows=(
@@ -307,7 +331,7 @@ PROFILE_REGISTRY: dict[str, ResumeProfile] = {
         "business-operations-leadership",
         ProfileFamily.BUSINESS_LEADERSHIP,
         (1, 3, 3, 2, 1),
-        summary_heading="PROFILE SUMMARY",
+        identity_heading="OPERATIONS & PROGRAM MANAGEMENT",
         summary_mode=SummaryMode.REQUIRED,
         title_mode=TitleMode.OFFICIAL_WITH_FUNCTIONAL_QUALIFIER,
         skill_rows=(
@@ -330,7 +354,7 @@ PROFILE_REGISTRY: dict[str, ResumeProfile] = {
         "business-commercial-gtm",
         ProfileFamily.BUSINESS_LEADERSHIP,
         (2, 3, 2, 2, 1),
-        summary_heading="PROFILE SUMMARY",
+        identity_heading="COMMERCIAL STRATEGY",
         summary_mode=SummaryMode.REQUIRED,
         title_mode=TitleMode.OFFICIAL_WITH_FUNCTIONAL_QUALIFIER,
         skill_rows=(
@@ -353,7 +377,7 @@ PROFILE_REGISTRY: dict[str, ResumeProfile] = {
         "customer-technical-client-value",
         ProfileFamily.CUSTOMER_TECHNICAL,
         (2, 2, 2, 2, 2),
-        summary_heading="PROFILE SUMMARY",
+        identity_heading="TECHNICAL SOLUTIONS",
         summary_mode=SummaryMode.REQUIRED,
         title_mode=TitleMode.OFFICIAL_WITH_FUNCTIONAL_QUALIFIER,
         skill_rows=(
@@ -376,7 +400,7 @@ PROFILE_REGISTRY: dict[str, ResumeProfile] = {
         "customer-technical-deployed-systems",
         ProfileFamily.CUSTOMER_TECHNICAL,
         (2, 2, 3, 2, 1),
-        summary_heading="PROFILE SUMMARY",
+        identity_heading="TECHNICAL SOLUTIONS",
         summary_mode=SummaryMode.REQUIRED,
         title_mode=TitleMode.OFFICIAL_WITH_FUNCTIONAL_QUALIFIER,
         skill_rows=(
@@ -401,7 +425,7 @@ PROFILE_REGISTRY: dict[str, ResumeProfile] = {
         experience_slots=(),
         bullet_budget=BulletBudget(minimum=8, target=9, maximum=10),
         summary_mode=SummaryMode.REQUIRED,
-        summary_heading="PROFILE SUMMARY",
+        identity_heading="PROFILE",
         title_mode=TitleMode.OFFICIAL,
         skill_rows=("Campus Service", "Operations", "Tools", "Languages"),
         fluo=FluoPolicy(
@@ -423,7 +447,7 @@ PROFILE_REGISTRY: dict[str, ResumeProfile] = {
         experience_slots=(),
         bullet_budget=BulletBudget(minimum=8, target=9, maximum=10),
         summary_mode=SummaryMode.REQUIRED,
-        summary_heading="PROFILE SUMMARY",
+        identity_heading="PROFILE",
         title_mode=TitleMode.OFFICIAL,
         skill_rows=("Analytics", "Tools", "Campus", "Languages"),
         fluo=FluoPolicy(
@@ -445,7 +469,7 @@ PROFILE_REGISTRY: dict[str, ResumeProfile] = {
         experience_slots=(),
         bullet_budget=BulletBudget(minimum=8, target=9, maximum=10),
         summary_mode=SummaryMode.REQUIRED,
-        summary_heading="PROFILE SUMMARY",
+        identity_heading="PROFILE",
         title_mode=TitleMode.OFFICIAL,
         skill_rows=("Digital Communications", "Analytics", "Tools", "Languages"),
         fluo=FluoPolicy(
@@ -563,6 +587,8 @@ def validate_profile_registry() -> list[str]:
             errors.append(f"{key}: Fluo cannot be promoted into Experience in this registry version")
         if profile.summary_mode is not SummaryMode.REQUIRED:
             errors.append(f"{key}: every assembly preset must preserve the identity summary")
+        if not profile.identity_heading or profile.identity_heading != profile.identity_heading.upper():
+            errors.append(f"{key}: identity heading must be non-empty uppercase text")
         if profile.fluo.placement is FluoPlacement.OMIT and profile.fluo.max_lines:
             errors.append(f"{key}: omitted Fluo policy cannot reserve lines")
     return errors

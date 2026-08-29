@@ -11,6 +11,7 @@ from shared.resume_profiles import (
     TitleMode,
     get_profile,
     resolve_profile,
+    skills_section_heading,
     validate_experience_allocation,
     validate_profile_registry,
 )
@@ -90,18 +91,29 @@ def test_fluo_never_counts_as_experience_and_varies_by_profile_policy():
 def test_summary_and_title_policy_are_profile_contracts():
     product = get_profile("product-general")
     business = get_profile("business-enterprise-leadership")
+    operations = get_profile("business-operations-leadership")
+    commercial = get_profile("business-commercial-gtm")
     technical = get_profile("customer-technical-client-value")
     campus = get_profile("campus-student-service")
 
     assert product.summary_mode is SummaryMode.REQUIRED
-    assert product.summary_heading == "PRODUCT MANAGEMENT"
+    assert product.identity_heading == "PRODUCT MANAGEMENT"
+    assert product.summary_heading == product.identity_heading
     assert product.title_mode is TitleMode.FUNCTIONAL_PRODUCT_OWNER
     assert business.summary_mode is SummaryMode.REQUIRED
+    assert business.identity_heading == "STRATEGY & OPERATIONS"
+    assert operations.identity_heading == "OPERATIONS & PROGRAM MANAGEMENT"
+    assert commercial.identity_heading == "COMMERCIAL STRATEGY"
     assert technical.summary_mode is SummaryMode.REQUIRED
-    assert technical.summary_heading == "PROFILE SUMMARY"
+    assert technical.identity_heading == "TECHNICAL SOLUTIONS"
     assert technical.title_mode is TitleMode.OFFICIAL_WITH_FUNCTIONAL_QUALIFIER
-    assert campus.summary_heading == "PROFILE SUMMARY"
+    assert campus.identity_heading == "PROFILE"
     assert campus.title_mode is TitleMode.OFFICIAL
+
+
+def test_skills_heading_depends_only_on_an_explicit_interests_row():
+    assert skills_section_heading(("Product Leadership", "Technical", "Community")) == "SKILLS"
+    assert skills_section_heading(("Technical", "Interests:")) == "SKILLS & INTERESTS"
 
 
 def test_professional_allocation_is_exact_after_a_bounded_budget_decision():

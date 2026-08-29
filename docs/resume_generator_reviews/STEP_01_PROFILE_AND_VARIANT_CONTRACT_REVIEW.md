@@ -21,17 +21,33 @@
    economics, and AI sourcing/distribution. A 2-bullet build is valid when the third
    FlairX story loses the marginal-value comparison to another company. Four is barred.
 
-4. **Every family gets a short summary.** Product uses `PRODUCT MANAGEMENT`; all
-   other families use `PROFILE SUMMARY`. Akshat's formal titles do not reliably convey
-   PM, MBA-leadership, customer-value, or campus identity on their own. The summary is
-   therefore a controlled identity layer, not filler; page pressure removes the
-   marginal experience bullet before silently removing the identity frame.
+4. **Every family gets a short summary under a funded identity headline.** The line is
+   a professional headline, not the parser-dependent name of a `SUMMARY` section. The
+   mapping is locked by assembly profile and never invented per JD:
+
+   | Assembly profile | Identity headline |
+   |---|---|
+   | All Product profiles | `PRODUCT MANAGEMENT` |
+   | Enterprise/business leadership | `STRATEGY & OPERATIONS` |
+   | Operations leadership | `OPERATIONS & PROGRAM MANAGEMENT` |
+   | Commercial/GTM | `COMMERCIAL STRATEGY` |
+   | Customer-technical | `TECHNICAL SOLUTIONS` |
+   | Campus | `PROFILE` |
+
+   The admitted pool beneath each professional profile funds its headline. Product is
+   deliberately not fragmented into AI, growth, or platform headlines; those signals
+   belong in summary and bullet selection. Page pressure removes the marginal
+   experience bullet before silently removing the identity frame.
 
 5. **Fluo stays outside Experience.** Product profiles always use one inline bottom
    row. Business/customer/campus profiles use a fixed inline position but activate it
    only when completed Step 0 signals match an allowed Fluo story family; the model
    cannot invent a placement. Operations omits it by default. It never pushes FlairX,
    Gojek, Hevo, Intuit, or Optum out of Experience.
+
+6. **The bottom heading describes the rows actually rendered.** An explicit
+   `Interests` row yields `SKILLS & INTERESTS`; otherwise the renderer uses `SKILLS`.
+   Community, venture, and prose proof rows do not implicitly count as interests.
 
 ## Variant admission
 
