@@ -18,7 +18,7 @@ from enum import Enum
 from typing import Iterable, Mapping, Sequence
 
 
-PROFILE_REGISTRY_VERSION = "2026-08-28.4"
+PROFILE_REGISTRY_VERSION = "2026-08-28.5"
 PROFESSIONAL_COMPANY_ORDER = (
     "FLAIRX AI",
     "GOJEK",
@@ -46,8 +46,10 @@ class BulletBudgetDecision(str, Enum):
     """The only permitted ways to leave a professional preset's default total."""
 
     DEFAULT = "default"
+    REBALANCE_DISTINCT_SIGNAL = "rebalance-distinct-signal"
     ADD_DISTINCT_SIGNAL = "add-distinct-signal"
     COMPACT_FOR_PAGE_FIT = "compact-for-page-fit"
+    COMPACT_FOR_QUALITY = "compact-for-quality"
 
 
 class TitleMode(str, Enum):
@@ -99,6 +101,7 @@ class ResumeProfile:
     bullet_budget: BulletBudget
     summary_mode: SummaryMode
     identity_heading: str
+    funded_summary_identities: tuple[str, ...]
     title_mode: TitleMode
     skill_rows: tuple[str, ...]
     fluo: FluoPolicy
@@ -147,13 +150,29 @@ def skills_section_heading(row_labels: Iterable[str]) -> str:
     return "SKILLS & INTERESTS" if "interests" in normalized else "SKILLS"
 
 
+def validate_summary_identity(profile_id: str, summary_text: str) -> list[str]:
+    """Require the summary's first clause to name a pool-funded identity."""
+    profile = get_profile(profile_id)
+    text = summary_text.strip()
+    if not text:
+        return [f"{profile_id}: required summary is empty"]
+    first_clause = re.split(r"[,;:.!?]", text, maxsplit=1)[0].strip().casefold()
+    if not any(identity.casefold() in first_clause for identity in profile.funded_summary_identities):
+        allowed = ", ".join(profile.funded_summary_identities)
+        return [
+            f"{profile_id}: first summary clause must name a funded identity; "
+            f"expected one of: {allowed}"
+        ]
+    return []
+
+
 @dataclass(frozen=True)
 class ExperienceAllocationPlan:
     """A resolved, exact company allocation for one professional resume.
 
-    The profile target is the mandatory first build.  Moving to nine or eleven
-    bullets requires an explicit bounded reason; the model cannot emit an
-    arbitrary count and call it page-aware.
+    The profile target is the default build and normal cap. Eleven is a gated
+    distinct-signal exception. Nine may protect admission quality or repair page
+    fit. The model cannot emit an arbitrary count or company redistribution.
     """
 
     profile_id: str
@@ -174,6 +193,7 @@ def _professional_profile(
     allocation: Sequence[int],
     *,
     identity_heading: str,
+    funded_summary_identities: Sequence[str],
     summary_mode: SummaryMode,
     title_mode: TitleMode,
     skill_rows: Sequence[str],
@@ -206,6 +226,7 @@ def _professional_profile(
         bullet_budget=BulletBudget(minimum=9, target=10, maximum=11),
         summary_mode=summary_mode,
         identity_heading=identity_heading,
+        funded_summary_identities=tuple(funded_summary_identities),
         title_mode=title_mode,
         skill_rows=tuple(skill_rows),
         fluo=fluo,
@@ -233,6 +254,49 @@ _TECHNICAL_FLUO = FluoPolicy(
 )
 _NO_FLUO = FluoPolicy(placement=FluoPlacement.OMIT)
 
+_PRODUCT_SUMMARY_IDENTITIES = (
+    "product manager",
+    "product leader",
+    "technical product leader",
+    "product owner",
+)
+_ENTERPRISE_SUMMARY_IDENTITIES = (
+    "strategy and operations",
+    "strategy & operations",
+    "business operator",
+    "technical operator",
+    "strategy professional",
+)
+_OPERATIONS_SUMMARY_IDENTITIES = (
+    "operations and program",
+    "operations & program",
+    "operations manager",
+    "operations leader",
+    "technical operator",
+    "engineer-turned-operator",
+)
+_COMMERCIAL_SUMMARY_IDENTITIES = (
+    "commercial strategist",
+    "commercial operator",
+    "go-to-market strategist",
+    "gtm strategist",
+    "growth strategist",
+)
+_TECHNICAL_SUMMARY_IDENTITIES = (
+    "technical solutions",
+    "solutions consultant",
+    "technical consultant",
+    "customer-facing technologist",
+    "deployed engineer",
+    "implementation leader",
+)
+_CAMPUS_SUMMARY_IDENTITIES = (
+    "usc marshall mba candidate",
+    "usc mba candidate",
+    "mba candidate at usc marshall",
+    "usc marshall student",
+)
+
 
 PROFILE_REGISTRY: dict[str, ResumeProfile] = {
     "product-general": _professional_profile(
@@ -240,6 +304,7 @@ PROFILE_REGISTRY: dict[str, ResumeProfile] = {
         ProfileFamily.PRODUCT,
         (2, 3, 2, 2, 1),
         identity_heading="PRODUCT MANAGEMENT",
+        funded_summary_identities=_PRODUCT_SUMMARY_IDENTITIES,
         summary_mode=SummaryMode.REQUIRED,
         title_mode=TitleMode.FUNCTIONAL_PRODUCT_OWNER,
         skill_rows=(
@@ -261,8 +326,9 @@ PROFILE_REGISTRY: dict[str, ResumeProfile] = {
     "product-ai-zero-to-one": _professional_profile(
         "product-ai-zero-to-one",
         ProfileFamily.PRODUCT,
-        (3, 2, 2, 2, 1),
+        (2, 3, 2, 2, 1),
         identity_heading="PRODUCT MANAGEMENT",
+        funded_summary_identities=_PRODUCT_SUMMARY_IDENTITIES,
         summary_mode=SummaryMode.REQUIRED,
         title_mode=TitleMode.FUNCTIONAL_PRODUCT_OWNER,
         skill_rows=(
@@ -286,6 +352,7 @@ PROFILE_REGISTRY: dict[str, ResumeProfile] = {
         ProfileFamily.PRODUCT,
         (2, 2, 3, 2, 1),
         identity_heading="PRODUCT MANAGEMENT",
+        funded_summary_identities=_PRODUCT_SUMMARY_IDENTITIES,
         summary_mode=SummaryMode.REQUIRED,
         title_mode=TitleMode.FUNCTIONAL_PRODUCT_OWNER,
         skill_rows=(
@@ -309,6 +376,7 @@ PROFILE_REGISTRY: dict[str, ResumeProfile] = {
         ProfileFamily.BUSINESS_LEADERSHIP,
         (1, 3, 2, 2, 2),
         identity_heading="STRATEGY & OPERATIONS",
+        funded_summary_identities=_ENTERPRISE_SUMMARY_IDENTITIES,
         summary_mode=SummaryMode.REQUIRED,
         title_mode=TitleMode.OFFICIAL_WITH_FUNCTIONAL_QUALIFIER,
         skill_rows=(
@@ -332,6 +400,7 @@ PROFILE_REGISTRY: dict[str, ResumeProfile] = {
         ProfileFamily.BUSINESS_LEADERSHIP,
         (1, 3, 3, 2, 1),
         identity_heading="OPERATIONS & PROGRAM MANAGEMENT",
+        funded_summary_identities=_OPERATIONS_SUMMARY_IDENTITIES,
         summary_mode=SummaryMode.REQUIRED,
         title_mode=TitleMode.OFFICIAL_WITH_FUNCTIONAL_QUALIFIER,
         skill_rows=(
@@ -355,6 +424,7 @@ PROFILE_REGISTRY: dict[str, ResumeProfile] = {
         ProfileFamily.BUSINESS_LEADERSHIP,
         (2, 3, 2, 2, 1),
         identity_heading="COMMERCIAL STRATEGY",
+        funded_summary_identities=_COMMERCIAL_SUMMARY_IDENTITIES,
         summary_mode=SummaryMode.REQUIRED,
         title_mode=TitleMode.OFFICIAL_WITH_FUNCTIONAL_QUALIFIER,
         skill_rows=(
@@ -378,6 +448,7 @@ PROFILE_REGISTRY: dict[str, ResumeProfile] = {
         ProfileFamily.CUSTOMER_TECHNICAL,
         (2, 2, 2, 2, 2),
         identity_heading="TECHNICAL SOLUTIONS",
+        funded_summary_identities=_TECHNICAL_SUMMARY_IDENTITIES,
         summary_mode=SummaryMode.REQUIRED,
         title_mode=TitleMode.OFFICIAL_WITH_FUNCTIONAL_QUALIFIER,
         skill_rows=(
@@ -401,6 +472,7 @@ PROFILE_REGISTRY: dict[str, ResumeProfile] = {
         ProfileFamily.CUSTOMER_TECHNICAL,
         (2, 2, 3, 2, 1),
         identity_heading="TECHNICAL SOLUTIONS",
+        funded_summary_identities=_TECHNICAL_SUMMARY_IDENTITIES,
         summary_mode=SummaryMode.REQUIRED,
         title_mode=TitleMode.OFFICIAL_WITH_FUNCTIONAL_QUALIFIER,
         skill_rows=(
@@ -426,6 +498,7 @@ PROFILE_REGISTRY: dict[str, ResumeProfile] = {
         bullet_budget=BulletBudget(minimum=8, target=9, maximum=10),
         summary_mode=SummaryMode.REQUIRED,
         identity_heading="PROFILE",
+        funded_summary_identities=_CAMPUS_SUMMARY_IDENTITIES,
         title_mode=TitleMode.OFFICIAL,
         skill_rows=("Campus Service", "Operations", "Tools", "Languages"),
         fluo=FluoPolicy(
@@ -448,6 +521,7 @@ PROFILE_REGISTRY: dict[str, ResumeProfile] = {
         bullet_budget=BulletBudget(minimum=8, target=9, maximum=10),
         summary_mode=SummaryMode.REQUIRED,
         identity_heading="PROFILE",
+        funded_summary_identities=_CAMPUS_SUMMARY_IDENTITIES,
         title_mode=TitleMode.OFFICIAL,
         skill_rows=("Analytics", "Tools", "Campus", "Languages"),
         fluo=FluoPolicy(
@@ -470,6 +544,7 @@ PROFILE_REGISTRY: dict[str, ResumeProfile] = {
         bullet_budget=BulletBudget(minimum=8, target=9, maximum=10),
         summary_mode=SummaryMode.REQUIRED,
         identity_heading="PROFILE",
+        funded_summary_identities=_CAMPUS_SUMMARY_IDENTITIES,
         title_mode=TitleMode.OFFICIAL,
         skill_rows=("Digital Communications", "Analytics", "Tools", "Languages"),
         fluo=FluoPolicy(
@@ -513,11 +588,10 @@ def get_profile(profile_id: str) -> ResumeProfile:
 def validate_experience_allocation(plan: ExperienceAllocationPlan) -> list[str]:
     """Validate the exact bullet allocation that assembly and QC must share.
 
-    Ten bullets is the default professional build.  Eleven requires the
-    selector to record that an additional admitted story fills a distinct
-    evidence gap; nine is a page-fit repair after the ten-bullet build.  This
-    function validates the structural contract.  Selection quality and actual
-    render fit are owned by their later stages.
+    Ten bullets is the default and normal cap. Eleven requires one additional
+    admitted story with a distinct value signal. Nine is permitted either when
+    ten cannot fit or when admission leaves no tenth bullet above the quality
+    floor. Fewer than nine fails closed rather than backfilling weak evidence.
     """
     profile = get_profile(plan.profile_id)
     if not profile.is_professional:
@@ -547,14 +621,34 @@ def validate_experience_allocation(plan: ExperienceAllocationPlan) -> list[str]:
 
     expected_total = {
         BulletBudgetDecision.DEFAULT: profile.bullet_budget.target,
+        BulletBudgetDecision.REBALANCE_DISTINCT_SIGNAL: profile.bullet_budget.target,
         BulletBudgetDecision.ADD_DISTINCT_SIGNAL: profile.bullet_budget.maximum,
         BulletBudgetDecision.COMPACT_FOR_PAGE_FIT: profile.bullet_budget.minimum,
+        BulletBudgetDecision.COMPACT_FOR_QUALITY: profile.bullet_budget.minimum,
     }[plan.budget_decision]
     if plan.total != expected_total:
         errors.append(
             f"{plan.budget_decision.value} allocation must total {expected_total}, "
             f"got {plan.total}"
         )
+
+    targets = profile.slots_dict()
+    if all(company in counts for company in targets):
+        deltas = tuple(counts[company] - targets[company] for company in expected_companies)
+        positive = sorted(delta for delta in deltas if delta > 0)
+        negative = sorted(delta for delta in deltas if delta < 0)
+        expected_delta_shape = {
+            BulletBudgetDecision.DEFAULT: ([], []),
+            BulletBudgetDecision.REBALANCE_DISTINCT_SIGNAL: ([1], [-1]),
+            BulletBudgetDecision.ADD_DISTINCT_SIGNAL: ([1], []),
+            BulletBudgetDecision.COMPACT_FOR_PAGE_FIT: ([], [-1]),
+            BulletBudgetDecision.COMPACT_FOR_QUALITY: ([], [-1]),
+        }[plan.budget_decision]
+        if (positive, negative) != expected_delta_shape:
+            errors.append(
+                f"{plan.budget_decision.value} allocation must change the profile target by "
+                f"{expected_delta_shape}, got {(positive, negative)}"
+            )
     return errors
 
 
@@ -589,6 +683,8 @@ def validate_profile_registry() -> list[str]:
             errors.append(f"{key}: every assembly preset must preserve the identity summary")
         if not profile.identity_heading or profile.identity_heading != profile.identity_heading.upper():
             errors.append(f"{key}: identity heading must be non-empty uppercase text")
+        if not profile.funded_summary_identities:
+            errors.append(f"{key}: at least one pool-funded summary identity is required")
         if profile.fluo.placement is FluoPlacement.OMIT and profile.fluo.max_lines:
             errors.append(f"{key}: omitted Fluo policy cannot reserve lines")
     return errors

@@ -10,16 +10,20 @@
    exact page shape. It does not inspect the raw title or JD and fails closed when
    Step 0 is incomplete, so it cannot silently disagree with the live router.
 
-2. **Professional count defaults to exactly 10.** The mandatory first build uses
-   the preset's 10-bullet allocation. Eleven requires the explicit
-   `add-distinct-signal` decision plus a successful one-page render. Nine requires
-   the explicit `compact-for-page-fit` decision after the 10-bullet build cannot fit.
-   QC will enforce the selected total exactly; the model never freely chooses 9–11.
+2. **Professional count defaults to 10 and admission wins.** Ten is the normal cap.
+   Eleven requires one explicit `add-distinct-signal` decision plus a successful
+   one-page render. Nine is allowed for either `compact-for-page-fit` after a failed
+   10-bullet render or `compact-for-quality` when no tenth admitted variant clears the
+   quality floor. Below nine, generation fails rather than backfilling rejected
+   evidence. QC enforces the recorded total and exact one-bullet delta from the preset;
+   the model never freely chooses or redistributes 9–11 bullets.
 
-3. **AI/0→1 uses 3 FlairX bullets by default, bounded at 2–3.** The three defensible
-   story families are enterprise AI workflow launch, avatar infrastructure/vendor
-   economics, and AI sourcing/distribution. A 2-bullet build is valid when the third
-   FlairX story loses the marginal-value comparison to another company. Four is barred.
+3. **Every Product profile starts with 2 FlairX bullets.** Three is permitted only as
+   a recorded one-for-one `rebalance-distinct-signal` decision, or as the separately
+   gated eleventh bullet, after the third story beats the displaced/additional story on
+   marginal value. This avoids over-weighting a three-month startup internship relative
+   to the longer career while preserving the strong third story for AI-heavy JDs. Four
+   is barred.
 
 4. **Every family gets a short summary under a funded identity headline.** The line is
    a professional headline, not the parser-dependent name of a `SUMMARY` section. The
@@ -34,10 +38,12 @@
    | Customer-technical | `TECHNICAL SOLUTIONS` |
    | Campus | `PROFILE` |
 
-   The admitted pool beneath each professional profile funds its headline. Product is
-   deliberately not fragmented into AI, growth, or platform headlines; those signals
-   belong in summary and bullet selection. Page pressure removes the marginal
-   experience bullet before silently removing the identity frame.
+   The admitted pool beneath each professional profile funds its headline. The summary
+   body is also required to open with a pool-funded identity; generic filler fails
+   assembly rather than satisfying the requirement syntactically. Product is deliberately
+   not fragmented into AI, growth, or platform headlines; those signals belong in summary
+   and bullet selection. Page pressure removes the marginal experience bullet before
+   silently removing the identity frame.
 
 5. **Fluo stays outside Experience.** Product profiles always use one inline bottom
    row. Business/customer/campus profiles use a fixed inline position but activate it
@@ -61,10 +67,12 @@ lineage metadata but remain warnings rather than a heavy blocking requirement.
 
 ## Review request
 
-Please focus on only these two judgment calls before Step 2:
+Resolved review decisions:
 
-- **Approve / change:** 10 default; 11 only for distinct added signal; 9 only for page repair.
-- **Approve / change:** summaries required for all four families.
+- **Approved with amendment:** 10 default/normal cap; 11 only for a distinct added
+  signal; 9 for page repair or admission-quality protection; admission always wins.
+- **Approved with condition:** summaries remain required, and their first clause must
+  name an identity funded by that profile's selectable pool.
 
 Everything else here is separation-of-responsibility or protection against the new
 adapter overwriting the architecture already in the repository.

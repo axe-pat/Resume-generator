@@ -14,6 +14,7 @@ from shared.resume_profiles import (
     skills_section_heading,
     validate_experience_allocation,
     validate_profile_registry,
+    validate_summary_identity,
 )
 from shared.variant_admission import (
     FactStatus,
@@ -75,6 +76,14 @@ def test_professional_profiles_use_a_bounded_9_to_11_budget_with_a_ten_bullet_ce
     assert len(allocations) >= 3
 
 
+def test_product_profiles_start_flairx_at_two_and_gate_the_third_slot():
+    for profile in PROFILE_REGISTRY.values():
+        if profile.family is not ProfileFamily.PRODUCT:
+            continue
+        flairx = next(slot for slot in profile.experience_slots if slot.company == "FLAIRX AI")
+        assert (flairx.minimum, flairx.target, flairx.maximum) == (2, 2, 3)
+
+
 def test_fluo_never_counts_as_experience_and_varies_by_profile_policy():
     for profile in PROFILE_REGISTRY.values():
         assert not profile.fluo.allow_experience
@@ -111,6 +120,29 @@ def test_summary_and_title_policy_are_profile_contracts():
     assert campus.title_mode is TitleMode.OFFICIAL
 
 
+@pytest.mark.parametrize(
+    ("profile_id", "summary"),
+    [
+        ("product-general", "Product manager and engineer with five years owning technical products."),
+        ("business-enterprise-leadership", "Technical operator with five years scaling enterprise systems."),
+        ("business-operations-leadership", "Engineer-turned-operator with cross-team delivery experience."),
+        ("business-commercial-gtm", "Commercial strategist with pricing and market-entry experience."),
+        ("customer-technical-client-value", "Technical solutions professional translating client needs into deployments."),
+        ("campus-analytics", "USC Marshall MBA candidate with analytics and campus leadership experience."),
+    ],
+)
+def test_required_summary_opens_with_a_pool_funded_identity(profile_id, summary):
+    assert validate_summary_identity(profile_id, summary) == []
+
+
+def test_required_summary_rejects_generic_unfunded_filler():
+    errors = validate_summary_identity(
+        "business-operations-leadership",
+        "Results-driven professional with a proven track record of excellence.",
+    )
+    assert any("funded identity" in error for error in errors)
+
+
 def test_skills_heading_depends_only_on_an_explicit_interests_row():
     assert skills_section_heading(("Product Leadership", "Technical", "Community")) == "SKILLS"
     assert skills_section_heading(("Technical", "Interests:")) == "SKILLS & INTERESTS"
@@ -120,14 +152,27 @@ def test_professional_allocation_is_exact_after_a_bounded_budget_decision():
     default = ExperienceAllocationPlan(
         profile_id="product-ai-zero-to-one",
         company_counts=(
-            ("FLAIRX AI", 3),
-            ("GOJEK", 2),
+            ("FLAIRX AI", 2),
+            ("GOJEK", 3),
             ("HEVO DATA", 2),
             ("INTUIT", 2),
             ("OPTUM", 1),
         ),
     )
     assert validate_experience_allocation(default) == []
+
+    rebalance_to_third_flairx = ExperienceAllocationPlan(
+        profile_id="product-ai-zero-to-one",
+        company_counts=(
+            ("FLAIRX AI", 3),
+            ("GOJEK", 2),
+            ("HEVO DATA", 2),
+            ("INTUIT", 2),
+            ("OPTUM", 1),
+        ),
+        budget_decision=BulletBudgetDecision.REBALANCE_DISTINCT_SIGNAL,
+    )
+    assert validate_experience_allocation(rebalance_to_third_flairx) == []
 
     add_distinct = ExperienceAllocationPlan(
         profile_id="product-ai-zero-to-one",
@@ -155,6 +200,13 @@ def test_professional_allocation_is_exact_after_a_bounded_budget_decision():
     )
     assert validate_experience_allocation(compact) == []
 
+    quality_compact = ExperienceAllocationPlan(
+        profile_id="product-ai-zero-to-one",
+        company_counts=compact.company_counts,
+        budget_decision=BulletBudgetDecision.COMPACT_FOR_QUALITY,
+    )
+    assert validate_experience_allocation(quality_compact) == []
+
 
 def test_professional_allocation_rejects_free_form_count_changes():
     plan = ExperienceAllocationPlan(
@@ -169,7 +221,7 @@ def test_professional_allocation_rejects_free_form_count_changes():
         budget_decision=BulletBudgetDecision.DEFAULT,
     )
     errors = validate_experience_allocation(plan)
-    assert any("must total 10" in error for error in errors)
+    assert any("must change the profile target" in error for error in errors)
 
 
 @pytest.mark.parametrize(

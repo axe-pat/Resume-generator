@@ -158,13 +158,16 @@ The node package (`resume/node_modules/docx`) is installed locally and works acr
 **2026-08-28 (assembly + variant contracts, isolated)** — added a deterministic
 adapter over the existing Step 0 taxonomy and a one-time variant-admission contract.
 Professional presets build at 10 bullets by default; 11 requires a distinct-signal
-addition and 9 is reserved for page-fit repair. The rule ownership map explicitly
+addition and 9 is allowed for page-fit repair or to avoid backfilling a variant that
+failed admission. Product presets start FlairX at two bullets; a third requires a
+recorded marginal-value reallocation/addition. The rule ownership map explicitly
 keeps `VARIANT_FINALS_v4` Section 9 at assembly time rather than misclassifying all
 playbook rules as one-time variant checks. Each preset also owns a funded professional
 identity headline (`PRODUCT MANAGEMENT`, `STRATEGY & OPERATIONS`, operations,
 commercial, or technical-solutions equivalents; campus uses `PROFILE`) and derives
 `SKILLS` versus `SKILLS & INTERESTS` from whether an explicit Interests row is actually
-rendered. This change is not yet wired into the live PM/NONPM runner.
+rendered. Required summaries must name a pool-funded identity in their first clause.
+This change is not yet wired into the live PM/NONPM runner.
 
 **2026-08-05 (FlairX PM-track integration)** — added the Summer 2026 AI Product Manager internship throughout the resume system.
 - **Five-story variant bank** (`freeform_master_v2.txt`): added F-ENTERPRISE, F-AVATAR, F-OPS, F-CEIPAL, and F-SOURCING with five JD-aware framings each; the PM generator selects exactly three distinct stories.
