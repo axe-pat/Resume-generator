@@ -30,10 +30,15 @@ Architecture contracts being validated before live-runner integration:
   and Fluo placement; it does not create a competing role taxonomy.
 - `shared/variant_admission.py` — one-time gate for variants entering the selectable
   pool, including per-variant rulebook approval and significance metadata.
+- `shared/resume_lint.py` — deterministic assembled-document and rendered-artifact
+  gate. It owns page-level repetition/composition checks, rejects ambiguous model
+  sections, and requires observed one-page PDF/text parity before release.
 - `docs/resume_generator_reviews/RULE_OWNERSHIP_MAP.md` — canonical ownership map
   separating fact, variant, selection, rewrite, assembly, scoring, and release rules.
 - `docs/resume_generator_reviews/STEP_01_PROFILE_AND_VARIANT_CONTRACT_REVIEW.md` —
   short human review packet for the isolated Step 1 contracts.
+- `docs/resume_generator_reviews/STEP_02_ASSEMBLY_RELEASE_GATE_REVIEW.md` — concise
+  blocker/warning policy and regression evidence for the isolated Step 2 gate.
 
 These files are not yet wired into `freeform_runner.py`; until that integration lands,
 the live prompt contracts described below remain authoritative.
@@ -154,6 +159,16 @@ The node package (`resume/node_modules/docx`) is installed locally and works acr
 **Node PATH note:** When running from inside a Python venv on macOS, `node` may not be on PATH. The pipeline now uses `shutil.which("node")` and falls back to `/opt/homebrew/bin/node` (Apple Silicon) and `/usr/local/bin/node` (Intel) automatically. If docx generation still fails with `node not found`, verify with `which node` and ensure it's in one of those locations.
 
 ## Prompt update log
+
+**2026-08-29 (assembly + release lint, isolated)** — added a non-averaged document
+gate over the Step 1 contracts. It rejects duplicate model section sets and Section 0
+reasoning leaks before parsing; validates summary identity, Fluo placement, exact
+company allocation, opener/archetype composition, same-company figure reuse, and
+contrast caps; and requires observed one-page PDF plus rendered-text parity at release.
+Contextual page signals (summary reuse of one flagship metric, cross-company numeric
+coincidence, repeated content phrases, scale contrast, density, date, and punctuation)
+remain warnings for an automated repair stage. The gate is regression-tested but is
+not yet wired into live generation.
 
 **2026-08-28 (assembly + variant contracts, isolated)** — added a deterministic
 adapter over the existing Step 0 taxonomy and a one-time variant-admission contract.
