@@ -1,0 +1,157 @@
+{
+  "template_path": "/Users/akshat/Desktop/Claude projects/ResumeGenerator v1/apps/archive/applied/2026-08-28/Apply queues/current_apply_queue/jobs/06_08-24_CARRY_94_Amazon/Product_Manager_Technical_PMT_-_2027/Akshat_Pathak_Amazon_Shared_Resume_2026-08-27.docx",
+  "output_path": "/Users/akshat/Desktop/Claude projects/ResumeGenerator v1/apps/Apply queues/current_apply_queue/jobs/03_08-27_NEW_88_Spectrum_Reach/Product_Strategy_Intern_Spectrum_Reach_Fall_2026/Akshat_Pathak_Spectrum_Reach_Resume.docx",
+  "name": "AKSHAT PATHAK",
+  "contact": "Los Angeles, CA • Akshat.Pathak.2027@marshall.usc.edu • (213) 325-0609 • linkedin.com/in/akshats-pathak",
+  "summary_section_header": "PRODUCT MANAGEMENT",
+  "profile": "Product manager and engineer with five years turning customer research and data into product decisions: a $3.2M Gojek pricing launch, FlairX's enterprise AI infrastructure, and the insight that shifted Hevo Data's roadmap.",
+  "top_margin_inches": 0.35,
+  "bottom_margin_inches": 0.15,
+  "education": [
+    {
+      "school": "University of Southern California, Marshall School of Business",
+      "detail": " – Los Angeles, CA",
+      "date": "May 2027",
+      "degree": "Master of Business Administration (STEM)",
+      "bullets": [
+        "Honors: Dean’s Merit Scholarship",
+        "Leadership: AVP Alumni Relations, South Asian Business Association; AVP External Relations, High Tech Association"
+      ]
+    },
+    {
+      "school": "Thapar Institute of Engineering and Technology",
+      "detail": " – Patiala, India",
+      "date": "August 2020",
+      "degree": "Bachelor of Engineering, Computer Engineering — GPA 3.73",
+      "bullets": [
+        "Honors: Merit Scholarship (2×); Published AI-based Fake News Detection research (Springer, 2020; 90+ citations)",
+        "Leadership: General Secretary, Creative Computing Society – drove 1,000+ participants and secured $30K in sponsorships"
+      ]
+    }
+  ],
+  "experience": [
+    {
+      "company": "FlairX AI",
+      "detail": " (AI-first interview and hiring platform) – San Francisco, CA",
+      "date": "Jun 2026 – Aug 2026",
+      "role": "AI Product Manager Intern",
+      "bullets": [
+        {
+          "variant_id": "F-ENTERPRISE-internal-interview-suite",
+          "story_id": "F-ENTERPRISE",
+          "archetype": "diagnostic",
+          "text": "Unblocked $1.2M of enterprise pilots after Genpact refused to outsource final-round interviews; reframed the policy objection as a workflow gap & led engineering and design to ship M365 panel scheduling with transcript-grounded AI scoring in 2 weeks."
+        },
+        {
+          "variant_id": "F-AVATAR-provider-abstraction",
+          "story_id": "F-AVATAR",
+          "archetype": "tradeoff",
+          "text": "Rebuilt AI interview rendering onto swappable providers after a vendor's 20-minute cap ended hour-long enterprise rounds mid-call; replaced a monthly platform fee with usage-only pricing, cutting cost per minute 70%."
+        }
+      ]
+    },
+    {
+      "company": "Gojek",
+      "detail": " (SE Asia ride-hailing super app serving 20M+ riders) – Gurgaon, India",
+      "date": "Jan 2025 – Jul 2025",
+      "role": "Product Owner, Marketplace",
+      "bullets": [
+        {
+          "variant_id": "G-PRICING-customer-discovery",
+          "story_id": "G-PRICING",
+          "archetype": "diagnostic",
+          "text": "Separated price-sensitive abandonment from quote-latency drop-off using funnel analysis, elasticity modelling and 20+ rider interviews; launched a cost-tiered ride product which lifted conversion 9% and generated $3.2M in incremental revenue."
+        },
+        {
+          "variant_id": "G-SUPPLY-platform-operating-model",
+          "story_id": "G-SUPPLY",
+          "archetype": "action",
+          "text": "Owned Gojek’s fleet integration platform and partner operating model from definition through launch; replaced bespoke builds with a standardized API and validation workflow, growing supply 18% and cutting pickup ETAs by 1.5 minutes across Singapore and Bali."
+        },
+        {
+          "variant_id": "G-LATENCY-performance-tradeoff",
+          "story_id": "G-LATENCY",
+          "archetype": "tradeoff",
+          "text": "Traded ±4% fare-quote accuracy for sub-second response by pre-caching pricing across 12 high-demand corridors, cutting quote latency 70% and recovering ~28K monthly rides lost to abandonment."
+        }
+      ]
+    },
+    {
+      "company": "Hevo Data",
+      "detail": " (Sequoia-backed ELT data platform) – Bengaluru, India",
+      "date": "Nov 2023 – Jan 2025",
+      "role": "Product Owner, Data Platform",
+      "bullets": [
+        {
+          "variant_id": "H-PLATFORM-batch-first",
+          "story_id": "H-PLATFORM",
+          "archetype": "tradeoff",
+          "text": "Drove Hevo 2.0's shift to a batch-first transactional model after Fortune 500 trials stalled on auditability, not feature depth; traded streaming speed for verifiable correctness and clear failure boundaries, improving stability 45% and onboarding 8 enterprise customers in 90 days."
+        },
+        {
+          "variant_id": "H-MONITORING-trial-conversion",
+          "story_id": "H-MONITORING",
+          "archetype": "diagnostic",
+          "text": "Reshaped Job Monitoring from a debugging afterthought into a first-class observability surface; reduced pipeline failure identification time 40% across 120K+ pipelines, making it the primary artifact enterprise evaluators relied on during trial-to-close."
+        }
+      ]
+    },
+    {
+      "company": "Intuit",
+      "detail": " (QuickBooks Online, MSE: Monetization Services & Experiences) – Bengaluru, India",
+      "date": "Aug 2022 – Oct 2023",
+      "role": "Software Engineer 2",
+      "bullets": [
+        {
+          "variant_id": "I-PRIORITIZATION-roadmap-pivot",
+          "story_id": "I-PRIORITIZATION",
+          "archetype": "diagnostic",
+          "text": "Diagnosed silent SMB cancellations as billing accuracy failures, not product gaps; designed reconciliation across three billing services serving 80K+ businesses and presented the financial impact to senior leadership, securing a roadmap pivot from feature velocity to auditability."
+        },
+        {
+          "variant_id": "I-INCIDENT-cross-functional-response",
+          "story_id": "I-INCIDENT",
+          "archetype": "action",
+          "text": "Coordinated an 8-team incident response after lifecycle-state mismatches across billing services canceled subscriptions for 1,500+ businesses; ran fix-writing and validation in parallel rather than in sequence, cutting recovery from days to hours."
+        }
+      ]
+    },
+    {
+      "company": "Optum",
+      "detail": " (health-tech & data-analytics arm of UnitedHealth Group) – Gurgaon, India",
+      "date": "Jul 2020 – Aug 2022",
+      "role": "Software Engineer",
+      "bullets": [
+        {
+          "variant_id": "O-INTEGRATION-schema-transformation",
+          "story_id": "O-INTEGRATION",
+          "archetype": "diagnostic",
+          "text": "Unblocked a stalled provider integration by diagnosing a schema mismatch between legacy XML and Optum's REST APIs; designed a custom transformation layer that cut onboarding time from 6 months to 10 weeks."
+        }
+      ]
+    }
+  ],
+  "skills_section_header": "SKILLS",
+  "skills": [
+    {
+      "bold_label": "Product Strategy",
+      "text": "Customer Discovery, Market & Competitive Research, Requirements Definition, Roadmaps, GTM"
+    },
+    {
+      "bold_label": "Data & Analytics",
+      "text": "SQL, Tableau, Excel, Data Visualization, Funnel Analysis, A/B Testing, Customer Interviews, KPI Design"
+    },
+    {
+      "bold_label": "Technical",
+      "text": "Python, APIs, Figma, Jira, Confluence"
+    },
+    {
+      "bold_label": "AI & Automation",
+      "text": "Mapped workflow bottlenecks across 2 L'Oréal units into 3 GenAI automation recommendations for executive review."
+    },
+    {
+      "bold_label": "Startup Product",
+      "text": "Fluo — Secured a USC partnership after finding students trust peers over apps post-arrival; reset the roadmap around pre-arrival acquisition and long-term retention."
+    }
+  ]
+}

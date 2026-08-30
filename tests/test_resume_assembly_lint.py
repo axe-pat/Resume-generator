@@ -429,6 +429,14 @@ def test_release_requires_observed_one_page_pdf_and_rendered_text_parity():
         lint_assembled_resume(extra_render, RELEASE_POLICY), LintSeverity.BLOCKER
     )
 
+    wingdings_render = replace(
+        document,
+        rendered_text=document.rendered_text.replace("•", "\uf0b7"),
+    )
+    assert "RENDERED_BULLET_COUNT_MISMATCH" not in issue_codes(
+        lint_assembled_resume(wingdings_render, RELEASE_POLICY), LintSeverity.BLOCKER
+    )
+
 
 def test_contextual_density_date_and_scale_signals_warn_instead_of_false_blocking():
     document = _good_resume()

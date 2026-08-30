@@ -175,6 +175,7 @@ _ANALYSIS_LEAK_MARKERS = (
     "re-check",
 )
 _BULLET_PREFIX_RE = re.compile(r"^[\s\u2022\u25cf\-*]+")
+_RENDERED_BULLET_RE = re.compile(r"(?m)^\s*[\u2022\u25cf\uf0b7]\s+")
 _TOKEN_RE = re.compile(r"[a-z0-9]+(?:'[a-z]+)?")
 _FIGURE_RE = re.compile(
     r"(?<![\w])"
@@ -1021,7 +1022,7 @@ def _lint_rendered_artifact(document: AssembledResume, issues: list[LintIssue]) 
         )
     else:
         rendered_bullet_count = len(
-            re.findall(r"(?m)^\s*[\u2022\u25cf]\s+", experience_match.group("body"))
+            _RENDERED_BULLET_RE.findall(experience_match.group("body"))
         )
         expected_bullet_count = len(document.bullets)
         if rendered_bullet_count != expected_bullet_count:
