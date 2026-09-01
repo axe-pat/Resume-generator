@@ -401,6 +401,26 @@ prototype is the proof it can be built.
 
 ---
 
+## 8 · Interviews said value; usage exposed discovery
+**FL-FIELD-VALIDATION** · *outcome currency: customer discovery, behavioral corroboration, experiment design*
+
+**The one line.** Sixty conversations with new and returning students at Lorenzo showed that
+live offers made sense once surfaced but were difficult to discover. Live usage carried the
+harder signal: only 3 of 20 spots on Fluo's first merchant offer were claimed.
+
+**The decision.** Separated awareness from demand instead of treating low redemption as a verdict
+on the offer itself. The next step was a receipt-verified retest, not a paid card-linked build.
+
+**Why it matters.** The strength is the closed evidence loop: direct customer conversations,
+behavioral corroboration, a consequential diagnosis, and a cheaper next test. Neither interview
+enthusiasm nor one weak usage number is allowed to decide the roadmap alone.
+
+**Source:** user-confirmed Lorenzo move-in fieldwork (60 new and returning students);
+`Fluo_Assessment.pptx` and live-app Cafe Dulce offer (3 of 20 claims);
+`Fluo_Seven_Directions.md` (receipt-verification test sequence).
+
+---
+
 # THE BULLETS
 
 ## Recommended, the single high-altitude bullet
@@ -461,6 +481,9 @@ value signal**, never another strategy line.
 
 **FL-SOURCING**
 - *[competitive-positioning]* DIAGNOSTIC · 197 — Repositioned the career product away from a job board Handshake already owns and toward employer sponsorship evidence, built on a prototype pulling 8,145 postings from 31 DOL-verified sponsors.
+
+**FL-FIELD-VALIDATION**
+- *[discovery-usage-loop]* DIAGNOSTIC — Interviewed 60 new and returning students at Lorenzo move-in and found that live offers made sense once surfaced but were difficult to discover; confirmed the pattern in usage data, with just 3 of 20 spots claimed on Fluo's first merchant offer, then separated awareness from demand and designed a receipt-verified retest.
 
 ---
 
@@ -561,6 +584,8 @@ feature, loses to a $1.2M line sitting two inches above it.
 | 20 vs 15 steps; CPT reroute sliding 3 dates | FL-PLAN | real (concept_15) |
 | 8,145 postings, 31 sponsors, 17/14 split, ±10pp | FL-SOURCING | real |
 | 300 → 2,200 addressable | FL-GTM | ⚠️ two different 2,200s sit four paragraphs apart in the work summary. Know which denominator is being stacked |
+| 60 new and returning students interviewed at Lorenzo move-in | FL-FIELD-VALIDATION | user-confirmed |
+| 3 of 20 spots claimed on the first merchant offer | FL-FIELD-VALIDATION | real, visible in product |
 
 ---
 
@@ -596,8 +621,8 @@ feature, loses to a $1.2M line sitting two inches above it.
 5. **Ambassador recruiting** — confirm you recruited them personally, and whether you run the program.
 6. **Live user count and retention, with a date.**
 7. **Marshall case competition** — what it is, when, your role. Not yet in any story.
-8. **One thing you changed because of something a student said to you.** Still the highest-value
-   missing fact, and the question every PM interviewer asks.
+8. **Field-validation loop resolved.** Sixty Lorenzo conversations informed the awareness-versus-
+   demand diagnosis; usage showed 3 of 20 claims, and the next test moved to receipt verification.
 
 ---
 

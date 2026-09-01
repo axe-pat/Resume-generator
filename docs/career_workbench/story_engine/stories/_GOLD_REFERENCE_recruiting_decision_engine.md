@@ -5,16 +5,28 @@ resume: arms PM (primary) + builder/AI-native track
 note: VERIFIED ARC ONLY — never claim the multi-user pilot or pilot metrics; recompute counts before public use.
 
 ## Hook (outreach + chat opener)
-I built my recruiting system after realizing generation was the easy part — trustworthy opportunity decisions need entity state, provenance, approval boundaries, and recovery when something goes wrong.
+I independently built an AI recruiting engine for my own search that turns live job and relationship signals into the next application or conversation worth pursuing.
 
 ## Spoken (~60s — the spine)
-I started by building a resume generator, then operating it taught me writing wasn't the bottleneck — decision quality was. A high-fit role could be found twice, tailored without relationship context, or contacted after the application closed. So I became the PM and first user, using AI coding agents as my engineering team while I owned the workflow, state model, acceptance criteria, and ship/rollback calls. The verified build spans 151 commits, 542 release tests, ~2,500 roles and hundreds of touchpoints. A wrong company-person match once triggered a connection invite; I stopped the batch, withdrew it, and changed every send path to require independent employer evidence. That's when it became a product — not because the AI wrote well, but because state, guardrails, and recovery made its decisions trustworthy.
+Point tools could find roles, tailor documents, or draft messages, but none carried a live opportunity through the whole decision. I built the path from finding and ranking the right role to producing its tailored application and routing the right ask to the right person. One ranked action queue allocates limited time and outreach capacity across applications, referral asks, internship conversations, follow-ups, and longer-term relationships. I remain the PM and first user, using AI coding agents as the engineering team while I own the workflow, state model, acceptance criteria, and ship/rollback calls. A wrong company-person match once triggered a connection invite; I stopped the batch, withdrew it, and changed every send path to require independent employer evidence.
   +panel extension: entity-first model (company/role/person/relationship/application/artifact) · evidence ledger (why scored, why matched, which story, which source) · suggestion vs authority (models rank/draft; humans approve external sends) · fail-closed on purpose · cover letters only when the path requires one.
 
 ## Numbers (verified)
-96-day history · 151 commits · 542 passing release tests · ~2,514 roles / 560 orgs / ~849 touchpoints
-send-path contract rewritten after the wrong-recipient incident
-⚠️ recompute all counts from current repos before any resume/outreach use.
+Current operating snapshot as of 1 Sep 2026: 190+ applications · 1,100+ targeted contacts · 300+ accepted connections · 100+ replies.
+Send-path contract rewritten after the wrong-recipient incident.
+⚠️ Counts are live and must be recomputed from the current application and Outreach trackers before public use.
+⚠️ Three job offers are user-reported but not yet recorded in the outcome ledger. Use only after confirming each offer's engine path; if confirmed, replace an intermediate metric rather than appending another number.
+
+## Resume renderings
+
+**Summary rendering · approved for StudyFetch**
+> Product manager and engineer with five years turning customer and usage signals into shipped AI, marketplace, and data products. Independently built an AI recruiting engine for my own search that turns live job and relationship signals into the next application or conversation worth pursuing.
+
+**Project rendering · current verified default**
+> Built the path from finding and ranking the right role to producing its tailored application and routing the right ask to the right person; operated it across 190+ applications and 1,100+ contacts, yielding 300+ accepted connections and 100+ replies.
+
+**Project rendering · use only after three-offer attribution is confirmed**
+> Built the path from finding and ranking the right role to producing its tailored application and routing the right ask to the right person; used it to land three offers and generate 100+ replies through targeted outreach.
 
 ## Ownership (one line)
 I owned problem definition, roadmap, operating reviews, trade-offs, acceptance criteria, and ship/rollback; AI coding agents accelerated implementation.
