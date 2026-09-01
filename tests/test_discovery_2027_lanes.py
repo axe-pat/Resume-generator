@@ -330,6 +330,13 @@ def test_lane_b_h1b_language_is_a_soft_flag_and_everify_is_captured() -> None:
     assert pre_filter_immigration(
         "You must be authorised to work permanently without sponsorship."
     )[0]
+    assert pre_filter_immigration(
+        "We do not provide sponsorship for employment visa status (e.g., H-1B, OPT, or TN)."
+    )[0]
+    assert pre_filter_immigration(
+        "We are unable to offer employment to individuals who require sponsorship, including F-1."
+    )[0]
+    assert pre_filter_immigration("U.S. citizenship is required for this program.")[0]
 
 
 def test_model_cannot_hard_reject_lane_b_for_generic_no_sponsorship() -> None:
@@ -504,6 +511,18 @@ def test_deadline_capture_and_manual_program_lookup_do_not_invent_dates() -> Non
         "Applications will be accepted until October 15, 2026."
     )
     assert accepted_until == "2026-10-15"
+    closure, _ = extract_application_deadline(
+        "Application Closure Date: July 6, 2027."
+    )
+    assert closure == "2027-07-06"
+    period_closure, _ = extract_application_deadline(
+        "The estimated job application period closure is July 6 2027."
+    )
+    assert period_closure == "2027-07-06"
+    day_first, _ = extract_application_deadline(
+        "Applications will close on 9th October 2026."
+    )
+    assert day_first == "2026-10-09"
 
     job = annotate_discovery_job(
         {
@@ -821,6 +840,9 @@ def test_generic_software_engineering_stays_out_but_technical_gtm_is_in() -> Non
     )
     assert classify_title("Software Engineer, New Grad 2027")[0] is False
     assert classify_title("Associate Product Manager, 2027 Graduates")[0] is True
+    assert classify_title("Associate Product Manager")[0] is True
+    assert classify_title("Forward Deployed Engineer")[0] is False
+    assert classify_title("Senior Product Manager, AI Platform")[0] is False
     for title in (
         "Associate Application Consultant 2027",
         "Delivery Consultant - Entry Level Sales Program 2027",
@@ -847,7 +869,57 @@ def test_custom_2027_linkedin_search_carries_lane_b_metadata() -> None:
     )
     assert cards_to_jobs([card])[0]["lane"] == "B"
     card.search_term = "Product Manager Intern"
-    assert cards_to_jobs([card])[0]["lane"] == "A"
+    assert cards_to_jobs([card])[0]["lane"] == "B"
+
+
+def test_hydrated_jd_overrides_linkedin_query_lane_default() -> None:
+    from discovery.auto.linkedin_live import LinkedInJobCard, cards_to_jobs
+
+    full_time_apm = LinkedInJobCard(
+        search_term="Product Manager Intern",
+        time_filter="r86400",
+        title="Associate Product Manager",
+        company="Example Co",
+        location="New York, NY",
+        url="https://www.linkedin.com/jobs/view/1234567890/",
+        listed_at="1 hour ago",
+        insight="",
+        jd_text="This is a full-time position for an associate product manager.",
+    )
+    actual_internship = LinkedInJobCard(
+        search_term="Product Manager 2027",
+        time_filter="r86400",
+        title="Product Management Intern",
+        company="Example Co",
+        location="New York, NY",
+        url="https://www.linkedin.com/jobs/view/1234567891/",
+        listed_at="1 hour ago",
+        insight="",
+        jd_text="This internship supports the product team during Fall 2026.",
+    )
+
+    jobs = cards_to_jobs([full_time_apm, actual_internship])
+
+    assert jobs[0]["lane"] == "B"
+    assert jobs[1]["lane"] == "A"
+
+
+def test_hydrated_unknown_timing_does_not_inherit_internship_query_lane() -> None:
+    from discovery.auto.linkedin_live import LinkedInJobCard, cards_to_jobs
+
+    card = LinkedInJobCard(
+        search_term="Product Manager Intern",
+        time_filter="r86400",
+        title="Associate Product Manager",
+        company="Example Co",
+        location="Chicago, IL",
+        url="https://www.linkedin.com/jobs/view/1234567892/",
+        listed_at="1 hour ago",
+        insight="",
+        jd_text="Support the product lifecycle and collaborate with engineering and design.",
+    )
+
+    assert cards_to_jobs([card])[0]["lane"] == "B"
 
 
 def test_pipeline_appends_discovery_columns_and_reports_lane_reject_reasons(capsys) -> None:
@@ -917,6 +989,71 @@ def test_offline_replay_rejects_named_summer_2027_rows() -> None:
         classified = classify_discovery_job_offline(row)
         assert classified["classification"] == "reject"
         assert "Summer 2027 internship" in classified["reject_reason"]
+
+
+def test_offline_replay_rejects_summer_internship_without_year() -> None:
+    from shared.job_eligibility import classify_discovery_job_offline
+
+    classified = classify_discovery_job_offline(
+        {
+            "company": "Example",
+            "role_title": "Junior Product Manager",
+            "jd_text": (
+                "This internship program offers mentorship and training. "
+                + ("Career development details. " * 65)
+                + "Summer interns work full-time from May through August."
+            ),
+            "notes": "",
+        }
+    )
+
+    assert classified["lane"] == "A"
+    assert classified["classification"] == "reject"
+    assert "Summer internship" in classified["reject_reason"]
+
+
+def test_offline_replay_rejects_hidden_2027_internship_copy() -> None:
+    from shared.job_eligibility import classify_discovery_job_offline
+
+    classified = classify_discovery_job_offline(
+        {
+            "company": "Example",
+            "role_title": "Entry-Level Product Manager - 2027",
+            "jd_text": "This internship is for students pursuing a Master's degree.",
+            "notes": "",
+        }
+    )
+
+    assert classified["lane"] == "A"
+    assert classified["classification"] == "reject"
+    assert "2027 internship" in classified["reject_reason"]
+
+
+def test_product_management_graduate_is_actionable_and_broad_program_is_reviewed() -> None:
+    from shared.job_eligibility import classify_discovery_job_offline
+
+    product = classify_discovery_job_offline(
+        {
+            "company": "Example",
+            "role_title": "Product Management Graduate (Master's/MBA)",
+            "jd_text": "Build product strategy with engineering and design.",
+            "notes": "",
+        }
+    )
+    broad = classify_discovery_job_offline(
+        {
+            "company": "Example",
+            "role_title": "Graduate Program - Engineering Pathways",
+            "jd_text": "Opportunities include technical product and program work.",
+            "notes": "",
+        }
+    )
+
+    assert product["lane"] == "B"
+    assert product["classification"] == "keep"
+    assert broad["lane"] == "B"
+    assert broad["classification"] == "unsure"
+    assert "JD review required" in broad["reject_reason"]
 
 
 def test_scraper_checkpoints_each_query_and_skips_timeout(tmp_path, monkeypatch) -> None:

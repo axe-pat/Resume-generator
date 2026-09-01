@@ -88,6 +88,26 @@ EARLY_CAREER_RE = re.compile(
     r"university\s+grad(?:uate)?|early\s+career|entry[- ]level|graduate\s+2027)\b",
     re.I,
 )
+LATE_CAREER_RE = re.compile(
+    r"\b(?:senior|sr\.?|staff|principal|lead|director|vice\s+president|vp|head\s+of|group\s+product\s+manager)\b",
+    re.I,
+)
+ENTRY_PRODUCT_RE = re.compile(
+    r"\b(?:associate\s+product\s+manager|junior\s+product\s+manager|"
+    r"product\s+management\s+graduate|entry[- ]level\s+(?:technical\s+)?product\s+manager|"
+    r"product\s+manager\s*,?\s+associate)\b",
+    re.I,
+)
+ENTRY_ASSOCIATE_RE = re.compile(
+    r"\b(?:associate|analyst|entry[- ]level|engineer\s+i|consultant\s+i)\b",
+    re.I,
+)
+EARLY_PROGRAM_RE = re.compile(
+    r"\b(?:mba\s+development\s+program|leadership\s+development\s+program|"
+    r"rotational\s+(?:development\s+)?program|graduate\s+(?:program|scheme)|"
+    r"development\s+program|career\s+development\s+program)\b",
+    re.I,
+)
 OBVIOUS_NOISE: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("finance", re.compile(r"\b(?:finance|financial|accounting|accountant|audit|tax|investment|banking|private\s+equity|asset\s+management|wealth\s+management|trading|trader|quant(?:itative)?|treasury|credit\s+analyst)\b", re.I)),
     ("consulting", re.compile(r"\b(?:management|strategy|business)\s+consultant\b|\b(?:consulting\s+associate|associate\s+consultants?|consulting\s+analyst|associates?\s+and\s+consultants?)\b", re.I)),
@@ -120,8 +140,18 @@ def classify_title(title: str) -> tuple[bool, str]:
             if target_family == "technical_gtm" and label == "software_engineering":
                 continue
             return False, f"obvious_noise:{label}"
-    if target_family:
+    if target_family == "rotational_leadership" and EARLY_PROGRAM_RE.search(title):
         return True, f"target_family:{target_family}"
+    if LATE_CAREER_RE.search(title):
+        return False, "late_career_title"
+    if target_family and EARLY_CAREER_RE.search(title):
+        return True, f"target_family:{target_family}"
+    if target_family == "product" and ENTRY_PRODUCT_RE.search(title):
+        return True, f"target_family:{target_family}"
+    if target_family in {"program", "strategy_ops", "technical_gtm"} and ENTRY_ASSOCIATE_RE.search(title):
+        return True, f"target_family:{target_family}"
+    if target_family:
+        return False, f"target_family_without_early_career_signal:{target_family}"
     if EARLY_CAREER_RE.search(title):
         return True, "early_career_title_review"
     return False, "broad_search_noise_no_target_title_signal"

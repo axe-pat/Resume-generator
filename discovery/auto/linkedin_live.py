@@ -171,8 +171,20 @@ def _resolve_linkedin_chrome_user_data_dir() -> str:
     return v
 
 
+def _resolve_linkedin_chrome_profile_name() -> str:
+    """Resolve the exact Chrome subprofile from process env or project .env."""
+    v = (os.environ.get("LINKEDIN_PROFILE_NAME") or "").strip()
+    if v:
+        return v
+    v = (_read_project_root_dotenv().get("LINKEDIN_PROFILE_NAME") or "").strip()
+    if v:
+        os.environ["LINKEDIN_PROFILE_NAME"] = v
+    return v
+
+
 def _launch_chrome_via_repo_script(debug_port: int, quiet: bool) -> None:
     profile = _resolve_linkedin_chrome_user_data_dir()
+    profile_name = _resolve_linkedin_chrome_profile_name()
     if not profile:
         raise RuntimeError(
             "Nothing is listening on the CDP port and --launch-chrome was set, but "
@@ -183,6 +195,11 @@ def _launch_chrome_via_repo_script(debug_port: int, quiet: bool) -> None:
     if not Path(profile).is_dir():
         raise RuntimeError(
             f"LINKEDIN_CHROME_USER_DATA_DIR is not a directory: {profile}"
+        )
+    if not profile_name:
+        raise RuntimeError(
+            "LINKEDIN_PROFILE_NAME is not set. Add the exact Chrome subprofile directory "
+            "(for example, LINKEDIN_PROFILE_NAME=\"Default\") to ResumeGenerator v1/.env."
         )
     script = PROJECT_ROOT / "discovery" / "scripts" / "launch_linkedin_browser.sh"
     if not script.is_file():
@@ -205,8 +222,49 @@ def _wait_for_cdp_port(port: int, *, seconds: float = 45.0, quiet: bool) -> None
     raise RuntimeError(f"Timed out after {seconds:.0f}s waiting for 127.0.0.1:{port} (Chrome + CDP).")
 
 
+def _validate_linkedin_cdp_owner(debug_port: int) -> None:
+    """Fail closed unless CDP belongs to the configured Chrome profile pair."""
+    user_data_dir = _resolve_linkedin_chrome_user_data_dir()
+    profile_name = _resolve_linkedin_chrome_profile_name()
+    if not user_data_dir or not profile_name:
+        raise RuntimeError(
+            "LINKEDIN_CHROME_USER_DATA_DIR and LINKEDIN_PROFILE_NAME must both be configured "
+            "before attaching to Chrome."
+        )
+    if profile_name in {".", ".."} or "/" in profile_name:
+        raise RuntimeError("LINKEDIN_PROFILE_NAME must be a Chrome subprofile directory name, not a path.")
+
+    listener = subprocess.run(
+        ["lsof", f"-tiTCP:{debug_port}", "-sTCP:LISTEN"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    pid = next((line.strip() for line in listener.stdout.splitlines() if line.strip()), "")
+    if not pid:
+        raise RuntimeError(f"Could not identify the CDP owner on port {debug_port}.")
+    owner = subprocess.run(
+        ["ps", "-p", pid, "-o", "command="],
+        check=False,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    required = (
+        f"--user-data-dir={user_data_dir}",
+        f"--profile-directory={profile_name}",
+        f"--remote-debugging-port={debug_port}",
+    )
+    missing = [switch for switch in required if switch not in owner]
+    if missing:
+        raise RuntimeError(
+            f"Refusing Chrome on port {debug_port}: it is not the configured LinkedIn profile. "
+            f"Missing from owner command: {', '.join(missing)}"
+        )
+
+
 def _ensure_chrome_cdp(debug_port: int, launch_chrome: bool, quiet: bool) -> None:
     if _cdp_port_listening("127.0.0.1", debug_port):
+        _validate_linkedin_cdp_owner(debug_port)
         if launch_chrome and not quiet:
             print(f"CDP already listening on 127.0.0.1:{debug_port}; skipping Chrome launch.")
         return
@@ -214,6 +272,7 @@ def _ensure_chrome_cdp(debug_port: int, launch_chrome: bool, quiet: bool) -> Non
         return
     _launch_chrome_via_repo_script(debug_port, quiet=quiet)
     _wait_for_cdp_port(debug_port, quiet=quiet)
+    _validate_linkedin_cdp_owner(debug_port)
 
 
 @dataclass
@@ -2280,10 +2339,12 @@ def scrape_search(
 
 
 def cards_to_jobs(cards: Iterable[LinkedInJobCard]) -> list[dict]:
+    from shared.job_eligibility import infer_discovery_lane
+
     jobs: list[dict] = []
     today = datetime.now().strftime("%Y-%m-%d")
     for card in cards:
-        lane = (
+        query_default_lane = (
             "B"
             if re.search(
                 r"\b(?:2027|new\s+grad(?:uate)?|university\s+grad(?:uate)?|"
@@ -2293,8 +2354,11 @@ def cards_to_jobs(cards: Iterable[LinkedInJobCard]) -> list[dict]:
             )
             else "A"
         )
-        jobs.append(
-            {
+        # A hydrated full-time/unknown-timing card must not inherit Lane A
+        # merely because LinkedIn returned it for an internship query. The
+        # search term is only a fallback when the card has no JD yet.
+        default_lane = "B" if (card.jd_text or "").strip() else query_default_lane
+        job = {
                 "id": None,
                 "date_found": today,
                 "date_posted": _parse_relative_date(card.listed_at),
@@ -2317,10 +2381,14 @@ def cards_to_jobs(cards: Iterable[LinkedInJobCard]) -> list[dict]:
                     f"window={TIME_LABELS.get(card.time_filter, card.time_filter)} "
                     f"insight={card.insight}"
                 ).strip(),
-                "lane": lane,
                 "tc_hash": title_company_hash(card.title, card.company),
             }
-        )
+        # Semantic search can return full-time roles for an internship query
+        # (and internships for a 2027 query). Hydrated posting evidence must
+        # outrank the query-pack fallback; card-only captures retain the
+        # fallback until their JD is available.
+        job["lane"] = infer_discovery_lane(job, default=default_lane)
+        jobs.append(job)
     return jobs
 
 

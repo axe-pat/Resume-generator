@@ -1,221 +1,277 @@
 # Final Application Priority Order
 
-Updated: 2026-08-27 after a fresh signed-in LinkedIn past-24-hours pass, a signed-in USC Handshake Lane C pass, and live posting validation.
+Updated: 2026-09-01 after the combined fresh 24-hour LinkedIn pull, full weekly LinkedIn pull, and all five Handshake Lane C searches.
 
-Ready now: **47 roles** — Lane A: **9**, Lane B: **32**, Lane C: **6**.
+Ready now: **59 roles** — Lane A: **7**, Lane B: **49**, Lane C: **3**.
 
-Work straight down this list. The order balances hard deadlines, likelihood of rolling roles closing, importance, and profile fit.
+Work straight down this list. The three Lane C roles come first because their resumes are simple and they have hard September deadlines; the remaining order preserves the engine's existing priority logic. No scoring threshold or prioritization setting was changed.
 
-1. **USC Viterbi — Student Services Assistant**
-   Lane C · Hard deadline: **August 28** · Eligible as a USC Marshall graduate student; Rossier graduate students are preferred, not required, and Viterbi students alone are excluded · In-person, 10–20 hours/week · Resume and cover letter required
-   https://app.joinhandshake.com/job-search/11181695
+1. **USC Leonard Davis School of Gerontology - Student Services — IT Support Student Worker**
+   Lane C · deadline: 2026-09-07 · handshake_jobs_v1
+   https://app.joinhandshake.com/job-search/11332205/
 
-2. **Databricks — Associate Product Manager, New Grad (2027 Start)**
-   Lane B · Rolling · Highest-priority APM target
-   https://www.linkedin.com/jobs/view/4438752185/
+2. **USC Mann School of Pharmacy and Pharmaceutical Sciences - Regulatory Science — Weekend Operations Support Specialist**
+   Lane C · deadline: 2026-09-09 · handshake_jobs_v1
+   https://app.joinhandshake.com/job-search/11363345/
 
-3. **Amazon — Product Manager Technical (PMT), 2027**
-   Lane B · Rolling · Apply immediately
-   https://www.amazon.jobs/en/jobs/10509770/product-manager-technical-pmt-2027
+3. **USC Dornsife Center for Economic and Social Research — Administrative Student Worker**
+   Lane C · deadline: 2026-09-27 · handshake_jobs_v1
+   https://app.joinhandshake.com/job-search/11363150/
 
-4. **Spectrum Reach — Product Strategy Intern, Fall 2026**
-   Lane A · Newly posted · September–December, may extend into Spring · NYC hybrid
-   https://www.linkedin.com/jobs/view/4459391844/
+4. **The Home Depot — Associate Product Manager Program (Summer 2027)**
+   Lane B · score 9.4 · deadline: rolling · linkedin_live_jobs_v1
+   https://www.linkedin.com/jobs/view/4460631419/
 
-5. **Xpansiv — Product Management Intern, AI Products**
-   Lane A · Newly posted · Rolling · Strongest new AI-PM match; term dates unstated
-   https://www.linkedin.com/jobs/view/4459348237/
+5. **IBM — Entry Level Technical Product Manager - Austin, TX - 2027**
+   Lane B · score 9.3 · deadline: rolling · linkedin_live_jobs_v1
+   https://www.linkedin.com/jobs/view/4459562539/
 
-6. **Philips — MBA Operations Leadership Development Program, Summer 2027**
-   Lane B · Expected deadline: **October 10**, but may close earlier · Strong MBA/engineering fit
+6. **Bristol Myers Squibb — Technology Rotational Development Program Associate**
+   Lane B · score 9 · deadline: rolling · linkedin_live_jobs_v1
+   https://www.linkedin.com/jobs/view/4461514038/
+
+7. **Hewlett Packard Enterprise — Product Management Graduate (Master's/MBA)**
+   Lane B · score 8.8 · deadline: 2027-07-06 · linkedin_live_jobs_v1
+   https://www.linkedin.com/jobs/view/4460529375/
+
+8. **Vanguard — MBA Development Program - General Management**
+   Lane B · score 8.8 · deadline: rolling · linkedin_live_jobs_v1
+   https://www.linkedin.com/jobs/view/4461774426/
+
+9. **Retell — Forward Deployed Engineer, New Grad**
+   Lane B · score 8.7 · deadline: rolling · linkedin_live_jobs_v1
+   https://www.linkedin.com/jobs/view/4457753196/
+
+10. **IBM — Entry Level Storage Client Solutions Engineer 2027 - NC**
+   Lane B · score 8.6 · deadline: rolling · linkedin_live_jobs_v1
+   https://www.linkedin.com/jobs/view/4458096690/
+
+11. **Nuvo — New Grad Forward Deployed Engineer**
+   Lane B · score 8.5 · deadline: rolling · linkedin_live_jobs_v1
+   https://www.linkedin.com/jobs/view/4461285885/
+
+12. **Vanguard — Accelerated Career Development Program, Product Pathway, Senior Associate**
+   Lane B · score 8.4 · deadline: rolling · linkedin_live_jobs_v1
+   https://www.linkedin.com/jobs/view/4461542644/
+
+13. **Tishman Speyer — Leadership Development Program - Senior Associate**
+   Lane B · score 8.2 · deadline: rolling · linkedin_live_jobs_v1
+   https://www.linkedin.com/jobs/view/4460074030/
+
+14. **Sanofi — Manager Commercial Graduate Program Vaccines**
+   Lane B · score 8.1 · deadline: rolling · linkedin_live_jobs_v1
+   https://www.linkedin.com/jobs/view/4460391135/
+
+15. **Philips — MBA Full Time – Operations Leadership Development Program – Summer 2027**
+   Lane B · score 9.1 · deadline: 2026-10-10 · linkedin_live_jobs_v1
    https://philips.wd3.myworkdayjobs.com/jobs-and-careers/job/Nashville-Tennessee-United-States/MBA-Full-Time---Operations-Leadership-Development-Program---Nashville--TN--Murrysville--PA--Cambridge--MA---Summer-2027_588665/
 
-7. **Amazon — 2027 Amazon Leadership Accelerator, Product Manager**
-   Lane B · Rolling · Apply immediately
-   https://www.linkedin.com/jobs/view/4455900255/
+16. **StudyFetch — Product Intern**
+   Lane A · score 9.2 · deadline: rolling · linkedin_live_jobs_v1
+   https://www.linkedin.com/jobs/view/4448234933/
 
-8. **Amazon — 2027 MBA Leadership Development Program, Full-Time**
-   Lane B · Rolling · Confirmed July 2027 start
-   https://www.linkedin.com/jobs/view/4455798023/
+17. **Momentum — 2027 MBA Full Time Associate - Strategy & Operations and Business Transformation**
+   Lane B · score 9.2 · deadline: rolling · linkedin_live_jobs_v1
+   https://www.linkedin.com/jobs/view/4448241784/
 
-9. **Amazon — 2027 MBA Pathways Full-time Operations Manager**
-   Lane B · Rolling · Nationwide; operations leadership with relocation and shift-work expectations
-   https://www.amazon.jobs/en/jobs/10491092/2027-mba-pathways-full-time-operations-manager-nationwide-opportunities
+18. **Genworth — Genworth IT Development Program Analyst – 2027**
+   Lane B · score 7.8 · deadline: rolling · linkedin_live_jobs_v1
+   https://www.linkedin.com/jobs/view/4461585649/
 
-10. **Appian — Product Manager, 2027 Graduates**
-    Lane B · Rolling
-    https://www.linkedin.com/jobs/view/4444495831/
+19. **Vanguard — Accelerated Career Development Program, Project Management Pathway, Senior Associate (PA)**
+   Lane B · score 7.8 · deadline: rolling · linkedin_live_jobs_v1
+   https://www.linkedin.com/jobs/view/4461536797/
 
-11. **Stellantis — Graduate Program, Supplier Quality & Purchasing**
-    Lane B · Newly posted · Rolling · Confirm the cohort starts after May 2027
-    https://careers.stellantis.com/job/23762822/graduate-program-of-stellantis-l-gpsq-auburn-hills-mi/
+20. **Avient Corporation — Operational Excellence Specialist - 2027 Leadership Development Program**
+   Lane B · score 7.8 · deadline: rolling · linkedin_live_jobs_v1
+   https://www.linkedin.com/jobs/view/4449240093/
 
-12. **USC Dornsife Advancement — Business Intelligence Student Assistant**
-    Lane C · Hard deadline: **September 2**
-    https://app.joinhandshake.com/job-search/11269164
+21. **Epic — Entry-Level Technical Solutions Engineer**
+   Lane B · score 7.8 · deadline: rolling · linkedin_live_jobs_v1
+   https://www.linkedin.com/jobs/view/4424618930/
 
-13. **StudyFetch — Product Intern**
-    Lane A · Fall 2026, part-time · Rolling
-    https://www.linkedin.com/jobs/view/4448234933/
+22. **GE HealthCare — Information Technology Development Program**
+   Lane B · score 7.6 · deadline: rolling · linkedin_live_jobs_v1
+   https://www.linkedin.com/jobs/view/4462044062/
 
-14. **Momentum — 2027 MBA Full Time Associate, Strategy & Operations and Business Transformation**
-    Lane B · Rolling
-    https://www.linkedin.com/jobs/view/4448241784/
+23. **Southern Glazer's Wine & Spirits — 2027 NextGen Leadership Development Program | Miramar, FL**
+   Lane B · score 7.5 · deadline: rolling · linkedin_live_jobs_v1
+   https://www.linkedin.com/jobs/view/4461798378/
 
-15. **IBM — Brand Sales Specialist, Entry Level Sales Program 2027**
-    Lane B · Technical GTM · Rolling
-    https://www.linkedin.com/jobs/view/4449217905/
+24. **Southern Glazer's Wine & Spirits — 2027 NextGen Leadership Development Program | Dallas, TX**
+   Lane B · score 7.5 · deadline: rolling · linkedin_live_jobs_v1
+   https://www.linkedin.com/jobs/view/4461776837/
 
-16. **IBM — Client Service Manager ELH, Austin 2027**
-    Lane B · Technical GTM / client delivery · Rolling
-    https://www.linkedin.com/jobs/view/4457224023/
+25. **R1 RCM — Implementation Consultant I**
+   Lane B · score 7.4 · deadline: rolling · linkedin_live_jobs_v1
+   https://www.linkedin.com/jobs/view/4458782864/
 
-17. **Southern California Edison — 2027 MBA Leadership Development Program Associate**
-    Lane B · Rolling
-    https://www.edisoncareers.com/job/23746086/2027-mba-leadership-development-program-associate-rosemead-ca/
+26. **Tricon Energy — Commercial Development Program (Graduate) - USA**
+   Lane B · score 7.4 · deadline: 2026-10-09 · linkedin_live_jobs_v1
+   https://www.linkedin.com/jobs/view/4459524704/
 
-18. **Flowserve — MBA Future Leader Program**
-    Lane B · Summer 2027 start · Rolling
-    https://flowserve.wd1.myworkdayjobs.com/en-US/applied/job/Dallas-Texas-US/MBA-Future-Leader-Program_R-20779
+27. **IBM — Brand Sales Specialist – Entry Level Sales Program 2027**
+   Lane B · score 8.6 · deadline: rolling · linkedin_live_jobs_v1
+   https://www.linkedin.com/jobs/view/4449217905/
 
-19. **Fora Travel — The Wolf Graduate Program, 2027**
-    Lane B · Rolling
-    https://www.foratravel.com/careers/jobs?gh_jid=4249787008
+28. **Stellantis — Graduate Program of Stellantis – Supplier Quality & Purchasing**
+   Lane B · score 8.4 · deadline: rolling · linkedin_live_jobs_v1
+   https://careers.stellantis.com/job/23762822/graduate-program-of-stellantis-l-gpsq-auburn-hills-mi/
 
-20. **USC Shoah Foundation — Communications Intern**
-    Lane C · Hard deadline: **September 7**
-    https://app.joinhandshake.com/job-search/11321097
+29. **Post Consumer Brands — Operations Leadership Development Program**
+   Lane B · score 7.2 · deadline: rolling · linkedin_live_jobs_v1
+   https://www.linkedin.com/jobs/view/4461783193/
 
-21. **Fortegra — 2027 Leadership Development Program Associate**
-    Lane B · Newly reposted · Rolling · Operations, analytics, IT, marketing, and business-analysis rotations
-    https://www.linkedin.com/jobs/view/4437608198/
+30. **McGraw Hill — Associate Solutions Architect**
+   Lane B · score 7.2 · deadline: rolling · linkedin_live_jobs_v1
+   https://www.linkedin.com/jobs/view/4459260140/
 
-22. **Societe Generale — Product Marketing Internship**
-    Lane A · Newly posted · Six-to-twelve-month NYC program with potential full-time conversion
-    https://careers.societegenerale.com/en/job-offers/internship-product-marketing-26000IZT-en
+31. **IBM — Client Service Manager ELH - Austin 2027**
+   Lane B · score 8.4 · deadline: rolling · linkedin_live_jobs_v1
+   https://www.linkedin.com/jobs/view/4457224023/
 
-23. **JUSPAY — Forward Deployed Product Manager**
-    Lane B · Rolling · Confirm June 2027 availability during application
-    https://www.linkedin.com/jobs/view/4448693766/
+32. **Skydio — Product Management Intern**
+   Lane A · score 8.4 · deadline: Rolling (inferred) — apply ASAP · linkedin_live_jobs_v1
+   https://www.linkedin.com/jobs/view/4447560625/
 
-24. **Celonis — Associate Value Engineer, Orbit Program**
-    Lane B · Technical GTM · Rolling
-    https://www.linkedin.com/jobs/view/4433912587
+33. **Momentum — 2027 Launch Graduate Program: Associate Strategy & Operations Analyst**
+   Lane B · score 8.8 · deadline: rolling · linkedin_live_jobs_v1
+   https://job-boards.greenhouse.io/momentumcompany3/jobs/8607054002?gh_src=6df4f9852us
 
-25. **Axon — Leadership Development Program 2027**
-    Lane B · Rolling
-    https://www.linkedin.com/jobs/view/4455909051/
+34. **Southern California Edison (SCE) — 2027 MBA Leadership Development Program Associate**
+   Lane B · score 8.6 · deadline: rolling · linkedin_live_jobs_v1
+   https://SouthernCaliforniaEdison.contacthr.com/153201527
 
-26. **ExxonMobil — Business & Commercial Early Career Full-Time Opportunities**
-    Lane B · Rolling
-    https://jobs.exxonmobil.com/job/Spring-Business-%26-Commercial-Early-Career-Full-Time-Opportunities-TX-77389/1415256100/
+35. **Fora Travel — The Wolf Graduate Program (2027)**
+   Lane B · score 8.5 · deadline: rolling · linkedin_live_jobs_v1
+   https://grnh.se/66ea2b448us
 
-27. **Momentum — 2027 Launch Graduate Program, Associate Strategy & Operations Analyst**
-    Lane B · June 2027 start · Rolling
-    https://job-boards.greenhouse.io/momentumcompany3/jobs/8607054002
+36. **Solar Turbines — 2027 Entry Level Project Applications Engineer**
+   Lane B · score 8 · deadline: 2026-12-30 · linkedin_live_jobs_v1
+   https://www.linkedin.com/jobs/view/4441440296/
 
-28. **Skydio — Hardware Product Management Intern**
-    Lane A · Rolling
-    https://www.linkedin.com/jobs/view/4447560625/
+37. **Flowserve Corporation — MBA Future Leader Program**
+   Lane B · score 8.4 · deadline: rolling · linkedin_live_jobs_v1
+   https://www.linkedin.com/jobs/view/4451424983/
 
-29. **SAP — AI Product Manager Intern**
-    Lane A · Rolling
-    https://www.linkedin.com/jobs/view/4454432793/
+38. **Fortegra — 2027 Leadership Development Program Associate**
+   Lane B · score 7.9 · deadline: rolling · linkedin_live_jobs_v1
+   https://www.linkedin.com/jobs/view/4437608198/
 
-30. **Pipevia — Product Manager Intern**
-    Lane A · Rolling
-    https://www.linkedin.com/jobs/view/4448595448/
+39. **JUSPAY — Forward Deployed Product Manager**
+   Lane B · score 8.5 · deadline: Rolling (inferred) — apply ASAP · linkedin_live_jobs_v1
+   https://www.linkedin.com/jobs/view/4448693766
 
-31. **CaelumenAI — GTM Strategy & Operations Intern**
-    Lane A · Open until filled
-    https://www.linkedin.com/jobs/view/4448571930/
+40. **ExxonMobil — Business & Commercial Early Career Full-Time Opportunities**
+   Lane B · score 8 · deadline: rolling · linkedin_live_jobs_v1
+   https://jobs.exxonmobil.com/job/Spring-Business-%26-Commercial-Early-Career-Full-Time-Opportunities-TX-77389/1415256100/
 
-32. **Bestow — Business Operations and AI Intern**
-    Lane A · Part-time · Rolling
-    https://www.linkedin.com/jobs/view/4447567121/
+41. **Societe Generale — Internship – Product Marketing**
+   Lane A · score 7.8 · deadline: rolling · linkedin_live_jobs_v1
+   https://careers.societegenerale.com/en/job-offers/internship-product-marketing-26000IZT-en
 
-33. **USC Rossier — Digital Communications Assistant**
-    Lane C · Treat **September 11** as the practical deadline
-    https://app.joinhandshake.com/job-search/11306065
+42. **BAE Systems, Inc. — Contracts Leadership Development Program - AMS**
+   Lane B · score 6.6 · deadline: rolling · linkedin_live_jobs_v1
+   https://www.linkedin.com/jobs/view/4451475323/
 
-34. **Children's Hospital Los Angeles — Research Administration Analytics Intern**
-    Lane C · Hard deadline: **September 13** · USC graduate students are eligible; external-employer work authorization/CPT must be confirmed before accepting employment
-    https://app.joinhandshake.com/job-search/11310172
+43. **GALLO — Technical Management Development Program 2027**
+   Lane B · score 7.8 · deadline: 2026-10-04 · linkedin_live_jobs_v1
+   https://careers.gallo.com/job/Modesto-Technical-Management-Development-Program-2027-CA-95354/1419774000/?feedId=426200
 
-35. **USC Marshall — Communications Assistant**
-    Lane C · Hard deadline: **September 16**
-    https://app.joinhandshake.com/job-search/11316593
+44. **Axon — Leadership Development Program 2027**
+   Lane B · score 8.2 · deadline: Rolling (inferred) — apply ASAP · linkedin_live_jobs_v1
+   https://www.linkedin.com/jobs/view/4455909051/
 
-36. **GALLO — Technical Management Development Program 2027**
-    Lane B · Hard deadline: **October 4** · OPT/E-Verify review flag, not a rejection
-    https://careers.gallo.com/job/Modesto-Technical-Management-Development-Program-2027-CA-95354/1419774000/?feedId=426200
+45. **LangChain — Deployed Engineer (Early Career-NYC)**
+   Lane B · score 8.2 · deadline: Rolling (inferred) — apply ASAP · linkedin_live_jobs_v1
+   https://www.linkedin.com/jobs/view/4446290483/
 
-37. **GALLO — Operations Management Development Program 2027**
-    Lane B · Hard deadline: **October 4** · OPT/E-Verify review flag, not a rejection
-    https://careers.gallo.com/job/Modesto-Operations-Management-Development-Program-2027-CA-95354/1419782300/
+46. **SAP — SAP iXp Intern - AI Product Manager for Service Management [Palo Alto, CA]**
+   Lane A · score 8.2 · deadline: Rolling (inferred) — apply ASAP · linkedin_live_jobs_v1
+   https://www.linkedin.com/jobs/view/4454432793
 
-38. **Solar Turbines — 2027 Entry Level Project Applications Engineer**
-    Lane B · Hard deadline: **December 30** · Technical-GTM stretch; no sponsorship
-    https://www.linkedin.com/jobs/view/4441440296/
+47. **Celonis — Associate Value Engineer (AI-Driven Data Science & Analytics) - Orbit Program**
+   Lane B · score 8.2 · deadline: Rolling (inferred) — apply ASAP · linkedin_live_jobs_v1
+   https://www.linkedin.com/jobs/view/4433912587
 
-39. **Netic — Forward Deployed Engineer, New Grad 2026–2027**
-    Lane B · Rolling
-    https://www.linkedin.com/jobs/view/4438453689/
+48. **Netic — Forward Deployed Engineer (FDE) - New Grad - 2026-2027**
+   Lane B · score 8.2 · deadline: Rolling (inferred) — apply ASAP · linkedin_live_jobs_v1
+   https://www.linkedin.com/jobs/view/4438453689/
 
-40. **LangChain — Deployed Engineer, Early Career**
-    Lane B · Rolling · Stretch because the listing asks for 3+ years and substantial travel
-    https://www.linkedin.com/jobs/view/4446290483/
+49. **Pipevia — Product Manager Intern**
+   Lane A · score 8.2 · deadline: Rolling (inferred) — apply ASAP · linkedin_live_jobs_v1
+   https://www.linkedin.com/jobs/view/4448595448/
 
-41. **Axon — Leadership Development Program 2027, Sales**
-    Lane B · Rolling
-    https://www.linkedin.com/jobs/view/4455905056/
+50. **CaelumenAI — GTM Strategy & Operations Intern**
+   Lane A · score 8.2 · deadline: Rolling — open until filled · linkedin_live_jobs_v1
+   https://www.linkedin.com/jobs/view/4448571930/
 
-42. **Momentum — 2027 Launch Graduate Program, Associate Enterprise Systems Analyst**
-    Lane B · June 2027 start · Rolling
-    https://job-boards.greenhouse.io/momentumcompany3/jobs/8606824002
+51. **GALLO — Operations Management Development Program 2027**
+   Lane B · score 7.7 · deadline: 2026-10-04 · linkedin_live_jobs_v1
+   https://careers.gallo.com/job/Modesto-Operations-Management-Development-Program-2027-CA-95354/1419782300/
 
-43. **IBM — Delivery Consultant, Entry Level Sales Program 2027**
-    Lane B · Technical GTM · Rolling
-    https://www.linkedin.com/jobs/view/4452529765/
+52. **Momentum — 2027 Launch Graduate Program: Associate Enterprise Systems Analyst**
+   Lane B · score 7.9 · deadline: rolling · linkedin_live_jobs_v1
+   https://job-boards.greenhouse.io/momentumcompany3/jobs/8606824002?gh_src=LinkedIn
 
-44. **IBM — Solution Architect, Entry Level Sales Program 2027**
-    Lane B · Technical GTM · Rolling
-    https://www.linkedin.com/jobs/view/4452534689/
+53. **Axon — Leadership Development Program 2027 (Sales)**
+   Lane B · score 7.6 · deadline: Rolling (inferred) — apply ASAP · linkedin_live_jobs_v1
+   https://www.linkedin.com/jobs/view/4455905056/
 
-45. **IBM — Technical Sales Engineer, Entry-Level Sales Program 2027**
-    Lane B · Technical GTM · Rolling
-    https://www.linkedin.com/jobs/view/4449214981/
+54. **HNI Corporation — Development Program- Operations Management 2027**
+   Lane B · score 6.4 · deadline: rolling · linkedin_live_jobs_v1
+   https://jobs.jobvite.com/hnicareers/job/oEBoAfwX
 
-46. **IBM — Associate Application Consultant 2027, IBM Tech**
-    Lane B · Technical implementation · Rolling
-    https://www.linkedin.com/jobs/view/4451261837/
+55. **Bestow — Business Operations and AI Intern**
+   Lane A · score 6.4 · deadline: Rolling (inferred) — apply ASAP · linkedin_live_jobs_v1
+   https://www.linkedin.com/jobs/view/4447567121/
 
-47. **HNI Corporation — Development Program, Operations Management 2027**
-    Lane B · Rolling · Lower-priority operations backup
-    https://jobs.jobvite.com/hnicareers/job/oEBoAfwX
+56. **IBM — Solution Architect - Entry Level Sales Program 2027**
+   Lane B · score 6.2 · deadline: No stated deadline · linkedin_live_jobs_v1
+   https://www.linkedin.com/jobs/view/4452534689/
 
-## Fresh 24-hour run audit
+57. **IBM — Technical Sales Engineer - Entry-Level Sales Program 2027**
+   Lane B · score 6.2 · deadline: No stated deadline · linkedin_live_jobs_v1
+   https://www.linkedin.com/jobs/view/4449214981/
 
-- LinkedIn: 24 first-page searches plus six high-yield second pages, **460 unique cards** checkpointed. **7 net-new roles** passed profile, timing, and live-posting review and entered the ready queue.
-- Handshake Lane C: all five query families were run against USC's **On-Campus Jobs** collection. No net-new role posted within the last 24 hours survived eligibility: the freshest USC roles required Federal Work-Study or undergraduate status.
-- No Google APM, Meta RPM, or new Amazon Pathways posting appeared in the fresh 24-hour results. The existing Amazon Pathways role remains in the queue.
+58. **IBM — Delivery Consultant - Entry Level Sales Program 2027**
+   Lane B · score 6.2 · deadline: No stated deadline · linkedin_live_jobs_v1
+   https://www.linkedin.com/jobs/view/4452529765/
 
-## Not in the ready order
+59. **IBM — Associate Application Consultant 2027 – IBM Tech**
+   Lane B · score 6 · deadline: No stated deadline · linkedin_live_jobs_v1
+   https://www.linkedin.com/jobs/view/4451261837/
 
-- **USC Human Resources, Ethics, and Compliance — Digital Design Assistant:** removed from ready after full-JD review. It requires a degree in design, visual communications, digital media, UX/UI, or a related field and a visual/digital-design portfolio. Reconsider only if both can be supported credibly.
-- **Appian — Associate Solutions Consultant, 2027 Graduates:** now explicitly says “no longer accepting applications.”
-- **Ubicept — Fall Co-op / Internship:** expired.
-- **USC Libraries — Marketing and Media Assistant:** unavailable in Handshake.
-- **TikTok — Product Strategist Graduate 2027:** valid Lane B role, but blocked by the filled two-application TikTok quota.
-- **TikTok — Strategy & Analytics Associate Graduate, TikTok Shop, 2027 Start:** valid Lane B role, quota-blocked.
-- **TikTok — Strategy & Analytics Associate Graduate, Resource Management, 2027 Start:** valid Lane B role, quota-blocked.
-- **Hunter Douglas — 2027 Global Management Trainee Program:** misleading stale repost; the official page says graduation no later than June 2026 and applications accepted through October 29, 2025.
-- **Swiss Re — Broker & Distribution Management Analyst, Early Talent 2027:** Fall 2027 timing and role family fit, but the official posting caps professional experience at three years; Akshat has five.
-- **USC Libraries — Student Navigation Assistant:** posted one hour before the audit but requires Federal Work-Study.
-- **USC ITS — IT Support Student Worker:** open to OPT/CPT but explicitly restricted to undergraduate student employment.
-- **Summer 2027 internships:** rejected because Akshat graduates in May 2027; this included American Express, TikTok, W. L. Gore, QTS, Target, and other summer-intern results.
-- **Start-date review, not ready:** current generic APM/PM-I listings at MeeBoss, Hultafors, Northern Trust, Principal Financial, NextEra, Haystack, and Supermicro did not state new-grad eligibility or a May-2027-compatible start.
+## What this September 1 run added
 
-## Amazon Pathways coverage
+- **23 Lane B roles** from the combined 24-hour and weekly LinkedIn searches.
+- **3 Lane C roles** from Handshake after honoring the instruction to drop the $20 floor and then checking each full JD for actual eligibility.
+- LinkedIn reviewed **118 fresh hydrated candidates**: deterministic replay produced 31 keep, 22 unsure, and 65 reject; profile-aware manual review produced the 23 Lane B additions above.
+- Handshake ran all five Lane C query families: 65 link hits, 38 new candidates, and 3 eligible additions.
+- No Anthropic calls were used.
 
-Amazon Pathways was not rejected. It is explicitly present in the canonical Lane B target list and remains in the ready queue. This fresh run included the exact **“Pathways Operations Manager MBA”** term; it produced no newer Pathways requisition in the past 24 hours.
+## Fresh-role exclusions that matter
+
+- **METRANS Warehouse Development GSR:** not queued because Handshake's qualification panel targets Price/public-policy/urban-planning majors, not an MBA.
+- **METRANS DTLA Curb Digital Twin GSR:** not queued because the target majors are transportation, engineering, operations research, computer science, and urban planning—not an MBA.
+- **Federal Work-Study roles:** RSO Peer Mentor, the Iovine course-assistant roles, USC Libraries roles, Dornsife Dean's Office Student Worker, and Marshall Video Production Assistant require an FWS award and were excluded.
+- **Leonard Davis Creative & Office Support:** graduate applicants must be enrolled in a creative/design graduate program; excluded.
+- **Summer 2027 internships:** rejected because Akshat graduates in May 2027. The Home Depot APM role remains because its JD confirms it is a full-time 12-month APM program, not a summer internship.
+- **Generic immediate APM/PM roles:** MeeBoss, Magnite, NXP, and PlanetArt were held out because they do not confirm a May-2027-compatible start.
+- **Consulting/pure engineering/finance noise:** PwC, the Jobright/Battelle engineering roles, Deutsche Bank risk, and Sallie Mae risk were excluded from the apply queue.
+- No Google APM, Meta RPM, or new Amazon Pathways listing surfaced.
+
+## Duplicate-location coverage
+
+- HPE Product Management Graduate surfaced in Roseville and Fort Collins; the Roseville listing is queued as the representative application.
+- Epic Entry-Level Technical Solutions Engineer surfaced through Hilo and Minot LinkedIn location variants; one representative listing is queued, and the JD confirms the role is based in Madison, Wisconsin.
+
+## Completed and removed previously
+
+- Lane C: USC Viterbi Student Services Assistant; USC Dornsife Business Intelligence Student Assistant; USC Shoah Foundation Communications Intern; USC Rossier Digital Communications Assistant; Children's Hospital Los Angeles Research Administration Analytics Intern; USC Marshall Communications Assistant.
+- Amazon: Product Manager Technical 2027; Amazon Leadership Accelerator Product Manager; MBA Leadership Development Program; MBA Pathways Operations Manager.
+- Databricks Associate Product Manager, New Grad 2027; Spectrum Reach Product Strategy Intern; Xpansiv Product Management Intern, AI Products; Appian Product Manager, 2027 Graduates.
+
+## TikTok quota block
+
+The valid TikTok graduate roles remain outside the ready order because the global two-application quota is filled. Recheck before replacing either existing TikTok application.

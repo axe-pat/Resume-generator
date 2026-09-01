@@ -22,6 +22,7 @@ DEBUG_PORT="${LINKEDIN_DEBUG_PORT:-9222}"
 TARGET_URL="${1:-https://www.linkedin.com/feed/}"
 OWNER_TOKEN="${RESUMEGEN_LINKEDIN_BROWSER_OWNER_TOKEN:-}"
 USER_DATA_DIR="${LINKEDIN_CHROME_USER_DATA_DIR:-}"
+PROFILE_NAME="${LINKEDIN_PROFILE_NAME:-}"
 CHROME_BINARY="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 
 if [[ -n "${OWNER_TOKEN}" && ! "${OWNER_TOKEN}" =~ ^[A-Za-z0-9._-]+$ ]]; then
@@ -55,7 +56,10 @@ sound_owned_chrome() {
   command_token="$(command_owner_token "${command}")"
   [[ "${command}" == "${CHROME_BINARY}"* ]] &&
     [[ -n "${USER_DATA_DIR}" ]] &&
-    [[ "${command}" == *"--user-data-dir=${USER_DATA_DIR} --remote-debugging-port=${DEBUG_PORT}"* ]] &&
+    [[ -n "${PROFILE_NAME}" ]] &&
+    [[ "${command}" == *"--user-data-dir=${USER_DATA_DIR}"* ]] &&
+    [[ "${command}" == *"--profile-directory=${PROFILE_NAME}"* ]] &&
+    [[ "${command}" == *"--remote-debugging-port=${DEBUG_PORT}"* ]] &&
     [[ "${command_token}" == "${expected_token}" ]]
 }
 

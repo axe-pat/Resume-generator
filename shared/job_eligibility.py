@@ -24,7 +24,7 @@ LANE_C_MIN_HOURLY_RATE = 20.0
 HARD_REJECT_PATTERNS = [
     r"us\s+citizen(?:s)?\s+only",
     r"must\s+be\s+a\s+us\s+citizen",
-    r"u\.s\.?\s+citizen(?:ship)?\s+required",
+    r"u\.s\.?\s+citizen(?:ship)?\s+(?:is\s+)?required",
     r"green\s+card\s+(?:required|holder)",
     r"permanent\s+resident(?:s)?\s+only",
     r"no\s+(?:cpt|opt)\s+(?:support|sponsorship|accepted)",
@@ -33,6 +33,9 @@ HARD_REJECT_PATTERNS = [
     r"including\s+(?:participation\s+in\s+)?(?:curricular\s+practical\s+training|cpt)",
     r"f-?1\s+visa\s+program[s]?\s+(?:are\s+)?not\s+(?:eligible|supported|accepted)",
     r"not\s+open\s+to\s+visa\s+sponsorship.*\bopt\b",
+    r"(?:will\s+not|do(?:es)?\s+not|cannot|can't|unable\s+to)"
+    r"[^.\n]{0,140}(?:sponsor|provide\s+sponsorship|offer\s+employment)"
+    r"[^\n]{0,180}\b(?:f-?1|cpt|(?:stem[- ]?)?opt)\b",
     r"(?:will\s+not|do(?:es)?\s+not|cannot|can't|unable\s+to)"
     r"[^.\n]{0,140}(?:employment\s+authori[sz]ation|immigration[- ]related\s+support)"
     r"[^.\n]{0,180}\b(?:f-?1|cpt|(?:stem[- ]?)?opt)\b",
@@ -147,6 +150,12 @@ _FULL_TIME_ROLE_RE = re.compile(
     re.I,
 )
 _SUMMER_2027_RE = re.compile(r"\b(?:summer\s+(?:of\s+)?2027|2027\s+summer)\b", re.I)
+_SUMMER_INTERNSHIP_RE = re.compile(
+    r"\b(?:summer\s+(?:intern(?:ship)?s?|co-?ops?)|"
+    r"(?:intern(?:ship)?|co-?op)[^.\n]{0,45}\bsummer\b|"
+    r"summer\s+(?:start|program|term|session))\b",
+    re.I,
+)
 _FALL_2026_RE = re.compile(r"\b(?:(?:fall|autumn)\s+2026|2026\s+(?:fall|autumn))\b", re.I)
 _FALL_2026_START_RE = re.compile(
     r"\b(?:anticipated\s+)?start(?:ing)?(?:\s+date)?[^.\n]{0,45}"
@@ -202,6 +211,8 @@ _NEW_GRAD_ELIGIBILITY_RE = re.compile(
     r"new\s+grad(?:uate)?s?|recent\s+grad(?:uate)?s?|"
     r"(?:university|college)\s+grad(?:uate)?s?|"
     r"campus\s+hire|university\s+hires?|entry[- ]level|early\s+career|class\s+of\s+2027|"
+    r"graduate\s+program|product\s+management\s+graduate|"
+    r"accelerated\s+career\s+development\s+program|"
     r"2027\s+grad(?:uate)?s?|grad(?:uat(?:e|es|ing|ion))[^.\n]{0,120}2027|"
     r"2027[^.\n]{0,120}grad(?:uat(?:e|es|ing|ion))|"
     r"(?:associate|development\s+program|leadership\s+program|rotational\s+program|graduate\s+program)"
@@ -257,6 +268,7 @@ ROLE_FAMILY_TITLE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
         "Product",
         re.compile(
             r"\b(?:product\s+manager|associate\s+product\s+manager|apm|technical\s+product\s+manager|"
+            r"product\s+management\s+graduate|product\s+pathway|"
             r"product\s+owner|(?:ai|ml|ai/ml|platform|infrastructure|data|developer\s+platform|growth)\s+product\s+manager|"
             r"product\s+analyst|product\s+strategist|strategic\s+product\s+lead|"
             r"product\s+solutions?\s*(?:&|and)\s*operations?|(?:content|creative)\s+product|"
@@ -298,6 +310,19 @@ ROLE_FAMILY_TITLE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
             r"(?:technical|operations|commercial|information\s+technology|it)\s+"
             r"(?:management\s+)?development\s+program|business\s+management\s+associate|"
             r"leadership\s+fellow\s+program)\b",
+            re.I,
+        ),
+    ),
+)
+
+ROLE_TITLE_REVIEW_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
+    (
+        "broad early-career program",
+        re.compile(
+            r"\b(?:graduate\s+program|talent\s+accelerator\s+program|"
+            r"accelerated\s+career\s+development\s+program|"
+            r"early\s+career\s+development\s+program|"
+            r"rotational\s+development\s+program|development\s+program\s+associate)\b",
             re.I,
         ),
     ),
@@ -377,10 +402,13 @@ _MONTH_TOKEN = (
 )
 _DATE_TOKEN = (
     rf"(?:{_MONTH_TOKEN}\s+\d{{1,2}}(?:st|nd|rd|th)?(?:,)?\s+20\d{{2}}|"
+    rf"\d{{1,2}}(?:st|nd|rd|th)?\s+{_MONTH_TOKEN}(?:,)?\s+20\d{{2}}|"
     rf"20\d{{2}}-\d{{1,2}}-\d{{1,2}}|\d{{1,2}}/\d{{1,2}}/20\d{{2}})"
 )
 _DEADLINE_RE = re.compile(
-    rf"\b(?:application(?:s)?\s+(?:deadline|close|closes|due)|apply\s+by|"
+    rf"\b(?:application(?:s)?\s+(?:deadline|closure\s+date)|"
+    rf"(?:job\s+)?application\s+period\s+closure|"
+    rf"application(?:s)?\s+(?:will\s+)?(?:close|closes|due)|apply\s+by|"
     rf"deadline|closing\s+date|accepting\s+applications\s+(?:until|through)|"
     rf"applications?\s+(?:will\s+be\s+)?accepted\s+(?:until|through))"
     rf"\s*(?:is|on|:|-)?\s*({_DATE_TOKEN})",
@@ -483,6 +511,7 @@ def infer_discovery_lane(job: dict[str, Any], default: str = LANE_A) -> str:
     timing = classify_start_timing(title, jd_text)
     if timing in {
         "summer_2027_internship",
+        "summer_internship_unspecified_year",
         "other_2027_internship",
         "fall_2026_internship",
         "internship_unspecified",
@@ -505,6 +534,7 @@ def classify_start_timing(role_title: str, jd_text: str) -> str:
     # Treat the posting itself as an internship only when the title says so or the
     # opening explicitly describes this position/program as one.
     opening = (jd_text or "")[:1400]
+    timing_opening = (jd_text or "")[:2600]
     is_internship = bool(
         _INTERNSHIP_ROLE_RE.search(role_title or "")
         or _INTERNSHIP_OPENING_RE.search(opening)
@@ -516,6 +546,12 @@ def classify_start_timing(role_title: str, jd_text: str) -> str:
         return "fall_2026_internship"
     if is_internship and _SUMMER_2027_RE.search(text):
         return "summer_2027_internship"
+    if is_internship and _SUMMER_INTERNSHIP_RE.search(
+        f"{role_title or ''}\n{timing_opening}"
+    ):
+        return "summer_internship_unspecified_year"
+    if is_internship and re.search(r"\b2027\b", role_title or "", re.I):
+        return "other_2027_internship"
     if is_internship and _OTHER_2027_INTERNSHIP_RE.search(
         f"{role_title or ''}\n{opening}"
     ):
@@ -567,6 +603,8 @@ def pre_filter_discovery_timing(
 
     if timing == "summer_2027_internship":
         return True, "Timing reject — Summer 2027 internship begins after May 2027 graduation"
+    if timing == "summer_internship_unspecified_year":
+        return True, "Timing reject — Summer internship is outside the Fall 2026 internship lane"
     if timing == "other_2027_internship":
         return True, "Timing reject — 2027 internship is outside the Fall 2026 internship lane"
 
@@ -621,6 +659,10 @@ def classify_role_surface(role_title: str, jd_text: str) -> tuple[str, str, str]
         if pattern.search(title):
             return "keep", f"Known role family: {family}", family
 
+    for label, pattern in ROLE_TITLE_REVIEW_PATTERNS:
+        if pattern.search(title):
+            return "unsure", f"Ambiguous {label}; JD review required", ""
+
     body_hits = [label for label, pattern in ROLE_BODY_SIGNAL_PATTERNS if pattern.search(jd_text or "")]
     if body_hits:
         reason = "Unknown title with JD signals: " + ", ".join(body_hits)
@@ -645,6 +687,15 @@ def _normalize_date_token(value: str) -> str:
     )
     if month_match:
         month_name, day_text, year_text = month_match.groups()
+        month = _MONTHS[month_name.lower()]
+        return f"{int(year_text):04d}-{month:02d}-{int(day_text):02d}"
+    day_first_match = re.fullmatch(
+        rf"(\d{{1,2}})\s+({_MONTH_TOKEN}),?\s+(20\d{{2}})",
+        raw,
+        re.I,
+    )
+    if day_first_match:
+        day_text, month_name, year_text = day_first_match.groups()
         month = _MONTHS[month_name.lower()]
         return f"{int(year_text):04d}-{month:02d}-{int(day_text):02d}"
     return raw

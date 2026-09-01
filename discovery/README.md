@@ -363,7 +363,7 @@ override with `LINKEDIN_JOBS_GEO_ID` and `LINKEDIN_JOBS_DISTANCE` in `.env` or t
 python discovery/auto/linkedin_live.py
 
 # Same, but start Chrome via launch_linkedin_browser.sh when CDP port is closed
-# (set LINKEDIN_CHROME_USER_DATA_DIR in the environment or in project root .env)
+# (set LINKEDIN_CHROME_USER_DATA_DIR and LINKEDIN_PROFILE_NAME in the environment or project root .env)
 python discovery/auto/linkedin_live.py --launch-chrome
 
 # Recommended one-command wrappers
@@ -386,7 +386,7 @@ python discovery/auto/linkedin_live.py \
 ```
 
 Pre-reqs:
-- Run Chrome with remote debugging enabled on port `9222` (or pass `--launch-chrome` once `LINKEDIN_CHROME_USER_DATA_DIR` is set)
+- Run Chrome with remote debugging enabled on port `9222` (or pass `--launch-chrome` once both `LINKEDIN_CHROME_USER_DATA_DIR` and `LINKEDIN_PROFILE_NAME` are set)
 - Keep LinkedIn logged in in that Chrome profile
 - Ensure Playwright is installed in the Python env that runs the script
 - See `../docs/LINKEDIN_BROWSER_PLAYBOOK.md` for the canonical shared Chrome-session rules used by both discovery and Outreach
@@ -399,6 +399,7 @@ Recommended live-session flow:
 # 1. Point the launcher at an explicitly approved signed-in Chrome profile
 #    (or add the same line to ResumeGenerator v1/.env — no export needed)
 export LINKEDIN_CHROME_USER_DATA_DIR="/absolute/path/to/your/signed-in/chrome-data"
+export LINKEDIN_PROFILE_NAME="Default"
 
 # 2. Launch that profile on port 9222 (skip if Chrome is already listening on 9222)
 ./discovery/scripts/launch_linkedin_browser.sh

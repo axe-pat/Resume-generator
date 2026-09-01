@@ -63,6 +63,7 @@ def _ensure_chrome_fixture(
                 f"echo $! > {shlex.quote(str(state_path))}",
                 "printf '%s\\n' \"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome "
                 "--user-data-dir=${LINKEDIN_CHROME_USER_DATA_DIR} "
+                "--profile-directory=${LINKEDIN_PROFILE_NAME} "
                 "--remote-debugging-port=${LINKEDIN_DEBUG_PORT:-9222} "
                 "--resume-generator-browser-owner=${RESUMEGEN_LINKEDIN_BROWSER_OWNER_TOKEN}\" "
                 f"> {shlex.quote(str(command_path))}",
@@ -102,6 +103,7 @@ def _ensure_chrome_fixture(
         **os.environ,
         "PATH": f"{fake_bin}:{os.environ['PATH']}",
         "LINKEDIN_CHROME_USER_DATA_DIR": str(profile),
+        "LINKEDIN_PROFILE_NAME": "Default",
         "LINKEDIN_BROWSER_LAUNCH_WAIT": "0",
         "LINKEDIN_BROWSER_CHECK_ATTEMPTS": "1",
         "LINKEDIN_BROWSER_CHECK_RETRY_DELAY": "0",
@@ -745,6 +747,7 @@ def test_launcher_tags_only_run_owned_chrome() -> None:
     launcher = (SCRIPTS / "launch_linkedin_browser.sh").read_text(encoding="utf-8")
     assert "RESUMEGEN_LINKEDIN_BROWSER_OWNER_TOKEN" in launcher
     assert "--resume-generator-browser-owner=${OWNER_TOKEN}" in launcher
+    assert '"--profile-directory=${PROFILE_NAME}"' in launcher
     assert '"--disable-extensions"' in launcher
 
 
@@ -753,7 +756,7 @@ def test_nightly_ensure_accepts_current_token_listener(tmp_path: Path) -> None:
     profile = tmp_path / "chrome-profile"
     command = (
         "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome "
-        f"--user-data-dir={profile} --remote-debugging-port=9222 "
+        f"--user-data-dir={profile} --profile-directory=Default --remote-debugging-port=9222 "
         f"--resume-generator-browser-owner={token}"
     )
     ensure, env, _, listener = _ensure_chrome_fixture(
@@ -773,7 +776,7 @@ def test_nightly_ensure_refuses_unowned_cdp_listener(tmp_path: Path) -> None:
     profile = tmp_path / "chrome-profile"
     command = (
         "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome "
-        f"--user-data-dir={profile} --remote-debugging-port=9222"
+        f"--user-data-dir={profile} --profile-directory=Default --remote-debugging-port=9222"
     )
     ensure, env, _, listener = _ensure_chrome_fixture(
         tmp_path, listener_command=command, owner_token="current-token"
@@ -793,7 +796,7 @@ def test_nightly_ensure_replaces_sound_stale_owned_listener(tmp_path: Path) -> N
     profile = tmp_path / "chrome-profile"
     command = (
         "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome "
-        f"--user-data-dir={profile} --remote-debugging-port=9222 "
+        f"--user-data-dir={profile} --profile-directory=Default --remote-debugging-port=9222 "
         "--resume-generator-browser-owner=stale-token"
     )
     ensure, env, state_path, stale_listener = _ensure_chrome_fixture(
@@ -822,7 +825,28 @@ def test_nightly_ensure_replaces_sound_stale_owned_listener(tmp_path: Path) -> N
 def test_nightly_ensure_refuses_unsound_stale_owned_listener(tmp_path: Path) -> None:
     command = (
         "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome "
-        "--user-data-dir=/wrong/profile --remote-debugging-port=9222 "
+        "--user-data-dir=/wrong/profile --profile-directory=Default --remote-debugging-port=9222 "
+        "--resume-generator-browser-owner=stale-token"
+    )
+    ensure, env, _, listener = _ensure_chrome_fixture(
+        tmp_path, listener_command=command, owner_token="current-token"
+    )
+    try:
+        result = subprocess.run(
+            [str(ensure)], cwd=tmp_path, env=env, capture_output=True, text=True
+        )
+        assert result.returncode == 1
+        assert "unsound or unrelated CDP listener" in result.stderr
+        assert listener.poll() is None
+    finally:
+        _terminate_process(listener)
+
+
+def test_nightly_ensure_refuses_wrong_chrome_subprofile(tmp_path: Path) -> None:
+    profile = tmp_path / "chrome-profile"
+    command = (
+        "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome "
+        f"--user-data-dir={profile} --profile-directory=Profile 1 --remote-debugging-port=9222 "
         "--resume-generator-browser-owner=stale-token"
     )
     ensure, env, _, listener = _ensure_chrome_fixture(
