@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 import sys
+import json
 
 import pytest
 
@@ -110,3 +111,30 @@ def test_startup_sources_include_growth_ops_but_not_generic_growth() -> None:
     assert not startup._is_target_startup_role("Business Growth Intern")
     assert not startup._is_target_startup_role("Growth Marketing Intern")
     assert not startup._is_target_startup_role("Sales Growth Strategy Intern")
+
+
+def test_a16z_current_next_page_payload_is_normalized_for_target_filtering() -> None:
+    startup = _load(
+        ROOT / "discovery" / "auto" / "startup_apply_pipeline.py",
+        "a16z_current_startup_apply",
+    )
+    current_job = {
+        "title": "Associate Product Manager, New Grad",
+        "company_name": "Portfolio Co",
+        "apply_url": "https://jobs.example/apm",
+        "locations": ["San Francisco, California"],
+        "seniorities": ["Junior"],
+        "company_stage": "Venture",
+        "company_markets": ["AI"],
+        "posted_at": "2026-09-02T12:00:00Z",
+    }
+    streamed = json.dumps([1, f'0:["$",{{"initialData":{{"jobs":[{json.dumps(current_job)}],"total":1}}}}]'])
+    html = f"<html><body><script>self.__next_f.push({streamed})</script></body></html>"
+
+    initial = startup._a16z_initial_data_from_html(html)
+    normalized = startup._normalize_current_a16z_job(initial["jobs"][0])
+
+    assert normalized["applyUrl"] == "https://jobs.example/apm"
+    assert normalized["companyName"] == "Portfolio Co"
+    assert normalized["jobSeniorities"] == [{"label": "Junior", "value": "junior"}]
+    assert startup._a16z_is_target_job(normalized)

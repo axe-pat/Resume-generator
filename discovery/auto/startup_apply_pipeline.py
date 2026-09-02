@@ -26,7 +26,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from html import unescape
 from pathlib import Path
-from urllib.parse import urljoin, urlsplit, urlunsplit
+from urllib.error import HTTPError
+from urllib.parse import urlencode, urljoin, urlsplit, urlunsplit
 from urllib.request import Request, urlopen
 
 import pandas as pd
@@ -58,6 +59,14 @@ DEFAULT_LIMIT_COMPANIES = 12
 DEFAULT_LIMIT_JOBS = 30
 A16Z_PAGE_SIZE = 50
 A16Z_MAX_PAGES = 6
+A16Z_FALLBACK_SEARCH_TERMS = (
+    "product manager",
+    "product operations",
+    "strategy operations",
+    "program manager",
+    "new grad",
+    "intern",
+)
 USER_AGENT = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
     "AppleWebKit/537.36 (KHTML, like Gecko) "
@@ -1151,26 +1160,117 @@ def _a16z_is_target_job(job: dict) -> bool:
     return False
 
 
+def _a16z_initial_data_from_html(html: str) -> dict:
+    """Extract the public job payload embedded in the current Next.js page."""
+
+    marker = '{"initialData":'
+    decoder = json.JSONDecoder()
+    soup = BeautifulSoup(html, "html.parser")
+    for script in soup.find_all("script"):
+        content = script.string or script.get_text() or ""
+        prefix = "self.__next_f.push("
+        if not content.startswith(prefix) or not content.endswith(")"):
+            continue
+        try:
+            streamed = json.loads(content[len(prefix) : -1])
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(streamed, list) or len(streamed) < 2 or not isinstance(streamed[1], str):
+            continue
+        offset = streamed[1].find(marker)
+        if offset < 0:
+            continue
+        try:
+            payload, _ = decoder.raw_decode(streamed[1][offset:])
+        except json.JSONDecodeError:
+            continue
+        initial = payload.get("initialData") if isinstance(payload, dict) else None
+        if isinstance(initial, dict):
+            return initial
+    return {}
+
+
+def _normalize_current_a16z_job(job: dict) -> dict:
+    seniorities = [
+        {"label": str(value), "value": str(value).casefold()}
+        for value in (job.get("seniorities") or [])
+        if str(value).strip()
+    ]
+    company_stage = _clean_text(str(job.get("company_stage") or ""))
+    salary = {
+        "minValue": job.get("salary_min"),
+        "maxValue": job.get("salary_max"),
+        "currency": {"value": job.get("salary_currency") or ""},
+        "period": {"value": job.get("salary_period") or ""},
+    }
+    return {
+        "title": job.get("title") or "",
+        "companyName": job.get("company_name") or "",
+        "applyUrl": job.get("apply_url") or "",
+        "locations": job.get("locations") or ([job.get("location")] if job.get("location") else []),
+        "timeStamp": job.get("posted_at") or "",
+        "jobSeniorities": seniorities,
+        "stages": ([{"label": company_stage, "value": company_stage.casefold()}] if company_stage else []),
+        "markets": [
+            {"label": str(value), "value": str(value).casefold()}
+            for value in (job.get("company_markets") or [])
+            if str(value).strip()
+        ],
+        "salary": salary,
+        "remote": bool(job.get("remote")),
+        "hybrid": bool(job.get("hybrid")),
+        "minYearsExp": None,
+        "maxYearsExp": None,
+    }
+
+
+def _a16z_current_board_jobs(source: StartupApplySourceDefinition, limit_searches: int) -> list[dict]:
+    """Fallback for the current public board after the legacy API was retired."""
+
+    base_url = source.seed_urls[0]
+    jobs_by_url: dict[str, dict] = {}
+    for term in A16Z_FALLBACK_SEARCH_TERMS[: max(1, limit_searches)]:
+        search_url = f"{base_url}?{urlencode({'q': term, 'posted': '30'})}"
+        initial = _a16z_initial_data_from_html(_fetch_text(search_url))
+        for current_job in initial.get("jobs") or []:
+            normalized = _normalize_current_a16z_job(current_job)
+            apply_url = _clean_text(str(normalized.get("applyUrl") or ""))
+            if apply_url:
+                jobs_by_url.setdefault(_url_hash(apply_url), normalized)
+    return list(jobs_by_url.values())
+
+
 def _discover_a16z_source_jobs(source: StartupApplySourceDefinition, limit_pages: int) -> list[StartupJobCandidate]:
     discovered: list[StartupJobCandidate] = []
     seen_urls: set[str] = set()
     sequence: str | None = None
     pages_to_scan = max(1, min(limit_pages, A16Z_MAX_PAGES))
 
-    for _ in range(pages_to_scan):
-        payload = {
-            "meta": {"size": A16Z_PAGE_SIZE},
-            "board": {"id": "andreessen-horowitz", "isParent": True},
-            "query": {},
-            "grouped": False,
-        }
-        if sequence:
-            payload["meta"]["sequence"] = sequence
-        response = _post_json("https://jobs.a16z.com/api-boards/search-jobs", payload)
-        jobs_page = response.get("jobs") or []
-        sequence = str((response.get("meta") or {}).get("sequence") or "").strip() or None
-        if not jobs_page:
-            break
+    jobs_pages: list[list[dict]] = []
+    try:
+        for _ in range(pages_to_scan):
+            payload = {
+                "meta": {"size": A16Z_PAGE_SIZE},
+                "board": {"id": "andreessen-horowitz", "isParent": True},
+                "query": {},
+                "grouped": False,
+            }
+            if sequence:
+                payload["meta"]["sequence"] = sequence
+            response = _post_json("https://jobs.a16z.com/api-boards/search-jobs", payload)
+            jobs_page = response.get("jobs") or []
+            sequence = str((response.get("meta") or {}).get("sequence") or "").strip() or None
+            if not jobs_page:
+                break
+            jobs_pages.append(jobs_page)
+            if not sequence:
+                break
+    except HTTPError as exc:
+        if exc.code != 404:
+            raise
+        jobs_pages = [_a16z_current_board_jobs(source, pages_to_scan)]
+
+    for jobs_page in jobs_pages:
         for job in jobs_page:
             if not _a16z_is_target_job(job):
                 continue
@@ -1221,8 +1321,6 @@ def _discover_a16z_source_jobs(source: StartupApplySourceDefinition, limit_pages
                     list_url=source.seed_urls[0],
                 )
             )
-        if not sequence:
-            break
 
     return discovered
 

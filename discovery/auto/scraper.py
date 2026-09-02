@@ -529,6 +529,7 @@ def _normalise_row(row: pd.Series, query: dict) -> dict:
     else:
         date_found = _str(raw_date) or datetime.today().strftime("%Y-%m-%d")
 
+    originating_site = _str(row.get("site", "unknown")) or "unknown"
     job = {
         "date_found":    datetime.today().strftime("%Y-%m-%d"),
         "date_posted":   date_found,   # YYYY-MM-DD the job was originally posted
@@ -539,14 +540,16 @@ def _normalise_row(row: pd.Series, query: dict) -> dict:
         "url":           canonical_url,
         "url_hash":      url_hash(canonical_url),
         "tc_hash":       title_company_hash(title, company),
-        "source":        _str(row.get("site", "unknown")),
+        # JobSpy is a filtered discovery path. The originating board is
+        # provenance, not the queue-routing source tag.
+        "source":        "jobspy_filtered_v1",
         "jd_text":       jd_text,
         "fit_score":     None,
         "fit_rationale": None,
         "status":        "new",
         "date_applied":  None,
         "folder_path":   None,
-        "notes":         None,
+        "notes":         f"originating_site={originating_site}",
         "lane":          query["lane"],
         "query_lane":    query["lane"],
         # JobSpy provenance for source tuning. These stay in raw artifacts and

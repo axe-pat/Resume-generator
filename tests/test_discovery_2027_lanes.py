@@ -300,7 +300,8 @@ def test_scraper_routes_cross_query_results_by_actual_timing_before_dedup() -> N
     assert job["query_lane"] == "A"
     assert job["lane"] == "B"
     assert job["classification"] == "keep"
-    assert job["notes"] in {"", None}
+    assert job["source"] == "jobspy_filtered_v1"
+    assert job["notes"] == "originating_site=linkedin"
 
 
 def test_lane_b_h1b_language_is_a_soft_flag_and_everify_is_captured() -> None:
