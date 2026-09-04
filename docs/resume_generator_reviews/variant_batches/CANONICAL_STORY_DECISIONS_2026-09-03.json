@@ -15,10 +15,10 @@
         "$110M+ marketplace scale presented as project impact"
       ],
       "preferred_variant_id": "G-SUPPLY-canonical-operating-model",
-      "preferred_text": "Led Gojek's fleet integration platform and partner operating model; replaced bespoke builds with a standardized API and validation workflow, enabling 18% supply growth and cutting pickup ETAs by 1.5 minutes across Singapore and Bali.",
+      "preferred_text": "Redesigned Gojek's fleet supply contract around four-hour commitments and confidence-weighted matching, replacing individual-driver pings for commercial fleets; increased corridor supply 18% and cut pickup ETAs by 1.5 minutes across Singapore and Bali.",
       "required_literals": ["18%", "1.5 minutes", "Singapore and Bali"],
       "excluded_literals": ["2 minutes", "$110M+"],
-      "rationale": "The 1.5-minute result is the measured corridor outcome in the canonical story. The operating-model and API bridge explains how the work enabled the shared marketplace result, while $110M+ is company context rather than personal impact.",
+      "rationale": "The 1.5-minute result is the measured corridor outcome in the canonical story. Four-hour fleet commitments replaced incompatible individual-driver pings, and confidence-weighted matching made that capacity usable without overstating availability; this is the explicit bridge to the supply and ETA results. $110M+ remains company context rather than personal impact.",
       "source_refs": [
         "docs/career_workbench/story_engine/stories/_GOLD_REFERENCE_gojek_fleet_liquidity_os.md",
         "docs/reference/STORY_BANK_RICH.md",

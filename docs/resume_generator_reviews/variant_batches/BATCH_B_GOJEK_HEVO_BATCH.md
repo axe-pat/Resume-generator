@@ -69,10 +69,11 @@ not spend their lead or close on those atoms.
 
 **1. General product / platform ownership — canonical default**
 
-> Led Gojek's fleet integration platform and partner operating model; replaced bespoke builds with a standardized API and validation workflow, enabling 18% supply growth and cutting pickup ETAs by 1.5 minutes across Singapore and Bali.
+> Redesigned Gojek's fleet supply contract around four-hour commitments and confidence-weighted matching, replacing individual-driver pings for commercial fleets; increased corridor supply 18% and cut pickup ETAs by 1.5 minutes across Singapore and Bali.
 
-Why first: the whole spine is visible, ownership is direct, and the operating model
-plus API makes this useful across PM and enterprise-leadership routes.
+Why first: the whole spine is visible, ownership is direct, and the contract's
+four-hour commitment and confidence-weighting decisions explicitly explain how
+commercial-fleet capacity became usable marketplace supply.
 
 **2. Technical platform / API contract — new challenger**
 

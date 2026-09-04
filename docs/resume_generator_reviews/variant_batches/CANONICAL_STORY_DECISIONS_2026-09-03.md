@@ -26,10 +26,10 @@ the same scale currency in neighboring stories.
 
 ### G-SUPPLY
 
-> Led Gojek's fleet integration platform and partner operating model; replaced bespoke builds with a standardized API and validation workflow, enabling 18% supply growth and cutting pickup ETAs by 1.5 minutes across Singapore and Bali.
+> Redesigned Gojek's fleet supply contract around four-hour commitments and confidence-weighted matching, replacing individual-driver pings for commercial fleets; increased corridor supply 18% and cut pickup ETAs by 1.5 minutes across Singapore and Bali.
 
-This keeps the Amazon operating-model strength, uses the playbook's stronger “Led”
-ownership verb, and changes “growing” to the more accurate platform-level attribution
+This keeps the Amazon operating-model strength, replaces a broad “Led” scope claim
+with the specific contract decision, and changes “growing” to the more accurate platform-level attribution
 “enabling.”
 
 ### G-PRICING

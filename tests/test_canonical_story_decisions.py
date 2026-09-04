@@ -20,7 +20,7 @@ BATCH_PATHS = (
 )
 
 EXPECTED_TEXT = {
-    "G-SUPPLY": "Led Gojek's fleet integration platform and partner operating model; replaced bespoke builds with a standardized API and validation workflow, enabling 18% supply growth and cutting pickup ETAs by 1.5 minutes across Singapore and Bali.",
+    "G-SUPPLY": "Redesigned Gojek's fleet supply contract around four-hour commitments and confidence-weighted matching, replacing individual-driver pings for commercial fleets; increased corridor supply 18% and cut pickup ETAs by 1.5 minutes across Singapore and Bali.",
     "G-PRICING": "Separated price-sensitive abandonment from quote-latency drop-off through funnel analysis and 20+ rider interviews; validated a lower-cost ride tier through A/B tests, lifting conversion 9% and generating $3.2M in incremental revenue.",
     "G-LATENCY": "Traded live fare recalculation for sub-second quotes by pre-caching pricing across 12 high-demand corridors; held fare variance within 4%, cut latency 70%, and recovered ~28K monthly rides.",
     "H-BATCHSHIFT": "Drove Hevo 2.0's batch-first shift after Fortune 500 trials stalled on auditability; traded streaming speed for verifiable correctness and clear failure boundaries, improving stability 45% and onboarding 8 enterprise customers in 90 days.",
@@ -43,6 +43,7 @@ EXPECTED_CHOICES = {
 
 ALLOWED_OPENERS = {
     "Led",
+    "Redesigned",
     "Separated",
     "Traded",
     "Drove",
