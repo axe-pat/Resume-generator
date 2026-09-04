@@ -1086,6 +1086,30 @@ def cmd_promote(args) -> list[dict]:
 # ─────────────────────────────────────────────────────────────────────────────
 # Subcommand: generate
 # ─────────────────────────────────────────────────────────────────────────────
+def _filter_excluded_companies(
+    targets: list[dict],
+    raw_exclusions: str | None,
+) -> tuple[list[dict], list[str]]:
+    """Return targets not owned by an explicitly excluded company."""
+
+    excluded_keys = {
+        value.strip().casefold()
+        for value in str(raw_exclusions or "").split(",")
+        if value.strip()
+    }
+    if not excluded_keys:
+        return list(targets), []
+    retained: list[dict] = []
+    excluded: list[str] = []
+    for target in targets:
+        company = str(target.get("company", "")).strip()
+        if company.casefold() in excluded_keys:
+            excluded.append(company)
+        else:
+            retained.append(target)
+    return retained, excluded
+
+
 def cmd_generate(args, promoted_jobs: list[dict] | None = None) -> list[dict]:
     """
     Run run_app.py for promoted jobs. Update folder_path + status in xlsx.
@@ -1222,6 +1246,23 @@ def cmd_generate(args, promoted_jobs: list[dict] | None = None) -> list[dict]:
                         f"— running --resume-only --no-strategy for: {partial}"))
         else:
             sys.exit("[ERROR] Specify --id, --company, --companies, --queue, --all-promoted, or --all-apps")
+
+    raw_exclusions = getattr(args, "exclude_companies", "")
+    targets, excluded = _filter_excluded_companies(targets, raw_exclusions)
+    if raw_exclusions:
+        if preflight_corpus_targets is not None:
+            preflight_corpus_targets, _ = _filter_excluded_companies(
+                preflight_corpus_targets,
+                raw_exclusions,
+            )
+        if excluded:
+            print(
+                c(
+                    YELLOW,
+                    f"  [i] Excluding {len(excluded)} selected queue item(s) by company: "
+                    f"{sorted(set(excluded))}",
+                )
+            )
 
     if not targets and preflight_corpus_targets is None:
         print(c(YELLOW, "  No promoted jobs to generate for."))
@@ -2080,6 +2121,8 @@ def main():
     g.add_argument("--company",      type=str,  help="Single company name")
     g.add_argument("--companies",    type=str,
                    help="Comma-separated company names (e.g. Flexera,Lennox,Risepoint)")
+    p_gen.add_argument("--exclude-companies", metavar="NAMES",
+                       help="Comma-separated company names to omit after target selection")
     g.add_argument("--queue",        action="store_true",
                    help="Generate in current apply-queue priority order")
     g.add_argument("--all-promoted", action="store_true")

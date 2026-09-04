@@ -1,6 +1,7 @@
 import json
 
 from jobs import (
+    _filter_excluded_companies,
     _filter_existing_generate_targets,
     _generation_target_input,
     _partition_preflight_generation_targets,
@@ -83,3 +84,16 @@ def test_preflight_corpus_includes_targets_skipped_for_existing_artifacts(tmp_pa
     assert safe == []
     assert {item["id"] for item in blocked} == {"mba", "systems"}
     assert all(item["preflight_blocked"] for item in blocked)
+
+
+def test_exclude_companies_filters_every_matching_role_case_insensitively():
+    targets = [
+        {"id": "1", "company": "IBM"},
+        {"id": "2", "company": "Sycamore"},
+        {"id": "3", "company": "ibm"},
+    ]
+
+    retained, excluded = _filter_excluded_companies(targets, " IBM ")
+
+    assert retained == [{"id": "2", "company": "Sycamore"}]
+    assert excluded == ["IBM", "ibm"]
