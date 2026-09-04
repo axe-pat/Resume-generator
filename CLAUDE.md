@@ -52,6 +52,7 @@ Last updated: 2026-03-29
 - 9 scraper query clusters (added ai_pm_intern 2026-03-21)
 - Screenshot scoring: operational, run manually from Mac terminal
 - Resume pipeline: operational (freeform variant system, Pass 0–4 + QC + docx; node_modules installed locally at resume/node_modules/)
+  - LLM provider adapter: Anthropic incumbent plus opt-in Cursor CLI; hybrid routing uses Auto for basic analysis/scoring and non-Fast Cursor Grok 4.6 High for hard semantic work, with no paid-provider fallback
   - Pass 4 (targeted fix loop): MAX_FIX_ATTEMPTS=1, PASS4_THRESHOLD=8.0
   - QC-13 auto-trim: only fires for bullets ≥260 chars (_AUTO_TRIM_CHARS); regular 3-liners (200-259 chars) are informational only
   - Expansion pass: fires when fill_pct < 85% before docx generation

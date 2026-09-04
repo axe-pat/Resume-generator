@@ -102,12 +102,14 @@ python run_app.py Stripe --no-qc        # skip CL quality check
 python run_app.py Stripe --no-docx      # skip formatted .docx for debug/test runs
 python run_app.py Stripe --no-rewrite --no-score --no-qc  # fast mode (~$0.08)
 python run_app.py Stripe --docx-only    # regenerate .docx from latest resume_*.txt with no AI
+python run_app.py Stripe --resume-only --provider cursor --cursor-routing hybrid --no-smart-cost
 
 # Multi-company batch generation via jobs.py
 python jobs.py generate --companies Stripe,Flexera,Lennox --parallel 3      # resume-only default
 python jobs.py generate --companies Stripe,Flexera --with-cl --parallel 2
 python jobs.py generate --queue --budget-mode                               # cheaper low-fit queue pass
 python jobs.py generate --companies Stripe,Flexera --no-docx
+python jobs.py generate --queue --provider cursor --cursor-routing hybrid --no-smart-cost
 
 # Non-PM resume track (Strategy / Consulting / S&O / PgM / RevOps / Ops)
 python run_app.py McKinsey --track nonpm             # explicit nonpm track
@@ -118,6 +120,13 @@ python run_app.py McKinsey --track nonpm --resume-only
 **Parallelization:** when both resume and CL are enabled (`run_app.py` default, or `jobs.py generate --with-cl`), `run_app.py` runs them in parallel after the shared strategy step, saving ~1–1.5 min per application. Output is buffered per-thread and printed sequentially (resume first, then CL) so the terminal is never garbled.
 
 **Auto-logging:** every `run_app.py` run writes a plain-text log to `logs/run_app_<Company>_YYYYMMDD_HHMMSS.txt` at the project root. ANSI colour codes are stripped so logs are readable without a terminal. The path is printed at the end of each run. Resume, CL, and shared strategy API calls now also log their elapsed time, which makes slow-run diagnosis much easier.
+
+**Provider safety:** Anthropic remains the default incumbent. The Cursor route is
+explicit and uses the signed-in local Agent CLI: Auto for basic analysis/scoring,
+non-Fast Grok 4.6 High for hard semantic work. It runs in an empty sandboxed Ask-mode
+workspace, logs no prompt text, and never falls back to Anthropic after a Cursor
+failure. `--no-smart-cost` is recommended for quality-focused Cursor batches so
+fit-score cost cuts do not skip useful passes.
 
 ---
 

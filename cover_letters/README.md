@@ -39,6 +39,8 @@ An AI pass checks the letter against a rubric: relevance to JD signals, voice co
 
 **Runtime logging**
 Each AI call now prints an elapsed time line in the terminal/log (for example `Step 2 complete (48.7s)`), so slow CL runs can be traced to a specific API step instead of inferred indirectly from output timestamps.
+The shared provider layer also writes non-sensitive call metadata to
+`logs/llm_calls.jsonl` without storing prompts.
 
 **Rule-based QC (always runs):**
 - RQC-01: Forbidden phrases (full list matching resume's forbidden words)
@@ -68,6 +70,7 @@ python run_app.py Stripe               # full pipeline (strategy + resume + CL)
 python run_app.py Stripe --cl-only     # CL only
 python run_app.py Stripe --no-qc       # skip Step 3 QC
 python run_app.py Stripe --docx        # also generate .docx resume + .docx CL
+python run_app.py Stripe --cl-only --provider cursor --cursor-routing hybrid
 ```
 
 To run cl_pipeline.py standalone (for debugging or regenerating a CL):
@@ -75,7 +78,12 @@ To run cl_pipeline.py standalone (for debugging or regenerating a CL):
 ```bash
 python cover_letters/cl_pipeline.py Stripe
 python cover_letters/cl_pipeline.py Stripe --no-qc
+python cover_letters/cl_pipeline.py Stripe --provider cursor --cursor-routing hybrid
 ```
+
+Anthropic remains the default. Cursor hybrid routing uses Auto for JD analysis
+and QC, and non-Fast Grok 4.6 High for the actual cover-letter draft. Cursor failure
+stops the run; it never silently consumes Anthropic API credits.
 
 Outputs per application (`apps/<Company>/`):
 - `cl_YYYY-MM-DD.txt` — paste-ready cover letter (with full salutation + audit notes)
@@ -91,3 +99,6 @@ Outputs per application (`apps/<Company>/`):
 | Step 1+2   | Sonnet | ~$0.05   |
 | Step 3 QC  | Sonnet | ~$0.01   |
 | **CL total** |      | **~$0.06** |
+
+This table applies to the Anthropic incumbent. Cursor-provider runs consume the
+signed-in Cursor plan allowance rather than per-call Anthropic spend.

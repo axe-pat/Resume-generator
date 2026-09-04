@@ -88,6 +88,7 @@ ResumeGenerator v1/
 │
 ├── shared/
 │   ├── strategy.py             Shared Step 0 strategy generator
+│   ├── llm_provider.py          Anthropic/Cursor execution boundary, stage routing, telemetry
 │   ├── job_eligibility.py      Shared no-AI pre-filters reused by discovery + manual app-dir generation
 │   ├── queue_preflight.py      Pure pass/warn/block checks for missing, truncated, duplicate, or mismatched JD inputs
 │   ├── generation_routing.py   Metadata-owned professional/Lane C boundary plus fail-closed Lane C adapter registry
@@ -132,6 +133,33 @@ and one shared per-job timeout still apply. Skills, Community, and Interests are
 never used as filler. See
 `docs/resume_generator_reviews/PAGE_FILL_ADAPTIVE_CONTRACT_REVIEW_2026-09-03.md`
 and its adjacent JSON calibration data for the observed geometry contract.
+
+### LLM provider routing
+
+Application generation can run through the incumbent Anthropic API or the local
+Cursor Agent CLI. Anthropic remains the default, so installing the adapter does
+not change existing runs. `--provider cursor --cursor-routing hybrid` sends basic
+analysis/evaluation stages (strategy, scoring, CL analysis/QC) to Cursor Auto and
+hard semantic stages (summary comparison, variant selection, voice/fix/expansion,
+and CL drafting) to non-Fast `cursor-grok-4.6-high`. Unknown future AI stages default to Grok
+rather than silently receiving the cheaper model. `auto` and `grok` can be forced
+for canaries with `--cursor-routing auto|grok`.
+
+Cursor calls run in an empty temporary workspace with Ask mode and sandboxing.
+They receive prompts over stdin, cannot modify the repository, and never fall
+back to Anthropic on failure. Non-sensitive per-call metadata is appended to
+`logs/llm_calls.jsonl`; prompts and provider secrets are not logged. The CLI uses
+the signed-in Cursor plan, so there is no per-call API charge while included plan
+usage remains. Keep Cursor on-demand spending disabled if a hard cash ceiling is
+required.
+
+One-time setup:
+
+```bash
+curl https://cursor.com/install -fsS | bash
+~/.local/bin/agent login
+~/.local/bin/agent status
+```
 
 ---
 
@@ -227,6 +255,10 @@ python jobs.py generate --companies Flexera,Lennox,Risepoint --parallel 3
 python jobs.py generate --companies Flexera,Lennox --with-cl --parallel 2
 python jobs.py generate --companies Flexera,Lennox --no-docx   # skip docx for debug/test runs
 
+# Included-plan generation: Auto for basic work, standard Grok 4.6 for hard work.
+# --no-smart-cost keeps the full quality pass set now that API spend is not the limiter.
+python jobs.py generate --queue --provider cursor --cursor-routing hybrid --no-smart-cost
+
 # jobs.py generate is resume-only by default. CLs are generated only when asked:
 python jobs.py generate --queue --with-cl
 python run_app.py Stripe --cl-only
@@ -259,6 +291,7 @@ python run_app.py Stripe --no-rewrite --no-score --no-qc  # fast mode ~$0.08
 python run_app.py Stripe --score-only        # re-score existing resume txt, rename docx
 python run_app.py Stripe --docx-only         # regenerate docx from latest resume_*.txt with no AI
 python run_app.py Stripe --no-smart-cost     # disable fit-score-based model/pass downgrades
+python run_app.py Stripe --resume-only --provider cursor --cursor-routing hybrid --no-smart-cost
 
 # Non-PM resume track (Strategy / Consulting / S&O / PgM / RevOps)
 python run_app.py McKinsey --track nonpm     # uses freeform_master_nonpm.txt
@@ -374,6 +407,11 @@ deferring CL generation until an ATS actually asks for one. For a 50-job batch,
 that is about `$2.50-$2.70` saved before other smart-cost reductions.
 
 The pipeline prints a cost estimate before each scoring run so you can abort if the batch is unexpectedly large.
+
+The dollar figures above describe the Anthropic incumbent. Cursor-provider runs
+consume Cursor plan usage instead of Anthropic API credits. The adapter records
+model/call counts but the CLI does not currently expose token usage in its final
+JSON result.
 
 ### Smart-cost policy
 

@@ -20,20 +20,15 @@ Usage:
 """
 
 import json
-import os
 import re
-import sys
-import time
 from pathlib import Path
 
-import anthropic
-import httpx
+from shared.llm_provider import complete_text, load_anthropic_api_key
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Paths
 # ─────────────────────────────────────────────────────────────────────────────
 _SHARED_DIR   = Path(__file__).parent               # shared/
-_ROOT_DIR     = _SHARED_DIR.parent                  # ResumeGenerator v1/
 _PROMPT_PATH  = _SHARED_DIR / "prompts" / "step0_strategy.txt"
 
 
@@ -41,18 +36,10 @@ _PROMPT_PATH  = _SHARED_DIR / "prompts" / "step0_strategy.txt"
 # API key loader (looks in env, then .env at project root)
 # ─────────────────────────────────────────────────────────────────────────────
 def _load_api_key_from_root() -> str:
-    key = os.environ.get("ANTHROPIC_API_KEY", "")
-    if key:
-        return key
-    env_path = _ROOT_DIR / ".env"
-    if env_path.exists():
-        for line in env_path.read_text(encoding="utf-8").splitlines():
-            line = line.strip()
-            if line.startswith("ANTHROPIC_API_KEY="):
-                key = line.split("=", 1)[1].strip().strip('"').strip("'")
-                if key:
-                    return key
-    return ""
+    try:
+        return load_anthropic_api_key()
+    except RuntimeError:
+        return ""
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -178,28 +165,14 @@ def generate_strategy(
         formatted_block — human-readable brief; inject as {{STRATEGY}} in
                           freeform_master_v2.txt and step2_cl_generation.txt
     """
-    if not api_key:
-        api_key = _load_api_key_from_root()
-    if not api_key:
-        raise RuntimeError(
-            "ANTHROPIC_API_KEY not set. Add it to your .env or environment."
-        )
-
     prompt = _build_prompt(jd_text, intel_text)
-
-    client = anthropic.Anthropic(
-        api_key=api_key,
-        http_client=httpx.Client(verify=False),
-    )
-    started = time.perf_counter()
-    message = client.messages.create(
-        model=model,
+    raw = complete_text(
+        prompt,
+        model,
+        label="Pass 0: Strategy",
         max_tokens=2048,
-        messages=[{"role": "user", "content": prompt}],
+        api_key=api_key,
     )
-    elapsed = time.perf_counter() - started
-    print(f"  ✓ Strategy API complete ({elapsed:.1f}s)", flush=True)
-    raw = message.content[0].text
 
     strategy_dict   = _parse_strategy_json(raw)
     formatted_block = _format_strategy_block(strategy_dict)

@@ -54,7 +54,9 @@ Flags available on most subcommands
   --no-rewrite      Skip resume Pass 2 (voice rewrite)
   --no-score        Skip resume Pass 3 (scoring)
   --no-qc           Skip CL Step 3 (AI quality check)
-  --model MODEL     Anthropic model (default: claude-sonnet-4-6)
+  --model MODEL     Incumbent Anthropic model (default: claude-sonnet-4-6)
+  --provider P      anthropic (default) or cursor
+  --cursor-routing  hybrid (Auto basic/Grok hard), auto, or grok
 
 Status lifecycle
 ----------------
@@ -88,6 +90,12 @@ from shared.generation_routing import (
     resolve_generation_path,
 )
 from shared.job_eligibility import evaluate_manual_jd
+from shared.llm_provider import (
+    PROVIDER_ENV,
+    apply_cli_overrides,
+    provider_summary,
+    validate_cursor_ready,
+)
 from shared.queue_preflight import PreflightStatus, QueueInput, preflight_queue
 from shared.resume_runtime import (
     RUNTIME_MODE_ENV,
@@ -1015,6 +1023,10 @@ def cmd_generate(args, promoted_jobs: list[dict] | None = None) -> list[dict]:
     """
     dry_run   = args.dry_run
     default_resume_only = not getattr(args, "with_cl", False)
+    apply_cli_overrides(
+        provider=getattr(args, "provider", None),
+        cursor_routing=getattr(args, "cursor_routing", None),
+    )
 
     # ── Determine targets ──────────────────────────────────────────────────
     if promoted_jobs is not None:
@@ -1175,6 +1187,21 @@ def cmd_generate(args, promoted_jobs: list[dict] | None = None) -> list[dict]:
         print(c(YELLOW, "  No generation targets passed source-integrity preflight."))
         return preflight_blocked_results
 
+    if not dry_run and os.environ.get(PROVIDER_ENV, "").strip().lower() == "cursor":
+        try:
+            cursor_ready = validate_cursor_ready()
+        except RuntimeError as exc:
+            sys.exit(f"[ERROR] Cursor provider preflight failed: {exc}")
+        print(
+            c(
+                GREEN,
+                "  ✓ Cursor provider ready: "
+                f"{cursor_ready['auto_model']} basic / "
+                f"{cursor_ready['hard_model']} hard",
+            )
+        )
+        print(c(CYAN, f"  {provider_summary()}"))
+
     timeout  = getattr(args, "timeout",  2400)
     parallel = getattr(args, "parallel", 1)
     # Snapshot once. Every worker and recovery attempt receives a fresh copy;
@@ -1225,7 +1252,23 @@ def cmd_generate(args, promoted_jobs: list[dict] | None = None) -> list[dict]:
                 )
                 _p(c(YELLOW, f"  [dry-run] Would dispatch Lane C adapter ({adapter_note})"))
             else:
-                _p(c(YELLOW, f"  [dry-run] Would run: run_app.py {app_dir.name}"))
+                dry_flags = _build_run_app_flags(
+                    args,
+                    resume_only=bool(job.get("resume_only", default_resume_only)),
+                    skip_strategy_for_resume_only=bool(
+                        job.get("skip_strategy_for_resume_only", False)
+                    ),
+                    budget_skip_rewrite=_should_budget_skip_rewrite(job, args),
+                )
+                dry_cmd = [
+                    sys.executable,
+                    str(ROOT_DIR / "run_app.py"),
+                    company,
+                    "--app-dir",
+                    str(app_dir),
+                    "--no-color",
+                ] + dry_flags
+                _p(c(YELLOW, f"  [dry-run] Would run: {' '.join(dry_cmd)}"))
             return {
                 **job,
                 "success": True,
@@ -1525,6 +1568,8 @@ def cmd_generate(args, promoted_jobs: list[dict] | None = None) -> list[dict]:
 
 
 def _should_budget_skip_rewrite(job: dict, args) -> bool:
+    if getattr(args, "no_smart_cost", False):
+        return False
     if not getattr(args, "budget_mode", False):
         return False
     if getattr(args, "no_rewrite", False):
@@ -1546,6 +1591,10 @@ def _build_run_app_flags(
     if getattr(args, "no_qc",       False): flags.append("--no-qc")
     if getattr(args, "no_strategy", False): flags.append("--no-strategy")
     if getattr(args, "model",       None):  flags += ["--model", args.model]
+    if getattr(args, "provider",    None):  flags += ["--provider", args.provider]
+    if getattr(args, "cursor_routing", None):
+        flags += ["--cursor-routing", args.cursor_routing]
+    if getattr(args, "no_smart_cost", False): flags.append("--no-smart-cost")
     if getattr(args, "no_docx",     False): flags.append("--no-docx")
     if resume_only:
         if "--resume-only" not in flags:
@@ -1921,11 +1970,17 @@ def main():
                         help="Generate cover letters too. Default is resume-only.")
     p_pipe.add_argument("--budget-mode", action="store_true",
                         help="For lower-fit jobs, skip resume rewrite to reduce spend.")
+    p_pipe.add_argument("--no-smart-cost", action="store_true",
+                        help="Keep the full requested pass set regardless of fit score")
     p_pipe.add_argument("--docx",        action="store_true",
                         help="Deprecated no-op: docx is now generated by default")
     p_pipe.add_argument("--no-docx",     action="store_true",
                         help="Skip .docx generation during pipeline runs")
     p_pipe.add_argument("--model",       default="claude-sonnet-4-6")
+    p_pipe.add_argument("--provider", choices=["anthropic", "cursor"], default=None,
+                        help="LLM provider. Default: RESUME_LLM_PROVIDER or anthropic")
+    p_pipe.add_argument("--cursor-routing", choices=["hybrid", "auto", "grok"], default=None,
+                        help="Cursor policy: hybrid (Auto basic/Grok hard), auto, or grok")
     p_pipe.add_argument("--run-name",    type=str, default=None,
                         help="Tag this resume run (e.g. run_2). Stamped in resume_run column.")
 
@@ -1966,6 +2021,8 @@ def main():
                        help="Also generate cover letters. Default is resume-only.")
     p_gen.add_argument("--budget-mode",  action="store_true",
                        help="For jobs below 7.8 fit score, skip resume rewrite to reduce spend.")
+    p_gen.add_argument("--no-smart-cost", action="store_true",
+                       help="Keep the full requested pass set regardless of fit score")
     p_gen.add_argument("--parallel",     type=int, default=1, metavar="N",
                        help="Run N jobs simultaneously (default: 1 = serial). "
                             "In parallel mode output goes to log files; "
@@ -1981,6 +2038,10 @@ def main():
     p_gen.add_argument("--no-docx",      action="store_true",
                        help="Skip .docx generation")
     p_gen.add_argument("--model",        default="claude-sonnet-4-6")
+    p_gen.add_argument("--provider", choices=["anthropic", "cursor"], default=None,
+                       help="LLM provider. Default: RESUME_LLM_PROVIDER or anthropic")
+    p_gen.add_argument("--cursor-routing", choices=["hybrid", "auto", "grok"], default=None,
+                       help="Cursor policy: hybrid (Auto basic/Grok hard), auto, or grok")
     p_gen.add_argument("--run-name",     type=str, default=None,
                         help="Tag this resume run (e.g. run_2). Stamped in resume_run column.")
 

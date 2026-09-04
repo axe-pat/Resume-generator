@@ -28,7 +28,9 @@ Options:
   --no-qc         Skip CL Step 3 (AI quality check)
   --no-smart-cost Disable score-aware model/pass downgrades for lower-fit jobs
   --no-docx       Skip formatted .docx generation (default: generate docx)
-  --model MODEL   Anthropic model (default: claude-sonnet-4-6)
+  --model MODEL   Incumbent Anthropic model (default: claude-sonnet-4-6)
+  --provider P    anthropic (default) or cursor
+  --cursor-routing R  hybrid (Auto basic/Grok hard), auto, or grok
   --no-color      Disable ANSI color output
 
 App directory layout (apps/<company>/):
@@ -141,6 +143,13 @@ from shared.generation_routing import (  # noqa: E402 - ROOT_DIR is inserted abo
 )
 from shared.resume_artifacts import ResumePageUnderfillError  # noqa: E402
 from shared.resume_runtime import V2_PAGE_UNDERFILLED_EXIT_CODE  # noqa: E402
+from shared.llm_provider import (  # noqa: E402
+    VALID_CURSOR_ROUTING,
+    VALID_PROVIDERS,
+    apply_cli_overrides,
+    provider_summary,
+    resolve_call_plan,
+)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Lazy imports (so missing deps don't crash on --help)
@@ -564,20 +573,38 @@ def _write_generation_audit(
         "secondary_framing_axis": strategy_dict.get("secondary_framing_axis"),
         "top_signals": strategy_dict.get("top_signals", []),
     } if strategy_dict else {}
+    strategy_plan = resolve_call_plan(
+        "Pass 0: Strategy",
+        cost_policy["strategy_model"],
+    )
+    selection_plan = resolve_call_plan(
+        "Pass 1: Select",
+        requested.get("model", cost_policy["score_model"]),
+    )
+    scoring_plan = resolve_call_plan(
+        "Pass 3: Score",
+        cost_policy["score_model"],
+    )
     payload = {
         "run_stamp": run_stamp,
         "company": company,
         "app_dir": _rel(app_dir),
         "fit_score": fit_score,
         "smart_cost": smart_cost,
+        "llm_provider": provider_summary(),
         "role_router": role_router,
         "requested": requested,
         "cost_policy": cost_policy,
+        "llm_routes": {
+            "strategy": f"{strategy_plan.provider}:{strategy_plan.model}",
+            "selection": f"{selection_plan.provider}:{selection_plan.model}",
+            "scoring": f"{scoring_plan.provider}:{scoring_plan.model}",
+        },
         "strategy_summary": strategy_summary,
         "artifacts": {key: _rel(value) for key, value in artifacts.items()},
         "resume_summary": _summarize_resume_output(resume_path),
         "follow_ups": [
-            "Provider adapter for controlled OpenAI experiments",
+            "Optional OpenAI/Luna fallback after Cursor shadow validation",
             "Story/source-material upgrade: named methods, exact decisions, direct customer/research input, attribution-safe metrics",
         ],
     }
@@ -923,6 +950,7 @@ def run_app(
             "model": model,
             "requested_track": track,
             "smart_cost": smart_cost,
+            "llm_provider": provider_summary(),
         },
     )
     if lane_c_result is not None:
@@ -983,6 +1011,7 @@ def run_app(
         "resume": run_resume,
         "cl": run_cl,
         "track": role_router["requested_track"],
+        "model": model,
     }
 
     # Banner
@@ -998,9 +1027,17 @@ def run_app(
         print(f"  Fit score: {c(CYAN, f'{fit_score:.1f}')}")
     if role_router["effective_track"] != role_router["requested_track"] or role_router["effective_track"] == "nonpm":
         print(f"  Role router: {c(CYAN, role_router['effective_track'])} ({role_router['reason']}: {role_router['title'] or 'no title'})")
-    print(f"  Model: {c(CYAN, model)}  |  resume={run_resume}  cl={run_cl}")
+    print(f"  Incumbent model: {c(CYAN, model)}  |  {provider_summary()}  |  resume={run_resume}  cl={run_cl}")
     print(f"  Cost policy: {c(CYAN, cost_policy['tier'])} ({cost_policy['reason']})")
-    print(f"  Strategy model: {c(CYAN, strategy_model)}  |  Score model: {c(CYAN, score_model)}")
+    strategy_plan = resolve_call_plan("Pass 0: Strategy", strategy_model)
+    selection_plan = resolve_call_plan("Pass 1: Select", model)
+    score_plan = resolve_call_plan("Pass 3: Score", score_model)
+    print(
+        "  Stage models: "
+        f"strategy={c(CYAN, strategy_plan.provider + ':' + strategy_plan.model)} | "
+        f"selection={c(CYAN, selection_plan.provider + ':' + selection_plan.model)} | "
+        f"scoring={c(CYAN, score_plan.provider + ':' + score_plan.model)}"
+    )
     print(f"  Effective passes: strategy={run_strategy}  rewrite={run_rewrite}  score={run_score}  fix={run_fix}  trim={run_trim}  qc={run_qc}")
 
     # ── Step 0: Strategy (once, shared) ──────────────────────────────────────
@@ -1013,17 +1050,8 @@ def run_app(
         print(c(BOLD, "  ═══ Step 0 — Strategy (shared) ═══"))
         try:
             from shared.strategy import generate_strategy as _gen_strat
-            key = os.environ.get("ANTHROPIC_API_KEY", "")
-            if not key:
-                env_path = ROOT_DIR / ".env"
-                if env_path.exists():
-                    for line in env_path.read_text(encoding="utf-8").splitlines():
-                        line = line.strip()
-                        if line.startswith("ANTHROPIC_API_KEY="):
-                            key = line.split("=", 1)[1].strip().strip('"').strip("'")
-                            break
             strategy_dict, strategy_block = _gen_strat(
-                jd_text=jd_text, intel_text=intel_text, model=strategy_model, api_key=key,
+                jd_text=jd_text, intel_text=intel_text, model=strategy_model,
             )
             pre_strategy = (strategy_dict, strategy_block)
 
@@ -1865,7 +1893,11 @@ def main():
     parser.add_argument("--no-docx",      action="store_true",
                         help="Skip formatted .docx generation")
     parser.add_argument("--model",        default="claude-sonnet-4-6",
-                        help="Anthropic model (default: claude-sonnet-4-6)")
+                        help="Incumbent Anthropic model (default: claude-sonnet-4-6)")
+    parser.add_argument("--provider", choices=VALID_PROVIDERS, default=None,
+                        help="LLM provider. Default: RESUME_LLM_PROVIDER or anthropic")
+    parser.add_argument("--cursor-routing", choices=VALID_CURSOR_ROUTING, default=None,
+                        help="Cursor model policy: hybrid (Auto basic/Grok hard), auto, or grok")
     parser.add_argument("--track",        default=None, choices=["pm", "nonpm"],
                         help="Explicit resume-track override. Omit to let Step 0 own PM/NONPM routing.")
     parser.add_argument("--no-color",     action="store_true",
@@ -1874,6 +1906,11 @@ def main():
 
     if args.no_color:
         USE_COLOR = False
+
+    apply_cli_overrides(
+        provider=args.provider,
+        cursor_routing=args.cursor_routing,
+    )
 
     if args.resume_only and args.cl_only:
         sys.exit("[ERROR] Cannot use --resume-only and --cl-only together.")

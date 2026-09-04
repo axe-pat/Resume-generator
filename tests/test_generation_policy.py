@@ -82,6 +82,15 @@ class GenerationPolicyTests(unittest.TestCase):
         self.assertFalse(jobs._should_budget_skip_rewrite({"fit_score": 7.8}, args))
         self.assertFalse(jobs._should_budget_skip_rewrite({"fit_score": 8.2}, args))
 
+    def test_no_smart_cost_disables_budget_rewrite_cut(self):
+        args = SimpleNamespace(
+            budget_mode=True,
+            no_rewrite=False,
+            no_smart_cost=True,
+        )
+
+        self.assertFalse(jobs._should_budget_skip_rewrite({"fit_score": 6.0}, args))
+
     def test_role_router_detects_nonpm_titles_but_preserves_product_titles(self):
         with tempfile.TemporaryDirectory() as tmp:
             app_dir = Path(tmp)

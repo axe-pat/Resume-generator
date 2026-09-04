@@ -63,6 +63,9 @@ Architecture contracts being validated before live-runner integration:
   short human review packet for the isolated Step 1 contracts.
 - `docs/resume_generator_reviews/STEP_02_ASSEMBLY_RELEASE_GATE_REVIEW.md` — concise
   blocker/warning policy and regression evidence for the isolated Step 2 gate.
+- `shared/llm_provider.py` — provider-neutral execution boundary. The existing
+  prompts and gates are unchanged; Anthropic remains the default, while Cursor
+  can route basic stages to Auto and hard semantic stages to non-Fast Grok 4.6 High.
 
 These files are not yet wired into `freeform_runner.py`; until that integration lands,
 the live prompt contracts described below remain authoritative.
@@ -90,6 +93,9 @@ After Pass 3, any bullet scoring below 8.0 is sent to `freeform_targeted_swap.tx
 
 **Runtime logging**
 Each AI call now prints an elapsed time line in the terminal/log (for example `Pass 3: Score complete (84.2s)`), making it easier to diagnose unusually slow runs without inferring timing from file timestamps alone.
+Provider/model, stage, latency, prompt/response character counts, and a prompt
+hash are also written to ignored `logs/llm_calls.jsonl`. Prompt text is never
+stored there.
 
 **Validation — action-first constraints (run_app.py)**
 After the resume is generated, a post-hoc validator runs on the final bullet list and checks three hard rules:
@@ -136,6 +142,9 @@ python resume/freeform/freeform_runner.py --batch
 # Override model (default: claude-sonnet-4-6)
 python resume/freeform/freeform_runner.py Rubrik --model claude-sonnet-4-6
 
+# Cursor included-plan route: Auto for strategy/scoring, Grok 4.6 for hard stages
+python resume/freeform/freeform_runner.py Rubrik --provider cursor --cursor-routing hybrid
+
 # Skip rewrite (faster, ~$0.04 cheaper/job)
 python resume/freeform/freeform_runner.py Stripe --no-rewrite
 
@@ -156,7 +165,15 @@ python run_app.py Stripe --resume-only          # resume only
 python run_app.py McKinsey --track nonpm        # non-PM resume track
 python run_app.py Stripe --no-rewrite           # skip Pass 2
 python run_app.py Stripe --docx                 # also produce formatted .docx
+python run_app.py Stripe --resume-only --provider cursor --cursor-routing hybrid --no-smart-cost
 ```
+
+`--provider cursor` is opt-in and never silently falls back to Anthropic. Hybrid
+routing treats strategy and scoring as basic work; summary comparison, selection,
+voice rewrite, targeted repair, expansion, and unknown future semantic stages use
+non-Fast `cursor-grok-4.6-high`. Use `--cursor-routing auto` or `grok` only for controlled
+canaries. The Cursor CLI ignores the vendor-specific value of `--model`; that
+flag remains the unchanged Anthropic incumbent setting.
 
 The `.docx` is written to `apps/<Company>/resume_YYYY-MM-DD_r<score>.docx` (same dir as the `.txt`), where `<score>` is the final holistic resume score (e.g. `r8.3`). If scoring is skipped (`--no-score`), the score tag is omitted.
 

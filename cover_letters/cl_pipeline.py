@@ -9,8 +9,10 @@ Usage:
   Options:
     --no-qc          Skip Step 3 quality check (faster, saves API cost)
     --no-strategy    Skip Step 0 strategy (use legacy Step 1 JD analysis only)
-    --model MODEL    Anthropic model for strategy/generation (default: claude-sonnet-4-6)
-    --qc-model MODEL Anthropic model for Step 3 QC (default: claude-haiku-4-5-20251001)
+    --model MODEL    Incumbent Anthropic generation model (default: claude-sonnet-4-6)
+    --qc-model MODEL Incumbent Anthropic QC model (default: claude-haiku-4-5-20251001)
+    --provider P     anthropic (default) or cursor
+    --cursor-routing R  hybrid (Auto basic/Grok hard), auto, or grok
     --out DIR        Output directory (default: runs/)
     --no-color       Disable terminal color output
 
@@ -32,12 +34,8 @@ import json
 import os
 import re
 import sys
-import time
 from datetime import datetime
 from pathlib import Path
-
-import anthropic
-import httpx
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Config
@@ -56,6 +54,14 @@ STEP3_PROMPT  = PROMPTS_DIR / "step3_cl_qc.txt"
 
 # Make shared/ importable
 sys.path.insert(0, str(ROOT_DIR))
+from shared.llm_provider import (  # noqa: E402
+    VALID_CURSOR_ROUTING,
+    VALID_PROVIDERS,
+    apply_cli_overrides,
+    complete_text,
+    load_anthropic_api_key,
+    provider_summary,
+)
 from shared.strategy import generate_strategy  # noqa: E402
 
 # ANSI colors
@@ -77,63 +83,20 @@ def c(color, text):
 # API
 # ─────────────────────────────────────────────────────────────────────────────
 def load_api_key() -> str:
-    key = os.environ.get("ANTHROPIC_API_KEY", "")
-    if key:
-        return key
-    env_path = BASE_DIR.parent / ".env"
-    if env_path.exists():
-        for line in env_path.read_text(encoding="utf-8").splitlines():
-            line = line.strip()
-            if line.startswith("ANTHROPIC_API_KEY="):
-                key = line.split("=", 1)[1].strip().strip('"').strip("'")
-                if key:
-                    return key
-    sys.exit("[ERROR] ANTHROPIC_API_KEY not set. Check .env or environment.")
+    try:
+        return load_anthropic_api_key()
+    except RuntimeError as exc:
+        sys.exit(f"[ERROR] {exc}")
 
 
 def call_api(prompt: str, model: str, step_label: str = "", max_tokens: int = 8192) -> str:
-    """Call Anthropic API and return response text.
-
-    Retries up to 3 times on rate-limit (429) and overload (529) errors with
-    exponential backoff. max_tokens defaults to 8192 — sufficient for verbose
-    scorer/QC JSON output.
-    """
-    api_key = load_api_key()
-    client = anthropic.Anthropic(
-        api_key=api_key,
-        http_client=httpx.Client(verify=False),
+    """Call the configured provider and return response text."""
+    return complete_text(
+        prompt,
+        model,
+        label=step_label,
+        max_tokens=max_tokens,
     )
-    label = f" [{step_label}]" if step_label else ""
-    print(c(CYAN, f"  → Calling {model}{label}..."), flush=True)
-    for attempt in range(4):  # 1 initial + 3 retries
-        try:
-            started = time.perf_counter()
-            message = client.messages.create(
-                model=model,
-                max_tokens=max_tokens,
-                messages=[{"role": "user", "content": prompt}],
-            )
-            elapsed = time.perf_counter() - started
-            done_label = step_label or "API call"
-            print(c(GREEN, f"  ✓ {done_label} complete ({elapsed:.1f}s)"), flush=True)
-            return message.content[0].text
-        except anthropic.RateLimitError as e:
-            if attempt == 3:
-                raise
-            wait = 20 * (2 ** attempt)   # 20s, 40s, 80s
-            print(c(YELLOW,
-                    f"  [!] Rate limit hit{label} — waiting {wait}s before retry "
-                    f"(attempt {attempt + 1}/3)..."), flush=True)
-            time.sleep(wait)
-        except anthropic.APIStatusError as e:
-            if getattr(e, "status_code", None) != 529 or attempt == 3:
-                raise
-            wait = 20 * (2 ** attempt)   # 20s, 40s, 80s
-            print(c(YELLOW,
-                    f"  [!] Anthropic overloaded{label} — waiting {wait}s before retry "
-                    f"(attempt {attempt + 1}/3)..."), flush=True)
-            time.sleep(wait)
-    return ""  # unreachable
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -674,9 +637,8 @@ def run_single(
         print()
         print(c(BOLD, "  Step 0 — Strategy Analysis"))
         try:
-            api_key = load_api_key()
             step1_data, strategy_block = generate_strategy(
-                jd_text=jd_text, intel_text=intel_text, model=model, api_key=api_key,
+                jd_text=jd_text, intel_text=intel_text, model=model,
             )
             print_step1_summary(step1_data)
         except Exception as e:
@@ -826,9 +788,13 @@ def main():
     parser.add_argument("--no-strategy",  action="store_true",
                         help="Skip Step 0 strategy; use legacy Step 1 JD analysis")
     parser.add_argument("--model",        default=DEFAULT_MODEL,
-                        help=f"Anthropic model (default: {DEFAULT_MODEL})")
+                        help=f"Incumbent Anthropic model (default: {DEFAULT_MODEL})")
     parser.add_argument("--qc-model",     default=DEFAULT_QC_MODEL,
-                        help=f"Anthropic model for Step 3 QC (default: {DEFAULT_QC_MODEL})")
+                        help=f"Incumbent Anthropic model for Step 3 QC (default: {DEFAULT_QC_MODEL})")
+    parser.add_argument("--provider", choices=VALID_PROVIDERS, default=None,
+                        help="LLM provider. Default: RESUME_LLM_PROVIDER or anthropic")
+    parser.add_argument("--cursor-routing", choices=VALID_CURSOR_ROUTING, default=None,
+                        help="Cursor model policy: hybrid (Auto basic/Grok hard), auto, or grok")
     parser.add_argument("--out",          default=str(DEFAULT_OUT),
                         help=f"Output directory (default: {DEFAULT_OUT})")
     parser.add_argument("--no-color",     action="store_true",
@@ -837,6 +803,11 @@ def main():
 
     if args.no_color:
         USE_COLOR = False
+
+    apply_cli_overrides(
+        provider=args.provider,
+        cursor_routing=args.cursor_routing,
+    )
 
     out_dir      = Path(args.out)
     model        = args.model
@@ -847,7 +818,7 @@ def main():
     print(c(BOLD + CYAN, "\n  ╔══════════════════════════════════════════╗"))
     print(c(BOLD + CYAN,   "  ║   Cover Letter Generator v2.0            ║"))
     print(c(BOLD + CYAN,   "  ╚══════════════════════════════════════════╝"))
-    print(f"  Model: {c(CYAN, model)}  |  QC model: {c(CYAN, qc_model)}  |  Output: {out_dir}  |  QC: {run_qc}  |  Strategy: {run_strategy}")
+    print(f"  Incumbent model: {c(CYAN, model)}  |  QC model: {c(CYAN, qc_model)}  |  {provider_summary()}  |  Output: {out_dir}  |  QC: {run_qc}  |  Strategy: {run_strategy}")
 
     if args.batch:
         jd_files = sorted(
