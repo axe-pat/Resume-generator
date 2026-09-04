@@ -57,6 +57,8 @@ Flags available on most subcommands
   --model MODEL     Incumbent Anthropic model (default: claude-sonnet-4-6)
   --provider P      anthropic (default) or cursor
   --cursor-routing  hybrid (Auto basic/Grok hard), auto, or grok
+  --cursor-basic-model MODEL  Cursor model ID for basic stages
+  --cursor-hard-model MODEL   Cursor model ID for hard stages
 
 Status lifecycle
 ----------------
@@ -1095,6 +1097,8 @@ def cmd_generate(args, promoted_jobs: list[dict] | None = None) -> list[dict]:
     apply_cli_overrides(
         provider=getattr(args, "provider", None),
         cursor_routing=getattr(args, "cursor_routing", None),
+        cursor_basic_model=getattr(args, "cursor_basic_model", None),
+        cursor_hard_model=getattr(args, "cursor_hard_model", None),
     )
     preflight_corpus_targets: list[dict] | None = None
 
@@ -1663,6 +1667,10 @@ def _build_run_app_flags(
     if getattr(args, "provider",    None):  flags += ["--provider", args.provider]
     if getattr(args, "cursor_routing", None):
         flags += ["--cursor-routing", args.cursor_routing]
+    if getattr(args, "cursor_basic_model", None):
+        flags += ["--cursor-basic-model", args.cursor_basic_model]
+    if getattr(args, "cursor_hard_model", None):
+        flags += ["--cursor-hard-model", args.cursor_hard_model]
     if getattr(args, "no_smart_cost", False): flags.append("--no-smart-cost")
     if getattr(args, "no_docx",     False): flags.append("--no-docx")
     if resume_only:
@@ -2050,6 +2058,10 @@ def main():
                         help="LLM provider. Default: RESUME_LLM_PROVIDER or anthropic")
     p_pipe.add_argument("--cursor-routing", choices=["hybrid", "auto", "grok"], default=None,
                         help="Cursor policy: hybrid (Auto basic/Grok hard), auto, or grok")
+    p_pipe.add_argument("--cursor-basic-model", default=None,
+                        help="Cursor model ID for basic stages (default: auto)")
+    p_pipe.add_argument("--cursor-hard-model", default=None,
+                        help="Cursor model ID for hard stages (default: cursor-grok-4.6-high)")
     p_pipe.add_argument("--run-name",    type=str, default=None,
                         help="Tag this resume run (e.g. run_2). Stamped in resume_run column.")
 
@@ -2111,6 +2123,10 @@ def main():
                        help="LLM provider. Default: RESUME_LLM_PROVIDER or anthropic")
     p_gen.add_argument("--cursor-routing", choices=["hybrid", "auto", "grok"], default=None,
                        help="Cursor policy: hybrid (Auto basic/Grok hard), auto, or grok")
+    p_gen.add_argument("--cursor-basic-model", default=None,
+                       help="Cursor model ID for basic stages (default: auto)")
+    p_gen.add_argument("--cursor-hard-model", default=None,
+                       help="Cursor model ID for hard stages (default: cursor-grok-4.6-high)")
     p_gen.add_argument("--run-name",     type=str, default=None,
                         help="Tag this resume run (e.g. run_2). Stamped in resume_run column.")
 

@@ -10,6 +10,8 @@ Usage:
     --model MODEL   Incumbent Anthropic model (default: claude-sonnet-4-6)
     --provider P    anthropic (default) or cursor
     --cursor-routing R  hybrid (Auto basic/Grok hard), auto, or grok
+    --cursor-basic-model MODEL  Cursor model ID for basic stages
+    --cursor-hard-model MODEL   Cursor model ID for hard stages
     --track TRACK   Explicit 'pm' or 'nonpm' override (omit to let Pass 0 decide)
     --out DIR       Output directory (default: runs/freeform/)
     --no-color      Disable terminal color output
@@ -4898,6 +4900,10 @@ def main():
                         help="LLM provider. Default: RESUME_LLM_PROVIDER or anthropic")
     parser.add_argument("--cursor-routing", choices=VALID_CURSOR_ROUTING, default=None,
                         help="Cursor model policy: hybrid (Auto basic/Grok hard), auto, or grok")
+    parser.add_argument("--cursor-basic-model", default=None,
+                        help="Cursor model ID for basic stages (default: auto)")
+    parser.add_argument("--cursor-hard-model", default=None,
+                        help="Cursor model ID for hard stages (default: cursor-grok-4.6-high)")
     parser.add_argument("--out",         default=str(DEFAULT_OUT),
                         help=f"Output directory (default: {DEFAULT_OUT})")
     parser.add_argument("--docx",        action="store_true",
@@ -4922,6 +4928,8 @@ def main():
     apply_cli_overrides(
         provider=args.provider,
         cursor_routing=args.cursor_routing,
+        cursor_basic_model=args.cursor_basic_model,
+        cursor_hard_model=args.cursor_hard_model,
     )
 
     out_dir      = Path(args.out)

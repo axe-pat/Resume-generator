@@ -92,6 +92,28 @@ def test_cursor_routing_can_be_forced_to_auto_or_grok():
     assert (grok.model, grok.routing_class) == ("cursor-grok-4.6-high", "hard")
 
 
+def test_cli_overrides_can_select_cursor_models(monkeypatch):
+    for name in (
+        llm_provider.PROVIDER_ENV,
+        llm_provider.CURSOR_ROUTING_ENV,
+        llm_provider.CURSOR_AUTO_MODEL_ENV,
+        llm_provider.CURSOR_HARD_MODEL_ENV,
+    ):
+        monkeypatch.delenv(name, raising=False)
+
+    llm_provider.apply_cli_overrides(
+        provider="cursor",
+        cursor_routing="hybrid",
+        cursor_basic_model="auto",
+        cursor_hard_model="cursor-grok-4.6-xhigh",
+    )
+
+    assert llm_provider.provider_summary() == (
+        "provider=cursor | routing=hybrid | basic=auto | "
+        "hard=cursor-grok-4.6-xhigh"
+    )
+
+
 def test_cursor_call_is_text_only_isolated_and_writes_safe_telemetry(
     monkeypatch,
     tmp_path,
@@ -390,6 +412,8 @@ def test_jobs_propagates_cursor_provider_to_each_child():
         model="claude-sonnet-4-6",
         provider="cursor",
         cursor_routing="hybrid",
+        cursor_basic_model="auto",
+        cursor_hard_model="cursor-grok-4.6-xhigh",
         no_smart_cost=True,
         no_docx=False,
     )
@@ -398,5 +422,7 @@ def test_jobs_propagates_cursor_provider_to_each_child():
 
     assert flags[flags.index("--provider") + 1] == "cursor"
     assert flags[flags.index("--cursor-routing") + 1] == "hybrid"
+    assert flags[flags.index("--cursor-basic-model") + 1] == "auto"
+    assert flags[flags.index("--cursor-hard-model") + 1] == "cursor-grok-4.6-xhigh"
     assert "--no-smart-cost" in flags
     assert "--resume-only" in flags

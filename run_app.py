@@ -31,6 +31,8 @@ Options:
   --model MODEL   Incumbent Anthropic model (default: claude-sonnet-4-6)
   --provider P    anthropic (default) or cursor
   --cursor-routing R  hybrid (Auto basic/Grok hard), auto, or grok
+  --cursor-basic-model MODEL  Cursor model ID for basic stages
+  --cursor-hard-model MODEL   Cursor model ID for hard stages
   --no-color      Disable ANSI color output
 
 App directory layout (apps/<company>/):
@@ -1900,6 +1902,10 @@ def main():
                         help="LLM provider. Default: RESUME_LLM_PROVIDER or anthropic")
     parser.add_argument("--cursor-routing", choices=VALID_CURSOR_ROUTING, default=None,
                         help="Cursor model policy: hybrid (Auto basic/Grok hard), auto, or grok")
+    parser.add_argument("--cursor-basic-model", default=None,
+                        help="Cursor model ID for basic stages (default: auto)")
+    parser.add_argument("--cursor-hard-model", default=None,
+                        help="Cursor model ID for hard stages (default: cursor-grok-4.6-high)")
     parser.add_argument("--track",        default=None, choices=["pm", "nonpm"],
                         help="Explicit resume-track override. Omit to let Step 0 own PM/NONPM routing.")
     parser.add_argument("--no-color",     action="store_true",
@@ -1912,6 +1918,8 @@ def main():
     apply_cli_overrides(
         provider=args.provider,
         cursor_routing=args.cursor_routing,
+        cursor_basic_model=args.cursor_basic_model,
+        cursor_hard_model=args.cursor_hard_model,
     )
 
     if args.resume_only and args.cl_only:

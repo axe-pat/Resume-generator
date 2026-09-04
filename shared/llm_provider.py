@@ -118,6 +118,8 @@ def apply_cli_overrides(
     *,
     provider: str | None = None,
     cursor_routing: str | None = None,
+    cursor_basic_model: str | None = None,
+    cursor_hard_model: str | None = None,
 ) -> None:
     """Apply explicit CLI choices to this process without changing defaults."""
 
@@ -136,6 +138,16 @@ def apply_cli_overrides(
                 f"{cursor_routing!r}; expected one of {VALID_CURSOR_ROUTING}"
             )
         os.environ[CURSOR_ROUTING_ENV] = normalised
+    for value, env_name, label in (
+        (cursor_basic_model, CURSOR_AUTO_MODEL_ENV, "Cursor basic model"),
+        (cursor_hard_model, CURSOR_HARD_MODEL_ENV, "Cursor hard model"),
+    ):
+        if value is None:
+            continue
+        model = str(value).strip()
+        if not model:
+            raise ValueError(f"{label} must be non-empty")
+        os.environ[env_name] = model
 
 
 def resolve_call_plan(
