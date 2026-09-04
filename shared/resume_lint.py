@@ -28,11 +28,14 @@ from typing import Sequence
 from shared.resume_profiles import (
     ExperienceAllocationPlan,
     FluoPlacement,
+    PageProofPlan,
     ProfileFamily,
+    SupportingProofMode,
     SummaryMode,
     get_profile,
     skills_section_heading,
     validate_experience_allocation,
+    validate_page_proof_plan,
     validate_summary_identity,
 )
 
@@ -93,6 +96,13 @@ class ExperienceBlock:
 
 
 @dataclass(frozen=True)
+class ProjectBlock:
+    name: str
+    descriptor: str
+    bullets: tuple[ExperienceBullet, ...]
+
+
+@dataclass(frozen=True)
 class SkillRow:
     label: str
     text: str
@@ -121,9 +131,11 @@ class AssembledResume:
     skills_heading: str
     skill_rows: tuple[SkillRow, ...]
     allocation_plan: ExperienceAllocationPlan | None = None
+    proof_plan: PageProofPlan | None = None
     archetype_contract: ArchetypeContract | None = None
     raw_model_output: str = ""
     projects_text: str = ""
+    project_blocks: tuple[ProjectBlock, ...] = ()
     fluo_included: bool | None = None
     fluo_story_family: str | None = None
     rendered_page_count: int | None = None
@@ -131,7 +143,14 @@ class AssembledResume:
 
     @property
     def bullets(self) -> tuple[ExperienceBullet, ...]:
-        return tuple(bullet for block in self.experience_blocks for bullet in block.bullets)
+        """All scored page-level proof bullets, including promoted Projects."""
+        experience = tuple(
+            bullet for block in self.experience_blocks for bullet in block.bullets
+        )
+        projects = tuple(
+            bullet for block in self.project_blocks for bullet in block.bullets
+        )
+        return experience + projects
 
 
 @dataclass(frozen=True)
@@ -443,6 +462,38 @@ def _lint_profile_contract(document: AssembledResume, issues: list[LintIssue]) -
             "skills",
         )
 
+    # Repeating a substantive capability under two headings spends scarce page
+    # space without adding evidence (for example, Experiment Design in both
+    # Product Leadership and Analytics). Single-token tools such as SQL are
+    # excluded: the established business profiles intentionally group those in
+    # both analytical and technical stacks, and changing that vocabulary is a
+    # separate reviewed content decision.
+    skill_token_rows: dict[str, list[str]] = defaultdict(list)
+    for row in document.skill_rows:
+        for raw_token in re.split(r"[,;]", row.text):
+            normalized = re.sub(r"[^a-z0-9+#]+", " ", raw_token.casefold()).strip()
+            if len(normalized.split()) < 2:
+                continue
+            if row.label not in skill_token_rows[normalized]:
+                skill_token_rows[normalized].append(row.label)
+    repeated_skill_tokens = {
+        token: labels
+        for token, labels in skill_token_rows.items()
+        if len(labels) > 1
+    }
+    if repeated_skill_tokens:
+        rendered = "; ".join(
+            f"{token!r} in {labels}"
+            for token, labels in sorted(repeated_skill_tokens.items())
+        )
+        _issue(
+            issues,
+            "SKILL_TOKEN_REPEATED_ACROSS_ROWS",
+            LintSeverity.BLOCKER,
+            f"Substantive Skills tokens repeat across rows: {rendered}.",
+            "skills",
+        )
+
     fluo_companies = [
         block.company
         for block in document.experience_blocks
@@ -494,12 +545,23 @@ def _lint_profile_contract(document: AssembledResume, issues: list[LintIssue]) -
         if row.label.casefold() == profile.fluo.label.casefold()
         or "fluo" in row.text.casefold()
     ]
-    fluo_in_projects = "fluo" in document.projects_text.casefold()
+    structured_projects_text = " ".join(
+        (block.name + " " + block.descriptor + " " + " ".join(b.text for b in block.bullets))
+        for block in document.project_blocks
+    )
+    fluo_in_projects = "fluo" in (
+        document.projects_text + " " + structured_projects_text
+    ).casefold()
+    project_replacement = bool(
+        document.proof_plan
+        and document.proof_plan.mode is SupportingProofMode.PROJECT_REPLACEMENT
+    )
     if included:
         labels = {label.casefold() for label in row_labels}
         if (
             placement is not FluoPlacement.PROJECT_OPTIONAL
             and profile.fluo.label.casefold() not in labels
+            and not (project_replacement and fluo_in_projects)
         ):
             _issue(
                 issues,
@@ -508,7 +570,11 @@ def _lint_profile_contract(document: AssembledResume, issues: list[LintIssue]) -
                 f"Included Fluo proof must use the fixed row label {profile.fluo.label!r}.",
                 "skills",
             )
-        if placement is FluoPlacement.PROJECT_OPTIONAL and not fluo_in_projects:
+        if (
+            (placement is FluoPlacement.PROJECT_OPTIONAL or project_replacement)
+            and not fluo_in_projects
+            and profile.fluo.label.casefold() not in labels
+        ):
             _issue(
                 issues,
                 "FLUO_PROJECT_MISSING",
@@ -535,6 +601,14 @@ def _lint_profile_contract(document: AssembledResume, issues: list[LintIssue]) -
         )
 
     if profile.family is ProfileFamily.CAMPUS:
+        if document.proof_plan is not None:
+            _issue(
+                issues,
+                "CAMPUS_PROOF_PLAN_INVALID",
+                LintSeverity.BLOCKER,
+                "Campus profiles do not use the professional page-wide proof plan.",
+                "proof_plan",
+            )
         if document.allocation_plan is not None:
             _issue(
                 issues,
@@ -556,7 +630,12 @@ def _lint_profile_contract(document: AssembledResume, issues: list[LintIssue]) -
             )
         return
 
-    if document.allocation_plan is None:
+    effective_plan = (
+        document.proof_plan.experience_plan
+        if document.proof_plan is not None
+        else document.allocation_plan
+    )
+    if effective_plan is None:
         _issue(
             issues,
             "ALLOCATION_PLAN_MISSING",
@@ -566,18 +645,46 @@ def _lint_profile_contract(document: AssembledResume, issues: list[LintIssue]) -
         )
         return
 
-    if document.allocation_plan.profile_id != document.profile_id:
+    if document.proof_plan is not None:
+        for error in validate_page_proof_plan(document.proof_plan):
+            _issue(issues, "PAGE_PROOF_PLAN_INVALID", LintSeverity.BLOCKER, error, "proof_plan")
+        if (
+            document.allocation_plan is not None
+            and document.allocation_plan != document.proof_plan.experience_plan
+        ):
+            _issue(
+                issues,
+                "PROOF_ALLOCATION_MISMATCH",
+                LintSeverity.BLOCKER,
+                "The page proof plan and legacy allocation_plan disagree.",
+                "proof_plan",
+                "allocation_plan",
+            )
+        structured_project_count = sum(
+            len(block.bullets) for block in document.project_blocks
+        )
+        if structured_project_count != document.proof_plan.project_bullet_count:
+            _issue(
+                issues,
+                "PROJECT_BULLET_COUNT_MISMATCH",
+                LintSeverity.BLOCKER,
+                f"Proof plan records {document.proof_plan.project_bullet_count} project bullets; "
+                f"assembled page has {structured_project_count}.",
+                "projects",
+            )
+    else:
+        for error in validate_experience_allocation(effective_plan):
+            _issue(issues, "ALLOCATION_INVALID", LintSeverity.BLOCKER, error, "allocation_plan")
+
+    if effective_plan.profile_id != document.profile_id:
         _issue(
             issues,
             "ALLOCATION_PROFILE_MISMATCH",
             LintSeverity.BLOCKER,
-            f"Allocation uses {document.allocation_plan.profile_id}, not {document.profile_id}.",
+            f"Allocation uses {effective_plan.profile_id}, not {document.profile_id}.",
             "allocation_plan",
         )
-    for error in validate_experience_allocation(document.allocation_plan):
-        _issue(issues, "ALLOCATION_INVALID", LintSeverity.BLOCKER, error, "allocation_plan")
-
-    expected_counts = document.allocation_plan.counts_dict()
+    expected_counts = effective_plan.counts_dict()
     actual_companies = tuple(block.company for block in document.experience_blocks)
     expected_companies = tuple(expected_counts)
     if actual_companies != expected_companies:
@@ -599,12 +706,12 @@ def _lint_profile_contract(document: AssembledResume, issues: list[LintIssue]) -
                 block.company,
             )
     actual_total = sum(len(block.bullets) for block in document.experience_blocks)
-    if actual_total != document.allocation_plan.total:
+    if actual_total != effective_plan.total:
         _issue(
             issues,
             "TOTAL_BULLET_COUNT_MISMATCH",
             LintSeverity.BLOCKER,
-            f"Allocation records {document.allocation_plan.total} bullets; "
+            f"Allocation records {effective_plan.total} bullets; "
             f"assembled page has {actual_total}.",
             "experience",
         )
@@ -626,6 +733,17 @@ def _normalized_archetype(value: str) -> str:
     return aliases.get(normalized, normalized)
 
 
+def _proof_blocks(
+    document: AssembledResume,
+) -> tuple[tuple[str, tuple[ExperienceBullet, ...]], ...]:
+    """Return every first-class bullet block in rendered page order."""
+    return tuple(
+        (block.company, block.bullets) for block in document.experience_blocks
+    ) + tuple(
+        (f"PROJECT {block.name}", block.bullets) for block in document.project_blocks
+    )
+
+
 def _lint_archetypes_and_openers(
     document: AssembledResume,
     policy: AssemblyLintPolicy,
@@ -635,11 +753,11 @@ def _lint_archetypes_and_openers(
     archetypes: list[str] = []
     missing_archetypes: list[str] = []
 
-    for block in document.experience_blocks:
+    for block_name, block_bullets in _proof_blocks(document):
         block_openers: Counter[str] = Counter()
         diagnostic_streak = 0
-        for index, bullet in enumerate(block.bullets, start=1):
-            location = f"{block.company} bullet {index}"
+        for index, bullet in enumerate(block_bullets, start=1):
+            location = f"{block_name} bullet {index}"
             opener = _opening_word(bullet.text)
             if opener:
                 opener_locations[opener].append(location)
@@ -663,7 +781,7 @@ def _lint_archetypes_and_openers(
                         issues,
                         "DIAGNOSTIC_STREAK_EXCEEDED",
                         LintSeverity.BLOCKER,
-                        f"{block.company} exceeds the {maximum}-bullet diagnostic streak cap.",
+                        f"{block_name} exceeds the {maximum}-bullet diagnostic streak cap.",
                         location,
                     )
             else:
@@ -675,8 +793,8 @@ def _lint_archetypes_and_openers(
                 issues,
                 "OPENING_VERB_REPEATED_IN_COMPANY",
                 LintSeverity.BLOCKER,
-                f"{block.company} repeats opening verb(s): {repeated}.",
-                block.company,
+                f"{block_name} repeats opening verb(s): {repeated}.",
+                block_name,
             )
 
     for opener, locations in sorted(opener_locations.items()):
@@ -803,10 +921,10 @@ def _lint_page_composition(
     issues: list[LintIssue],
 ) -> None:
     entries: list[tuple[str, str]] = [("summary", document.summary_text)]
-    for block in document.experience_blocks:
+    for block_name, block_bullets in _proof_blocks(document):
         entries.extend(
-            (f"{block.company} bullet {index}", bullet.text)
-            for index, bullet in enumerate(block.bullets, start=1)
+            (f"{block_name} bullet {index}", bullet.text)
+            for index, bullet in enumerate(block_bullets, start=1)
         )
 
     normalized_seen: dict[str, str] = {}
@@ -860,7 +978,7 @@ def _lint_page_composition(
         )
 
     scale_entries = list(entries)
-    if document.projects_text.strip():
+    if document.projects_text.strip() and not document.project_blocks:
         scale_entries.append(("projects", document.projects_text))
     scale_entries.extend(
         (f"skills row {row.label}", row.text) for row in document.skill_rows
@@ -917,7 +1035,7 @@ def _lint_page_composition(
             "CONTRAST_PHRASE_CAP_EXCEEDED",
             LintSeverity.BLOCKER,
             f"The page uses {contrast_count} contrast constructions; maximum is one.",
-            "experience",
+            "page",
         )
 
     punctuation_styles = Counter()
@@ -930,8 +1048,9 @@ def _lint_page_composition(
                 f"Date range is not 'Mon YYYY – Mon YYYY/Present': {block.date_text!r}.",
                 block.company,
             )
-        for index, bullet in enumerate(block.bullets, start=1):
-            location = f"{block.company} bullet {index}"
+    for block_name, block_bullets in _proof_blocks(document):
+        for index, bullet in enumerate(block_bullets, start=1):
+            location = f"{block_name} bullet {index}"
             text = bullet.text.strip()
             punctuation_styles[text[-1:] if text else ""] += 1
             if len(text) > policy.long_bullet_chars:
@@ -948,7 +1067,7 @@ def _lint_page_composition(
             "BULLET_PUNCTUATION_INCONSISTENT",
             LintSeverity.WARNING,
             f"Bullet terminal punctuation is inconsistent: {dict(punctuation_styles)}.",
-            "experience",
+            "page",
         )
 
 
@@ -993,6 +1112,15 @@ def _lint_rendered_artifact(document: AssembledResume, issues: list[LintIssue]) 
         for index, bullet in enumerate(block.bullets, start=1)
     )
     expected_fragments.extend(
+        (f"project {block.name} bullet {index}", bullet.text)
+        for block in document.project_blocks
+        for index, bullet in enumerate(block.bullets, start=1)
+    )
+    expected_fragments.extend(
+        (f"project {block.name} name", f"{block.name} {block.descriptor}")
+        for block in document.project_blocks
+    )
+    expected_fragments.extend(
         (f"skills row {row.label}", f"{row.label} {row.text}") for row in document.skill_rows
     )
     for location, text in expected_fragments:
@@ -1030,7 +1158,7 @@ def _lint_rendered_artifact(document: AssembledResume, issues: list[LintIssue]) 
                 issues,
                 "RENDERED_BULLET_COUNT_MISMATCH",
                 LintSeverity.BLOCKER,
-                f"Rendered Experience has {rendered_bullet_count} bullet markers; "
+                f"Rendered Experience/Projects region has {rendered_bullet_count} bullet markers; "
                 f"expected {expected_bullet_count}.",
                 "rendered_pdf",
             )

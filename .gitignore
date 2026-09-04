@@ -53,6 +53,7 @@ outputs/
 # Generated resume and cover-letter runs
 resume/compiler/runs/
 resume/freeform/runs/
+resume/variants/audits/
 cover_letters/runs/
 
 # Apply Assist private runtime data

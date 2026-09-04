@@ -123,6 +123,12 @@ PART B — POSITIONING STRATEGY (new — used to drive both resume and CL)
    product launches, or product definition work. Do NOT force these to
    "ops-execution" just because the role is coordination-heavy.
 
+   Treat "Product Strategy" titles as PM-adjacent when the role is embedded in a
+   product team and turns user research, competitive insight, usability tests, or
+   prototype feedback into product decisions. Route to research-intelligence only
+   when research itself is the standalone deliverable and the role has no product-
+   decision participation.
+
 9B. NON-PM SUBTYPE — for non-PM roles only, which flavor of non-PM role is this?
    Use this only when role_family != "pm". If role_family = "pm", set to "".
    nonpm_subtype: one of:

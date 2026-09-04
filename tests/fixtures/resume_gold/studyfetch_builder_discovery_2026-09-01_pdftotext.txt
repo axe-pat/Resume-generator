@@ -1,0 +1,60 @@
+                                                  AKSHAT PATHAK
+            Los Angeles, CA • Akshat.Pathak.2027@marshall.usc.edu • (213) 325-0609 • linkedin.com/in/akshats-pathak
+PRODUCT MANAGEMENT
+Product manager and engineer with five years turning customer and usage signals into shipped AI, marketplace, and data products.
+Independently built an AI recruiting engine for my own search that turns live job and relationship signals into the next application or
+conversation worth pursuing.
+EDUCATION
+University of Southern California, Marshall School of Business – Los Angeles, CA                                      May 2027
+Master of Business Administration (STEM)
+     Honors: Dean’s Merit Scholarship
+     Leadership: AVP Alumni Relations, South Asian Business Association; AVP External Relations, High Tech Association
+Thapar Institute of Engineering and Technology – Patiala, India                                                    August 2020
+Bachelor of Engineering, Computer Engineering — GPA 3.73
+     Honors: Merit Scholarship (2×); Published AI-based Fake News Detection research (Springer, 2020; 90+ citations)
+     Leadership: General Secretary, Creative Computing Society – drove 1,000+ participants and secured $30K in sponsorships
+EXPERIENCE
+FlairX AI (AI-first interview and hiring platform) – San Francisco, CA                                              Jun 2026 – Aug 2026
+AI Product Manager Intern
+     Turned Genpact's ban on outsourced final rounds into FlairX's client-run interview suite; wireframed privacy-safe M365
+         scheduling and transcript-grounded AI-scoring flows, then led product and engineering to ship the suite in 2 weeks.
+     Rebuilt AI interview rendering onto swappable providers after a vendor's 20-minute cap ended hour-long enterprise rounds
+         mid-call; replaced a monthly platform fee with usage-only pricing, cutting cost per minute 70%.
+Gojek (SE Asia ride-hailing super app serving 20M+ riders) – Gurgaon, India                                           Jan 2025 – Jul 2025
+Product Owner, Marketplace
+     Validated willingness-to-pay for a lower-cost ride tier through funnel analysis and 20+ customer interviews; confirmed via A/B
+         pricing experiments and launched a cost-tiered model lifting conversion 9% and generating $3.2M.
+     Traded live fare recalculation for sub-second quotes by pre-caching pricing across 12 high-demand corridors; held fare variance
+         within 4%, cut latency 70%, and recovered ~28K monthly rides.
+Hevo Data (Sequoia-backed ELT data platform) – Bengaluru, India                                                     Nov 2023 – Jan 2025
+Product Owner, Data Platform
+     Shipped an AI-powered monitoring surface to replace manual alert triage; used a GenAI synthesizer and a 20+ failure taxonomy
+         to consolidate alert storms into single incident cards, cutting triage time from 45 to under 5 minutes across 120K+ pipelines.
+     Drove Hevo 2.0's shift to a batch-first transactional model, trading streaming speed for verifiable correctness and clear failure
+         boundaries; improved platform stability 45% and enabled onboarding of 8 enterprise customers within 90 days.
+Intuit (QuickBooks Online, MSE: Monetization Services & Experiences) – Bengaluru, India                             Aug 2022 – Oct 2023
+Software Engineer 2
+     Traced SMB cancellations to billing accuracy failures, not product gaps; designed a cross-system reconciliation framework and
+         presented the financial impact to senior leadership, securing a roadmap pivot from feature velocity to auditability.
+Optum (health-tech & data-analytics arm of UnitedHealth Group) – Gurgaon, India                                      Jul 2020 – Aug 2022
+Software Engineer
+     Prototyped an ML-based affordability engine; defined feature inputs, evaluation metrics, and deployment workflow, aligning
+         clinical stakeholders and securing pilot approval as part of Optum's global innovation program.
+PROJECTS
+Recruiting Engine (independent AI product)                                                                          Apr 2026 – Present
+     Built the path from finding and ranking the right role to producing its tailored application and routing the right ask to the right
+         person; operated it across 190+ applications and 1,100+ contacts, yielding 300+ accepted connections and 100+ replies.
+     Turned one wrong-company match during a live test into a system-wide safeguard; halted the batch, withdrew the invite before
+         any message was sent, and rebuilt every send path to require independent employer evidence before human approval.
+Fluo (pre-seed product for international students)                                                                   Jun 2026 – Present
+     Interviewed 60 new and returning students at a student-housing move-in near USC and found that live offers made sense once
+         surfaced but were difficult to discover; confirmed the pattern in usage data, with just 3 of 20 spots claimed on Fluo's first
+         merchant offer, then separated awareness from demand and designed a receipt-verified retest.
+SKILLS & INTERESTS
+        Product & Discovery: Customer Interviews, Research Synthesis, Problem Framing, Rapid Prototyping, Requirements
+         Definition
+        Analytics: SQL, Funnel, Cohort & Retention Analysis, A/B Testing, KPI Design; Tableau, Excel
+        Build & Design: Python, Figma, Wireframing, AI-assisted Development, APIs; Jira, Confluence
+        Community: Taught through Niveda Foundation's mobile-school initiative, delivering free, activity-based education by van in
+         underserved Noida communities; the program has reached 400+ children
+        Interests: Strength training, house DJing, behavioral psychology, astrophysics, and Himalayan trekking

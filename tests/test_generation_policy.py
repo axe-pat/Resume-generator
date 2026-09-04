@@ -89,15 +89,36 @@ class GenerationPolicyTests(unittest.TestCase):
                 json.dumps({"role_title": "Corporate Strategy Intern"}),
                 encoding="utf-8",
             )
-            nonpm = run_app._infer_role_track(app_dir, "", "", "pm")
+            nonpm = run_app._infer_role_track(app_dir, "", "", "auto")
             self.assertEqual(nonpm["effective_track"], "nonpm")
+            self.assertEqual(nonpm["source"], "cheap-router")
 
             (app_dir / "metadata.json").write_text(
                 json.dumps({"role_title": "Product Management Intern, End User Experience"}),
                 encoding="utf-8",
             )
-            pm = run_app._infer_role_track(app_dir, "", "", "pm")
+            pm = run_app._infer_role_track(app_dir, "", "", "auto")
             self.assertEqual(pm["effective_track"], "pm")
+            self.assertEqual(pm["source"], "cheap-router")
+
+            explicit_pm = run_app._infer_role_track(app_dir, "", "", "pm")
+            self.assertEqual(explicit_pm["effective_track"], "pm")
+            self.assertEqual(explicit_pm["source"], "explicit")
+
+    def test_role_router_keeps_embedded_product_strategy_work_on_pm_track(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            app_dir = Path(tmp)
+            (app_dir / "metadata.json").write_text(
+                json.dumps({"role_title": "Intern - Product Strategy"}),
+                encoding="utf-8",
+            )
+            jd = (
+                "Join the product team, run user research and usability tests, "
+                "then present recommendations to people making product decisions."
+            )
+            routed = run_app._infer_role_track(app_dir, jd, "", "auto")
+            self.assertEqual(routed["effective_track"], "pm")
+            self.assertTrue(routed["embedded_product_strategy"])
 
 
 if __name__ == "__main__":

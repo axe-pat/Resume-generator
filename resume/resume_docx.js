@@ -72,14 +72,14 @@ const COMPANY_META = {
     desc:     '(SE Asia ride-hailing super app serving 20M+ riders)',
     location: 'Gurgaon, India',
     dates:    'Jan 2025 \u2013 Jul 2025',
-    title:    'Senior Software Engineer \u2013 Supply & Marketplace Strategy',
+    title:    'Senior Software Engineer | Product & Marketplace Scope',
   },
   'HEVO DATA': {
     display:  'Hevo Data',
     desc:     '(Sequoia-backed ELT data platform)',
     location: 'Bengaluru, India',
     dates:    'Nov 2023 \u2013 Jan 2025',
-    title:    'Software Engineer 2',
+    title:    'Software Engineer 2 | Data Platform & Product Scope',
   },
   'INTUIT': {
     display:  'Intuit',
@@ -266,11 +266,14 @@ function buildResume(data) {
 
   for (let i = 0; i < data.company_blocks.length; i++) {
     const block = data.company_blocks[i];
-    const meta  = COMPANY_META[block.key];
-    if (!meta) {
+    const baseMeta = COMPANY_META[block.key];
+    if (!baseMeta) {
       console.warn(`[WARN] Unknown company key: "${block.key}" — skipping.`);
       continue;
     }
+    // Preserve canonical employer metadata while allowing a transparent,
+    // application-specific functional title or descriptor.
+    const meta = { ...baseMeta, ...(block.meta || {}) };
     if (i > 0) children.push(spacer());
     children.push(headerLine({
       boldParts:  [meta.display],
@@ -285,7 +288,7 @@ function buildResume(data) {
 
   // ── PROJECTS & CONSULTING (optional, primarily for non-PM routes) ───────
   if (Array.isArray(data.project_rows) && data.project_rows.length > 0) {
-    children.push(sectionHeader('PROJECTS & CONSULTING'));
+    children.push(sectionHeader(data.project_section_header || 'PROJECTS & CONSULTING'));
     for (let i = 0; i < data.project_rows.length; i++) {
       const row = data.project_rows[i];
       if (!row) continue;
@@ -307,8 +310,10 @@ function buildResume(data) {
     }
   }
 
-  // ── SKILLS & INTERESTS ───────────────────────────────
-  children.push(sectionHeader('SKILLS & INTERESTS'));
+  // ── SKILLS / SKILLS & INTERESTS ─────────────────────
+  // The accurate heading is owned by the assembly profile and reflects the
+  // rows actually rendered; do not claim Interests when there is no such row.
+  children.push(sectionHeader(data.skills_section_header || 'SKILLS & INTERESTS'));
 
   for (const row of data.skills_rows) {
     if (!row.text && !row.bold_label) continue;

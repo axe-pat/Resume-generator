@@ -1,0 +1,154 @@
+{
+  "audit_id": "batch-a-flairx-fluo-projects-2026-09-03",
+  "status": "review_only",
+  "live_prompts_modified": false,
+  "families": {
+    "F-AVATAR": {
+      "incumbents": [
+        {"stable_id": "pm/f-avatar/platform-turnaround", "verdict": "replace", "replacement_id": "F-AVATAR-shared-provider-unit-economics"},
+        {"stable_id": "pm/f-avatar/unit-economics", "verdict": "retire", "replacement_id": ""},
+        {"stable_id": "pm/f-avatar/platform-resilience", "verdict": "retire", "replacement_id": ""},
+        {"stable_id": "pm/f-avatar/technical-diligence", "verdict": "retain", "replacement_id": ""},
+        {"stable_id": "pm/f-avatar/trust-performance", "verdict": "replace", "replacement_id": "f-avatar-low-spec-antifraud-tradeoff"}
+      ],
+      "recommended_variants": [
+        {"variant_id": "F-AVATAR-shared-provider-unit-economics", "status": "known_gold", "use_case": "enterprise product strategy, dependency risk, and unit economics", "archetype": "action", "text": "Rebuilt AI interview rendering onto swappable providers after a vendor's 20-minute cap ended hour-long enterprise rounds mid-call; replaced a monthly platform fee with usage-only pricing, cutting cost per minute 70%."},
+        {"variant_id": "pm/f-avatar/technical-diligence", "status": "incumbent", "use_case": "build-versus-buy and technical product judgment", "archetype": "action", "text": "Audited MuseTalk/EchoMimic across GPU cost, VRAM, latency, plus maintenance burden; rejected an in-house build to protect core roadmap velocity."},
+        {"variant_id": "f-avatar-low-spec-antifraud-tradeoff", "status": "challenger", "use_case": "AI product reliability and user-experience tradeoff", "archetype": "action", "text": "Shipped anti-fraud controls that stayed viable on low-spec candidate devices by combining gaze, face-mesh and voice signals under 8% CPU and 150ms interruption latency."}
+      ]
+    },
+    "F-CEIPAL": {
+      "incumbents": [
+        {"stable_id": "pm/f-ceipal/ecosystem-platform", "verdict": "replace", "replacement_id": "f-ceipal-marketplace-product-channel"},
+        {"stable_id": "pm/f-ceipal/mvp-tradeoff", "verdict": "replace", "replacement_id": "f-ceipal-pull-first-account-retention"},
+        {"stable_id": "pm/f-ceipal/customer-adoption", "verdict": "replace", "replacement_id": "f-ceipal-pull-first-account-retention"},
+        {"stable_id": "pm/f-ceipal/technical-integration", "verdict": "retain", "replacement_id": ""},
+        {"stable_id": "pm/f-ceipal/marketplace-gtm", "verdict": "retain", "replacement_id": ""}
+      ],
+      "recommended_variants": [
+        {"variant_id": "f-ceipal-pull-first-account-retention", "status": "challenger", "use_case": "general PM, prioritization, and product judgment", "archetype": "action", "text": "Re-scoped FlairX's Ceipal integration after its API blocked score write-back, automating job and candidate imports to eliminate ~80% of recruiters' duplicate entry while retaining FlairX's highest-volume account."},
+        {"variant_id": "f-ceipal-marketplace-product-channel", "status": "challenger", "use_case": "platform ecosystems, partnerships, and GTM", "archetype": "action", "text": "Converted a customer-specific Ceipal integration into a public Marketplace product by shipping job and candidate imports despite blocked score write-back, opening FlairX's first ATS-based inbound channel."},
+        {"variant_id": "pm/f-ceipal/technical-integration", "status": "incumbent", "use_case": "data contracts and technical integration depth", "archetype": "action", "text": "Specified a translation layer for Ceipal's Base64 entity IDs and compound fields, converting inconsistent ATS payloads into clean, attributable FlairX records."},
+        {"variant_id": "pm/f-ceipal/marketplace-gtm", "status": "incumbent", "use_case": "integration reliability and deployed-system safeguards", "archetype": "action", "text": "Designed idempotent Ceipal webhooks with duplicate-event caching and key-rotation alerts, preventing retry storms or silent authentication failures from corrupting candidate syncs."}
+      ]
+    },
+    "F-ENTERPRISE": {
+      "incumbents": [
+        {"stable_id": "pm/f-enterprise/zero-to-one", "verdict": "replace", "replacement_id": "F-ENTERPRISE-amazon-deal-impact"},
+        {"stable_id": "pm/f-enterprise/enterprise-discovery", "verdict": "retire", "replacement_id": ""},
+        {"stable_id": "pm/f-enterprise/ai-workflow", "verdict": "retain", "replacement_id": ""},
+        {"stable_id": "pm/f-enterprise/workflow-reliability", "verdict": "retain", "replacement_id": ""},
+        {"stable_id": "pm/f-enterprise/enterprise-platform", "verdict": "retire", "replacement_id": ""}
+      ],
+      "recommended_variants": [
+        {"variant_id": "F-ENTERPRISE-amazon-deal-impact", "status": "known_gold", "use_case": "enterprise PM, commercial impact, and cross-functional leadership", "archetype": "action", "text": "Unblocked $1.2M of enterprise pilots after Genpact refused to outsource final-round interviews; reframed the policy objection as a workflow gap & led engineering and design to ship M365 panel scheduling with transcript-grounded AI scoring in 2 weeks."},
+        {"variant_id": "F-ENTERPRISE-studyfetch-design-delivery", "status": "known_gold", "use_case": "hands-on product design, prototyping, and zero-to-one delivery", "archetype": "action", "text": "Turned Genpact's ban on outsourced final rounds into FlairX's client-run interview suite; wireframed privacy-safe M365 scheduling and transcript-grounded AI-scoring flows, then led product and engineering to ship the suite in 2 weeks."},
+        {"variant_id": "pm/f-enterprise/ai-workflow", "status": "incumbent", "use_case": "AI workflow design and unstructured-to-structured evaluation", "archetype": "action", "text": "Designed a split-mode interview experience that let executives skip rigid questionnaires while a post-call GenAI pipeline converted transcripts into evidence-linked competency scores."},
+        {"variant_id": "pm/f-enterprise/workflow-reliability", "status": "incumbent", "use_case": "requirements depth and scheduling reliability", "archetype": "action", "text": "Defined 32 failure states for global panel scheduling, from Outlook declines to quorum fallbacks; kept live interviews intact until replacement slots were confirmed."}
+      ]
+    },
+    "F-OPS": {
+      "incumbents": [
+        {"stable_id": "pm/f-ops/commercial-ops", "verdict": "replace", "replacement_id": "f-ops-commercial-data-spine"},
+        {"stable_id": "pm/f-ops/data-product", "verdict": "replace", "replacement_id": "f-ops-commercial-data-spine"},
+        {"stable_id": "pm/f-ops/influence-without-authority", "verdict": "replace", "replacement_id": "f-ops-ceo-routing-removal"},
+        {"stable_id": "pm/f-ops/gtm-enablement", "verdict": "replace", "replacement_id": "f-ops-diligence-evidence"},
+        {"stable_id": "pm/f-ops/feedback-system", "verdict": "retain", "replacement_id": ""}
+      ],
+      "recommended_variants": [
+        {"variant_id": "f-ops-ceo-routing-removal", "status": "challenger", "use_case": "operating-model change and organizational leverage", "archetype": "action", "text": "Removed the CEO as the routing point for routine account decisions by converting founder-held deal context into self-serve HubSpot workflows for Product and GTM."},
+        {"variant_id": "f-ops-commercial-data-spine", "status": "challenger", "use_case": "RevOps data product and cross-functional decision visibility", "archetype": "action", "text": "Built FlairX's first commercial data spine by mapping backend product events into HubSpot and separating AI-screening usage from expert services, giving Product and GTM one live view of revenue and fulfillment."},
+        {"variant_id": "f-ops-diligence-evidence", "status": "challenger", "use_case": "enterprise diligence and commercial enablement", "archetype": "action", "text": "Turned live usage and fulfillment data into diligence evidence for Genpact and L&T, replacing founder-held estimates with defensible views of service mix and delivery history."},
+        {"variant_id": "pm/f-ops/feedback-system", "status": "incumbent", "use_case": "voice-of-customer operations and roadmap evidence", "archetype": "action", "text": "Mapped customer emails, objections, and feature requests into account timelines, creating a queryable voice-of-customer system for roadmap plus GTM decisions."}
+      ]
+    },
+    "F-SOURCING": {
+      "incumbents": [
+        {"stable_id": "pm/f-sourcing/product-discovery", "verdict": "retain", "replacement_id": ""},
+        {"stable_id": "pm/f-sourcing/zero-to-one", "verdict": "retire", "replacement_id": ""},
+        {"stable_id": "pm/f-sourcing/build-vs-rent", "verdict": "retain", "replacement_id": ""},
+        {"stable_id": "pm/f-sourcing/unit-economics", "verdict": "retain", "replacement_id": ""},
+        {"stable_id": "pm/f-sourcing/partnership-gtm", "verdict": "retain", "replacement_id": ""}
+      ],
+      "recommended_variants": [
+        {"variant_id": "pm/f-sourcing/partnership-gtm", "status": "incumbent", "use_case": "partnerships, distribution, and GTM unblock", "archetype": "action", "text": "Secured LinkedIn Basic Jobs XML approval after Apply Connect proved uneconomic, opening automated job distribution without client Page authorization or webhook dependencies."},
+        {"variant_id": "pm/f-sourcing/build-vs-rent", "status": "incumbent", "use_case": "platform architecture and build-versus-rent judgment", "archetype": "action", "text": "Split one sourcing request into inbound distribution and outbound discovery; kept matching intelligence in-house while narrowing build-vs-rent to raw candidate data."},
+        {"variant_id": "pm/f-sourcing/unit-economics", "status": "incumbent", "use_case": "unit economics, intellectual honesty, and preview-before-purchase design", "archetype": "diagnostic", "text": "Corrected Coresignal economics from a headline 25× advantage to an honest 2.3× per shortlisted candidate; designed preview-before-unlock controls around the real cost driver."},
+        {"variant_id": "pm/f-sourcing/product-discovery", "status": "incumbent", "use_case": "customer research and recruiter-workflow insight only", "archetype": "diagnostic", "text": "Found recruiters manually rebuilding criteria FlairX already owned; turned each JD, questionnaire, and rubric into a prefilled search plus evidence-grounded candidate ranking."}
+      ]
+    },
+    "FLUO": {
+      "incumbents": [
+        {"stable_id": "pm/fluo/fluo-product-system", "verdict": "retire", "replacement_id": ""},
+        {"stable_id": "pm/fluo/fluo-data-platform", "verdict": "retire", "replacement_id": ""},
+        {"stable_id": "pm/fluo/fluo-roadmap-partnership", "verdict": "replace", "replacement_id": "FL-INSTITUTIONAL-amazon-inline-prearrival"},
+        {"stable_id": "pm/fluo/fluo-founder-execution", "verdict": "retire", "replacement_id": ""}
+      ],
+      "recommended_variants": [
+        {"variant_id": "FL-INSTITUTIONAL-amazon-inline-prearrival", "status": "known_gold", "use_case": "product strategy, institutional distribution, and market timing", "archetype": "diagnostic", "fluo_story_family": "gtm-partnership", "line_cost": 2, "assembly_modes": ["inline"], "text": "Concluded Fluo could not win a student after arrival, since arrivals trust peers over an app; closed a USC program office partnership as the pre-arrival acquisition channel."},
+        {"variant_id": "FL-FIELD-VALIDATION-studyfetch-closed-loop", "status": "known_gold", "use_case": "customer discovery, behavioral data, and experiment design", "archetype": "diagnostic", "fluo_story_family": "customer-insight", "line_cost": 3, "assembly_modes": ["project-replacement"], "text": "Interviewed 60 new and returning students at a student-housing move-in near USC and found that live offers made sense once surfaced but were difficult to discover; confirmed the pattern in usage data, with just 3 of 20 spots claimed on Fluo's first merchant offer, then separated awareness from demand and designed a receipt-verified retest."},
+        {"variant_id": "fluo-proprietary-housing-evidence", "status": "challenger", "use_case": "consumer product, marketplace supply, and proprietary local data", "archetype": "action", "fluo_story_family": "product-system", "line_cost": 2, "assembly_modes": ["inline"], "text": "Built a housing surface for students choosing leases sight unseen, combining campus patrol-zone coverage with per-ring rent benchmarks across a $1,028 to $3,750 monthly range that generic listing sites could not supply."},
+        {"variant_id": "fluo-credit-adverse-selection-ladder", "status": "challenger", "use_case": "fintech product strategy, adverse-selection judgment, and founder influence", "archetype": "action", "fluo_story_family": "customer-insight", "line_cost": 2, "assembly_modes": ["inline"], "text": "Redirected Fluo's proposed $5,000 instant credit line into a secured-card-to-unsecured-credit ladder after showing demand concentrated among students with the least repayment capacity under F-1 work limits."}
+      ]
+    },
+    "P-FOUNDER": {
+      "incumbents": [
+        {"stable_id": "nonpm/p-founder/strategy-operating-model", "verdict": "retire", "replacement_id": ""},
+        {"stable_id": "nonpm/p-founder/commercial-positioning", "verdict": "retain", "replacement_id": ""},
+        {"stable_id": "nonpm/p-founder/segment-prioritization", "verdict": "retain", "replacement_id": ""}
+      ],
+      "recommended_variants": [
+        {"variant_id": "nonpm/p-founder/segment-prioritization", "status": "incumbent", "use_case": "customer segmentation and GTM sequencing", "archetype": "context", "text": "Advised a cloud startup founder on which customer segments to prioritize first; benchmarked competitors, clarified target customers, and sequenced the go-to-market plan ahead of acquisition."},
+        {"variant_id": "nonpm/p-founder/commercial-positioning", "status": "incumbent", "use_case": "market positioning and early-adoption strategy", "archetype": "context", "text": "Advised a cloud startup founder on market positioning and early adoption strategy; benchmarked competitors, clarified target customers, and refined the go-to-market plan ahead of acquisition."}
+      ]
+    },
+    "P-GRAB": {
+      "incumbents": [
+        {"stable_id": "nonpm/p-grab/mobility-safety", "verdict": "retire", "replacement_id": ""}
+      ],
+      "recommended_variants": []
+    },
+    "P-LOREAL": {
+      "incumbents": [
+        {"stable_id": "nonpm/p-loreal/workflow-diagnostic", "verdict": "retain", "replacement_id": ""},
+        {"stable_id": "nonpm/p-loreal/ai-automation", "verdict": "retire", "replacement_id": ""},
+        {"stable_id": "nonpm/p-loreal/evaluation-framework", "verdict": "retain", "replacement_id": ""}
+      ],
+      "recommended_variants": [
+        {"variant_id": "nonpm/p-loreal/workflow-diagnostic", "status": "incumbent", "use_case": "workflow diagnosis and executive AI recommendations", "archetype": "diagnostic", "text": "Mapped creative workflow bottlenecks across 2 L'Oréal business units; translated them into 3 GenAI automation recommendations for executive review."},
+        {"variant_id": "nonpm/p-loreal/evaluation-framework", "status": "incumbent", "use_case": "AI-tool evaluation methodology and prioritization", "archetype": "action", "text": "Mapped creative workflows across 2 L'Oréal business units and built a framework to evaluate GenAI tools, prioritizing 3 automation recommendations for executive review."}
+      ]
+    },
+    "H-QUERY": {
+      "incumbents": [
+        {"stable_id": "pm/h-query/analytics-tools", "verdict": "retain", "replacement_id": ""},
+        {"stable_id": "pm/h-query/product-discovery", "verdict": "retain", "replacement_id": ""}
+      ],
+      "recommended_variants": [
+        {"variant_id": "pm/h-query/product-discovery", "status": "incumbent", "use_case": "product discovery and on-call investigation workflow", "archetype": "diagnostic", "text": "Identified that engineers managing 10,000+ pipelines lacked fast, reliable triage tooling; built a filtering framework adopted across all Hevo 2.0 dashboards, cutting query latency 50% and making it the default pipeline investigation entry point."},
+        {"variant_id": "pm/h-query/analytics-tools", "status": "incumbent", "use_case": "analytics tooling and data-platform technical depth", "archetype": "action", "text": "Shipped a reusable query and filtering framework adopted across all Hevo 2.0 dashboards, cutting query latency 50% via MongoDB index redesign; enabled on-call engineers to filter by Error Type and Source across 10,000+ pipeline environments."}
+      ]
+    },
+    "H-REGRESSION": {
+      "incumbents": [
+        {"stable_id": "pm/h-regression/execution-velocity", "verdict": "replace", "replacement_id": "H-REGRESSION-amazon-shared-release"},
+        {"stable_id": "pm/h-regression/platform-quality", "verdict": "replace", "replacement_id": "H-REGRESSION-amazon-shared-release"}
+      ],
+      "recommended_variants": [
+        {"variant_id": "H-REGRESSION-amazon-shared-release", "status": "known_gold", "use_case": "cross-team execution, release governance, and delivery velocity", "archetype": "action", "text": "Cut release cycles from 14 to 4 days by establishing a shared release mechanism across 4 engineering teams; automated regression gates replaced manual QA sign-off and caught integration/schema-contract failures pre-QA, shipping enterprise fixes 3× faster."}
+      ]
+    },
+    "H-SUPPORT-OPS": {
+      "incumbents": [
+        {"stable_id": "nonpm/h-support-ops/cluster-a-operating-model-reframe", "verdict": "retain", "replacement_id": ""},
+        {"stable_id": "nonpm/h-support-ops/cluster-b-sla-governance-model", "verdict": "replace", "replacement_id": "h-support-ops-resolution-ownership"},
+        {"stable_id": "nonpm/h-support-ops/cluster-b-governance-delivery", "verdict": "replace", "replacement_id": "h-support-ops-resolution-ownership"},
+        {"stable_id": "nonpm/h-support-ops/support-only-escalation-ownership", "verdict": "retire", "replacement_id": ""}
+      ],
+      "recommended_variants": [
+        {"variant_id": "h-support-ops-resolution-ownership", "status": "challenger", "use_case": "operations execution and measured issue-resolution improvement", "archetype": "action", "text": "Cut enterprise issue-resolution time 30% by replacing ad hoc Support-to-Engineering handoffs with severity-based routing and named ownership by incident tier."},
+        {"variant_id": "nonpm/h-support-ops/cluster-a-operating-model-reframe", "status": "incumbent", "use_case": "strategy and operating-model diagnosis", "archetype": "diagnostic", "text": "Reframed recurring escalations as an ownership-design gap between Support and Engineering; introduced severity-based intake rules and clearer escalation paths for enterprise incidents."}
+      ]
+    }
+  }
+}

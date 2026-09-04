@@ -1,0 +1,189 @@
+{
+  "schema_version": "2026-09-02.1",
+  "fixture_id": "studyfetch-builder-discovery-2026-09-01",
+  "fixture_status": "approved-gold",
+  "target": "StudyFetch Product Intern, Fall 2026",
+  "source_artifact": {
+    "path": "apps/Apply queues/current_apply_queue/jobs/13_08-26_CARRY_92_StudyFetch/Product_Intern/Akshat_Pathak_StudyFetch_Resume_2026-09-01_v4.docx",
+    "sha256": "7a10425ac61c2246030ecd77ad0bdd41cecb533b389587109b57a7a3635e1980",
+    "extracted_from": "docx",
+    "text_authority": true
+  },
+  "layout_reference": {
+    "path": "apps/Apply queues/current_apply_queue/jobs/13_08-26_CARRY_92_StudyFetch/Product_Intern/Akshat's Resume.pdf",
+    "sha256": "d5a808894a2db76df64efbd4b234cf146227c56c0ec7f3aeb4347393c1e635a2",
+    "rendered_text_fixture": "tests/fixtures/resume_gold/studyfetch_builder_discovery_2026-09-01_pdftotext.txt",
+    "rendered_text_sha256": "f0eda70d81e7df4473ceccc45d9921b00dcea031985f6ca5c2aa9b1f2f319f32",
+    "approved_page_count": 1,
+    "bundled_libreoffice_docx_page_count": 1,
+    "portability_note": "The final v4 DOCX and user-facing PDF both render as one page under the bundled document workflow."
+  },
+  "profile_id": "product-ai-zero-to-one",
+  "supporting_proof": {
+    "mode": "project-replacement",
+    "reason": "top-criterion-evidence",
+    "project_bullet_count": 3,
+    "replaced_experience_count": 2
+  },
+  "header": {
+    "name": "AKSHAT PATHAK",
+    "contact_line": "Los Angeles, CA • Akshat.Pathak.2027@marshall.usc.edu • (213) 325-0609 • linkedin.com/in/akshats-pathak"
+  },
+  "identity_heading": "PRODUCT MANAGEMENT",
+  "summary_mode": "identity-plus-differentiator",
+  "summary_text": "Product manager and engineer with five years turning customer and usage signals into shipped AI, marketplace, and data products. Independently built an AI recruiting engine for my own search that turns live job and relationship signals into the next application or conversation worth pursuing.",
+  "summary_sha256": "0d2803f83557c9c4e4da4321c9f16ccbf037eac804bb021b87e3c64edfb40663",
+  "education": [
+    {
+      "institution": "University of Southern California, Marshall School of Business",
+      "location": "Los Angeles, CA",
+      "date": "May 2027",
+      "degree": "Master of Business Administration (STEM)",
+      "details": [
+        "Honors: Dean’s Merit Scholarship",
+        "Leadership: AVP Alumni Relations, South Asian Business Association; AVP External Relations, High Tech Association"
+      ]
+    },
+    {
+      "institution": "Thapar Institute of Engineering and Technology",
+      "location": "Patiala, India",
+      "date": "August 2020",
+      "degree": "Bachelor of Engineering, Computer Engineering — GPA 3.73",
+      "details": [
+        "Honors: Merit Scholarship (2×); Published AI-based Fake News Detection research (Springer, 2020; 90+ citations)",
+        "Leadership: General Secretary, Creative Computing Society – drove 1,000+ participants and secured $30K in sponsorships"
+      ]
+    }
+  ],
+  "experience": [
+    {
+      "company": "FlairX AI",
+      "descriptor": "AI-first interview and hiring platform",
+      "location": "San Francisco, CA",
+      "date": "Jun 2026 – Aug 2026",
+      "title": "AI Product Manager Intern",
+      "bullet_variant_ids": [
+        "F-ENTERPRISE-studyfetch-design-delivery",
+        "F-AVATAR-shared-provider-unit-economics"
+      ]
+    },
+    {
+      "company": "Gojek",
+      "descriptor": "SE Asia ride-hailing super app serving 20M+ riders",
+      "location": "Gurgaon, India",
+      "date": "Jan 2025 – Jul 2025",
+      "title": "Product Owner, Marketplace",
+      "bullet_variant_ids": [
+        "G-PRICING-studyfetch-wtp-experiment",
+        "G-LATENCY-studyfetch-readable-tradeoff"
+      ]
+    },
+    {
+      "company": "Hevo Data",
+      "descriptor": "Sequoia-backed ELT data platform",
+      "location": "Bengaluru, India",
+      "date": "Nov 2023 – Jan 2025",
+      "title": "Product Owner, Data Platform",
+      "bullet_variant_ids": [
+        "H-MONITORING-studyfetch-ai-incident-cards",
+        "H-BATCHSHIFT-studyfetch-verifiable-correctness"
+      ]
+    },
+    {
+      "company": "Intuit",
+      "descriptor": "QuickBooks Online, MSE: Monetization Services & Experiences",
+      "location": "Bengaluru, India",
+      "date": "Aug 2022 – Oct 2023",
+      "title": "Software Engineer 2",
+      "bullet_variant_ids": [
+        "I-BILLING-studyfetch-cancellation-diagnosis"
+      ]
+    },
+    {
+      "company": "Optum",
+      "descriptor": "health-tech & data-analytics arm of UnitedHealth Group",
+      "location": "Gurgaon, India",
+      "date": "Jul 2020 – Aug 2022",
+      "title": "Software Engineer",
+      "bullet_variant_ids": [
+        "O-AFFORDABILITY-studyfetch-ml-prototype"
+      ]
+    }
+  ],
+  "projects": [
+    {
+      "project": "Recruiting Engine",
+      "descriptor": "independent AI product",
+      "date": "Apr 2026 – Present",
+      "bullet_variant_ids": [
+        "RDE-OUTCOME-studyfetch-end-to-end-results",
+        "RDE-TRUST-studyfetch-live-failure-safeguard"
+      ]
+    },
+    {
+      "project": "Fluo",
+      "descriptor": "pre-seed product for international students",
+      "date": "Jun 2026 – Present",
+      "bullet_variant_ids": [
+        "FL-FIELD-VALIDATION-studyfetch-closed-loop"
+      ]
+    }
+  ],
+  "inline_proof_variant_ids": [],
+  "community_variant_ids": [
+    "NIVEDA-studyfetch-mobile-school"
+  ],
+  "skills_heading": "SKILLS & INTERESTS",
+  "skills_rows": [
+    {
+      "label": "Product & Discovery",
+      "text": "Customer Interviews, Research Synthesis, Problem Framing, Rapid Prototyping, Requirements Definition"
+    },
+    {
+      "label": "Analytics",
+      "text": "SQL, Funnel, Cohort & Retention Analysis, A/B Testing, KPI Design; Tableau, Excel"
+    },
+    {
+      "label": "Build & Design",
+      "text": "Python, Figma, Wireframing, AI-assisted Development, APIs; Jira, Confluence"
+    },
+    {
+      "label": "Community",
+      "variant_id": "NIVEDA-studyfetch-mobile-school"
+    },
+    {
+      "label": "Interests",
+      "text": "Strength training, house DJing, behavioral psychology, astrophysics, and Himalayan trekking"
+    }
+  ],
+  "expected_counts": {
+    "experience_bullets": 8,
+    "project_bullets": 3,
+    "inline_proof_bullets": 0,
+    "community_proof_bullets": 1
+  },
+  "expected_company_allocation": {
+    "FlairX AI": 2,
+    "Gojek": 2,
+    "Hevo Data": 2,
+    "Intuit": 1,
+    "Optum": 1
+  },
+  "expected_findings": [
+    "The independent-build criterion receives first-class proof in the summary and Projects rather than a Skills keyword.",
+    "Exactly eight Experience bullets preserve the five-company corporate spine while three Project bullets replace lower-marginal corporate evidence.",
+    "Recruiting Engine carries both the end-to-end outcome and the operated-product failure-and-recovery signal.",
+    "Fluo closes a customer-interview, behavioral-data, diagnosis, and next-test loop.",
+    "Niveda supplies mission-relevant education evidence without displacing product proof."
+  ],
+  "expected_lint": {
+    "approved_pdf": {
+      "blockers": [],
+      "warnings": [
+        "BULLET_DENSITY_HIGH",
+        "FIGURE_REPEATED_ACROSS_COMPANIES"
+      ],
+      "note": "The final one-page PDF is release-ready; warnings are explicit editorial observations, not averaged-away defects."
+    }
+  }
+}

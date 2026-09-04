@@ -1,0 +1,261 @@
+{
+  "schema_version": "2026-09-03.1",
+  "batch_id": "batch-c-hevo-intuit-optum",
+  "mode": "review-only",
+  "live_wiring": false,
+  "canonical_decisions_file": "CANONICAL_STORY_DECISIONS_2026-09-03.json",
+  "coverage_contract": "Every live incumbent in the six audited semantic families appears exactly once under incumbents. Approved gold records are listed separately and are not double-counted as live incumbents.",
+  "families": {
+    "H-MONITORING": {
+      "canonical_default_id": "H-MONITORING-canonical-ai-boundary",
+      "recommended_variants": [
+        {
+          "variant_id": "H-MONITORING-canonical-ai-boundary",
+          "priority": 1,
+          "status": "challenger_accept",
+          "use_case": "default AI product, data-platform, and operational decision-support proof",
+          "archetype": "action",
+          "text": "Shipped an AI monitoring surface that turned alert storms into single incident cards; kept detection deterministic and used GenAI over a 20+ failure taxonomy to rank recovery actions, cutting diagnosis from 45 to under 5 minutes across 120K+ pipelines."
+        },
+        {
+          "variant_id": "H-MONITORING-studyfetch-ai-incident-cards",
+          "priority": 2,
+          "status": "approved_gold",
+          "use_case": "compact AI product rendering when the deterministic boundary is not a funded criterion",
+          "archetype": "action",
+          "text": "Shipped an AI-powered monitoring surface to replace manual alert triage; used a GenAI synthesizer and a 20+ failure taxonomy to consolidate alert storms into single incident cards, cutting triage time from 45 to under 5 minutes across 120K+ pipelines."
+        },
+        {
+          "variant_id": "H-ENTERPRISE-EVIDENCE-audit-ready-run-history",
+          "priority": 3,
+          "status": "challenger_accept",
+          "use_case": "enterprise product roles emphasizing buyer evidence, auditability, and evaluation workflows",
+          "archetype": "diagnostic",
+          "text": "Noticed enterprise evaluators using an internal debugging view as trial evidence; rebuilt it as an audit-ready run history, cutting failure identification time 40% across 120K+ pipelines."
+        }
+      ],
+      "incumbents": [
+        {"stable_id": "pm/h-monitoring/trial-conversion", "verdict": "replace", "replacement_id": "H-ENTERPRISE-EVIDENCE-audit-ready-run-history"},
+        {"stable_id": "pm/h-monitoring/debugging-reframe", "verdict": "replace", "replacement_id": "H-ENTERPRISE-EVIDENCE-audit-ready-run-history"},
+        {"stable_id": "pm/h-monitoring/feature-ownership", "verdict": "replace", "replacement_id": "H-ENTERPRISE-EVIDENCE-audit-ready-run-history"},
+        {"stable_id": "pm/h-monitoring/customer-trust", "verdict": "replace", "replacement_id": "H-ENTERPRISE-EVIDENCE-audit-ready-run-history"},
+        {"stable_id": "pm/h-monitoring/reliability-product", "verdict": "retire_dominated", "replacement_id": null},
+        {"stable_id": "pm/h-monitoring-ai/ai-monitoring-product", "verdict": "retain_exact", "replacement_id": "H-MONITORING-studyfetch-ai-incident-cards"},
+        {"stable_id": "pm/h-monitoring-ai/ai-reliability-product", "verdict": "replace", "replacement_id": "H-MONITORING-canonical-ai-boundary"},
+        {"stable_id": "nonpm/h-monitoring/cluster-a-operator-decision-surface", "verdict": "replace", "replacement_id": "H-MONITORING-canonical-ai-boundary"},
+        {"stable_id": "nonpm/h-monitoring/cluster-a-trust-surface", "verdict": "retire_dominated", "replacement_id": null},
+        {"stable_id": "nonpm/h-monitoring/cluster-a-workflow-visibility", "verdict": "replace", "replacement_id": "H-MONITORING-canonical-ai-boundary"},
+        {"stable_id": "nonpm/h-monitoring/cluster-a-evaluation-surface", "verdict": "retire_dominated", "replacement_id": null},
+        {"stable_id": "nonpm/h-monitoring/cluster-b-incident-surface", "verdict": "retire_dominated", "replacement_id": null},
+        {"stable_id": "nonpm/h-monitoring/cluster-b-alert-routing", "verdict": "retire_dominated", "replacement_id": null}
+      ],
+      "approved_gold": ["H-MONITORING-studyfetch-ai-incident-cards"]
+    },
+    "I-BILLING": {
+      "canonical_default_id": "I-BILLING-canonical-renewal-integrity",
+      "recommended_variants": [
+        {
+          "variant_id": "I-BILLING-canonical-renewal-integrity",
+          "priority": 1,
+          "status": "challenger_accept",
+          "use_case": "default product, strategy, and revenue-integrity proof",
+          "archetype": "diagnostic",
+          "text": "Traced silent SMB cancellations to billing mismatches across five systems; built a reconciliation model for 80K+ businesses and a financial case that shifted the roadmap from feature delivery to billing integrity, lifting renewals 10%."
+        },
+        {
+          "variant_id": "I-BILLING-studyfetch-cancellation-diagnosis",
+          "priority": 2,
+          "status": "approved_gold",
+          "use_case": "the same roadmap-pivot criterion under a compact two-line budget",
+          "archetype": "diagnostic",
+          "text": "Traced SMB cancellations to billing accuracy failures, not product gaps; designed a cross-system reconciliation framework and presented the financial impact to senior leadership, securing a roadmap pivot from feature velocity to auditability."
+        },
+        {
+          "variant_id": "I-DATA-JOIN-revenue-protection",
+          "priority": 3,
+          "status": "challenger_accept",
+          "use_case": "analytics-led product discovery connecting siloed usage and commercial signals",
+          "archetype": "diagnostic",
+          "text": "Joined billing-event logs with subscription lifecycle data to uncover invoice errors behind silent SMB cancellations; reframed accuracy as revenue protection and secured a roadmap shift from feature delivery to reconciliation."
+        }
+      ],
+      "incumbents": [
+        {"stable_id": "pm/i-billing/churn-renewal", "verdict": "replace", "replacement_id": "I-BILLING-canonical-renewal-integrity"},
+        {"stable_id": "pm/i-billing/trust-reliability", "verdict": "retire_dominated", "replacement_id": null},
+        {"stable_id": "pm/i-billing/exec-presentation", "verdict": "replace", "replacement_id": "I-BILLING-canonical-renewal-integrity"},
+        {"stable_id": "pm/i-billing/roadmap-pivot", "verdict": "replace", "replacement_id": "I-DATA-JOIN-revenue-protection"},
+        {"stable_id": "pm/i-billing/financial-case", "verdict": "retire_dominated", "replacement_id": null},
+        {"stable_id": "nonpm/i-reconciliation/cluster-a-revenue-integrity-anchor", "verdict": "replace", "replacement_id": "I-BILLING-canonical-renewal-integrity"},
+        {"stable_id": "nonpm/i-reconciliation/cluster-a-commercial-risk-diagnostic", "verdict": "replace", "replacement_id": "I-BILLING-canonical-renewal-integrity"},
+        {"stable_id": "nonpm/i-reconciliation/cluster-a-cancellation-trigger", "verdict": "replace", "replacement_id": "I-BILLING-canonical-renewal-integrity"},
+        {"stable_id": "nonpm/i-reconciliation/cluster-b-data-consistency-framework", "verdict": "retire_dominated", "replacement_id": null},
+        {"stable_id": "nonpm/i-reconciliation/cluster-b-billing-backbone", "verdict": "retire_dominated", "replacement_id": null}
+      ],
+      "approved_gold": [
+        "I-BILLING-amazon-diagnosis-roadmap",
+        "I-BILLING-studyfetch-cancellation-diagnosis"
+      ]
+    },
+    "I-GOVERNANCE": {
+      "canonical_default_id": "I-GOVERNANCE-canonical-risk-sequencing",
+      "recommended_variants": [
+        {
+          "variant_id": "I-GOVERNANCE-canonical-risk-sequencing",
+          "priority": 1,
+          "status": "challenger_accept",
+          "use_case": "strategy and consulting roles testing non-obvious diagnosis and prioritization",
+          "archetype": "diagnostic",
+          "text": "Reframed delivery drag as a sequencing problem across 8 teams; built a risk-tiered prioritization model for 20K+ issues that improved throughput 25%."
+        },
+        {
+          "variant_id": "I-RISK-SEQUENCING-ops-action",
+          "priority": 2,
+          "status": "challenger_accept",
+          "use_case": "program and operations roles emphasizing an owned governance mechanism and throughput",
+          "archetype": "action",
+          "text": "Built a risk-tiered triage model for a 20K+ issue backlog across 8 teams, prioritizing highest-risk work and improving delivery throughput 25%."
+        }
+      ],
+      "incumbents": [
+        {"stable_id": "nonpm/i-governance/cluster-a-sequencing-reframe", "verdict": "replace", "replacement_id": "I-GOVERNANCE-canonical-risk-sequencing"},
+        {"stable_id": "nonpm/i-governance/cluster-a-governance-diagnostic", "verdict": "retire_dominated", "replacement_id": null},
+        {"stable_id": "nonpm/i-governance/cluster-b-throughput-governance", "verdict": "replace", "replacement_id": "I-RISK-SEQUENCING-ops-action"},
+        {"stable_id": "nonpm/i-governance/cluster-b-governance-model", "verdict": "replace", "replacement_id": "I-RISK-SEQUENCING-ops-action"},
+        {"stable_id": "nonpm/i-governance/support-only-risk-prioritization", "verdict": "retire_dominated", "replacement_id": null}
+      ],
+      "approved_gold": []
+    },
+    "I-INCIDENT": {
+      "canonical_default_id": "I-INCIDENT-canonical-parallel-recovery",
+      "recommended_variants": [
+        {
+          "variant_id": "I-INCIDENT-canonical-parallel-recovery",
+          "priority": 1,
+          "status": "challenger_accept",
+          "use_case": "incident leadership and operations roles emphasizing execution speed under pressure",
+          "archetype": "action",
+          "text": "Led recovery after billing-state errors canceled subscriptions for 1,500+ businesses; ran fix-writing and QA validation in parallel, cutting resolution from days to hours."
+        },
+        {
+          "variant_id": "I-UNEVEN-RECOVERY-cohort-ledger",
+          "priority": 2,
+          "status": "challenger_accept",
+          "use_case": "product judgment roles testing safe segmentation when one rollback cannot serve every customer",
+          "archetype": "action",
+          "text": "Rejected a blanket rollback after a billing failure canceled subscriptions for 1,500+ businesses; built a shared account-state ledger with restore, rebuild, and refund cohorts so Engineering, Finance, and Support could recover each account safely."
+        },
+        {
+          "variant_id": "I-RECOVERY-CONTROL-state-owner-promise",
+          "priority": 3,
+          "status": "challenger_accept",
+          "use_case": "cross-functional program roles emphasizing recovery controls, ownership, and coordination",
+          "archetype": "action",
+          "text": "Built one recovery ledger for 1,500+ affected businesses, assigning each account a state, owner, next action, and promise time; aligned Engineering, Finance, and Support on restore, rebuild, or refund paths."
+        }
+      ],
+      "incumbents": [
+        {"stable_id": "pm/i-incident/financial-risk", "verdict": "replace", "replacement_id": "I-INCIDENT-canonical-parallel-recovery"},
+        {"stable_id": "pm/i-incident/crisis-management", "verdict": "replace", "replacement_id": "I-INCIDENT-canonical-parallel-recovery"},
+        {"stable_id": "pm/i-incident/churn-defense", "verdict": "retire_dominated", "replacement_id": null},
+        {"stable_id": "pm/i-incident/stakeholder-coord", "verdict": "retire_dominated", "replacement_id": null},
+        {"stable_id": "nonpm/i-incident/cluster-a-recommendation-brief", "verdict": "replace", "replacement_id": "I-RECOVERY-CONTROL-state-owner-promise"},
+        {"stable_id": "nonpm/i-incident/cluster-a-account-priority-brief", "verdict": "replace", "replacement_id": "I-RECOVERY-CONTROL-state-owner-promise"},
+        {"stable_id": "nonpm/i-incident/cluster-a-incident-synthesis", "verdict": "retire_dominated", "replacement_id": null},
+        {"stable_id": "nonpm/i-incident/cluster-a-executive-recommendation", "verdict": "retire_dominated", "replacement_id": null},
+        {"stable_id": "nonpm/i-incident/cluster-b-incident-command", "verdict": "retire_dominated", "replacement_id": null},
+        {"stable_id": "nonpm/i-incident/cluster-b-cross-functional-coordination", "verdict": "replace", "replacement_id": "I-INCIDENT-canonical-parallel-recovery"}
+      ],
+      "approved_gold": ["I-INCIDENT-amazon-parallel-response"]
+    },
+    "O-AFFORDABILITY": {
+      "recommended_variants": [
+        {
+          "variant_id": "O-SAFE-ACTION-flag-suggest-stop",
+          "priority": 1,
+          "status": "challenger_accept",
+          "use_case": "responsible-AI and healthcare product roles emphasizing human review and bounded rollout",
+          "archetype": "action",
+          "text": "Won pilot approval after clinicians pushed back on a standalone affordability score; reframed it as flag-and-suggest with navigator review and a 90-day automatic stop if outcomes trailed control."
+        },
+        {
+          "variant_id": "O-INTERVENTION-TIMING-pre-appointment",
+          "priority": 2,
+          "status": "challenger_accept",
+          "use_case": "product discovery roles emphasizing intervention timing and action-path design",
+          "archetype": "diagnostic",
+          "text": "Reframed affordability support from post-claim outreach to pre-appointment action; built a risk model with a tiered path from in-app cost prompts to navigator or social-work support, advancing the product to pilot."
+        },
+        {
+          "variant_id": "O-AFFORDABILITY-prototype-clinical-approval",
+          "priority": 3,
+          "status": "challenger_accept",
+          "use_case": "builder and junior AI-product roles emphasizing rapid prototyping and evaluation design",
+          "archetype": "action",
+          "text": "Prototyped an ML-based affordability engine with feature inputs, evaluation metrics and a deployment workflow; secured pilot approval from clinical leaders through Optum's global innovation program."
+        },
+        {
+          "variant_id": "nonpm/o-affordability/cluster-b-hackathon-impact",
+          "priority": 4,
+          "status": "incumbent",
+          "use_case": "innovation and early-career roles where competitive achievement is a funded criterion",
+          "archetype": "impact-first",
+          "text": "Won Optum's global hackathon by designing an AI affordability workflow that flagged high out-of-pocket risk and routed members toward lower-cost care pathways, advancing to pilot."
+        }
+      ],
+      "incumbents": [
+        {"stable_id": "nonpm/o-affordability/cluster-a-ai-workflow-design", "verdict": "replace", "replacement_id": "O-INTERVENTION-TIMING-pre-appointment"},
+        {"stable_id": "nonpm/o-affordability/cluster-a-pilot-decision-workflow", "verdict": "replace", "replacement_id": "O-SAFE-ACTION-flag-suggest-stop"},
+        {"stable_id": "nonpm/o-affordability/cluster-a-decision-workflow", "verdict": "replace", "replacement_id": "O-INTERVENTION-TIMING-pre-appointment"},
+        {"stable_id": "nonpm/o-affordability/cluster-a-adoption-aware-workflow", "verdict": "replace", "replacement_id": "O-SAFE-ACTION-flag-suggest-stop"},
+        {"stable_id": "nonpm/o-affordability/cluster-b-hackathon-impact", "verdict": "retain_exact", "replacement_id": "nonpm/o-affordability/cluster-b-hackathon-impact"},
+        {"stable_id": "nonpm/o-affordability/cluster-b-ai-solution-delivery", "verdict": "retire_dominated", "replacement_id": null}
+      ],
+      "approved_gold": []
+    },
+    "O-PROVIDER": {
+      "recommended_variants": [
+        {
+          "variant_id": "O-INTEGRATION-FACTORY-reusable-core",
+          "priority": 1,
+          "status": "challenger_accept",
+          "use_case": "platform product roles emphasizing productization and reusable integration architecture",
+          "archetype": "diagnostic",
+          "text": "Found 80% of transformation logic repeated across three failed provider integrations; built a reusable mapping core with typed exceptions, cutting custom engineering from 12–14 weeks to 2 and total onboarding from 6 months to 10 weeks."
+        },
+        {
+          "variant_id": "O-CLINICAL-OWNERSHIP-coverage-escalation",
+          "priority": 2,
+          "status": "challenger_accept",
+          "use_case": "regulated client-delivery roles emphasizing cross-functional ownership and member access",
+          "archetype": "diagnostic",
+          "text": "Reframed a stalled provider integration as a member-access gap, bringing Clinical Operations in to own disputed care definitions; resolved the first schema dispute in 3 days and completed onboarding in 10 weeks versus 6 months."
+        },
+        {
+          "variant_id": "O-PROVIDER-amazon-schema-integration",
+          "priority": 3,
+          "status": "approved_gold",
+          "use_case": "customer-technical roles emphasizing integration diagnosis and delivery acceleration",
+          "archetype": "diagnostic",
+          "text": "Unblocked a stalled provider integration by diagnosing a schema mismatch between legacy XML and Optum's REST APIs; designed a custom transformation layer that cut onboarding time from 6 months to 10 weeks."
+        },
+        {
+          "variant_id": "O-MARKET-GAP-member-opportunity",
+          "priority": 4,
+          "status": "challenger_accept",
+          "use_case": "strategy and market-sizing roles emphasizing opportunity diagnosis and recommendation",
+          "archetype": "diagnostic",
+          "text": "Mapped provider-network gaps across a 50M-member footprint to identify underserved markets and shape a provider-expansion recommendation around a ~$20M+ addressable annual revenue opportunity."
+        }
+      ],
+      "incumbents": [
+        {"stable_id": "nonpm/o-provider/cluster-a-expansion-constraint", "verdict": "replace", "replacement_id": "O-MARKET-GAP-member-opportunity"},
+        {"stable_id": "nonpm/o-provider/cluster-a-market-entry-recommendation", "verdict": "replace", "replacement_id": "O-MARKET-GAP-member-opportunity"},
+        {"stable_id": "nonpm/o-provider/cluster-a-segment-prioritization", "verdict": "retire_dominated", "replacement_id": null},
+        {"stable_id": "nonpm/o-provider/cluster-b-network-integration", "verdict": "replace", "replacement_id": "O-PROVIDER-amazon-schema-integration"},
+        {"stable_id": "nonpm/o-provider/cluster-b-access-expansion", "verdict": "replace", "replacement_id": "O-CLINICAL-OWNERSHIP-coverage-escalation"},
+        {"stable_id": "nonpm/o-provider/support-only-market-gap-sizing", "verdict": "retire_dominated", "replacement_id": null}
+      ],
+      "approved_gold": ["O-PROVIDER-amazon-schema-integration"]
+    }
+  }
+}

@@ -8,6 +8,7 @@ from shared.resume_lint import (
     ExperienceBlock,
     ExperienceBullet,
     LintSeverity,
+    ProjectBlock,
     SkillRow,
     issue_codes,
     lint_assembled_resume,
@@ -15,6 +16,9 @@ from shared.resume_lint import (
 from shared.resume_profiles import (
     BulletBudgetDecision,
     ExperienceAllocationPlan,
+    PageProofPlan,
+    SupportingProofMode,
+    SupportingProofReason,
 )
 
 
@@ -27,6 +31,11 @@ def _rendered_text(document: AssembledResume) -> str:
     for block in document.experience_blocks:
         lines.append(f"{block.company} | {block.title} | {block.date_text}")
         lines.extend(f"• {bullet.text}" for bullet in block.bullets)
+    if document.project_blocks:
+        lines.append("PROJECTS")
+        for block in document.project_blocks:
+            lines.append(f"{block.name} | {block.descriptor}")
+            lines.extend(f"• {bullet.text}" for bullet in block.bullets)
     lines.append(document.skills_heading)
     lines.extend(f"{row.label}: {row.text}" for row in document.skill_rows)
     return "\n".join(lines)
@@ -242,6 +251,74 @@ def test_quality_compact_nine_bullet_plan_does_not_backfill_a_tenth():
     assert "TOTAL_BULLET_COUNT_MISMATCH" not in issue_codes(report)
 
 
+def test_top_criterion_project_replacement_is_linted_as_page_wide_proof():
+    document = _good_resume()
+    gojek = next(block for block in document.experience_blocks if block.company == "GOJEK")
+    intuit = next(block for block in document.experience_blocks if block.company == "INTUIT")
+    document = _replace_block(document, "GOJEK", gojek.bullets[:2])
+    document = _replace_block(document, "INTUIT", intuit.bullets[:1])
+
+    experience = ExperienceAllocationPlan(
+        profile_id="product-general",
+        company_counts=(
+            ("FLAIRX AI", 2),
+            ("GOJEK", 2),
+            ("HEVO DATA", 2),
+            ("INTUIT", 1),
+            ("OPTUM", 1),
+        ),
+    )
+    projects = (
+        ProjectBlock(
+            "Recruiting Decision Engine",
+            "Independent AI product",
+            (
+                _bullet(
+                    "Built an end-to-end recruiting product that ranks opportunities and routes tailored action.",
+                    "action",
+                ),
+                _bullet(
+                    "Halted a live outreach batch after a mismatched recipient exposed a trust gap; rebuilt every send path around evidence and approval.",
+                    "context",
+                ),
+            ),
+        ),
+        ProjectBlock(
+            "Fluo",
+            "International-student fintech",
+            (
+                _bullet(
+                    "Diagnosed an offer-discovery gap through 60 student interviews and designed a receipt-verified demand test.",
+                    "diagnostic",
+                ),
+            ),
+        ),
+    )
+    proof_plan = PageProofPlan(
+        profile_id="product-general",
+        experience_plan=experience,
+        mode=SupportingProofMode.PROJECT_REPLACEMENT,
+        reason=SupportingProofReason.TOP_CRITERION_EVIDENCE,
+        project_bullet_count=3,
+        replaced_experience_count=2,
+    )
+    skill_rows = document.skill_rows[:-1] + (SkillRow("Interests", "DJing and trekking"),)
+    document = replace(
+        document,
+        allocation_plan=None,
+        proof_plan=proof_plan,
+        project_blocks=projects,
+        projects_text="",
+        skill_rows=skill_rows,
+        skills_heading="SKILLS & INTERESTS",
+        fluo_story_family="customer-insight",
+    )
+    document = replace(document, rendered_text=_rendered_text(document))
+    report = lint_assembled_resume(document, RELEASE_POLICY)
+    assert report.release_ready
+    assert report.blockers == ()
+
+
 def test_summary_metric_reuse_is_surfaced_without_rejecting_a_deliberate_flagship():
     document = _good_resume()
     summary = "Product manager who converted customer evidence into $1.2M in qualified pilots."
@@ -398,6 +475,24 @@ def test_skills_heading_reflects_an_explicit_interests_row_only():
     with_interests = replace(with_interests, rendered_text=_rendered_text(with_interests))
     assert "SKILLS_HEADING_INACCURATE" not in issue_codes(
         lint_assembled_resume(with_interests, RELEASE_POLICY)
+    )
+
+
+def test_exact_skill_token_repeated_across_rows_is_a_blocker():
+    document = _good_resume()
+    duplicate_rows = (
+        SkillRow("Product Leadership", "Roadmap Ownership, Experiment Design"),
+        SkillRow("Data & Analytics", "Funnel Analysis, experiment design"),
+        *document.skill_rows[2:],
+    )
+    document = replace(document, skill_rows=duplicate_rows)
+    document = replace(document, rendered_text=_rendered_text(document))
+
+    report = lint_assembled_resume(document, RELEASE_POLICY)
+
+    assert "SKILL_TOKEN_REPEATED_ACROSS_ROWS" in issue_codes(
+        report,
+        LintSeverity.BLOCKER,
     )
 
 

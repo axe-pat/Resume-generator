@@ -1,0 +1,63 @@
+                                                  AKSHAT PATHAK
+            Los Angeles, CA • Akshat.Pathak.2027@marshall.usc.edu • (213) 325-0609 • linkedin.com/in/akshats-pathak
+PRODUCT MANAGEMENT
+Product manager and engineer with five years owning technical products end to end: a $3.2M pricing launch on a marketplace serving
+20M+ riders, the AI interview infrastructure behind FlairX's enterprise pilots, and the platform bet that unblocked Hevo Data's Fortune
+500 trials.
+EDUCATION
+University of Southern California, Marshall School of Business – Los Angeles, CA                                 May 2027
+Master of Business Administration (STEM)
+   • Honors: Dean’s Merit Scholarship
+   • Leadership: AVP Alumni Relations, South Asian Business Association; AVP External Relations, High Tech Association
+
+Thapar Institute of Engineering and Technology – Patiala, India                                                    August 2020
+Bachelor of Engineering, Computer Engineering — GPA 3.73
+    • Honors: Merit Scholarship (2×); Published AI-based Fake News Detection research (Springer, 2020; 90+ citations)
+    • Leadership: General Secretary, Creative Computing Society – drove 1,000+ participants and secured $30K in sponsorships
+EXPERIENCE
+FlairX AI (AI-first interview and hiring platform) – San Francisco, CA                                        Jun 2026 – Aug 2026
+AI Product Manager Intern
+    • Unblocked $1.2M of enterprise pilots after Genpact refused to outsource final-round interviews; reframed the policy objection
+        as a workflow gap & led engineering and design to ship M365 panel scheduling with transcript-grounded AI scoring in 2 weeks.
+    • Rebuilt AI interview rendering onto swappable providers after a vendor's 20-minute cap ended hour-long enterprise rounds
+        mid-call; replaced a monthly platform fee with usage-only pricing, cutting cost per minute 70%.
+
+Gojek (SE Asia ride-hailing super app serving 20M+ riders) – Gurgaon, India                                     Jan 2025 – Jul 2025
+Product Owner, Marketplace
+    • Separated price-sensitive abandonment from quote-latency drop-off using funnel analysis, elasticity modelling and 20+ rider
+        interviews; launched a cost-tiered ride product which lifted conversion 9% and generated $3.2M in incremental revenue.
+    • Owned Gojek’s fleet integration platform and partner operating model from definition through launch; replaced bespoke builds
+        with a standardized API and validation workflow, growing supply 18% and cutting pickup ETAs by 1.5 minutes across
+        Singapore and Bali.
+    • Traded ±4% fare-quote accuracy for sub-second response by pre-caching pricing across 12 high-demand corridors, cutting
+        quote latency 70% and recovering ~28K monthly rides lost to abandonment.
+
+Hevo Data (Sequoia-backed ELT data platform) – Bengaluru, India                                                 Nov 2023 – Jan 2025
+Product Owner, Data Platform
+    • Drove Hevo 2.0's shift to a batch-first transactional model after Fortune 500 trials stalled on auditability, not feature depth;
+        traded streaming speed for verifiable correctness and clear failure boundaries, improving stability 45% and onboarding 8
+        enterprise customers in 90 days.
+    • Cut release cycles from 14 to 4 days by establishing a shared release mechanism across 4 engineering teams; automated
+        regression gates replaced manual QA sign-off and caught integration/schema-contract failures pre-QA, shipping enterprise
+        fixes 3× faster.
+
+Intuit (QuickBooks Online, MSE: Monetization Services & Experiences) – Bengaluru, India                             Aug 2022 – Oct 2023
+Software Engineer 2
+    • Diagnosed silent SMB cancellations as billing accuracy failures, not product gaps; designed reconciliation across three billing
+         services serving 80K+ businesses and presented the financial impact to senior leadership, securing a roadmap pivot from feature
+         velocity to auditability.
+    • Coordinated an 8-team incident response after lifecycle-state mismatches across billing services canceled subscriptions for
+         1,500+ businesses; ran fix-writing and validation in parallel rather than in sequence, cutting recovery from days to hours.
+
+Optum (health-tech & data-analytics arm of UnitedHealth Group) – Gurgaon, India                       Jul 2020 – Aug 2022
+Software Engineer
+    • Unblocked a stalled provider integration by diagnosing a schema mismatch between legacy XML and Optum's REST APIs;
+        designed a custom transformation layer that cut onboarding time from 6 months to 10 weeks.
+SKILLS & INTERESTS
+    •    Product & Business: Customer Discovery, Working Backwards, Product Strategy, Roadmaps, Pricing, Unit Economics, GTM
+    •    Analytics & Operations: SQL, Tableau, Excel, KPI Design, A/B Testing, Process Improvement, Incident Management
+    •    Technical: Python, APIs, AI/ML Workflows, AWS, Docker, Figma; Jira, Confluence
+    •    Startup Product: Concluded Fluo could not win a student after arrival, since arrivals trust peers over an app; closed a USC
+         program office partnership as the pre-arrival acquisition channel.
+    •    Community: Supported education for 400+ underserved children; led a volunteer team that raised $20K for an anti-human-
+         trafficking nonprofit.

@@ -148,6 +148,10 @@ IDENTIFYING ARCHETYPE FROM THE OPENER:
                     method: Built / Shipped / Designed / Launched / Drove /
                     Standardized / Introduced / Cut / Reshaped / Converted / Led /
                     Prototyped / Halted / Prioritized / Generated / Expanded.
+                    `Led` is permitted when the object itself is concrete and
+                    credentialing, such as a named product/workstream or recovery
+                    after a specific failure. Do NOT treat every `Led ...` opener
+                    as forbidden. Only the generic patterns named below are banned.
   Context-first:    Starts with a scope/goal statement that orients the reader before
                     moving to mechanism: "Expanded [goal] by [method]..." or a
                     scale/context framing like "Serving Fortune 500 data teams..."
@@ -216,7 +220,7 @@ Contrast test (for "not X but Y" phrases): Does this contrast reflect a belief
   the team was genuinely operating under, that this work overturned? If the
   contrast is logically entailed or tautological, it fails detection entirely.
   SECTION-LEVEL CAP: Only one "not X but Y" or "not X" phrase is allowed across
-  all 11 bullets. A second instance, even if individually valid, should be flagged
+  all {{BULLET_COUNT}} bullets. A second instance, even if individually valid, should be flagged
   as FORCED_CONTRAST.
 
 ──────────────────────────────────────────────────────────────────────────────
@@ -261,7 +265,10 @@ Assign null for score ≥ 8.
   FORBIDDEN_OPENER      — starts with a pattern from the forbidden opener list
                           ("Led cross-functional", "Managed the", "Partnered with",
                           "Collaborated with", "Worked with... to", "Drove X by
-                          aligning stakeholders", "Supported", "Coordinated")
+                          aligning stakeholders", "Supported", "Coordinated", or
+                          generic "Led the/a/an ..." scope claims). `Led Gojek's
+                          fleet integration platform...` and `Led recovery after
+                          [specific failure]...` are not forbidden by this rule.
 
   WRONG_ARCHETYPE       — archetype choice misrepresents the bullet's actual value
                           signal; see Archetype Evaluation section above
@@ -304,7 +311,7 @@ Assign null for score ≥ 8.
 
   REPETITIVE_FRAMING    — opening verb or framing echoes another bullet in the
                           same company block; OR a structural formula is applied
-                          across 4+ of the 11 bullets (signals template thinking)
+                          across 4+ of the {{BULLET_COUNT}} bullets (signals template thinking)
 
   MONOTONY              — a single company block has 3 or more consecutive
                           diagnostic openers (Identified / Diagnosed / Recognized /
@@ -321,7 +328,7 @@ Assign null for score ≥ 8.
 HOLISTIC SCORE
 ──────────────────────────────────────────────────────────────────────────────
 
-holistic_score = average of all 11 bullet scores, adjusted by:
+holistic_score = average of all {{BULLET_COUNT}} bullet scores, adjusted by:
 
 Per-bullet penalties (applied per occurrence):
   FORBIDDEN_OPENER:      -0.3 each
@@ -341,7 +348,7 @@ Section-level penalties (applied once each, flat):
     Name the company and the opener sequence in score_reasoning.
     This penalty is additive with REPETITIVE_FRAMING if both conditions fire.
   ACTION_COUNT_LOW: -0.3 if total action-first + impact-first openers across
-    all 11 bullets is fewer than 4. Count execution verbs (Built / Shipped /
+    all {{BULLET_COUNT}} bullets is fewer than 4. Count execution verbs (Built / Shipped /
     Launched / Designed / Introduced / Halted / Prioritized / Cut / Generated /
     Drove / Prototyped) and impact-first (metric-led) openers combined.
     Note the count in score_reasoning.
@@ -395,7 +402,7 @@ PROJECTS & CONSULTING (supporting proof only — may be absent)
 NARRATIVE COHERENCE (holistic observation — unscored)
 ──────────────────────────────────────────────────────────────────────────────
 
-After scoring all 11 bullets, step back and ask: does this section read as one
+After scoring all {{BULLET_COUNT}} bullets, step back and ask: does this section read as one
 coherent professional story, or as 11 disconnected achievements?
 
 Coherent means: the earned details, opener archetypes, and foregrounded metrics

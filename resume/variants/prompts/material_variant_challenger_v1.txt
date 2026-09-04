@@ -1,0 +1,203 @@
+AKSHAT PATHAK — MATERIAL VARIANT CHALLENGER
+============================================
+
+You are auditing one complete resume story family. Your job is not to polish
+every incumbent sentence. Your job is to recover the smallest set of materially
+different, exceptional variants that the evidence can support.
+
+Inputs:
+
+STORY ID
+{{STORY_ID}}
+
+STORY EVIDENCE
+{{STORY_EVIDENCE}}
+
+CURRENT SELECTABLE VARIANTS
+{{INCUMBENT_VARIANTS}}
+
+KNOWN GOLD OR REVIEWED SIBLINGS
+{{KNOWN_GOLD_VARIANTS}}
+
+CRITERIA THIS STORY MAY NEED TO PROVE
+{{CRITERION_CATALOG}}
+
+PAGE / PROFILE CONTEXTS
+{{PROFILE_CONTEXT}}
+
+CORE METHOD — CLAIM SPINE BEFORE WORDING
+
+1. Treat the story as an evidence graph, not as a sentence.
+2. Enumerate no more than four genuinely distinct claim spines:
+   trigger or observation -> judgment -> decision or artifact -> attributable consequence.
+3. State the single hiring question each spine proves. Topical relevance is not
+   enough; the evidence must directly answer that question.
+4. Lead with the scarcest causal atom: the insight, trade-off, shipped artifact,
+   ownership decision, or directly attributable result another candidate could
+   least easily reproduce.
+5. Use one decision or artifact and one earned detail. Do not inventory features,
+   tools, workflow stages, or every fact available.
+6. End on the strongest attributable consequence on that same causal path.
+   Prefer user/business behavior, then observed behavior, then a real decision or
+   organizational change, then quality/efficiency. Activity volume, architecture
+   size, and build counts are context, not outcomes, when a downstream result exists.
+7. Explicitly exclude attractive adjacent facts that belong to a different path.
+   Shared topic does not create causality.
+8. Compress by information role, not arbitrary character count. Protect the scarce
+   atom, decision, earned detail, and matched consequence. Remove adjacent outcomes,
+   architecture inventory, internal shorthand, and secondary currencies first.
+
+CRITICAL VETOES — A VARIANT FAILS IF ANY ANSWER IS NO
+
+- Is the underlying work material enough to deserve space on this resume?
+- Do all causal edges belong to this one story path?
+- Is Akshat's judgment or counterfactual ownership visible?
+- Does the decision/artifact answer the trigger or observation?
+- Does the consequence close the exact claim made at the start?
+- Can an outside recruiter understand what changed in one read?
+- Are all facts and numbers present in STORY EVIDENCE or an incumbent/reviewed
+  sibling? If not, do not write them.
+
+NON-REGRESSION COMPARISON
+
+- Compare within each hiring question, not by one averaged score.
+- The incumbent wins a tie.
+- A challenger replaces an incumbent only when every critical veto passes, it
+  creates at least one material improvement, and it causes no material loss in
+  stakes, causal integrity, ownership, outcome quality, outsider legibility, or
+  page-relative signal value.
+- Cleaner wording alone is not a material win.
+- A shorter variant wins only after material value is tied.
+- Keep two siblings only when they prove different hiring questions. The same
+  evidence reordered under a different opener is not a distinct variant.
+- A known gold sibling is a strong incumbent, not an untouchable answer. Challenge
+  it honestly and retain it unchanged when no candidate is materially better.
+- Never merge two partial variants to manufacture one impressive causal chain.
+
+EXHAUSTIVE RULEBOOK CARD — REQUIRED FOR EVERY CHALLENGER
+
+Do not sample whichever rules feel relevant. Complete all fifteen dimensions
+below for every candidate. Each dimension consolidates a named set of canonical
+rules; the checked-in coverage catalog maps every rule to exactly one owner.
+Use `not_applicable` only when the rule genuinely cannot apply to this story
+type, and explain why. A candidate marked `accept_challenger` cannot have a
+failed dimension.
+
+- materiality
+- criterion_and_scarce_signal
+- archetype_fit
+- single_story_spine
+- causal_closure
+- counterfactual_ownership
+- mechanism_specificity
+- earned_detail
+- attribution_and_outcome
+- outsider_legibility
+- cognitive_load
+- evidence_loop
+- rhetorical_integrity
+- fact_containment
+- family_non_regression
+
+After completing that semantic card, deterministic admission code separately
+checks the actual text for weak/forbidden openers, subordinate openers, known
+generic mechanisms, em dashes, parentheses, personal pronouns, forbidden filler,
+decorative metric openers, vague stakeholder nouns, fragment-list outcomes,
+trade-off wording, punctuation, and readability/cohesion proxies. Do not claim a
+proxy proves causal coherence; it only forces closer review.
+
+RENDERING RULE
+
+Render each surviving challenger as:
+
+  [scarcest causal atom] + [one decision/artifact with one earned detail]
+  + [strongest causally matched consequence]
+
+Use the canonical variant rulebook for punctuation, attribution, readability,
+archetype labels, and resume-level constraints. Those rules are necessary but not
+sufficient; checklist compliance is not evidence of material quality.
+
+OUTPUT
+
+Return only valid JSON. Do not use markdown fences.
+
+{
+  "story_id": "",
+  "story_level_findings": {
+    "highest_stakes_fact": "",
+    "most_non_replicable_fact": "",
+    "strongest_attributable_outcome": "",
+    "facts_that_look_impressive_but_should_not_lead": []
+  },
+  "claim_spines": [
+    {
+      "claim_id": "stable-kebab-case-id",
+      "hiring_question": "one question this evidence directly answers",
+      "path": {
+        "trigger_or_observation": "",
+        "judgment": "",
+        "decision_or_artifact": "",
+        "attributable_consequence": ""
+      },
+      "scarce_atom": "insight|tradeoff|artifact|ownership|impact",
+      "counterfactual_ownership": "what would probably not exist without Akshat",
+      "excluded_adjacent_atoms": [],
+      "eligible_profiles": [],
+      "incumbent_ids": []
+    }
+  ],
+  "incumbent_decisions": [
+    {
+      "incumbent_id": "",
+      "claim_id": "",
+      "verdict": "retain_exact|replace|retire_dominated|hold_for_human",
+      "material_reason": "",
+      "critical_vetoes": {
+        "materiality": "pass|fail",
+        "same_story_edge_integrity": "pass|fail",
+        "criterion_proof": "pass|fail",
+        "counterfactual_ownership": "pass|fail",
+        "mechanism_fit": "pass|fail",
+        "outcome_closure": "pass|fail",
+        "outsider_legibility": "pass|fail",
+        "fact_containment": "pass|fail"
+      },
+      "material_loss_if_replaced": "none or exact lost signal",
+      "replacement_candidate_id": ""
+    }
+  ],
+  "challengers": [
+    {
+      "candidate_id": "",
+      "claim_id": "",
+      "text": "",
+      "archetype": "diagnostic|action|context|impact|tradeoff",
+      "one_earned_detail": "",
+      "matched_outcome": "",
+      "material_win_over_incumbent": "",
+      "material_loss_vs_incumbent": "none or exact loss",
+      "source_fact_atoms": [],
+      "estimated_line_cost": 0,
+      "recommendation": "accept_challenger|keep_incumbent|human_review",
+      "rulebook_checks": {
+        "materiality": {"verdict": "pass|fail|not_applicable", "reason": ""},
+        "criterion_and_scarce_signal": {"verdict": "pass|fail|not_applicable", "reason": ""},
+        "archetype_fit": {"verdict": "pass|fail|not_applicable", "reason": ""},
+        "single_story_spine": {"verdict": "pass|fail|not_applicable", "reason": ""},
+        "causal_closure": {"verdict": "pass|fail|not_applicable", "reason": ""},
+        "counterfactual_ownership": {"verdict": "pass|fail|not_applicable", "reason": ""},
+        "mechanism_specificity": {"verdict": "pass|fail|not_applicable", "reason": ""},
+        "earned_detail": {"verdict": "pass|fail|not_applicable", "reason": ""},
+        "attribution_and_outcome": {"verdict": "pass|fail|not_applicable", "reason": ""},
+        "outsider_legibility": {"verdict": "pass|fail|not_applicable", "reason": ""},
+        "cognitive_load": {"verdict": "pass|fail|not_applicable", "reason": ""},
+        "evidence_loop": {"verdict": "pass|fail|not_applicable", "reason": ""},
+        "rhetorical_integrity": {"verdict": "pass|fail|not_applicable", "reason": ""},
+        "fact_containment": {"verdict": "pass|fail|not_applicable", "reason": ""},
+        "family_non_regression": {"verdict": "pass|fail|not_applicable", "reason": ""}
+      }
+    }
+  ],
+  "surviving_variant_ids": [],
+  "human_decisions": []
+}

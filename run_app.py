@@ -59,6 +59,7 @@ import tempfile
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
+from functools import lru_cache
 from pathlib import Path
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -128,6 +129,18 @@ PREMIUM_SCORE_MODEL_THRESHOLD = 8.5
 sys.path.insert(0, str(ROOT_DIR))
 sys.path.insert(0, str(ROOT_DIR / "resume" / "freeform"))
 sys.path.insert(0, str(ROOT_DIR / "cover_letters"))
+
+from shared.generation_routing import (  # noqa: E402 - ROOT_DIR is inserted above
+    GenerationPath,
+    GenerationRoutingError,
+    LaneCGenerationRequest,
+    LaneCGenerationResult,
+    dispatch_lane_c_generation,
+    read_generation_metadata,
+    resolve_generation_path,
+)
+from shared.resume_artifacts import ResumePageUnderfillError  # noqa: E402
+from shared.resume_runtime import V2_PAGE_UNDERFILLED_EXIT_CODE  # noqa: E402
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Lazy imports (so missing deps don't crash on --help)
@@ -223,7 +236,16 @@ def _read_metadata_role_title(app_dir: Path) -> str:
 
 
 def _infer_role_track(app_dir: Path, jd_text: str, intel_text: str, requested_track: str) -> dict:
-    """Cheap deterministic router used before smart-cost can skip strategy."""
+    """Return an explicit route or a provisional cheap/default route.
+
+    ``auto`` is the normal unattended request.  Only ``pm``/``nonpm`` supplied
+    by a caller are authoritative; title matching exists to seed the pipeline
+    before Step 0 and must not overwrite a usable Step 0 classification.
+    """
+    if requested_track not in {"auto", "pm", "nonpm"}:
+        raise ValueError(
+            f"Unknown requested track {requested_track!r}; expected auto, pm, or nonpm"
+        )
     title = _read_metadata_role_title(app_dir)
     if not title:
         for raw_line in str(intel_text or "").splitlines():
@@ -237,28 +259,76 @@ def _infer_role_track(app_dir: Path, jd_text: str, intel_text: str, requested_tr
     haystack = title.lower()
     pm_match = any(re.search(pattern, haystack, re.I) for pattern in _PM_TITLE_PATTERNS)
     nonpm_match = any(re.search(pattern, haystack, re.I) for pattern in _NONPM_TITLE_PATTERNS)
+    jd_lower = str(jd_text or "").lower()
+    product_strategy_signals = (
+        "product team",
+        "product decisions",
+        "user research",
+        "usability",
+        "prototype",
+        "product reviews",
+        "development sprint",
+        "roadmap",
+    )
+    embedded_product_strategy = bool(
+        re.search(r"\bproduct\s+strategy\b", title, re.I)
+        and sum(signal in jd_lower for signal in product_strategy_signals) >= 2
+    )
 
-    if requested_track == "nonpm":
-        track = "nonpm"
-        reason = "--track nonpm"
-    elif pm_match:
+    if requested_track in {"pm", "nonpm"}:
+        track = requested_track
+        reason = f"explicit --track {requested_track}"
+        source = "explicit"
+    elif pm_match or embedded_product_strategy:
         track = "pm"
-        reason = "title implies PM/product"
+        reason = (
+            "product-strategy role is embedded in product decisions"
+            if embedded_product_strategy and not pm_match
+            else "title implies PM/product"
+        )
+        source = "cheap-router"
     elif nonpm_match:
         track = "nonpm"
         reason = "cheap title router matched non-PM lane"
+        source = "cheap-router"
     else:
-        track = requested_track
-        reason = "default track"
+        track = "pm"
+        reason = "default PM seed; awaiting Step 0"
+        source = "cheap-router"
 
     return {
         "requested_track": requested_track,
         "effective_track": track,
+        "source": source,
         "title": title,
         "reason": reason,
         "pm_title_match": pm_match,
         "nonpm_title_match": nonpm_match,
+        "embedded_product_strategy": embedded_product_strategy,
     }
+
+
+def _resolve_role_track_after_strategy(role_router: dict, strategy: dict) -> dict:
+    """Let a usable Step 0 route supersede only a provisional route."""
+
+    resolved = dict(role_router)
+    if resolved.get("source") == "explicit":
+        return resolved
+
+    role_family = str((strategy or {}).get("role_family") or "").strip()
+    strategy_track = (
+        "pm" if role_family == "pm"
+        else "nonpm" if role_family in {"strategy-consulting", "ops-execution"}
+        else None
+    )
+    if strategy_track is None:
+        return resolved
+
+    resolved["provisional_track"] = resolved.get("effective_track")
+    resolved["effective_track"] = strategy_track
+    resolved["source"] = "strategy"
+    resolved["reason"] = f"Step 0 role_family={role_family}"
+    return resolved
 
 
 def _choose_cost_policy(
@@ -358,6 +428,81 @@ def _rename_latest(directory: Path, old_stem_fragment: str, new_stem: str, ext: 
     target = directory / f"{new_stem}{score_tag}{ext}"
     candidates[0].rename(target)
     return target
+
+
+def _rename_latest_pair(
+    directory: Path,
+    old_stem_fragment: str,
+    new_stem: str,
+) -> tuple[Path | None, Path | None]:
+    """Publish the newest DOCX/PDF pair that shares one exact source stem.
+
+    Choosing the newest extension independently can pair a current DOCX with a
+    stale PDF after an interrupted run.  Only a common candidate stem is
+    eligible here; the score suffix is carried to both public artifacts.
+    """
+
+    docx_by_stem = {
+        path.stem: path for path in directory.glob(f"*{old_stem_fragment}*.docx")
+    }
+    pdf_by_stem = {
+        path.stem: path for path in directory.glob(f"*{old_stem_fragment}*.pdf")
+    }
+    common_stems = set(docx_by_stem) & set(pdf_by_stem)
+    if not common_stems:
+        return None, None
+
+    source_stem = max(
+        common_stems,
+        key=lambda stem: min(
+            docx_by_stem[stem].stat().st_mtime,
+            pdf_by_stem[stem].stat().st_mtime,
+        ),
+    )
+    score_match = re.search(r"(_r\d+(?:\.\d+)?)$", source_stem)
+    score_tag = score_match.group(1) if score_match else ""
+    docx_target = directory / f"{new_stem}{score_tag}.docx"
+    pdf_target = directory / f"{new_stem}{score_tag}.pdf"
+    docx_by_stem[source_stem].replace(docx_target)
+    pdf_by_stem[source_stem].replace(pdf_target)
+    return docx_target, pdf_target
+
+
+def _release_resume_pdf(sections: dict, docx_path: Path):
+    """Render and validate one resume DOCX before publishing its PDF."""
+    from shared.resume_artifacts import expected_resume_fragments, render_resume_artifact
+
+    return render_resume_artifact(
+        docx_path,
+        expected_fragments=expected_resume_fragments(sections),
+    )
+
+
+def _atomic_replace_text(path: Path, content: str) -> None:
+    """Atomically replace a UTF-8 text artifact without exposing partial writes."""
+    staged_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            prefix=f".{path.name}.candidate-",
+            suffix=".tmp",
+            dir=path.parent,
+            delete=False,
+        ) as staged:
+            staged.write(content)
+            staged.flush()
+            os.fsync(staged.fileno())
+            staged_path = Path(staged.name)
+        os.chmod(staged_path, path.stat().st_mode)
+        staged_path.replace(path)
+        staged_path = None
+    finally:
+        if staged_path is not None:
+            try:
+                staged_path.unlink()
+            except FileNotFoundError:
+                pass
 
 
 def _rel(path: Path | str | None) -> str | None:
@@ -494,10 +639,40 @@ def resolve_company(target: str, app_dir_override: str | None = None) -> Path:
 # ─────────────────────────────────────────────────────────────────────────────
 # Resume validation — action-first constraints
 # ─────────────────────────────────────────────────────────────────────────────
+@lru_cache(maxsize=1)
+def _reviewed_archetypes_by_text() -> dict[str, str]:
+    """Return authoritative archetypes for exact reviewed-variant text.
+
+    The terminal validator is diagnostic-only, so failure to load the reviewed
+    bank must degrade to conservative opener classification rather than affect a
+    generation run.
+    """
+    try:
+        from shared.resume_v2_prompt import load_reviewed_prompt_bank
+
+        return {
+            variant.text.strip(): variant.archetype
+            for variant in load_reviewed_prompt_bank().variants
+            if variant.archetype in {"diagnostic", "action", "context", "impact-first"}
+        }
+    except Exception:
+        return {}
+
+
 def _categorize_bullet_opener(text: str) -> str:
-    """Categorize a bullet opener as 'diagnostic', 'action', or 'impact'."""
+    """Best-effort classification using the rulebook's four archetypes.
+
+    This is intentionally conservative: prose that cannot be classified from an
+    explicit opener stays ``unknown`` rather than being guessed into a stronger
+    archetype. Authoritative v2 archetypes come from admitted variant metadata;
+    this helper only powers the post-run terminal diagnostic.
+    """
     if not text:
         return "unknown"
+
+    reviewed_archetype = _reviewed_archetypes_by_text().get(text.strip())
+    if reviewed_archetype:
+        return reviewed_archetype
 
     words = text.split()[:3]
     first_word = words[0].lower().rstrip(".,;:")
@@ -508,7 +683,7 @@ def _categorize_bullet_opener(text: str) -> str:
         "launched", "drove", "drive", "establish", "established", "unblock",
         "unblocked", "cut", "reduced", "improve", "improved", "accelerate",
         "accelerated", "introduced", "unified", "converted", "prototyped",
-        "scaled", "expanded", "defined", "designed", "architected",
+        "scaled", "defined", "designed", "architected",
         "negotiated", "secured",
     }
 
@@ -522,8 +697,17 @@ def _categorize_bullet_opener(text: str) -> str:
     DIAGNOSTIC_VERBS = {
         "identified", "diagnosed", "discovered", "surfaced", "recognized",
         "synthesized", "linked", "profiled", "reshaped", "translated",
-        "reframed", "validated", "caught", "made",
+        "reframed", "validated", "caught", "made", "found", "evaluated",
+        "assessed", "mapped",
     }
+
+    # Context-first is defined by a scope/goal frame rather than a generic
+    # execution verb. Only classify the explicit forms documented in the
+    # four-archetype rulebook; leave ambiguous openers unknown.
+    CONTEXT_VERBS = {"expanded", "serving"}
+    led_scope_pattern = first_word == "led" and bool(
+        re.search(r"^Led\b.{0,100}\bfrom\b.{1,100}\bto\b", text, re.IGNORECASE)
+    )
 
     # Categorize (impact > action > diagnostic when overlap)
     if first_word in IMPACT_VERBS:
@@ -532,8 +716,11 @@ def _categorize_bullet_opener(text: str) -> str:
             if any(x in full_2words for x in ["by ", "through "]):
                 return "action"
             if re.search(r"[\d]+[%MK$]|[\d]+\s*[MK]", text[:40]):
-                return "impact"
-        return "impact"
+                return "impact-first"
+        return "impact-first"
+
+    if first_word in CONTEXT_VERBS or led_scope_pattern:
+        return "context"
 
     if first_word in ACTION_VERBS:
         return "action"
@@ -547,7 +734,7 @@ def _categorize_bullet_opener(text: str) -> str:
 def _validate_resume_constraints(resume_text: str) -> dict:
     """
     Validate resume against action-first constraints:
-    1. Min 4 action/impact-first bullets across all 11
+    1. Min 4 action/impact-first bullets across all parsed bullets
     2. No ≥3 consecutive diagnostic openers per company section
     3. At least one strong ownership verb present
 
@@ -559,6 +746,8 @@ def _validate_resume_constraints(resume_text: str) -> dict:
         "action_count": 0,
         "impact_count": 0,
         "diagnostic_count": 0,
+        "context_count": 0,
+        "unknown_count": 0,
         "has_ownership_verb": False,
         "company_sections": {},
     }
@@ -607,10 +796,14 @@ def _validate_resume_constraints(resume_text: str) -> dict:
         for cat in categories:
             if cat == "action":
                 stats["action_count"] += 1
-            elif cat == "impact":
+            elif cat == "impact-first":
                 stats["impact_count"] += 1
             elif cat == "diagnostic":
                 stats["diagnostic_count"] += 1
+            elif cat == "context":
+                stats["context_count"] += 1
+            else:
+                stats["unknown_count"] += 1
 
         # Check for ≥3 consecutive diagnostic openers
         max_diagnostic_streak = 0
@@ -635,17 +828,18 @@ def _validate_resume_constraints(resume_text: str) -> dict:
             if opener in ownership_verbs:
                 stats["has_ownership_verb"] = True
 
-    stats["total_bullets"] = (
-        stats["action_count"] + stats["impact_count"] + stats["diagnostic_count"]
-    )
+    stats["total_bullets"] = sum(len(bullets) for bullets in companies.values())
 
     # Check hard constraints
     action_impact_total = stats["action_count"] + stats["impact_count"]
     if action_impact_total < 4:
         issues.append(
-            f"[ACTION-FIRST] {action_impact_total}/11 bullets are action/impact-first "
-            f"(target: ≥4). Split: {stats['action_count']} action, {stats['impact_count']} impact, "
-            f"{stats['diagnostic_count']} diagnostic."
+            f"[ACTION-FIRST] {action_impact_total}/{stats['total_bullets']} bullets are "
+            f"action/impact-first "
+            f"(target: ≥4). Split: {stats['action_count']} action, "
+            f"{stats['impact_count']} impact-first, "
+            f"{stats['diagnostic_count']} diagnostic, {stats['context_count']} context, "
+            f"{stats['unknown_count']} unknown."
         )
 
     if not stats["has_ownership_verb"]:
@@ -660,6 +854,35 @@ def _validate_resume_constraints(resume_text: str) -> dict:
 # ─────────────────────────────────────────────────────────────────────────────
 # Core orchestration
 # ─────────────────────────────────────────────────────────────────────────────
+def _dispatch_lane_c_if_needed(
+    *,
+    company: str,
+    app_dir: Path,
+    jd_path: Path,
+    options: dict[str, object],
+) -> LaneCGenerationResult | None:
+    """Intercept explicit lane=C metadata before any professional routing."""
+
+    metadata = read_generation_metadata(app_dir)
+    if resolve_generation_path(metadata) is not GenerationPath.LANE_C:
+        return None
+
+    result = dispatch_lane_c_generation(
+        LaneCGenerationRequest(
+            company=company,
+            app_dir=app_dir,
+            jd_path=jd_path,
+            metadata=metadata,
+            options=options,
+        )
+    )
+    if not result.success:
+        raise GenerationRoutingError(
+            f"Lane C generator failed: {result.error or 'no error detail provided'}"
+        )
+    return result
+
+
 def run_app(
     company:      str,
     model:        str,
@@ -670,7 +893,7 @@ def run_app(
     run_score:    bool = True,
     run_qc:       bool = True,
     make_docx:    bool = False,
-    track:        str  = "pm",  # "pm" | "nonpm" — resume track selection
+    track:        str  = "auto",  # auto | pm | nonpm; explicit pm/nonpm overrides Step 0
     app_dir_override: str | None = None,
     smart_cost:   bool = True,
 ) -> None:
@@ -684,12 +907,32 @@ def run_app(
             f"       Create it and paste the full job description inside."
         )
 
+    lane_c_result = _dispatch_lane_c_if_needed(
+        company=company,
+        app_dir=app_dir,
+        jd_path=jd_path,
+        options={
+            "mode": "generate",
+            "run_resume": run_resume,
+            "run_cover_letter": run_cl,
+            "run_strategy": run_strategy,
+            "run_rewrite": run_rewrite,
+            "run_score": run_score,
+            "run_qc": run_qc,
+            "make_docx": make_docx,
+            "model": model,
+            "requested_track": track,
+            "smart_cost": smart_cost,
+        },
+    )
+    if lane_c_result is not None:
+        return
+
     jd_text    = jd_path.read_text(encoding="utf-8").strip()
     intel_text = intel_path.read_text(encoding="utf-8").strip() if intel_path.exists() else ""
     fit_score  = _extract_fit_score(intel_text)
     role_router = _infer_role_track(app_dir, jd_text, intel_text, track)
-    if track == "pm" and role_router["effective_track"] == "nonpm":
-        track = "nonpm"
+    track = role_router["effective_track"]
 
     if not jd_text:
         sys.exit(f"[ERROR] jd.txt is empty in {app_dir}")
@@ -726,6 +969,7 @@ def run_app(
     artifacts = {
         "resume_txt": None,
         "resume_docx": None,
+        "resume_pdf": None,
         "cl_txt": None,
         "cl_json": None,
         "cl_docx": None,
@@ -834,6 +1078,19 @@ def run_app(
         else:
             print(c(YELLOW, "  [i] --no-strategy: no cached strategy.json found"))
 
+    # Step 0 owns semantic classification unless the user explicitly supplied
+    # --track.  The title router above is intentionally only a provisional seed
+    # for smart-cost and for runs that genuinely have no usable strategy.
+    provisional_track = track
+    role_router = _resolve_role_track_after_strategy(role_router, strategy_dict)
+    track = role_router["effective_track"]
+    if role_router["source"] == "strategy" and track != provisional_track:
+        print(c(
+            YELLOW,
+            f"  [i] Step 0 route superseded provisional {provisional_track!r} "
+            f"with {track!r} ({role_router['reason']})",
+        ))
+
     # ── Resume + CL pipelines (parallel when both enabled) ───────────────────
     def _run_resume(buf: "io.StringIO | None") -> None:
         if buf is not None:
@@ -841,7 +1098,7 @@ def run_app(
         try:
             print()
             print(c(BOLD, "  ═══ Resume Pipeline ═══"))
-            resume_pipeline.run_single(
+            resume_ok = resume_pipeline.run_single(
                 jd_path      = jd_path,
                 model        = model,
                 out_dir      = app_dir,
@@ -855,7 +1112,13 @@ def run_app(
                 track        = track,
                 score_model  = score_model,
                 run_trim     = run_trim,
+                track_source = role_router["source"],
+                propagate_page_underfill = True,
             )
+            if not resume_ok:
+                raise RuntimeError(
+                    "Resume pipeline failed release checks; generation was not completed."
+                )
             txt_renamed = _rename_latest(app_dir, "_jd", f"resume_{today}", ".txt")
             if txt_renamed:
                 artifacts["resume_txt"] = str(txt_renamed)
@@ -866,7 +1129,13 @@ def run_app(
                 print()
                 print(c(BOLD, "  ═══ Action-First Validation ═══"))
                 print(f"  Total bullets: {validation['stats']['total_bullets']}")
-                print(f"  Action: {validation['stats']['action_count']} | Impact: {validation['stats']['impact_count']} | Diagnostic: {validation['stats']['diagnostic_count']}")
+                print(
+                    f"  Action: {validation['stats']['action_count']} | "
+                    f"Impact-first: {validation['stats']['impact_count']} | "
+                    f"Diagnostic: {validation['stats']['diagnostic_count']} | "
+                    f"Context: {validation['stats']['context_count']} | "
+                    f"Unknown: {validation['stats']['unknown_count']}"
+                )
                 print(f"  Ownership verb present: {c(GREEN if validation['stats']['has_ownership_verb'] else YELLOW, str(validation['stats']['has_ownership_verb']))}")
                 if validation['issues']:
                     for issue in validation['issues']:
@@ -874,10 +1143,17 @@ def run_app(
                 else:
                     print(c(GREEN, "  ✓ All constraints satisfied"))
             if make_docx:
-                docx_renamed = _rename_latest(app_dir, "_jd", f"resume_{today}", ".docx")
-                if docx_renamed:
-                    artifacts["resume_docx"] = str(docx_renamed)
-                    print(c(GREEN, f"  ✓ Resume docx  → {docx_renamed.relative_to(ROOT_DIR)}"))
+                docx_renamed, pdf_renamed = _rename_latest_pair(
+                    app_dir, "_jd", f"resume_{today}"
+                )
+                if not docx_renamed or not pdf_renamed:
+                    raise RuntimeError(
+                        "Resume pipeline reported success without both released DOCX and PDF artifacts."
+                    )
+                artifacts["resume_docx"] = str(docx_renamed)
+                artifacts["resume_pdf"] = str(pdf_renamed)
+                print(c(GREEN, f"  ✓ Resume docx  → {docx_renamed.relative_to(ROOT_DIR)}"))
+                print(c(GREEN, f"  ✓ Resume pdf   → {pdf_renamed.relative_to(ROOT_DIR)}"))
         finally:
             if buf is not None:
                 _thread_local.capture = None
@@ -961,7 +1237,7 @@ def run_app(
     print(c(BOLD, f"  APP COMPLETE — {app_dir.name}"))
     print(c(BOLD, "═" * 72))
     outputs = sorted(app_dir.glob("*.txt")) + sorted(app_dir.glob("*.docx")) + \
-              sorted(app_dir.glob("*.json"))
+              sorted(app_dir.glob("*.pdf")) + sorted(app_dir.glob("*.json"))
     if outputs:
         print()
         print("  Files in app dir:")
@@ -974,7 +1250,7 @@ def run_app(
 # ─────────────────────────────────────────────────────────────────────────────
 # --score-only helper
 # ─────────────────────────────────────────────────────────────────────────────
-def score_only_app(company: str, model: str, track: str = "pm") -> None:
+def score_only_app(company: str, model: str, track: str = "auto") -> None:
     """
     Read the latest resume_*.txt, extract the experience + skills sections,
     run the scorer, apply Pass 4 if weak bullets are found, then regenerate
@@ -989,6 +1265,15 @@ def score_only_app(company: str, model: str, track: str = "pm") -> None:
 
     if not jd_path.exists():
         sys.exit(f"[ERROR] jd.txt not found in {app_dir}")
+
+    lane_c_result = _dispatch_lane_c_if_needed(
+        company=company,
+        app_dir=app_dir,
+        jd_path=jd_path,
+        options={"mode": "score-only", "model": model, "requested_track": track},
+    )
+    if lane_c_result is not None:
+        return
 
     # ── Find latest resume txt ────────────────────────────────────────────────
     txt_files = sorted(app_dir.glob("resume_*.txt"),
@@ -1016,6 +1301,8 @@ def score_only_app(company: str, model: str, track: str = "pm") -> None:
         sys.exit(f"[ERROR] Could not extract experience section from {txt_path.name}.\n"
                  "       Make sure this is a freeform_runner output file.")
     experience_section = m_exp.group(1).strip()
+    source_experience_section = experience_section
+    experience_span = m_exp.span(1)
 
     m_projects = re.search(
         r"SECTION 3B — PROJECTS & CONSULTING \(paste-ready\)\n[-─]+\n(PROJECTS & CONSULTING.*?)"
@@ -1034,16 +1321,26 @@ def score_only_app(company: str, model: str, track: str = "pm") -> None:
 
     # ── Load JD and strategy ──────────────────────────────────────────────────
     jd_text = jd_path.read_text(encoding="utf-8").strip()
+    intel_path = app_dir / "intel.txt"
+    intel_text = intel_path.read_text(encoding="utf-8").strip() if intel_path.exists() else ""
     strategy_block = ""
+    strategy_dict: dict = {}
     cached = app_dir / "strategy.json"
     if cached.exists():
         try:
             from shared.strategy import _format_strategy_block
-            strategy_block = _format_strategy_block(json.loads(cached.read_text(encoding="utf-8")))
+            strategy_dict = json.loads(cached.read_text(encoding="utf-8"))
+            strategy_block = _format_strategy_block(strategy_dict)
         except Exception:
             pass
+    role_router = _resolve_role_track_after_strategy(
+        _infer_role_track(app_dir, jd_text, intel_text, track),
+        strategy_dict,
+    )
+    track = role_router["effective_track"]
 
     # ── Import pipeline helpers ───────────────────────────────────────────────
+    _fr, _, _ = _import_pipelines()
     print()
     print(c(BOLD + CYAN, "  ╔══════════════════════════════════════════════════╗"))
     print(c(BOLD + CYAN, f"  ║   score-only  ·  {app_dir.name:<34}║"))
@@ -1127,14 +1424,10 @@ def score_only_app(company: str, model: str, track: str = "pm") -> None:
     final_score = score_data.get("holistic_score") if score_data else None
     date_part   = txt_path.stem.replace("resume_", "")   # e.g. "2026-03-26"
 
-    # Delete any old unscored docx to avoid clutter
+    # Keep prior published artifacts until the replacement has passed the PDF
+    # release gate. The newly generated candidate uses the DATE_jd_* stem, so
+    # there is no need to delete the live resume_* files pre-emptively.
     unscored = app_dir / f"resume_{date_part}.docx"
-    if unscored.exists():
-        unscored.unlink()
-
-    # Also delete any old scored docx so generate_docx can name cleanly
-    for old in app_dir.glob(f"resume_{date_part}_r*.docx"):
-        old.unlink()
 
     if skills_section:
         sections = {
@@ -1144,35 +1437,63 @@ def score_only_app(company: str, model: str, track: str = "pm") -> None:
             "skills_section": skills_section,
         }
 
-        # ── Expansion pass (page < 85% full) ─────────────────────────────────
-        _fill_result = _fr._estimate_page_fill(
-            experience_section, skills_section, projects_section=projects_section
-        )
-        if _fill_result and _fill_result[0] < 85.0:
-            _exp_section, _ = _fr.run_expansion_pass(
-                experience_section, skills_section, jd_text, strategy_block, model,
-                projects_section=projects_section,
-            )
-            if _exp_section != experience_section:
-                experience_section = _exp_section
-                sections["experience_section"] = _exp_section
-
         print()
         print(c("\033[1m", "  Generating .docx..."))
-        _fr.generate_docx(sections, jd_path, app_dir, app_dir, score=final_score,
-                          track=track)
+        docx_path = _fr.generate_docx(
+            sections,
+            jd_path,
+            app_dir,
+            app_dir,
+            score=final_score,
+            track=track,
+        )
+        if docx_path is None:
+            raise RuntimeError("Score-only generation did not produce a DOCX artifact.")
+        release = _release_resume_pdf(sections, docx_path)
+        print(c(GREEN, f"  ✓ Observed one-page PDF released → {release.pdf.path}"))
+        if experience_section != source_experience_section:
+            revised_content = (
+                content[:experience_span[0]]
+                + experience_section
+                + content[experience_span[1]:]
+            )
+            _atomic_replace_text(txt_path, revised_content)
+            print(c(GREEN, f"  ✓ Revised experience persisted → {txt_path.relative_to(ROOT_DIR)}"))
         # Rename from DATE_jd_rSCORE.docx → resume_DATE_rSCORE.docx
-        docx_renamed = _rename_latest(app_dir, "_jd", f"resume_{date_part}", ".docx")
-        if docx_renamed:
-            print(c("\033[32m", f"  ✓ Resume docx  → {docx_renamed.relative_to(ROOT_DIR)}"))
+        docx_renamed, pdf_renamed = _rename_latest_pair(
+            app_dir, "_jd", f"resume_{date_part}"
+        )
+        if not docx_renamed or not pdf_renamed:
+            raise RuntimeError("Score-only release did not produce both DOCX and PDF artifacts.")
+        print(c("\033[32m", f"  ✓ Resume docx  → {docx_renamed.relative_to(ROOT_DIR)}"))
+        print(c("\033[32m", f"  ✓ Resume pdf   → {pdf_renamed.relative_to(ROOT_DIR)}"))
     else:
-        # No skills section parseable — just rename any existing docx
+        # No skills section parseable: an existing DOCX may only be renamed
+        # after the same observed one-page and semantic parity release gate.
         score_tag = f"_r{final_score:.1f}" if final_score is not None else ""
         unscored  = app_dir / f"resume_{date_part}.docx"
         if unscored.exists():
+            sections = {
+                "summary_section": _fr._sanitize_summary_section(summary_section),
+                "experience_section": experience_section,
+                "projects_section": projects_section,
+                "skills_section": "",
+            }
+            release = _release_resume_pdf(sections, unscored)
+            if experience_section != source_experience_section:
+                revised_content = (
+                    content[:experience_span[0]]
+                    + experience_section
+                    + content[experience_span[1]:]
+                )
+                _atomic_replace_text(txt_path, revised_content)
+                print(c(GREEN, f"  ✓ Revised experience persisted → {txt_path.relative_to(ROOT_DIR)}"))
             target = app_dir / f"resume_{date_part}{score_tag}.docx"
             unscored.rename(target)
+            pdf_target = target.with_suffix(".pdf")
+            release.pdf.path.rename(pdf_target)
             print(c("\033[32m", f"  ✓ Renamed → {target.relative_to(ROOT_DIR)}"))
+            print(c("\033[32m", f"  ✓ Resume pdf → {pdf_target.relative_to(ROOT_DIR)}"))
         else:
             print(c("\033[33m",
                     f"  [!] No unscored docx found and skills section not parseable "
@@ -1180,16 +1501,45 @@ def score_only_app(company: str, model: str, track: str = "pm") -> None:
     print()
 
 
-def docx_only_app(company: str, track: str = "pm") -> None:
+def docx_only_app(
+    company: str,
+    track: str = "auto",
+    app_dir_override: str | None = None,
+) -> None:
     """
     Read the latest resume_*.txt, extract summary/experience/skills sections,
     and regenerate only the .docx with no AI calls.
     """
-    app_dir = resolve_company(company)
+    app_dir = resolve_company(company, app_dir_override=app_dir_override)
     jd_path = app_dir / "jd.txt"
 
     if not jd_path.exists():
         sys.exit(f"[ERROR] jd.txt not found in {app_dir}")
+
+    lane_c_result = _dispatch_lane_c_if_needed(
+        company=company,
+        app_dir=app_dir,
+        jd_path=jd_path,
+        options={"mode": "docx-only", "requested_track": track},
+    )
+    if lane_c_result is not None:
+        return
+
+    jd_text = jd_path.read_text(encoding="utf-8").strip()
+    intel_path = app_dir / "intel.txt"
+    intel_text = intel_path.read_text(encoding="utf-8").strip() if intel_path.exists() else ""
+    strategy_dict: dict = {}
+    strategy_path = app_dir / "strategy.json"
+    if strategy_path.exists():
+        try:
+            strategy_dict = json.loads(strategy_path.read_text(encoding="utf-8"))
+        except Exception:
+            strategy_dict = {}
+    role_router = _resolve_role_track_after_strategy(
+        _infer_role_track(app_dir, jd_text, intel_text, track),
+        strategy_dict,
+    )
+    track = role_router["effective_track"]
 
     txt_files = sorted(app_dir.glob("resume_*.txt"), key=lambda p: p.stat().st_mtime, reverse=True)
     if not txt_files:
@@ -1221,7 +1571,7 @@ def docx_only_app(company: str, track: str = "pm") -> None:
     projects_section = m_projects.group(1).strip() if m_projects else ""
 
     m_skills = re.search(
-        r"SECTION 4 — SKILLS & INTERESTS \(paste-ready\)\n[-─]+\n(SKILLS & INTERESTS.*?)"
+        r"SECTION 4 — SKILLS & INTERESTS \(paste-ready\)\n[-─]+\n((?:SKILLS|SKILLS & INTERESTS).*?)"
         r"(?=\n(?:SECTION \d|QUALITY CHECKS|QC CHECKS|REWRITES LOG|PASS 4|[─═]{10})|\Z)",
         content, re.DOTALL | re.IGNORECASE,
     )
@@ -1234,7 +1584,11 @@ def docx_only_app(company: str, track: str = "pm") -> None:
     if stem_match:
         final_score = float(stem_match.group(1))
     else:
-        score_line = re.search(r"Score:\s+([0-9]+(?:\.[0-9])?)/10", content)
+        score_line = re.search(
+            r"(?:Holistic\s+)?score:\s+([0-9]+(?:\.[0-9])?)/10",
+            content,
+            re.IGNORECASE,
+        )
         if score_line:
             final_score = float(score_line.group(1))
 
@@ -1244,6 +1598,13 @@ def docx_only_app(company: str, track: str = "pm") -> None:
         'projects_section': projects_section,
         'skills_section': skills_section,
     }
+    raw_match = re.search(
+        r"RAW MODEL OUTPUT \(Pass 1\)\n[-─]+\n(.*)\Z",
+        content,
+        re.DOTALL | re.IGNORECASE,
+    )
+    if raw_match:
+        sections["raw"] = raw_match.group(1).strip()
 
     print()
     print(c(BOLD + CYAN, "  ╔══════════════════════════════════════════════════╗"))
@@ -1252,13 +1613,70 @@ def docx_only_app(company: str, track: str = "pm") -> None:
     print(c(CYAN, f"  Source: {txt_path.name}"))
     print()
     print(c(BOLD, "  Generating .docx..."))
-    _generate_docx_local(sections, jd_path, app_dir, score=final_score, track=track)
+    resume_pipeline, _, _ = _import_pipelines()
+    runtime_policy = (
+        resume_pipeline.resolve_runtime_policy()
+        if hasattr(resume_pipeline, "resolve_runtime_policy")
+        else None
+    )
+    if (
+        runtime_policy is not None
+        and runtime_policy.mode is resume_pipeline.ResumeRuntimeMode.V2
+    ):
+        strategy_dict = resume_pipeline._strategy_for_resolved_track(
+            strategy_dict,
+            track=track,
+            track_source=role_router["source"],
+        )
+        override = resume_pipeline.build_pass1_prompt_override(strategy_dict)
+        resume_pipeline._configure_v2_contract(override)
+        sections["selection_notes"] = resume_pipeline.canonicalize_v2_selection_notes(
+            sections,
+            override,
+        )
+        validation = resume_pipeline.validate_v2_sections(sections, override, {})
+        if validation.errors or validation.document is None:
+            detail = "; ".join(validation.errors)
+            raise RuntimeError(f"V2 DOCX-only exact-selection validation failed: {detail}")
+        docx_path, pdf_path, _, page_fill = (
+            resume_pipeline._generate_and_publish_v2_artifacts(
+                sections,
+                jd_path,
+                app_dir,
+                app_dir,
+                score=final_score,
+                track=track,
+                profile=override.profile,
+                assembled_document=validation.document,
+            )
+        )
+        print(c(GREEN, f"  ✓ V2 validated DOCX released → {docx_path}"))
+        print(c(GREEN, f"  ✓ Observed one-page PDF released → {pdf_path}"))
+        if page_fill is not None:
+            print(c(GREEN, f"  ✓ Observed usable page fill: {page_fill.observed_fill_ratio:.1%}"))
+    else:
+        docx_path = resume_pipeline.generate_docx(
+            sections,
+            jd_path,
+            app_dir,
+            docx_out_dir=app_dir,
+            score=final_score,
+            track=track,
+        )
+        if docx_path is None:
+            raise RuntimeError("DOCX-only generation did not produce a DOCX artifact.")
+        release = _release_resume_pdf(sections, docx_path)
+        print(c(GREEN, f"  ✓ Observed one-page PDF released → {release.pdf.path}"))
 
     date_part = txt_path.stem.replace("resume_", "")
     date_part = re.sub(r"_r\d+(?:\.\d+)?$", "", date_part)
-    docx_renamed = _rename_latest(app_dir, "_jd", f"resume_{date_part}", ".docx")
-    if docx_renamed:
-        print(c(GREEN, f"  ✓ Resume docx  → {docx_renamed.relative_to(ROOT_DIR)}"))
+    docx_renamed, pdf_renamed = _rename_latest_pair(
+        app_dir, "_jd", f"resume_{date_part}"
+    )
+    if not docx_renamed or not pdf_renamed:
+        raise RuntimeError("DOCX-only release did not produce both DOCX and PDF artifacts.")
+    print(c(GREEN, f"  ✓ Resume docx  → {docx_renamed.relative_to(ROOT_DIR)}"))
+    print(c(GREEN, f"  ✓ Resume pdf   → {pdf_renamed.relative_to(ROOT_DIR)}"))
     print()
 
 
@@ -1448,8 +1866,8 @@ def main():
                         help="Skip formatted .docx generation")
     parser.add_argument("--model",        default="claude-sonnet-4-6",
                         help="Anthropic model (default: claude-sonnet-4-6)")
-    parser.add_argument("--track",        default="pm", choices=["pm", "nonpm"],
-                        help="Resume track: 'pm' (default) or 'nonpm' (Strategy/Consulting/Ops/PgM)")
+    parser.add_argument("--track",        default=None, choices=["pm", "nonpm"],
+                        help="Explicit resume-track override. Omit to let Step 0 own PM/NONPM routing.")
     parser.add_argument("--no-color",     action="store_true",
                         help="Disable ANSI color output")
     args = parser.parse_args()
@@ -1468,31 +1886,46 @@ def main():
     global _orig_stdout
     logs_dir = ROOT_DIR / "logs"
     logs_dir.mkdir(exist_ok=True)
-    ts       = datetime.now().strftime("%Y%m%d_%H%M%S")
-    log_path = logs_dir / f"run_app_{args.company}_{ts}.txt"
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+    log_identity = Path(args.app_dir).name if args.app_dir else args.company
+    log_identity = re.sub(r"[^A-Za-z0-9._-]+", "_", log_identity).strip("_")
+    log_path = logs_dir / f"run_app_{log_identity}_{ts}.txt"
     log_file = open(log_path, "w", encoding="utf-8")
     _orig_stdout = _Tee(_orig_stdout, log_file)
 
     try:
-        if args.score_only:
-            score_only_app(company=args.company, model=args.model, track=args.track)
-        elif args.docx_only:
-            docx_only_app(company=args.company, track=args.track)
-        else:
-            run_app(
-                company      = args.company,
-                model        = args.model,
-                run_resume   = not args.cl_only,
-                run_cl       = not args.resume_only,
-                run_strategy = not args.no_strategy,
-                run_rewrite  = not args.no_rewrite,
-                run_score    = not args.no_score,
-                run_qc       = not args.no_qc,
-                make_docx    = not args.no_docx,
-                track        = args.track,
-                app_dir_override = args.app_dir,
-                smart_cost   = not args.no_smart_cost,
-            )
+        try:
+            requested_track = args.track or "auto"
+            if args.score_only:
+                score_only_app(company=args.company, model=args.model, track=requested_track)
+            elif args.docx_only:
+                docx_only_app(
+                    company=args.company,
+                    track=requested_track,
+                    app_dir_override=args.app_dir,
+                )
+            else:
+                run_app(
+                    company      = args.company,
+                    model        = args.model,
+                    run_resume   = not args.cl_only,
+                    run_cl       = not args.resume_only,
+                    run_strategy = not args.no_strategy,
+                    run_rewrite  = not args.no_rewrite,
+                    run_score    = not args.no_score,
+                    run_qc       = not args.no_qc,
+                    make_docx    = not args.no_docx,
+                    track        = requested_track,
+                    app_dir_override = args.app_dir,
+                    smart_cost   = not args.no_smart_cost,
+                )
+        except ResumePageUnderfillError:
+            # Machine-readable signal for jobs.py's one bounded 10 -> 11
+            # distinct-proof retry.  The detailed observed geometry has already
+            # been printed and logged by the resume runner.
+            raise SystemExit(V2_PAGE_UNDERFILLED_EXIT_CODE)
+        except GenerationRoutingError as exc:
+            raise SystemExit(f"[ERROR] {exc}") from exc
     finally:
         log_file.close()
         # Print log path directly to the real terminal (bypass the Tee)

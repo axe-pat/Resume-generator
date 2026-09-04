@@ -1,5 +1,5 @@
 # Resume Variant Rulebook + Final Approved Bullets — v4
-Last updated: 2026-04-03
+Last updated: 2026-09-02
 The definitive reference. All rules, all final variants. Use this to create or update
 any variant going forward.
 
@@ -83,6 +83,23 @@ The outcome is the measurable result. Mix types across the resume:
 [ ] NO PARENTHESES Use "including X and Y" or restructure the sentence.
 [ ] MOM TEST Non-technical recruiter can follow the thought in one read.
     If they'd pause at a term, replace or remove it.
+[ ] ONE ARGUMENT The opener, mechanism, and outcome must prove the same claim.
+    If two adjacent story beats merely share a topic, do not splice them together
+    to manufacture a metric or make the bullet look denser.
+[ ] MECHANISM FIT Does the named decision or artifact directly answer the opener?
+    A strong mechanism from a neighboring story is still the wrong mechanism.
+[ ] OUTCOME CLOSURE Does the result measure or visibly complete the claim made at
+    the start? If the opener says buyers adopted a new evaluation surface, a speed
+    metric from the rebuild is supporting evidence, not the adoption outcome.
+[ ] BEST AVAILABLE OUTCOME Prefer attributable user/business or observed-behavior
+    outcomes over activity volume, architecture size, or build counts. Inputs and
+    system complexity may establish scale, but should not displace the real result.
+[ ] OUTSIDER LEGIBILITY Introduce internal product names, locations, and operating
+    shorthand by function. A reader should not need company context to understand
+    why the object mattered.
+[ ] CLOSED EVIDENCE LOOP For discovery stories, show how qualitative evidence was
+    checked against behavior/data and what decision or next test followed. Do not
+    stop at "interviewed users" or "analyzed usage."
 [ ] LOW COGNITIVE LOAD Prefer plain-English wording over coined or compound-heavy
     phrasing. If a term like "buyer-signoff blocker," "proof surface," or
     "refund-and-remediation" makes the reader decode the sentence twice,
@@ -375,6 +392,26 @@ MONOTONY — ≥3 consecutive diagnostic openers in a single company block.
 REPETITIVE_OPENER — Same first verb used twice or more in a company block.
   Even two "Identified" openers in one section feel repetitive.
   Fix: rotate from the opener pool (see Section 2 Checklist / Section 10).
+
+SPLIT_ARGUMENT — A bullet joins two individually strong but causally unrelated
+  story beats because one supplies the insight and the other supplies a metric.
+  Fix: pick one argument and use only its own mechanism and outcome.
+
+MISMATCHED_OUTCOME — The result is true but answers a different question than the
+  opener. The sentence sounds impressive while its causal chain does not close.
+  Fix: either realign the opener to the measured result or use the outcome that
+  actually completes the original claim.
+
+INPUT_AS_OUTCOME — The bullet ends on roles reviewed, modules built, interviews
+  conducted, or another activity count when an attributable application, reply,
+  adoption, revenue, user-behavior, or organizational result exists.
+  Fix: lead with the strongest attributable downstream outcome; retain the input
+  only when it is necessary scale context.
+
+INSIDER_CONTEXT — An internal product name, office nickname, or company-specific
+  phrase is presented as though an outside reader already knows it.
+  Fix: name its function or consequence first, then retain the proper noun only
+  when it adds recognition or specificity.
 
 ═══════════════════════════════════════════
 9. RESUME-LEVEL CONSTRAINTS

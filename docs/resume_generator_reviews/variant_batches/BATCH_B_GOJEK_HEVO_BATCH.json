@@ -1,0 +1,173 @@
+{
+  "schema_version": "2026-09-03.1",
+  "batch_id": "batch-b-gojek-hevo",
+  "mode": "review-only",
+  "live_wiring": false,
+  "canonical_decisions_file": "CANONICAL_STORY_DECISIONS_2026-09-03.json",
+  "families": {
+    "G-SUPPLY": {
+      "canonical_default_id": "G-SUPPLY-canonical-operating-model",
+      "recommended_variants": [
+        {
+          "variant_id": "G-SUPPLY-canonical-operating-model",
+          "priority": 1,
+          "use_case": "general product and platform ownership",
+          "archetype": "action",
+          "text": "Led Gojek's fleet integration platform and partner operating model; replaced bespoke builds with a standardized API and validation workflow, enabling 18% supply growth and cutting pickup ETAs by 1.5 minutes across Singapore and Bali."
+        },
+        {
+          "variant_id": "G-SUPPLY-C2-contract-design",
+          "priority": 2,
+          "use_case": "technical platform and API contract",
+          "archetype": "action",
+          "text": "Defined the standardized API contract and partner validation workflow that replaced bespoke fleet integrations across Singapore and Bali, growing supply 18% and cutting pickup ETAs by 1.5 minutes."
+        },
+        {
+          "variant_id": "G-SUPPLY-C3-operations-model",
+          "priority": 3,
+          "use_case": "operations and execution",
+          "archetype": "action",
+          "text": "Built Gojek's multi-partner operating model across Singapore and Bali, standardizing API requirements and validation for commercial fleets; grew supply 18% and cut pickup ETAs by 1.5 minutes."
+        },
+        {
+          "variant_id": "pm/g-supply/partner-taxonomy",
+          "priority": 4,
+          "use_case": "partner ecosystem specificity",
+          "archetype": "action",
+          "text": "Defined API specs and onboarding workflows for metro, bus, and private fleet partners on Gojek's platform; scaled to Singapore and Bali, grew supply 18% and reduced pickup ETAs by 1.5 minutes."
+        }
+      ],
+      "incumbents": [
+        {"stable_id": "pm/g-supply/supply-diagnosis", "verdict": "retire", "replacement_id": null},
+        {"stable_id": "pm/g-supply/api-launch", "verdict": "replace", "replacement_id": "G-SUPPLY-C2-contract-design"},
+        {"stable_id": "pm/g-supply/problem-diagnosis", "verdict": "replace", "replacement_id": "G-SUPPLY-canonical-operating-model"},
+        {"stable_id": "pm/g-supply/ecosystem-gtm", "verdict": "retire", "replacement_id": null},
+        {"stable_id": "pm/g-supply/partner-taxonomy", "verdict": "retain", "replacement_id": "pm/g-supply/partner-taxonomy"},
+        {"stable_id": "pm/g-supply/platform-led", "verdict": "replace", "replacement_id": "G-SUPPLY-canonical-operating-model"},
+        {"stable_id": "canonical-v4/g-supply/ecosystem-GTM", "verdict": "retire", "replacement_id": null},
+        {"stable_id": "canonical-v4/g-supply/API-launch", "verdict": "replace", "replacement_id": "G-SUPPLY-C2-contract-design"},
+        {"stable_id": "canonical-v4/g-supply/platform-led", "verdict": "replace", "replacement_id": "G-SUPPLY-canonical-operating-model"},
+        {"stable_id": "nonpm/g-supply/cluster-a-workstream-hypothesis", "verdict": "replace", "replacement_id": "G-SUPPLY-C3-operations-model"},
+        {"stable_id": "nonpm/g-supply/cluster-a-diagnostic-market", "verdict": "replace", "replacement_id": "pm/g-supply/partner-taxonomy"},
+        {"stable_id": "nonpm/g-supply/cluster-b-impact-operating-model", "verdict": "replace", "replacement_id": "pm/g-supply/partner-taxonomy"},
+        {"stable_id": "nonpm/g-supply/support-only-route-secondary", "verdict": "replace", "replacement_id": "G-SUPPLY-C3-operations-model"},
+        {"stable_id": "nonpm/g-supply/cluster-b-delivery-led", "verdict": "retire", "replacement_id": null},
+        {"stable_id": "G-SUPPLY-amazon-operating-model", "verdict": "replace", "replacement_id": "G-SUPPLY-canonical-operating-model"}
+      ]
+    },
+    "G-PRICING": {
+      "canonical_default_id": "G-PRICING-canonical-closed-loop",
+      "recommended_variants": [
+        {
+          "variant_id": "G-PRICING-canonical-closed-loop",
+          "priority": 1,
+          "use_case": "default product, strategy, research, and experimentation proof",
+          "archetype": "diagnostic",
+          "text": "Separated price-sensitive abandonment from quote-latency drop-off through funnel analysis and 20+ rider interviews; validated a lower-cost ride tier through A/B tests, lifting conversion 9% and generating $3.2M in incremental revenue."
+        },
+        {
+          "variant_id": "G-PRICING-amazon-cause-separated",
+          "priority": 2,
+          "use_case": "general product and segmentation",
+          "archetype": "diagnostic",
+          "text": "Separated price-sensitive abandonment from quote-latency drop-off using funnel analysis, elasticity modelling and 20+ rider interviews; launched a cost-tiered ride product which lifted conversion 9% and generated $3.2M in incremental revenue."
+        },
+        {
+          "variant_id": "G-PRICING-studyfetch-wtp-experiment",
+          "priority": 3,
+          "use_case": "research and experimentation",
+          "archetype": "diagnostic",
+          "text": "Validated willingness-to-pay for a lower-cost ride tier through funnel analysis and 20+ customer interviews; confirmed via A/B pricing experiments and launched a cost-tiered model lifting conversion 9% and generating $3.2M."
+        }
+      ],
+      "incumbents": [
+        {"stable_id": "pm/g-pricing/pricing-strategy", "verdict": "replace", "replacement_id": "G-PRICING-canonical-closed-loop"},
+        {"stable_id": "pm/g-pricing/elasticity-analysis", "verdict": "replace", "replacement_id": "G-PRICING-canonical-closed-loop"},
+        {"stable_id": "pm/g-pricing/funnel-synthesis", "verdict": "replace", "replacement_id": "G-PRICING-canonical-closed-loop"},
+        {"stable_id": "pm/g-pricing/wtp-research", "verdict": "retain", "replacement_id": "G-PRICING-studyfetch-wtp-experiment"},
+        {"stable_id": "pm/g-pricing/revenue-lift", "verdict": "retire", "replacement_id": null},
+        {"stable_id": "nonpm/g-pricing/cluster-a-segmentation-diagnostic", "verdict": "replace", "replacement_id": "G-PRICING-canonical-closed-loop"},
+        {"stable_id": "nonpm/g-pricing/cluster-a-commercial-thesis", "verdict": "replace", "replacement_id": "G-PRICING-canonical-closed-loop"},
+        {"stable_id": "nonpm/g-pricing/cluster-a-target-segment-thesis", "verdict": "replace", "replacement_id": "G-PRICING-canonical-closed-loop"},
+        {"stable_id": "nonpm/g-pricing/cluster-b-business-case-anchor", "verdict": "replace", "replacement_id": "G-PRICING-canonical-closed-loop"},
+        {"stable_id": "nonpm/g-pricing/cluster-b-thesis-validation", "verdict": "replace", "replacement_id": "G-PRICING-canonical-closed-loop"},
+        {"stable_id": "G-PRICING-amazon-cause-separated", "verdict": "retain", "replacement_id": "G-PRICING-amazon-cause-separated"},
+        {"stable_id": "G-PRICING-studyfetch-wtp-experiment", "verdict": "retain", "replacement_id": "G-PRICING-studyfetch-wtp-experiment"}
+      ]
+    },
+    "G-LATENCY": {
+      "canonical_default_id": "G-LATENCY-studyfetch-readable-tradeoff",
+      "recommended_variants": [
+        {
+          "variant_id": "G-LATENCY-studyfetch-readable-tradeoff",
+          "priority": 1,
+          "use_case": "broad and technical product",
+          "archetype": "action",
+          "text": "Traded live fare recalculation for sub-second quotes by pre-caching pricing across 12 high-demand corridors; held fare variance within 4%, cut latency 70%, and recovered ~28K monthly rides."
+        },
+        {
+          "variant_id": "G-LATENCY-C2-distribution-diagnosis",
+          "priority": 2,
+          "use_case": "analytics and diagnosis",
+          "archetype": "diagnostic",
+          "text": "Diagnosed a fare-quote bottleneck where a 3.8s p95 hid behind a 1.3s average and drove 40% drop-off; pre-cached 12 high-demand corridors, holding fare variance within 4% while cutting latency 70% and recovering ~28K monthly rides."
+        },
+        {
+          "variant_id": "pm/g-latency/strategic-exec",
+          "priority": 3,
+          "use_case": "competitive strategy and executive communication",
+          "archetype": "diagnostic",
+          "text": "Linked 40% higher abandonment in Singapore and 2-3x higher peak-hour drop-offs to competitive app-switching triggered by quote delays; drove a cross-functional roadmap to cut quote times 70% and enable ~28K additional monthly rides."
+        }
+      ],
+      "incumbents": [
+        {"stable_id": "pm/g-latency/strategic-exec", "verdict": "retain", "replacement_id": "pm/g-latency/strategic-exec"},
+        {"stable_id": "pm/g-latency/revenue-case", "verdict": "replace", "replacement_id": "G-LATENCY-C2-distribution-diagnosis"},
+        {"stable_id": "pm/g-latency/throughput-engineering", "verdict": "replace", "replacement_id": "G-LATENCY-studyfetch-readable-tradeoff"},
+        {"stable_id": "pm/g-latency/cross-functional-drive", "verdict": "replace", "replacement_id": "G-LATENCY-C2-distribution-diagnosis"},
+        {"stable_id": "pm/g-latency/profiling-analysis", "verdict": "replace", "replacement_id": "G-LATENCY-C2-distribution-diagnosis"},
+        {"stable_id": "canonical-v4/g-latency/throughput-engineering", "verdict": "replace", "replacement_id": "G-LATENCY-studyfetch-readable-tradeoff"},
+        {"stable_id": "nonpm/g-latency/cluster-a-funnel-diagnostic", "verdict": "replace", "replacement_id": "G-LATENCY-studyfetch-readable-tradeoff"},
+        {"stable_id": "nonpm/g-latency/cluster-a-workflow-diagnostic", "verdict": "replace", "replacement_id": "G-LATENCY-studyfetch-readable-tradeoff"},
+        {"stable_id": "nonpm/g-latency/cluster-b-conversion-recovery", "verdict": "replace", "replacement_id": "G-LATENCY-studyfetch-readable-tradeoff"},
+        {"stable_id": "nonpm/g-latency/cluster-b-pricing-flow-fix", "verdict": "replace", "replacement_id": "G-LATENCY-studyfetch-readable-tradeoff"},
+        {"stable_id": "G-LATENCY-amazon-accuracy-tradeoff", "verdict": "replace", "replacement_id": "G-LATENCY-studyfetch-readable-tradeoff"},
+        {"stable_id": "G-LATENCY-studyfetch-readable-tradeoff", "verdict": "retain", "replacement_id": "G-LATENCY-studyfetch-readable-tradeoff"}
+      ]
+    },
+    "H-BATCHSHIFT": {
+      "canonical_default_id": "H-BATCHSHIFT-canonical-trial-trigger",
+      "recommended_variants": [
+        {
+          "variant_id": "H-BATCHSHIFT-canonical-trial-trigger",
+          "priority": 1,
+          "use_case": "long rendering preserving enterprise-trial trigger",
+          "archetype": "action",
+          "text": "Drove Hevo 2.0's batch-first shift after Fortune 500 trials stalled on auditability; traded streaming speed for verifiable correctness and clear failure boundaries, improving stability 45% and onboarding 8 enterprise customers in 90 days."
+        },
+        {
+          "variant_id": "H-BATCHSHIFT-studyfetch-verifiable-correctness",
+          "priority": 2,
+          "use_case": "short rendering of the same execution-model claim",
+          "archetype": "action",
+          "text": "Drove Hevo 2.0's shift to a batch-first transactional model, trading streaming speed for verifiable correctness and clear failure boundaries; improved platform stability 45% and enabled onboarding of 8 enterprise customers within 90 days."
+        }
+      ],
+      "incumbents": [
+        {"stable_id": "pm/h-batchshift/business-model-pivot", "verdict": "replace", "replacement_id": "H-BATCHSHIFT-canonical-trial-trigger"},
+        {"stable_id": "pm/h-batchshift/enterprise-trial", "verdict": "replace", "replacement_id": "H-BATCHSHIFT-canonical-trial-trigger"},
+        {"stable_id": "pm/h-batchshift/strategic-bet", "verdict": "retain", "replacement_id": "H-BATCHSHIFT-studyfetch-verifiable-correctness"},
+        {"stable_id": "pm/h-batchshift/segment-shift", "verdict": "replace", "replacement_id": "H-BATCHSHIFT-studyfetch-verifiable-correctness"},
+        {"stable_id": "pm/h-batchshift/reliability-outcome", "verdict": "retire", "replacement_id": null},
+        {"stable_id": "nonpm/h-batchshift/cluster-a-enterprise-deal-blocker", "verdict": "retire", "replacement_id": null},
+        {"stable_id": "nonpm/h-batchshift/cluster-a-buyer-signoff-blocker", "verdict": "retire", "replacement_id": null},
+        {"stable_id": "nonpm/h-batchshift/cluster-a-trust-infrastructure", "verdict": "retire", "replacement_id": null},
+        {"stable_id": "nonpm/h-batchshift/cluster-a-objection-to-proof-surface", "verdict": "retire", "replacement_id": null},
+        {"stable_id": "nonpm/h-batchshift/cluster-b-enterprise-readiness-shift", "verdict": "replace", "replacement_id": "H-BATCHSHIFT-canonical-trial-trigger"},
+        {"stable_id": "nonpm/h-batchshift/cluster-b-trust-surface-reset", "verdict": "retire", "replacement_id": null},
+        {"stable_id": "H-BATCHSHIFT-amazon-trial-trigger", "verdict": "replace", "replacement_id": "H-BATCHSHIFT-canonical-trial-trigger"},
+        {"stable_id": "H-BATCHSHIFT-studyfetch-verifiable-correctness", "verdict": "retain", "replacement_id": "H-BATCHSHIFT-studyfetch-verifiable-correctness"}
+      ]
+    }
+  }
+}

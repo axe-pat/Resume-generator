@@ -75,9 +75,95 @@ import sys
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
+from typing import Callable, Mapping
 
 import pandas as pd
+from shared.generation_routing import (
+    GenerationPath,
+    GenerationRoutingError,
+    LaneCGenerationRequest,
+    dispatch_lane_c_generation,
+    lane_c_generator_registered,
+    read_generation_metadata,
+    resolve_generation_path,
+)
 from shared.job_eligibility import evaluate_manual_jd
+from shared.queue_preflight import PreflightStatus, QueueInput, preflight_queue
+from shared.resume_runtime import (
+    RUNTIME_MODE_ENV,
+    V2_BULLET_BUDGET_ENV,
+    V2_PAGE_UNDERFILLED_EXIT_CODE,
+    ResumeRuntimeMode,
+)
+
+
+def _run_professional_child_with_v2_fill_recovery(
+    cmd: list[str],
+    *,
+    app_dir: Path,
+    timeout: float,
+    silent: bool,
+    resume_only: bool,
+    base_environment: Mapping[str, str],
+    on_retry: Callable[[], None] | None = None,
+) -> tuple[subprocess.CompletedProcess, bool]:
+    """Run one professional child and, only for pure v2 underfill, add one proof.
+
+    The first child communicates the narrow condition with a dedicated exit
+    code. We do not scrape prose and never retry scorer, selection, overflow,
+    provenance, parity, or renderer failures. The second attempt receives its
+    own environment and the two attempts share one per-job timeout budget.
+
+    Cover-letter runs are intentionally excluded: run_app may execute resume
+    and CL concurrently, so a resume exit code alone cannot prove the CL did not
+    also fail. The unattended queue defaults to resume-only generation.
+    """
+
+    started = time.monotonic()
+    first_env = dict(base_environment)
+    result = subprocess.run(
+        cmd,
+        cwd=str(ROOT_DIR),
+        capture_output=silent,
+        timeout=timeout,
+        env=first_env,
+    )
+
+    requested_mode = first_env.get(
+        RUNTIME_MODE_ENV, ResumeRuntimeMode.LEGACY.value
+    ).strip().lower()
+    explicit_budget = first_env.get(V2_BULLET_BUDGET_ENV, "").strip()
+    retry_allowed = (
+        result.returncode == V2_PAGE_UNDERFILLED_EXIT_CODE
+        and requested_mode == ResumeRuntimeMode.V2.value
+        and resume_only
+        and not explicit_budget
+    )
+    if not retry_allowed:
+        return result, False
+
+    remaining = timeout - (time.monotonic() - started)
+    if remaining <= 0:
+        raise subprocess.TimeoutExpired(cmd, timeout)
+
+    retry_env = dict(first_env)
+    retry_env[V2_BULLET_BUDGET_ENV] = "11"
+    retry_cmd = list(cmd)
+    # Underfill happens after strategy resolution. Reuse that exact cached
+    # strategy when available instead of paying for or risking a different
+    # planning pass on the recovery attempt.
+    if "--no-strategy" not in retry_cmd and (app_dir / "strategy.json").exists():
+        retry_cmd.append("--no-strategy")
+    if on_retry is not None:
+        on_retry()
+    retry_result = subprocess.run(
+        retry_cmd,
+        cwd=str(ROOT_DIR),
+        capture_output=silent,
+        timeout=remaining,
+        env=retry_env,
+    )
+    return retry_result, True
 
 # ─────────────────────────────────────────────────────────────────────────────
 # VM SSL workaround
@@ -652,6 +738,81 @@ def _filter_existing_generate_targets(
     return filtered, skipped, partial
 
 
+def _generation_target_input(target: dict) -> QueueInput | None:
+    """Load one target for deterministic source-integrity preflight.
+
+    Missing directories are handled later by the existing xlsx recovery path,
+    then checked again before generation.  This loader never mutates queue state.
+    """
+    app_dir = Path(str(target.get("app_dir") or ""))
+    jd_path = app_dir / "jd.txt"
+    if not jd_path.is_file():
+        return None
+
+    metadata: dict[str, object] = {}
+    metadata_path = app_dir / "metadata.json"
+    if metadata_path.is_file():
+        try:
+            loaded = json.loads(metadata_path.read_text(encoding="utf-8"))
+            if isinstance(loaded, dict):
+                metadata = loaded
+        except (OSError, ValueError):
+            metadata = {}
+
+    key = str(target.get("id") or metadata.get("id") or app_dir)
+    role_title = str(
+        target.get("role_title")
+        or metadata.get("role_title")
+        or metadata.get("title")
+        or ""
+    ).strip()
+    try:
+        jd_text = jd_path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        # Preserve the target in the corpus so queue_preflight emits a normal
+        # JD_MISSING block rather than letting one unreadable file crash a batch.
+        jd_text = None
+    return QueueInput(
+        key=key,
+        role_title=role_title,
+        jd_text=jd_text,
+        metadata=metadata,
+    )
+
+
+def _preflight_generation_targets(targets: list[dict]):
+    """Preflight every readable target together so cross-role collisions surface."""
+    inputs = [item for target in targets if (item := _generation_target_input(target))]
+    return preflight_queue(inputs)
+
+
+def _lane_c_generation_request(
+    job: dict,
+    app_dir: Path,
+    metadata: dict[str, object],
+    args,
+    *,
+    default_resume_only: bool,
+) -> LaneCGenerationRequest:
+    """Translate jobs.py arguments into the stable Lane C adapter contract."""
+
+    resume_only = bool(job.get("resume_only", default_resume_only))
+    return LaneCGenerationRequest(
+        company=str(job.get("company") or metadata.get("company") or app_dir.name),
+        app_dir=app_dir,
+        jd_path=app_dir / "jd.txt",
+        metadata=metadata,
+        options={
+            "mode": "generate",
+            "run_resume": True,
+            "run_cover_letter": not resume_only,
+            "make_docx": not bool(getattr(args, "no_docx", False)),
+            "model": str(getattr(args, "model", "") or ""),
+            "run_name": str(getattr(args, "run_name", "") or ""),
+        },
+    )
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Blocklist helpers
 # ─────────────────────────────────────────────────────────────────────────────
@@ -976,10 +1137,51 @@ def cmd_generate(args, promoted_jobs: list[dict] | None = None) -> list[dict]:
         print(c(YELLOW, "  No promoted jobs to generate for."))
         return []
 
+    # Validate every readable JD as one corpus before starting model calls. This
+    # catches truncated inputs and one body accidentally attached to different
+    # role titles. Blocked targets remain untouched in the tracker.
+    preflight_report = _preflight_generation_targets(targets)
+    preflight_seen_keys = {
+        key for record in preflight_report.records for key in record.job_keys
+    }
+    blocked_by_key: dict[str, list[str]] = {}
+    for record in preflight_report.blockers:
+        for key in record.job_keys:
+            blocked_by_key.setdefault(key, []).append(f"{record.code}: {record.message}")
+    for record in preflight_report.warnings:
+        companies = ", ".join(record.job_keys)
+        print(c(YELLOW, f"  [preflight warn] {companies}: {record.code} — {record.message}"))
+
+    preflight_blocked_results: list[dict] = []
+    runnable_targets: list[dict] = []
+    for target in targets:
+        queue_input = _generation_target_input(target)
+        reasons = blocked_by_key.get(queue_input.key, []) if queue_input else []
+        if not reasons:
+            runnable_targets.append(target)
+            continue
+        company = str(target.get("company") or queue_input.key)
+        print(c(RED, f"  [preflight block] {company}: {'; '.join(reasons)}"))
+        preflight_blocked_results.append(
+            {
+                **target,
+                "success": False,
+                "preflight_blocked": True,
+                "error": "; ".join(reasons),
+            }
+        )
+    targets = runnable_targets
+    if not targets:
+        print(c(YELLOW, "  No generation targets passed source-integrity preflight."))
+        return preflight_blocked_results
+
     timeout  = getattr(args, "timeout",  2400)
     parallel = getattr(args, "parallel", 1)
+    # Snapshot once. Every worker and recovery attempt receives a fresh copy;
+    # no parallel job can leak an 11-proof request into another job.
+    generation_base_env = os.environ.copy()
 
-    results = []
+    results = list(preflight_blocked_results)
     print()
     print(c(BOLD, f"  Generating docs for {len(targets)} job(s)"
             + (f" (parallel={parallel})" if parallel > 1 else "") + "..."))
@@ -1003,8 +1205,33 @@ def cmd_generate(args, promoted_jobs: list[dict] | None = None) -> list[dict]:
             print(c(BOLD, f"  ── {company} ──"))
 
         if dry_run:
-            _p(c(YELLOW, f"  [dry-run] Would run: run_app.py {app_dir.name}"))
-            return {**job, "success": True, "dry_run": True}
+            try:
+                dry_metadata = read_generation_metadata(app_dir)
+                dry_path = resolve_generation_path(dry_metadata)
+            except GenerationRoutingError as exc:
+                _p(c(RED, f"  [route block] {company}: {exc}"))
+                return {
+                    **job,
+                    "success": False,
+                    "dry_run": True,
+                    "generation_route_blocked": True,
+                    "error": str(exc),
+                }
+            if dry_path is GenerationPath.LANE_C:
+                adapter_note = (
+                    "registered"
+                    if lane_c_generator_registered()
+                    else "NOT registered; a live run will block"
+                )
+                _p(c(YELLOW, f"  [dry-run] Would dispatch Lane C adapter ({adapter_note})"))
+            else:
+                _p(c(YELLOW, f"  [dry-run] Would run: run_app.py {app_dir.name}"))
+            return {
+                **job,
+                "success": True,
+                "dry_run": True,
+                "generation_path": dry_path.value,
+            }
 
         # ── Recreate app dir from xlsx if missing ──────────────────────────
         if not app_dir.exists() or not (app_dir / "jd.txt").exists():
@@ -1034,6 +1261,84 @@ def cmd_generate(args, promoted_jobs: list[dict] | None = None) -> list[dict]:
             except Exception as _e:
                 _p(c(RED, f"  [ERROR] {company}: Failed to recreate app dir: {_e}"))
                 return {**job, "success": False, "error": f"recreate failed: {_e}"}
+
+        # Re-run the single-target checks after any xlsx recovery. The batch
+        # preflight above owns cross-target duplicate detection; this guard
+        # ensures a recreated or explicitly targeted JD cannot bypass the
+        # missing/truncated/title-contradiction checks.
+        queue_input = _generation_target_input(job)
+        if queue_input is None:
+            return {**job, "success": False, "error": "preflight could not read jd.txt"}
+        local_preflight = preflight_queue([queue_input])
+        if local_preflight.status is PreflightStatus.BLOCK:
+            reasons = "; ".join(
+                f"{record.code}: {record.message}"
+                for record in local_preflight.blockers
+            )
+            _p(c(RED, f"  [preflight block] {company}: {reasons}"))
+            return {
+                **job,
+                "success": False,
+                "preflight_blocked": True,
+                "error": reasons,
+            }
+        if queue_input.key not in preflight_seen_keys:
+            for record in local_preflight.warnings:
+                _p(c(YELLOW, f"  [preflight warn] {company}: {record.code} — {record.message}"))
+
+        # Explicit lane metadata owns the generator boundary. Resolve it before
+        # the manual eligibility guard, cost policy, flags, or PM/NONPM runner.
+        # Present-but-malformed metadata blocks because swallowing it could
+        # conceal lane=C and silently produce the wrong document architecture.
+        try:
+            generation_metadata = read_generation_metadata(app_dir)
+            generation_path = resolve_generation_path(generation_metadata)
+        except GenerationRoutingError as exc:
+            _p(c(RED, f"  [route block] {company}: {exc}"))
+            return {
+                **job,
+                "success": False,
+                "generation_route_blocked": True,
+                "error": str(exc),
+            }
+
+        if generation_path is GenerationPath.LANE_C:
+            request = _lane_c_generation_request(
+                job,
+                app_dir,
+                generation_metadata,
+                args,
+                default_resume_only=default_resume_only,
+            )
+            t_start = time.time()
+            try:
+                adapter_result = dispatch_lane_c_generation(request)
+            except GenerationRoutingError as exc:
+                elapsed = int(time.time() - t_start)
+                _p(c(RED, f"  [route block] {company}: {exc}"))
+                return {
+                    **job,
+                    "success": False,
+                    "generation_path": generation_path.value,
+                    "generation_route_blocked": True,
+                    "error": str(exc),
+                    "elapsed": elapsed,
+                }
+
+            elapsed = int(time.time() - t_start)
+            adapter_error = adapter_result.error or "Lane C generation failed"
+            if adapter_result.success:
+                _p(c(GREEN, f"  [✓] {company} — Lane C adapter — {elapsed}s"))
+            else:
+                _p(c(RED, f"  [✗] {company}: {adapter_error}"))
+            return {
+                **job,
+                "success": adapter_result.success,
+                "generation_path": generation_path.value,
+                "artifacts": [str(path) for path in adapter_result.artifacts],
+                "error": "" if adapter_result.success else adapter_error,
+                "elapsed": elapsed,
+            }
 
         # ── Manual-app eligibility guard ───────────────────────────────────
         # Auto-discovered jobs already passed discovery scoring + pre-filters.
@@ -1081,11 +1386,18 @@ def cmd_generate(args, promoted_jobs: list[dict] | None = None) -> list[dict]:
         t_start = time.time()
 
         try:
-            result = subprocess.run(
+            result, underfill_retry_attempted = _run_professional_child_with_v2_fill_recovery(
                 cmd,
-                cwd=str(ROOT_DIR),
-                capture_output=silent,  # serial: stream to terminal; parallel: capture
+                app_dir=app_dir,
                 timeout=timeout,
+                silent=silent,
+                resume_only=job_resume_only,
+                base_environment=generation_base_env,
+                on_retry=lambda: _p(c(
+                    YELLOW,
+                    "  [i] V2 page remained underfilled after layout recovery; "
+                    "retrying once with an admitted 11th distinct proof.",
+                )),
             )
             elapsed = int(time.time() - t_start)
             success = result.returncode == 0
@@ -1156,7 +1468,13 @@ def cmd_generate(args, promoted_jobs: list[dict] | None = None) -> list[dict]:
         verdict_icon  = "✓" if success else "✗"
         _p(c(verdict_color, f"  [{verdict_icon}] {company} — {elapsed}s"))
 
-        return {**job, "success": success, "elapsed": elapsed}
+        return {
+            **job,
+            "success": success,
+            "elapsed": elapsed,
+            "underfill_retry_attempted": underfill_retry_attempted,
+            "error": "" if success else f"run_app exited {result.returncode}",
+        }
 
     # ── Serial or parallel execution ─────────────────────────────────────────
     if parallel > 1:
@@ -1179,7 +1497,12 @@ def cmd_generate(args, promoted_jobs: list[dict] | None = None) -> list[dict]:
                 if result.get("dry_run"):
                     print(c(YELLOW, f"  [dry-run] {company}"))
                 elif result.get("success"):
-                    print(c(GREEN,  f"  [✓] {company} — {elapsed}s"))
+                    recovery = (
+                        " | 11-proof fill recovery"
+                        if result.get("underfill_retry_attempted")
+                        else ""
+                    )
+                    print(c(GREEN,  f"  [✓] {company} — {elapsed}s{recovery}"))
                 else:
                     err = result.get("error", "failed")
                     print(c(RED,    f"  [✗] {company} — {err}"))
@@ -1258,7 +1581,24 @@ def cmd_pipeline(args):
     # Step 2: Generate
     print()
     print(c(BOLD, "  ── Phase 2: Generate ──"))
-    cmd_generate(args, promoted_jobs=promoted)
+    return cmd_generate(args, promoted_jobs=promoted)
+
+
+def _generation_results_failed(results) -> bool:
+    """Return whether a live generation command had any failed target.
+
+    Dry-run rows are previews, not generation outcomes.  Every other returned
+    row must explicitly report success so shell callers cannot mistake a
+    partially failed batch for a successful run.
+    """
+
+    if not isinstance(results, list):
+        return False
+    return any(
+        not bool(result.get("success")) and not bool(result.get("dry_run"))
+        for result in results
+        if isinstance(result, dict)
+    )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1686,7 +2026,9 @@ def main():
         "sync":     cmd_sync,
         "sort":     cmd_sort,
     }
-    dispatch[args.cmd](args)
+    result = dispatch[args.cmd](args)
+    if args.cmd in {"generate", "pipeline"} and _generation_results_failed(result):
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":

@@ -14,9 +14,10 @@ from enum import Enum
 from typing import Iterable
 
 from shared.resume_profiles import PROFILE_REGISTRY
+from shared.variant_text_lint import lint_candidate_variant_text
 
 
-VARIANT_ADMISSION_VERSION = "2026-08-28.3"
+VARIANT_ADMISSION_VERSION = "2026-09-02.1"
 CANONICAL_VARIANT_RULEBOOK = "docs/variants/VARIANT_FINALS_v4.md"
 
 
@@ -30,6 +31,17 @@ class VariantRulebookStatus(str, Enum):
     APPROVED = "approved"
     PENDING = "pending"
     REJECTED = "rejected"
+
+
+class OutcomeTier(str, Enum):
+    """Strongest attributable outcome carried by the variant, best to weakest."""
+
+    USER_OR_BUSINESS = "user-or-business"
+    OBSERVED_BEHAVIOR = "observed-behavior"
+    DECISION_OR_ORGANIZATION = "decision-or-organization"
+    QUALITY_OR_EFFICIENCY = "quality-or-efficiency"
+    THROUGHPUT_OR_INPUT = "throughput-or-input"
+    ARCHITECTURE_OR_BUILD_COUNT = "architecture-or-build-count"
 
 
 @dataclass(frozen=True)
@@ -61,6 +73,12 @@ class ResumeVariant:
     defensibility: int
     distinctiveness: int
     line_cost: int
+    outcome_tier: OutcomeTier
+    one_argument: bool
+    mechanism_supports_claim: bool
+    outcome_closes_claim: bool
+    outsider_legible: bool
+    best_available_outcome: bool
     decision_quality: int | None = None
     human_presence: int | None = None
     metric_salience: int | None = None
@@ -104,6 +122,19 @@ def check_variant_admission(
         errors.append("at least one value_signal is required")
     if not variant.role_tags:
         errors.append("at least one role_tag is required")
+    if not isinstance(variant.outcome_tier, OutcomeTier):
+        errors.append("outcome_tier must use the controlled OutcomeTier vocabulary")
+
+    required_quality_gates = {
+        "one_argument": variant.one_argument,
+        "mechanism_supports_claim": variant.mechanism_supports_claim,
+        "outcome_closes_claim": variant.outcome_closes_claim,
+        "outsider_legible": variant.outsider_legible,
+        "best_available_outcome": variant.best_available_outcome,
+    }
+    for gate_name, passed in required_quality_gates.items():
+        if passed is not True:
+            errors.append(f"{gate_name} must be explicitly approved")
 
     for field_name in (
         "stakes",
@@ -192,6 +223,36 @@ def check_variant_for_profile(
         admitted=not errors,
         errors=tuple(errors),
         warnings=base.warnings,
+    )
+
+
+def check_new_candidate_admission(
+    variant: ResumeVariant,
+    policy: VariantAdmissionPolicy = DEFAULT_ADMISSION_POLICY,
+) -> AdmissionResult:
+    """Apply metadata admission plus deterministic text rules to new candidates.
+
+    This is intentionally a separate, shadow-only path.  Existing incumbents
+    predate several stricter operational rules and remain protected by pairwise
+    non-regression review; new challengers do not get to repeat known defects.
+    """
+
+    base = check_variant_admission(variant, policy)
+    errors = list(base.errors)
+    warnings = list(base.warnings)
+    text_report = lint_candidate_variant_text(variant.text)
+    errors.extend(
+        f"text rule {issue.code}: {issue.message}" for issue in text_report.blockers
+    )
+    warnings.extend(
+        f"text review {issue.code}: {issue.message}"
+        for issue in text_report.review_items
+    )
+    return AdmissionResult(
+        variant_id=variant.variant_id,
+        admitted=not errors,
+        errors=tuple(errors),
+        warnings=tuple(warnings),
     )
 
 

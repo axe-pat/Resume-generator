@@ -1,0 +1,149 @@
+{
+  "schema_version": "2026-09-03.1",
+  "mode": "review-only",
+  "live_wiring": false,
+  "decision_basis": "User confirmed that all on-file values are defensible and delegated one canonical choice per collision. Prefer the most attributable realized outcome, keep one connected causal path, minimize outsider decoding, and avoid reusing the same scale currency across adjacent stories.",
+  "alternate_copy_policy": "The preferred text is the default. A role-specific alternate may change emphasis or omit a nonessential metric, but it may not use a retired representation, move a metric to another story, or splice an adjacent causal path.",
+  "decisions": [
+    {
+      "decision_id": "gojek-supply-eta",
+      "story_id": "G-SUPPLY",
+      "collision": "1.5-minute versus 2-minute pickup-ETA reduction",
+      "chosen_representation": "1.5-minute pickup-ETA reduction",
+      "retired_representations": [
+        "2-minute pickup-ETA reduction",
+        "$110M+ marketplace scale presented as project impact"
+      ],
+      "preferred_variant_id": "G-SUPPLY-canonical-operating-model",
+      "preferred_text": "Led Gojek's fleet integration platform and partner operating model; replaced bespoke builds with a standardized API and validation workflow, enabling 18% supply growth and cutting pickup ETAs by 1.5 minutes across Singapore and Bali.",
+      "required_literals": ["18%", "1.5 minutes", "Singapore and Bali"],
+      "excluded_literals": ["2 minutes", "$110M+"],
+      "rationale": "The 1.5-minute result is the measured corridor outcome in the canonical story. The operating-model and API bridge explains how the work enabled the shared marketplace result, while $110M+ is company context rather than personal impact.",
+      "source_refs": [
+        "docs/career_workbench/story_engine/stories/_GOLD_REFERENCE_gojek_fleet_liquidity_os.md",
+        "docs/reference/STORY_BANK_RICH.md",
+        "resume/variants/approved_gold_variants.jsonl"
+      ]
+    },
+    {
+      "decision_id": "gojek-pricing-scale-and-proof",
+      "story_id": "G-PRICING",
+      "collision": "20+ interviews, 9% conversion, and $3.2M incremental revenue versus 30+ interviews and $15M+ annual value; cause separation versus explicit A/B proof",
+      "chosen_representation": "20+ rider interviews, A/B validation, 9% conversion lift, and $3.2M incremental revenue",
+      "retired_representations": ["30+ rider interviews", "$15M+ annual value"],
+      "preferred_variant_id": "G-PRICING-canonical-closed-loop",
+      "preferred_text": "Separated price-sensitive abandonment from quote-latency drop-off through funnel analysis and 20+ rider interviews; validated a lower-cost ride tier through A/B tests, lifting conversion 9% and generating $3.2M in incremental revenue.",
+      "required_literals": ["20+", "A/B tests", "9%", "$3.2M"],
+      "excluded_literals": ["30+", "$15M+"],
+      "rationale": "This rendering preserves the non-obvious cause separation and closes the research loop with behavioral proof. The $3.2M is realized incremental revenue; $15M+ is a broader annual-value representation and is not needed to make the stronger causal case.",
+      "source_refs": [
+        "docs/career_workbench/story_engine/stories/_GOLD_REFERENCE_gojek_pricing_tier.md",
+        "resume/freeform/prompts/freeform_master_v2.txt",
+        "resume/variants/approved_gold_variants.jsonl"
+      ]
+    },
+    {
+      "decision_id": "gojek-latency-outcome",
+      "story_id": "G-LATENCY",
+      "collision": "approximately 28K recovered monthly rides versus approximately $5M+ annual value",
+      "chosen_representation": "approximately 28K recovered monthly rides",
+      "retired_representations": ["approximately $5M+ annual value"],
+      "preferred_variant_id": "G-LATENCY-studyfetch-readable-tradeoff",
+      "preferred_text": "Traded live fare recalculation for sub-second quotes by pre-caching pricing across 12 high-demand corridors; held fare variance within 4%, cut latency 70%, and recovered ~28K monthly rides.",
+      "required_literals": ["12 high-demand corridors", "4%", "70%", "~28K monthly rides"],
+      "excluded_literals": ["$5M", "$5M+"],
+      "rationale": "Recovered rides are the experimentally isolated product outcome and keep the latency story distinct from the pricing story's revenue currency. The explicit cached-pricing tradeoff is more attributable than an annual-value conversion.",
+      "source_refs": [
+        "docs/career_workbench/story_engine/stories/_GOLD_REFERENCE_gojek_fare_latency.md",
+        "docs/reference/STORY_BANK_RICH.md",
+        "resume/variants/approved_gold_variants.jsonl"
+      ]
+    },
+    {
+      "decision_id": "hevo-batch-customer-count",
+      "story_id": "H-BATCHSHIFT",
+      "collision": "8 versus 12 enterprise customers within 90 days",
+      "chosen_representation": "8 enterprise customers within 90 days",
+      "retired_representations": ["12 enterprise customers within 90 days"],
+      "preferred_variant_id": "H-BATCHSHIFT-canonical-trial-trigger",
+      "preferred_text": "Drove Hevo 2.0's batch-first shift after Fortune 500 trials stalled on auditability; traded streaming speed for verifiable correctness and clear failure boundaries, improving stability 45% and onboarding 8 enterprise customers in 90 days.",
+      "required_literals": ["batch-first shift", "45%", "8 enterprise customers", "90 days"],
+      "excluded_literals": ["12 enterprise customers", "12 enterprise clients"],
+      "rationale": "Eight customers is directly tied in the canonical Hevo 2.0 sources to the batch-first execution model and strict-SLA readiness. The 12-customer variants attach a combined logging-and-monitoring roadmap to this story and weaken mechanism attribution despite the larger number.",
+      "source_refs": [
+        "docs/career_workbench/story_engine/stories/_GOLD_REFERENCE_hevo_enterprise_trust_pivot.md",
+        "cover_letters/story_bank/Hevo 2.0 revised Product story.md",
+        "resume/variants/approved_gold_variants.jsonl"
+      ]
+    },
+    {
+      "decision_id": "hevo-monitoring-outcome",
+      "story_id": "H-MONITORING",
+      "collision": "30% SLA improvement on an operator-context path versus the direct 45-to-under-5-minute diagnosis result",
+      "chosen_representation": "diagnosis reduced from 45 to under 5 minutes across 120K+ pipelines",
+      "retired_representations": ["30% SLA improvement in the canonical monitoring bullet"],
+      "preferred_variant_id": "H-MONITORING-canonical-ai-boundary",
+      "preferred_text": "Shipped an AI monitoring surface that turned alert storms into single incident cards; kept detection deterministic and used GenAI over a 20+ failure taxonomy to rank recovery actions, cutting diagnosis from 45 to under 5 minutes across 120K+ pipelines.",
+      "required_literals": ["20+ failure taxonomy", "45", "under 5 minutes", "120K+ pipelines"],
+      "excluded_literals": ["30% SLA", "SLA performance 30%"],
+      "rationale": "The before-and-after diagnosis time is the direct and visceral consequence of the incident-card design. The 30% SLA figure is farther downstream, less specific, and not required once the causal workflow result is available.",
+      "source_refs": [
+        "docs/career_workbench/story_engine/stories/_GOLD_REFERENCE_hevo_incident_intelligence.md",
+        "docs/reference/STORY_BANK_RICH.md",
+        "resume/variants/approved_gold_variants.jsonl"
+      ]
+    },
+    {
+      "decision_id": "intuit-billing-system-scope",
+      "story_id": "I-BILLING",
+      "collision": "three billing services versus five systems",
+      "chosen_representation": "five systems, 80K+ businesses, and a 10% renewal lift",
+      "retired_representations": ["three billing services in the canonical billing bullet"],
+      "preferred_variant_id": "I-BILLING-canonical-renewal-integrity",
+      "preferred_text": "Traced silent SMB cancellations to billing mismatches across five systems; built a reconciliation model for 80K+ businesses and a financial case that shifted the roadmap from feature delivery to billing integrity, lifting renewals 10%.",
+      "required_literals": ["five systems", "80K+ businesses", "10%"],
+      "excluded_literals": ["three billing services"],
+      "rationale": "Five systems is the broader cross-system boundary and the 10% renewal lift is the strongest realized commercial outcome. The financial case preserves the roadmap-influence signal without ending at an internal decision alone.",
+      "source_refs": [
+        "cover_letters/story_bank/Behaviourals.md",
+        "docs/reference/STORY_BANK_RICH.md",
+        "resume/freeform/prompts/freeform_master_nonpm.txt"
+      ]
+    },
+    {
+      "decision_id": "intuit-incident-recovery-duration",
+      "story_id": "I-INCIDENT",
+      "collision": "recovery cycle cut from days to hours versus a 7-day incident response; 8-team scope duplicated from governance",
+      "chosen_representation": "fix-writing and validation cycle cut from days to hours, with no 8-team claim",
+      "retired_representations": ["7-day incident response in the canonical bullet", "8-team incident-response scope"],
+      "preferred_variant_id": "I-INCIDENT-canonical-parallel-recovery",
+      "preferred_text": "Led recovery after billing-state errors canceled subscriptions for 1,500+ businesses; ran fix-writing and QA validation in parallel, cutting resolution from days to hours.",
+      "required_literals": ["1,500+ businesses", "days to hours"],
+      "excluded_literals": ["7-day", "8-team", "8 teams"],
+      "rationale": "Days to hours measures the direct effect of parallelizing the engineering and QA loop and is more vivid than the end-to-end incident duration. The detailed incident source names functions, not eight teams, so the shared team count is removed rather than duplicated.",
+      "source_refs": [
+        "cover_letters/story_bank/Behaviourals.md",
+        "docs/career_workbench/story_engine/stories/_GOLD_REFERENCE_intuit_recovery_control_plane.md",
+        "resume/variants/approved_gold_variants.jsonl"
+      ]
+    },
+    {
+      "decision_id": "intuit-eight-team-scope",
+      "story_id": "I-GOVERNANCE",
+      "collision": "8-team scope appears in both governance and incident variants",
+      "chosen_representation": "8 teams belongs exclusively to the 20K+ backlog governance story",
+      "retired_representations": ["8 teams in I-INCIDENT"],
+      "preferred_variant_id": "I-GOVERNANCE-canonical-risk-sequencing",
+      "preferred_text": "Reframed delivery drag as a sequencing problem across 8 teams; built a risk-tiered prioritization model for 20K+ issues that improved throughput 25%.",
+      "required_literals": ["8 teams", "20K+ issues", "25%"],
+      "excluded_literals": [],
+      "scope_lock": {"literal": "8 teams", "exclusive_story_id": "I-GOVERNANCE"},
+      "rationale": "The 8-team scale is structurally connected to the cross-team backlog and governance mechanism. The incident source instead names Engineering, QA, Support, Finance, and Product, so placing the same number there creates duplicate scale without stronger proof.",
+      "source_refs": [
+        "resume/freeform/prompts/freeform_master_nonpm.txt",
+        "resume/variants/live_prompt_variants.jsonl",
+        "cover_letters/story_bank/Behaviourals.md"
+      ]
+    }
+  ]
+}

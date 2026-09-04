@@ -89,6 +89,11 @@ ResumeGenerator v1/
 ├── shared/
 │   ├── strategy.py             Shared Step 0 strategy generator
 │   ├── job_eligibility.py      Shared no-AI pre-filters reused by discovery + manual app-dir generation
+│   ├── queue_preflight.py      Pure pass/warn/block checks for missing, truncated, duplicate, or mismatched JD inputs
+│   ├── generation_routing.py   Metadata-owned professional/Lane C boundary plus fail-closed Lane C adapter registry
+│   ├── resume_artifacts.py     Observed one-page PDF + canonical-text release gate
+│   ├── resume_fill.py          Bbox geometry, v2 release floor, and bounded adaptive-fill planner
+│   ├── claim_spine.py          Inert claim-spine schema + deterministic incumbent/challenger non-regression decisions
 │   └── prompts/
 │       └── step0_strategy.txt
 │
@@ -111,6 +116,22 @@ ResumeGenerator v1/
 └── profile/
     └── profile.md              Akshat's experience, skills, and background (scorer input)
 ```
+
+### Resume page-fill status
+
+Legacy output remains unchanged. V2 validates an actual one-page PDF, canonical
+text parity, and observed Poppler word geometry before publishing artifacts. A
+v2 page below the calibrated 93% usable-height floor is blocked rather than padded
+or rewritten. In the default resume-only `jobs.py generate` path, a true underfill
+automatically gets exactly one second attempt with an admitted 11th distinct
+Experience proof. Generic failures and resume-plus-cover-letter runs do not retry.
+Set `RESUME_V2_BULLET_BUDGET=11` only when deliberately taking manual control;
+optionally set `RESUME_V2_ADD_COMPANY` to a profile company with slot headroom.
+The closed bank, marginal-value gate, profile bounds, unique-story-family checks,
+and one shared per-job timeout still apply. Skills, Community, and Interests are
+never used as filler. See
+`docs/resume_generator_reviews/PAGE_FILL_ADAPTIVE_CONTRACT_REVIEW_2026-09-03.md`
+and its adjacent JSON calibration data for the observed geometry contract.
 
 ---
 

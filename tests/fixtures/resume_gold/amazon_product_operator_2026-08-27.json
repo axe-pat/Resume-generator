@@ -1,0 +1,191 @@
+{
+  "schema_version": "2026-09-02.1",
+  "fixture_id": "amazon-product-operator-2026-08-27",
+  "fixture_status": "submitted-gold",
+  "target": "Amazon shared 2027 product and leadership application resume",
+  "source_artifact": {
+    "path": "apps/archive/applied/2026-08-28/Apply queues/current_apply_queue/jobs/06_08-24_CARRY_94_Amazon/Product_Manager_Technical_PMT_-_2027/Akshat_Pathak_Amazon_Shared_Resume_2026-08-27.docx",
+    "sha256": "a30424ba5bdc18db6e81e863d7216fecc8a441571e6ae367c3f7fb25dd2efb53",
+    "extracted_from": "docx",
+    "text_authority": true
+  },
+  "layout_reference": {
+    "path": "apps/archive/applied/2026-08-28/Apply queues/current_apply_queue/jobs/06_08-24_CARRY_94_Amazon/Product_Manager_Technical_PMT_-_2027/Akshat_Pathak_Amazon_Resume.pdf",
+    "sha256": "748d171fcfa9e6208d7460679f0ca4fd762de50ff4113503bc8bbb2a6e601ae3",
+    "rendered_text_fixture": "tests/fixtures/resume_gold/amazon_product_operator_2026-08-27_pdftotext.txt",
+    "rendered_text_sha256": "e199f190545f2fd3aca8c56f2ca7d402b0f106590b13ce6a2323c15562209043",
+    "approved_page_count": 1,
+    "bundled_libreoffice_docx_page_count": 2,
+    "portability_note": "The submitted Microsoft Word PDF is one page. The same DOCX currently pushes the Community row onto page 2 under bundled LibreOffice, so the PDF is the visual authority and the DOCX is the text authority."
+  },
+  "profile_id": "product-general",
+  "supporting_proof": {
+    "mode": "inline",
+    "reason": "default",
+    "project_bullet_count": 0,
+    "replaced_experience_count": 0
+  },
+  "header": {
+    "name": "AKSHAT PATHAK",
+    "contact_line": "Los Angeles, CA • Akshat.Pathak.2027@marshall.usc.edu • (213) 325-0609 • linkedin.com/in/akshats-pathak"
+  },
+  "identity_heading": "PRODUCT MANAGEMENT",
+  "summary_mode": "breadth-with-evidence-anchors",
+  "summary_text": "Product manager and engineer with five years owning technical products end to end: a $3.2M pricing launch on a marketplace serving 20M+ riders, the AI interview infrastructure behind FlairX's enterprise pilots, and the platform bet that unblocked Hevo Data's Fortune 500 trials.",
+  "summary_sha256": "7ffc34122f24f7279922587bd4797708e895f92b7417e239810920814aa5a5db",
+  "education": [
+    {
+      "institution": "University of Southern California, Marshall School of Business",
+      "location": "Los Angeles, CA",
+      "date": "May 2027",
+      "degree": "Master of Business Administration (STEM)",
+      "details": [
+        "Honors: Dean’s Merit Scholarship",
+        "Leadership: AVP Alumni Relations, South Asian Business Association; AVP External Relations, High Tech Association"
+      ]
+    },
+    {
+      "institution": "Thapar Institute of Engineering and Technology",
+      "location": "Patiala, India",
+      "date": "August 2020",
+      "degree": "Bachelor of Engineering, Computer Engineering — GPA 3.73",
+      "details": [
+        "Honors: Merit Scholarship (2×); Published AI-based Fake News Detection research (Springer, 2020; 90+ citations)",
+        "Leadership: General Secretary, Creative Computing Society – drove 1,000+ participants and secured $30K in sponsorships"
+      ]
+    }
+  ],
+  "experience": [
+    {
+      "company": "FlairX AI",
+      "descriptor": "AI-first interview and hiring platform",
+      "location": "San Francisco, CA",
+      "date": "Jun 2026 – Aug 2026",
+      "title": "AI Product Manager Intern",
+      "bullet_variant_ids": [
+        "F-ENTERPRISE-amazon-deal-impact",
+        "F-AVATAR-shared-provider-unit-economics"
+      ]
+    },
+    {
+      "company": "Gojek",
+      "descriptor": "SE Asia ride-hailing super app serving 20M+ riders",
+      "location": "Gurgaon, India",
+      "date": "Jan 2025 – Jul 2025",
+      "title": "Product Owner, Marketplace",
+      "bullet_variant_ids": [
+        "G-PRICING-amazon-cause-separated",
+        "G-SUPPLY-amazon-operating-model",
+        "G-LATENCY-amazon-accuracy-tradeoff"
+      ]
+    },
+    {
+      "company": "Hevo Data",
+      "descriptor": "Sequoia-backed ELT data platform",
+      "location": "Bengaluru, India",
+      "date": "Nov 2023 – Jan 2025",
+      "title": "Product Owner, Data Platform",
+      "bullet_variant_ids": [
+        "H-BATCHSHIFT-amazon-trial-trigger",
+        "H-REGRESSION-amazon-shared-release"
+      ]
+    },
+    {
+      "company": "Intuit",
+      "descriptor": "QuickBooks Online, MSE: Monetization Services & Experiences",
+      "location": "Bengaluru, India",
+      "date": "Aug 2022 – Oct 2023",
+      "title": "Software Engineer 2",
+      "bullet_variant_ids": [
+        "I-BILLING-amazon-diagnosis-roadmap",
+        "I-INCIDENT-amazon-parallel-response"
+      ]
+    },
+    {
+      "company": "Optum",
+      "descriptor": "health-tech & data-analytics arm of UnitedHealth Group",
+      "location": "Gurgaon, India",
+      "date": "Jul 2020 – Aug 2022",
+      "title": "Software Engineer",
+      "bullet_variant_ids": [
+        "O-PROVIDER-amazon-schema-integration"
+      ]
+    }
+  ],
+  "projects": [],
+  "inline_proof_variant_ids": [
+    "FL-INSTITUTIONAL-amazon-inline-prearrival"
+  ],
+  "community_variant_ids": [],
+  "skills_heading": "SKILLS & INTERESTS",
+  "skills_rows": [
+    {
+      "label": "Product & Business",
+      "text": "Customer Discovery, Working Backwards, Product Strategy, Roadmaps, Pricing, Unit Economics, GTM"
+    },
+    {
+      "label": "Analytics & Operations",
+      "text": "SQL, Tableau, Excel, KPI Design, A/B Testing, Process Improvement, Incident Management"
+    },
+    {
+      "label": "Technical",
+      "text": "Python, APIs, AI/ML Workflows, AWS, Docker, Figma; Jira, Confluence"
+    },
+    {
+      "label": "Startup Product",
+      "variant_id": "FL-INSTITUTIONAL-amazon-inline-prearrival"
+    },
+    {
+      "label": "Community",
+      "text": "Supported education for 400+ underserved children; led a volunteer team that raised $20K for an anti-human-trafficking nonprofit."
+    }
+  ],
+  "expected_counts": {
+    "experience_bullets": 10,
+    "project_bullets": 0,
+    "inline_proof_bullets": 1,
+    "community_proof_bullets": 0
+  },
+  "expected_company_allocation": {
+    "FlairX AI": 2,
+    "Gojek": 3,
+    "Hevo Data": 2,
+    "Intuit": 2,
+    "Optum": 1
+  },
+  "expected_findings": [
+    "Summary states the product identity and funds it with three selected proof anchors.",
+    "All five professional employers remain visible, including one Optum continuity bullet.",
+    "Fluo is compact inline supporting proof rather than Experience or Projects.",
+    "Meaningful trade-offs and operating mechanisms reinforce product identity without manufacturing warehouse or frontline-operations claims."
+  ],
+  "expected_lint": {
+    "approved_pdf": {
+      "blockers": [
+        "SKILLS_HEADING_INACCURATE"
+      ],
+      "warnings": [
+        "BULLET_DENSITY_HIGH",
+        "CURRENCY_SCALE_INCOHERENT",
+        "FIGURE_REPEATED_ACROSS_COMPANIES",
+        "PHRASE_REPEATED",
+        "SUMMARY_FIGURE_REUSED"
+      ],
+      "note": "The submitted one-page PDF preserves a legacy heading mismatch: SKILLS & INTERESTS appears without an Interests row. The fixture records this known finding rather than treating gold as defect-free."
+    },
+    "bundled_libreoffice_portability_probe": {
+      "blockers": [
+        "PAGE_COUNT_INVALID",
+        "SKILLS_HEADING_INACCURATE"
+      ],
+      "warnings": [
+        "BULLET_DENSITY_HIGH",
+        "CURRENCY_SCALE_INCOHERENT",
+        "FIGURE_REPEATED_ACROSS_COMPANIES",
+        "PHRASE_REPEATED",
+        "SUMMARY_FIGURE_REUSED"
+      ],
+      "note": "Bundled LibreOffice renders the same DOCX as two pages. PAGE_COUNT_INVALID is expected for that portability probe even though the submitted Microsoft Word PDF is one page."
+    }
+  }
+}

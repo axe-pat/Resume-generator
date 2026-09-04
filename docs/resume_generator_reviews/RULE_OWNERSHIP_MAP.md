@@ -6,7 +6,7 @@ a competing version.
 | Owner | Canonical inputs | Enforces |
 |---|---|---|
 | Facts and story state | `docs/career_workbench/story_engine/`, profile/story sources | What happened; claim status; available mechanisms and outcomes |
-| Variant admission, once | `docs/variants/VARIANT_FINALS_v4.md` Sections 1–8 and 10–11 as applicable; `shared/variant_admission.py` | Single-bullet craft, stakes, difficulty, defensibility, distinctiveness, line cost |
+| Variant admission, once | `docs/variants/VARIANT_FINALS_v4.md` Sections 1–8 and 10–11 as applicable; `shared/variant_admission.py`; `shared/variant_text_lint.py`; `shared/variant_rule_catalog.py` | Single-bullet craft, stakes, difficulty, defensibility, distinctiveness, line cost; every deterministic text rule and every mandatory structured-critic dimension |
 | Step 0 semantic routing | `shared/prompts/step0_strategy.txt`, `shared/strategy.py` | PM archetype, role family, seven non-PM subtypes, bullet balance, framing axes, proof recommendation |
 | Assembly adapter | `shared/resume_profiles.py` | Deterministically maps completed Step 0 output to exact company allocation, bounded quality/page-fit decisions, title mode, required pool-funded summary identity, funded identity headline, Fluo policy, skills rows, and accurate skills-section heading; never reclassifies the raw JD |
 | Per-JD selection | PM/NONPM master prompts and admitted pool | JD fit, route anchors, protected stories, identity mix, marginal value, non-duplicate value signals |

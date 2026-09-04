@@ -30,9 +30,33 @@ Architecture contracts being validated before live-runner integration:
   and Fluo placement; it does not create a competing role taxonomy.
 - `shared/variant_admission.py` — one-time gate for variants entering the selectable
   pool, including per-variant rulebook approval and significance metadata.
+- `shared/variant_text_lint.py` — shadow-only deterministic text gate for new
+  challenger variants. It blocks documented weak/forbidden openers and mechanical
+  register defects, while surfacing split-story and cognitive-load signals only as
+  review proxies when text alone cannot prove the semantic failure.
+- `shared/variant_rule_catalog.py` and `resume/variants/rule_coverage.py` — exhaustive
+  ownership catalog and runnable coverage gate for the canonical rulebook,
+  operational prompt rules, and v2 architecture requirements. Every structured
+  critic rule is assigned to one mandatory challenger review dimension.
+- `shared/prompt_variant_inventory.py` — read-only extractor for the exact PM/NONPM
+  prompt bank. It keeps 152 selectable records separate from 26 prohibited or
+  reference-only records and checks checked-in JSONL snapshots for prompt drift.
 - `shared/resume_lint.py` — deterministic assembled-document and rendered-artifact
   gate. It owns page-level repetition/composition checks, rejects ambiguous model
   sections, and requires observed one-page PDF/text parity before release.
+- `shared/gold_variant_registry.py` — isolated reviewed-wording overlay and exact
+  Amazon/StudyFetch document fixtures; it is not a live selector.
+- `shared/claim_spine.py` — inert schema and deterministic pairwise non-regression
+  comparator for already-authored variants. Critical failures cannot be averaged
+  away; automatic replacement requires a material Pareto improvement, exact ties
+  keep the incumbent, and `keep-both` requires funded, mutually distinct criterion
+  proof. Its nine known before/after cases live in
+  `tests/fixtures/resume_quality_pairs/known_pairs.json`.
+- `resume/variants/challenger_runner.py` — inert whole-bank audit runner. It groups
+  exact selectable PM/NONPM variants by semantic story family, grounds challenges
+  in canonical story evidence where available, validates a strict response schema,
+  and produces per-story plus run-level human review artifacts without changing
+  live prompts or promoting candidates.
 - `docs/resume_generator_reviews/RULE_OWNERSHIP_MAP.md` — canonical ownership map
   separating fact, variant, selection, rewrite, assembly, scoring, and release rules.
 - `docs/resume_generator_reviews/STEP_01_PROFILE_AND_VARIANT_CONTRACT_REVIEW.md` —

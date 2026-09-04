@@ -1,0 +1,55 @@
+{
+  "measurement": "pdftotext -bbox-layout; usable_fill=(last_word_yMax-top_margin)/(page_height-bottom_margin-top_margin)",
+  "page_height_pt": 792.0,
+  "calibration_band": {
+    "minimum_fill_ratio": 0.93,
+    "maximum_fill_ratio": 0.98,
+    "status": "shadow-only provisional"
+  },
+  "artifacts": [
+    {
+      "id": "amazon-submitted-gold",
+      "pdf": "apps/archive/applied/2026-08-28/Apply queues/current_apply_queue/jobs/06_08-24_CARRY_94_Amazon/Product_Manager_Technical_PMT_-_2027/Akshat_Pathak_Amazon_Resume.pdf",
+      "top_margin_pt": 54.0,
+      "bottom_margin_pt": 30.0,
+      "word_count": 682,
+      "last_word_y_max_pt": 762.16,
+      "raw_bottom_whitespace_pt": 29.84,
+      "usable_bottom_whitespace_pt": -0.16,
+      "usable_fill_ratio": 1.000226
+    },
+    {
+      "id": "studyfetch-v4",
+      "pdf": "apps/Apply queues/current_apply_queue/jobs/29_08-26_CARRY_92_StudyFetch/Product_Intern/Akshat_Pathak_StudyFetch_Resume_2026-09-01_v4.pdf",
+      "top_margin_pt": 36.0,
+      "bottom_margin_pt": 21.6,
+      "word_count": 733,
+      "last_word_y_max_pt": 745.96,
+      "raw_bottom_whitespace_pt": 46.04,
+      "usable_bottom_whitespace_pt": 24.44,
+      "usable_fill_ratio": 0.966721
+    },
+    {
+      "id": "xpansiv",
+      "pdf": "apps/archive/applied/2026-09-01/Apply queues/current_apply_queue/jobs/02_08-27_NEW_90_Xpansiv/Product_Management_Intern_AI_Products/Akshat_Pathak_Xpansiv_Resume.pdf",
+      "top_margin_pt": 36.0,
+      "bottom_margin_pt": 21.6,
+      "word_count": 668,
+      "last_word_y_max_pt": 698.96,
+      "raw_bottom_whitespace_pt": 93.04,
+      "usable_bottom_whitespace_pt": 71.44,
+      "usable_fill_ratio": 0.902723
+    },
+    {
+      "id": "spectrum-reach",
+      "pdf": "apps/archive/applied/2026-09-01/Apply queues/current_apply_queue/jobs/03_08-27_NEW_88_Spectrum_Reach/Product_Strategy_Intern_Spectrum_Reach_Fall_2026/Akshat_Pathak_Spectrum_Reach_Resume.pdf",
+      "top_margin_pt": 25.2,
+      "bottom_margin_pt": 10.8,
+      "word_count": 659,
+      "last_word_y_max_pt": 698.26,
+      "raw_bottom_whitespace_pt": 93.74,
+      "usable_bottom_whitespace_pt": 82.94,
+      "usable_fill_ratio": 0.890291
+    }
+  ]
+}

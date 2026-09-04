@@ -74,6 +74,18 @@ python run_app.py Stripe
 
 If you batch-run manual app dirs through `jobs.py generate --all-apps`, any dir that has no linked `jobs.xlsx` row now reuses the shared discovery pre-filters first (role-type mismatch, immigration hard reject, obvious full-time level mismatch). This is a no-AI guardrail for manually pasted JDs only; promoted/discovered jobs already passed discovery filtering upstream.
 
+### Generation routing safety
+
+Queue-native applications route from the explicit `lane` field in their
+`metadata.json` before any PM/NONPM title or strategy logic runs. `lane: C`
+always targets the dedicated Lane C adapter and can never fall through to the
+professional generator. The boundary currently fails closed with a clear error
+until a Lane C generator adapter is registered. A missing metadata file retains
+legacy professional behavior. Explicit `A`/`B` selects the professional route;
+explicit `C` selects Lane C. A present but malformed file or any other nonblank
+lane value blocks because its route cannot be determined safely. Titles and JD
+language are never used to infer Lane C.
+
 ---
 
 ## Regenerating outputs

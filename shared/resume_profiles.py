@@ -18,7 +18,7 @@ from enum import Enum
 from typing import Iterable, Mapping, Sequence
 
 
-PROFILE_REGISTRY_VERSION = "2026-08-28.5"
+PROFILE_REGISTRY_VERSION = "2026-09-03.2"
 PROFESSIONAL_COMPANY_ORDER = (
     "FLAIRX AI",
     "GOJEK",
@@ -65,6 +65,33 @@ class FluoPlacement(str, Enum):
     OMIT = "omit"
 
 
+class SupportingProofMode(str, Enum):
+    """How non-employer proof participates in the one-page evidence budget.
+
+    This is deliberately an assembly modifier, not another role taxonomy.  The
+    default keeps project/venture proof compact outside Experience.  A reviewed
+    top-criterion decision may instead promote admitted project evidence and
+    remove lower-marginal Experience bullets one-for-one.
+    """
+
+    INLINE = "inline"
+    PROJECT_REPLACEMENT = "project-replacement"
+    OMIT = "omit"
+
+
+class SupportingProofReason(str, Enum):
+    DEFAULT = "default"
+    TOP_CRITERION_EVIDENCE = "top-criterion-evidence"
+
+
+class SkillRowDecision(str, Enum):
+    """Why a professional Skills plan contains its resolved row count."""
+
+    DEFAULT_FIVE = "default-five"
+    ADD_DISTINCT_SIXTH = "add-distinct-sixth"
+    DROP_SIXTH_FOR_PAGE = "drop-sixth-for-page"
+
+
 @dataclass(frozen=True)
 class FluoPolicy:
     placement: FluoPlacement
@@ -83,6 +110,83 @@ class BulletBudget:
 
     def contains(self, count: int) -> bool:
         return self.minimum <= count <= self.maximum
+
+
+@dataclass(frozen=True)
+class SkillRowOption:
+    """One profile-owned row label that may fill a flexible Skills slot.
+
+    The strings in ``relevance_tags`` are routing evidence only. Exact row text
+    remains owned by the reviewed value bank; this object never authorizes the
+    model to write or keyword-stuff a Skills row.
+    """
+
+    label: str
+    relevance_tags: tuple[str, ...]
+    signal_kind: str
+
+
+@dataclass(frozen=True)
+class SkillAssemblyPolicy:
+    """Bounded Skills shape for a single existing assembly profile.
+
+    Five rows remain the professional default. The policy makes the *contents*
+    of those five adaptive instead of relying on a sixth row to rescue a weak
+    fixed slate. A sixth is only a pre-approved, distinct differentiator and is
+    still subject to observed page geometry before release.
+    """
+
+    core_rows: tuple[str, ...]
+    flexible_rows: tuple[SkillRowOption, ...]
+    default_rows: tuple[str, ...]
+    minimum_rows: int = 5
+    target_rows: int = 5
+    maximum_rows: int = 6
+
+    def __post_init__(self) -> None:
+        labels = tuple(option.label for option in self.flexible_rows)
+        if len(set(self.core_rows)) != len(self.core_rows):
+            raise ValueError("Skills core row labels must be unique")
+        if len(set(labels)) != len(labels):
+            raise ValueError("Skills flexible row labels must be unique")
+        if set(self.core_rows) & set(labels):
+            raise ValueError("Skills core and flexible row labels cannot overlap")
+        if not (
+            1 <= self.minimum_rows <= self.target_rows <= self.maximum_rows
+        ):
+            raise ValueError("Skills row bounds must satisfy 1 <= minimum <= target <= maximum")
+        permitted = set(self.core_rows) | set(labels)
+        if len(self.default_rows) != self.target_rows:
+            raise ValueError("Skills default rows must match the target row count")
+        if len(set(self.default_rows)) != len(self.default_rows):
+            raise ValueError("Skills default row labels must be unique")
+        if not set(self.core_rows).issubset(self.default_rows):
+            raise ValueError("Skills default rows must preserve every core row")
+        if not set(self.default_rows).issubset(permitted):
+            raise ValueError("Skills default rows contain an unfunded label")
+
+    @property
+    def flexible_labels(self) -> tuple[str, ...]:
+        return tuple(option.label for option in self.flexible_rows)
+
+
+@dataclass(frozen=True)
+class SkillsAssemblyPlan:
+    """Exact row-label plan consumed by prompt assembly and validation."""
+
+    profile_id: str
+    row_labels: tuple[str, ...]
+    decision: SkillRowDecision
+    optional_sixth_label: str | None = None
+    selection_audit: tuple[tuple[str, int], ...] = ()
+
+    @property
+    def row_count(self) -> int:
+        return len(self.row_labels)
+
+    @property
+    def has_optional_sixth(self) -> bool:
+        return self.optional_sixth_label is not None and self.row_count == 6
 
 
 @dataclass(frozen=True)
@@ -106,6 +210,7 @@ class ResumeProfile:
     skill_rows: tuple[str, ...]
     fluo: FluoPolicy
     selection_priorities: tuple[str, ...]
+    skill_policy: SkillAssemblyPolicy | None = None
 
     @property
     def experience_bullet_total(self) -> int:
@@ -187,6 +292,33 @@ class ExperienceAllocationPlan:
         return dict(self.company_counts)
 
 
+@dataclass(frozen=True)
+class PageProofPlan:
+    """Page-wide evidence contract spanning Experience and Projects.
+
+    ``ExperienceAllocationPlan`` remains authoritative for the normal inline
+    build.  ``PROJECT_REPLACEMENT`` is the bounded exception demonstrated by a
+    JD whose top screen is independently built work: one or two marginal
+    Experience bullets may be displaced by two or three admitted project
+    bullets while all five career blocks remain visible.
+    """
+
+    profile_id: str
+    experience_plan: ExperienceAllocationPlan
+    mode: SupportingProofMode = SupportingProofMode.INLINE
+    reason: SupportingProofReason = SupportingProofReason.DEFAULT
+    project_bullet_count: int = 0
+    replaced_experience_count: int = 0
+
+    @property
+    def experience_bullet_count(self) -> int:
+        return self.experience_plan.total
+
+    @property
+    def total_proof_units(self) -> int:
+        return self.experience_bullet_count + self.project_bullet_count
+
+
 def _professional_profile(
     profile_id: str,
     family: ProfileFamily,
@@ -199,6 +331,7 @@ def _professional_profile(
     skill_rows: Sequence[str],
     fluo: FluoPolicy,
     selection_priorities: Sequence[str],
+    skill_policy: SkillAssemblyPolicy | None = None,
 ) -> ResumeProfile:
     if len(allocation) != len(PROFESSIONAL_COMPANY_ORDER):
         raise ValueError(f"{profile_id}: allocation must cover all five companies")
@@ -219,6 +352,7 @@ def _professional_profile(
     )
     if sum(allocation) != 10:
         raise ValueError(f"{profile_id}: professional profiles must allocate 10 bullets")
+    normalized_skill_rows = tuple(skill_rows)
     return ResumeProfile(
         profile_id=profile_id,
         family=family,
@@ -228,9 +362,164 @@ def _professional_profile(
         identity_heading=identity_heading,
         funded_summary_identities=tuple(funded_summary_identities),
         title_mode=title_mode,
-        skill_rows=tuple(skill_rows),
+        skill_rows=normalized_skill_rows,
         fluo=fluo,
         selection_priorities=tuple(selection_priorities),
+        skill_policy=skill_policy or _default_professional_skill_policy(
+            family=family,
+            default_rows=normalized_skill_rows,
+            fluo=fluo,
+        ),
+    )
+
+
+_SKILL_RELEVANCE_TAGS: Mapping[str, tuple[str, ...]] = {
+    "Product Leadership": (
+        "product", "roadmap", "customer discovery", "requirements", "prioritization",
+    ),
+    "Data & Analytics": (
+        "analytics", "data", "funnel", "cohort", "retention", "experiment", "kpi",
+    ),
+    "Technical": (
+        "technical", "engineering", "api", "platform", "systems", "cloud", "integration",
+    ),
+    "AI & Automation": (
+        " ai ", "artificial intelligence", "machine learning", "genai", "llm",
+        "automation", "agentic", "model evaluation", "prototype",
+    ),
+    "AI Product Development": (
+        " ai ", "artificial intelligence", "machine learning", "genai", "llm",
+        "agentic", "model", "human-in-the-loop", "prototype",
+    ),
+    "Data Platforms": (
+        "data platform", "infrastructure", "database", "pipeline", "developer",
+        "reliability", "observability",
+    ),
+    "Strategy & Transformation": (
+        "strategy", "transformation", "market sizing", "diligence", "scenario",
+    ),
+    "Operating Leadership": (
+        "leadership", "operating", "governance", "portfolio", "stakeholder",
+    ),
+    "Analytics": (
+        "analytics", "analysis", "data", "sql", "excel", "dashboard", "kpi",
+    ),
+    "Operations & Programs": (
+        "operations", "program", "delivery", "governance", "execution",
+    ),
+    "Process Improvement": (
+        "process", "continuous improvement", "root cause", "quality", "workflow",
+    ),
+    "Leadership": (
+        "leadership", "team", "influence", "change management", "executive",
+    ),
+    "Commercial Strategy": (
+        "commercial", "pricing", "monetization", "market", "competitive",
+    ),
+    "Customer & GTM": (
+        "customer", "go-to-market", "gtm", "partnership", "revenue", "sales",
+    ),
+    "Solutions & Delivery": (
+        "solution", "implementation", "delivery", "requirements", "rollout",
+    ),
+    "Data & Platforms": (
+        "data", "platform", "pipeline", "api", "integration", "reliability",
+    ),
+    "Programming & Cloud": (
+        "python", "java", "sql", "aws", "cloud", "programming", "technical",
+    ),
+    "Customer Value": (
+        "customer", "adoption", "value realization", "stakeholder", "executive",
+    ),
+    "Technical Delivery": (
+        "technical", "delivery", "integration", "release", "execution",
+    ),
+    "Customer Systems": (
+        "customer", "enterprise", "workflow", "implementation", "reliability",
+    ),
+    "Additional": (
+        "community", "volunteer", "mission", "education", "social impact",
+    ),
+    "Startup Product": (
+        "student", "fintech", "consumer", "startup", "venture", "marketplace",
+        "international", "partnership", "campus", "housing",
+    ),
+    "Venture Strategy/GTM": (
+        "startup", "venture", "market entry", "partnership", "gtm", "go-to-market",
+        "student", "fintech",
+    ),
+    "Venture Product": (
+        "startup", "venture", "product", "prototype", "student", "fintech",
+        "customer deployment",
+    ),
+    "Independent Product": (
+        "independently built", "built something", "builder", "side project",
+        "personal project", "bias to action", "vibe code", "agentic", "prototype",
+        "end-to-end",
+    ),
+    "Community": (
+        "volunteer", "mission", "education", "school", "underserved",
+        "nonprofit", "social impact", "children", "youth",
+    ),
+    "Interests": (
+        "music", "musician", "dj", "playlist", "audio", "entertainment",
+        "fitness", "strength", "trekking", "hiking", "outdoors", "astrophysics",
+        "psychology", "personal stake", "passion",
+    ),
+}
+
+
+def _skill_signal_kind(label: str, fluo: FluoPolicy) -> str:
+    if label == fluo.label and label:
+        return "current-venture"
+    return {
+        "Independent Product": "independent-build",
+        "Community": "community",
+        "Additional": "community",
+        "Interests": "personal-stake",
+        "AI & Automation": "ai-capability",
+        "AI Product Development": "ai-capability",
+        "Technical": "technical-capability",
+        "Programming & Cloud": "technical-capability",
+        "Leadership": "leadership",
+    }.get(label, label.casefold().replace(" & ", "-").replace(" ", "-"))
+
+
+def _default_professional_skill_policy(
+    *,
+    family: ProfileFamily,
+    default_rows: tuple[str, ...],
+    fluo: FluoPolicy,
+) -> SkillAssemblyPolicy:
+    """Build the adaptive tail without creating another role taxonomy.
+
+    Product pages keep three functional rows plus the current Fluo signal, then
+    let the fifth row respond to the JD. Other professional pages keep their
+    first four functional rows and make only the tail adaptive. The existing
+    five-row slate remains the deterministic no-signal fallback.
+    """
+
+    if len(default_rows) != 5:
+        raise ValueError("professional Skills defaults must contain five rows")
+    if family is ProfileFamily.PRODUCT:
+        core_rows = default_rows[:3]
+    else:
+        core_rows = default_rows[:4]
+    flexible_labels = tuple(dict.fromkeys(
+        (*default_rows[len(core_rows):], "Independent Product", "Community", "Interests")
+    ))
+    flexible_rows = tuple(
+        SkillRowOption(
+            label=label,
+            relevance_tags=_SKILL_RELEVANCE_TAGS.get(label, (label.casefold(),)),
+            signal_kind=_skill_signal_kind(label, fluo),
+        )
+        for label in flexible_labels
+    )
+    return SkillAssemblyPolicy(
+        core_rows=core_rows,
+        flexible_rows=flexible_rows,
+        default_rows=default_rows,
     )
 
 
@@ -652,6 +941,93 @@ def validate_experience_allocation(plan: ExperienceAllocationPlan) -> list[str]:
     return errors
 
 
+def validate_page_proof_plan(plan: PageProofPlan) -> list[str]:
+    """Validate the bounded supporting-proof exception without weakening defaults."""
+    errors: list[str] = []
+    try:
+        profile = get_profile(plan.profile_id)
+    except ValueError as exc:
+        return [str(exc)]
+
+    if plan.experience_plan.profile_id != plan.profile_id:
+        errors.append(
+            "page proof profile must match the Experience allocation profile"
+        )
+        return errors
+    if not profile.is_professional:
+        return [f"{plan.profile_id}: page-wide professional proof planning is not used for campus profiles"]
+
+    if plan.mode in {SupportingProofMode.INLINE, SupportingProofMode.OMIT}:
+        errors.extend(validate_experience_allocation(plan.experience_plan))
+        if plan.reason is not SupportingProofReason.DEFAULT:
+            errors.append(f"{plan.mode.value} proof mode must use the default reason")
+        if plan.project_bullet_count:
+            errors.append(f"{plan.mode.value} proof mode cannot reserve project bullets")
+        if plan.replaced_experience_count:
+            errors.append(f"{plan.mode.value} proof mode cannot replace Experience bullets")
+        return errors
+
+    if plan.reason is not SupportingProofReason.TOP_CRITERION_EVIDENCE:
+        errors.append(
+            "project-replacement requires a recorded top-criterion-evidence decision"
+        )
+    if plan.project_bullet_count not in {2, 3}:
+        errors.append("project-replacement requires exactly 2 or 3 admitted project bullets")
+    if plan.replaced_experience_count not in {1, 2}:
+        errors.append("project-replacement must displace exactly 1 or 2 Experience bullets")
+
+    expected_experience = profile.bullet_budget.target - plan.replaced_experience_count
+    if plan.experience_bullet_count != expected_experience:
+        errors.append(
+            "project-replacement Experience count must equal the 10-bullet center minus "
+            f"the recorded replacement count ({expected_experience}), got "
+            f"{plan.experience_bullet_count}"
+        )
+
+    counts = plan.experience_plan.counts_dict()
+    expected_companies = tuple(slot.company for slot in profile.experience_slots)
+    if tuple(company for company, _ in plan.experience_plan.company_counts) != expected_companies:
+        errors.append(
+            f"project-replacement company order must be {expected_companies}"
+        )
+    if len(counts) != len(plan.experience_plan.company_counts):
+        errors.append("project-replacement company counts contain duplicate keys")
+    for slot in profile.experience_slots:
+        count = counts.get(slot.company)
+        if count is None:
+            errors.append(f"project-replacement is missing the {slot.company} career block")
+            continue
+        continuity_floor = 2 if (
+            profile.family is ProfileFamily.PRODUCT and slot.company == "FLAIRX AI"
+        ) else 1
+        if count < continuity_floor:
+            errors.append(
+                f"project-replacement requires at least {continuity_floor} bullet(s) for "
+                f"{slot.company}, got {count}"
+            )
+        if count > slot.maximum:
+            errors.append(
+                f"project-replacement exceeds the {slot.maximum}-bullet ceiling for "
+                f"{slot.company}"
+            )
+
+    expected_total_range = range(profile.bullet_budget.target, profile.bullet_budget.maximum + 1)
+    if plan.total_proof_units not in expected_total_range:
+        errors.append(
+            "project-replacement must keep 10-11 page-wide proof units, got "
+            f"{plan.total_proof_units}"
+        )
+    if plan.project_bullet_count < plan.replaced_experience_count:
+        errors.append(
+            "project-replacement cannot remove more Experience evidence than it adds"
+        )
+    if plan.project_bullet_count > plan.replaced_experience_count + 1:
+        errors.append(
+            "project-replacement may add at most one extra proof unit beyond the displaced bullets"
+        )
+    return errors
+
+
 def validate_profile_registry() -> list[str]:
     """Return configuration errors; an empty list means the registry is valid."""
     errors: list[str] = []
@@ -675,6 +1051,19 @@ def validate_profile_registry() -> list[str]:
                     errors.append(f"{key}: invalid slot bounds for {slot.company}")
                 if slot.company == "OPTUM" and slot.minimum < 1:
                     errors.append(f"{key}: Optum continuity floor must remain at least one")
+            if profile.skill_policy is None:
+                errors.append(f"{key}: professional profile requires a Skills assembly policy")
+            else:
+                if profile.skill_policy.default_rows != profile.skill_rows:
+                    errors.append(
+                        f"{key}: legacy skill_rows must equal the Skills policy default_rows"
+                    )
+                if profile.skill_policy.minimum_rows != 5:
+                    errors.append(f"{key}: professional Skills minimum must remain five")
+                if profile.skill_policy.target_rows != 5:
+                    errors.append(f"{key}: professional Skills target must remain five")
+                if profile.skill_policy.maximum_rows != 6:
+                    errors.append(f"{key}: professional Skills maximum must remain six")
         elif profile.experience_slots:
             errors.append(f"{key}: campus profiles cannot use professional company slots")
         if profile.fluo.allow_experience or profile.fluo.counts_toward_experience:
@@ -701,6 +1090,7 @@ def _strategy_text(strategy: Mapping[str, object]) -> str:
         if isinstance(value, (list, tuple)):
             pieces.extend(str(item) for item in value)
     for key in (
+        "role_title",
         "archetype",
         "role_family",
         "nonpm_subtype",
@@ -711,6 +1101,132 @@ def _strategy_text(strategy: Mapping[str, object]) -> str:
     ):
         pieces.append(str(strategy.get(key, "")))
     return " ".join(pieces)
+
+
+def _skill_relevance_score(text: str, option: SkillRowOption) -> tuple[int, int]:
+    """Return (ranking score, semantic-match count) for one controlled row.
+
+    Short tags use word boundaries so ``AI`` does not match ``retail``. Longer
+    phrases intentionally use literal containment: the input is already the
+    structured Step 0 rationale, not arbitrary resume prose.
+    """
+
+    matches = 0
+    for raw_tag in option.relevance_tags:
+        tag = raw_tag.strip().casefold()
+        if not tag:
+            continue
+        if len(tag) <= 3 and tag.isalnum():
+            found = bool(re.search(rf"\b{re.escape(tag)}\b", text, re.I))
+        else:
+            found = tag in text
+        matches += int(found)
+    return matches * 10, matches
+
+
+def resolve_skills_assembly_plan(
+    profile: ResumeProfile,
+    strategy: Mapping[str, object] | None = None,
+    *,
+    available_labels: Iterable[str] | None = None,
+    requested_rows: int = 5,
+) -> SkillsAssemblyPlan:
+    """Resolve the controlled five-row Skills slate and a possible sixth.
+
+    This selects labels, never wording. The fifth row may change when a
+    role-specific signal clearly beats the default tail. A requested sixth is
+    returned only when it has positive role evidence and adds a signal kind not
+    already present; page geometry remains a separate release gate.
+    """
+
+    if not profile.is_professional:
+        if requested_rows != len(profile.skill_rows):
+            raise ValueError(
+                f"{profile.profile_id}: campus Skills plan requires exactly "
+                f"{len(profile.skill_rows)} rows"
+            )
+        return SkillsAssemblyPlan(
+            profile_id=profile.profile_id,
+            row_labels=profile.skill_rows,
+            decision=SkillRowDecision.DEFAULT_FIVE,
+        )
+    if requested_rows not in {5, 6}:
+        raise ValueError("professional Skills requested_rows must be 5 or 6")
+    if profile.skill_policy is None:
+        raise ValueError(f"{profile.profile_id}: professional Skills policy is missing")
+
+    policy = profile.skill_policy
+    available = (
+        {str(label).strip() for label in available_labels if str(label).strip()}
+        if available_labels is not None
+        else set(policy.default_rows)
+    )
+    missing_core = sorted(set(policy.core_rows) - available)
+    if missing_core:
+        raise ValueError(
+            f"{profile.profile_id}: controlled value bank is missing core Skills rows "
+            f"{missing_core}"
+        )
+
+    strategy_text = _strategy_text(strategy or {}).casefold()
+    default_labels = set(policy.default_rows)
+    scored: list[tuple[SkillRowOption, int, int, int]] = []
+    for order, option in enumerate(policy.flexible_rows):
+        if option.label not in available:
+            continue
+        semantic_score, match_count = _skill_relevance_score(strategy_text, option)
+        fallback_score = 4 if option.label in default_labels else 0
+        required_score = (
+            1000
+            if profile.fluo.placement is FluoPlacement.INLINE_REQUIRED
+            and option.label == profile.fluo.label
+            else 0
+        )
+        scored.append(
+            (option, required_score + semantic_score + fallback_score, match_count, order)
+        )
+
+    flexible_needed = policy.target_rows - len(policy.core_rows)
+    if len(scored) < flexible_needed:
+        raise ValueError(
+            f"{profile.profile_id}: only {len(scored)} funded flexible Skills rows are "
+            f"available; {flexible_needed} required"
+        )
+    ranked = sorted(scored, key=lambda item: (-item[1], item[3], item[0].label))
+    selected = list(ranked[:flexible_needed])
+    optional_sixth: SkillRowOption | None = None
+
+    if requested_rows == 6 and policy.maximum_rows >= 6:
+        selected_kinds = {item[0].signal_kind for item in selected}
+        eligible_sixths = [
+            item
+            for item in ranked[flexible_needed:]
+            if item[2] > 0 and item[0].signal_kind not in selected_kinds
+        ]
+        if eligible_sixths:
+            optional_sixth = eligible_sixths[0][0]
+            selected.append(eligible_sixths[0])
+
+    chosen_labels = {item[0].label for item in selected}
+    ordered_flexible = tuple(
+        option.label
+        for option in policy.flexible_rows
+        if option.label in chosen_labels
+    )
+    row_labels = tuple(policy.core_rows) + ordered_flexible
+    decision = (
+        SkillRowDecision.ADD_DISTINCT_SIXTH
+        if optional_sixth is not None
+        else SkillRowDecision.DEFAULT_FIVE
+    )
+    audit = tuple((item[0].label, item[1]) for item in ranked)
+    return SkillsAssemblyPlan(
+        profile_id=profile.profile_id,
+        row_labels=row_labels,
+        decision=decision,
+        optional_sixth_label=(optional_sixth.label if optional_sixth else None),
+        selection_audit=audit,
+    )
 
 
 def resolve_profile(
@@ -755,6 +1271,33 @@ def resolve_profile(
     nonpm_subtype = str(strategy.get("nonpm_subtype") or "").strip().lower()
     role_family = str(strategy.get("role_family") or "").strip().lower()
     archetype = str(strategy.get("archetype") or "").strip().lower()
+    role_title = str(strategy.get("role_title") or "").strip().lower()
+    # Some research-heavy product-strategy internships are easy for Step 0 to
+    # misclassify as generic research/intelligence. Keep them on the product
+    # profile only when the role is explicitly embedded in product decisions;
+    # a title match alone is not enough.
+    if "product strategy" in role_title:
+        embedded_product_signals = (
+            r"product team",
+            r"product decisions?",
+            r"user research",
+            r"usability",
+            r"prototypes?",
+            r"product reviews?",
+            r"development sprint",
+            r"roadmap",
+        )
+        signal_count = sum(
+            bool(re.search(pattern, combined, re.I))
+            for pattern in embedded_product_signals
+        )
+        if signal_count >= 2:
+            return ProfileResolution(
+                "product-general",
+                0.90,
+                "embedded product-strategy work maps to the product profile",
+                False,
+            )
     if role_family == "pm" and nonpm_subtype:
         return ProfileResolution(
             None,
