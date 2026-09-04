@@ -1,6 +1,11 @@
 import json
 
-from jobs import _generation_target_input, _preflight_generation_targets
+from jobs import (
+    _filter_existing_generate_targets,
+    _generation_target_input,
+    _partition_preflight_generation_targets,
+    _preflight_generation_targets,
+)
 from shared.queue_preflight import PreflightStatus
 
 
@@ -54,3 +59,27 @@ def test_batch_generation_preflight_detects_cross_target_jd_collision(tmp_path):
     ]
     assert len(duplicate) == 1
     assert set(duplicate[0].job_keys) == {"mba", "systems"}
+
+
+def test_preflight_corpus_includes_targets_skipped_for_existing_artifacts(tmp_path):
+    shared_jd = _healthy_jd()
+    targets = [
+        _target(tmp_path, "mba", "MBA Leadership Associate", shared_jd),
+        _target(tmp_path, "systems", "Enterprise Systems Analyst", shared_jd),
+    ]
+    (tmp_path / "systems" / "resume_existing.txt").write_text(
+        "already generated",
+        encoding="utf-8",
+    )
+    runnable, skipped, _ = _filter_existing_generate_targets(targets)
+
+    report, safe, blocked = _partition_preflight_generation_targets(
+        runnable,
+        corpus_targets=targets,
+    )
+
+    assert skipped == ["systems"]
+    assert report.status is PreflightStatus.BLOCK
+    assert safe == []
+    assert {item["id"] for item in blocked} == {"mba", "systems"}
+    assert all(item["preflight_blocked"] for item in blocked)

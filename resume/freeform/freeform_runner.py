@@ -700,6 +700,65 @@ def run_scorer(experience_section: str, jd_text: str, model: str,
     return {"raw": raw}
 
 
+def normalize_scorer_bullet_indices(
+    score_data: dict,
+    experience_section: str,
+) -> tuple[dict, list[str]]:
+    """Canonicalize the scorer's occasional page-global bullet numbering.
+
+    Scorer prompts require company-local indices, but some models return a
+    single 1..N sequence while preserving the exact company and page order.
+    That output is unambiguous and can be repaired deterministically. Any
+    other mismatch remains untouched so the release validator can reject it.
+    """
+
+    if not isinstance(score_data, dict):
+        return score_data, []
+    scored = score_data.get("bullets")
+    if not isinstance(scored, list):
+        return score_data, []
+
+    expected: list[tuple[str, int]] = []
+    for block in parse_experience_blocks(experience_section):
+        expected.extend(
+            (block["key"], index)
+            for index, _ in enumerate(block["bullets"], 1)
+        )
+    if len(scored) != len(expected) or not expected:
+        return score_data, []
+
+    observed_companies: list[str] = []
+    observed_indices: list[object] = []
+    for item in scored:
+        if not isinstance(item, dict):
+            return score_data, []
+        company_text = str(item.get("company", "")).upper()
+        observed_companies.append(
+            next((key for key in _COMPANY_KEYS if key in company_text), "")
+        )
+        observed_indices.append(item.get("index"))
+
+    expected_companies = [company for company, _ in expected]
+    expected_indices = [index for _, index in expected]
+    if observed_companies != expected_companies:
+        return score_data, []
+    if observed_indices == expected_indices:
+        return score_data, []
+    if observed_indices != list(range(1, len(expected) + 1)):
+        return score_data, []
+
+    normalized = dict(score_data)
+    normalized["bullets"] = [
+        {**item, "index": local_index}
+        for item, (_, local_index) in zip(scored, expected)
+    ]
+    warning = (
+        "scorer used page-global bullet indices; normalized them to "
+        "company-local indices from the immutable selected page order"
+    )
+    return normalized, [warning]
+
+
 def validate_scorer_release_evidence(
     score_data: dict,
     experience_section: str,
@@ -718,6 +777,11 @@ def validate_scorer_release_evidence(
     warnings: list[str] = []
     if not isinstance(score_data, dict) or not score_data:
         return ["scorer returned no structured result"], warnings
+    score_data, index_warnings = normalize_scorer_bullet_indices(
+        score_data,
+        experience_section,
+    )
+    warnings.extend(index_warnings)
     if score_data.get("parse_error"):
         errors.append(f"scorer JSON parse failed: {score_data['parse_error']}")
     if "holistic_score" not in score_data:
@@ -787,17 +851,30 @@ def validate_scorer_release_evidence(
             f"expected {expected}, got {observed}"
         )
 
-    if require_send and holistic is not None and verdict == "SEND":
+    if require_send:
         low = [
             position
             for position, item in enumerate(scored, 1)
             if isinstance(item, dict)
             and isinstance(item.get("score"), (int, float))
-            and float(item["score"]) < 7.0
+            and float(item["score"]) < PASS4_THRESHOLD
         ]
         if low:
             errors.append(
-                f"SEND scorer result contains sub-7 bullet evaluations at positions {low}"
+                "v2 release contains bullet evaluations below "
+                f"{PASS4_THRESHOLD:.1f} at positions {low}"
+            )
+        explicit_failures = [
+            position
+            for position, item in enumerate(scored, 1)
+            if isinstance(item, dict)
+            and str(item.get("failure_mode") or "").strip().upper()
+            not in {"", "NONE", "NULL"}
+        ]
+        if explicit_failures:
+            errors.append(
+                "v2 release contains explicit bullet failure modes at positions "
+                f"{explicit_failures}"
             )
     if require_send and verdict != "SEND":
         errors.append(
@@ -2393,6 +2470,88 @@ def _enforce_v2_targeted_retry_scope(
     )
 
 
+def _normalize_v2_targeted_retry_sections(
+    *,
+    initial_sections: dict,
+    initial: V2SectionValidation,
+    raw_challenger_sections: dict,
+    raw_challenger: V2SectionValidation,
+    targeted_scope: dict[str, object],
+    override: Pass1PromptOverride,
+) -> tuple[dict | None, tuple[str, ...]]:
+    """Overlay only reopened challenger slots onto the frozen incumbent page.
+
+    The selection model still receives the full closed bank because it needs
+    page context, but it does not earn authority over passing content during a
+    targeted retry.  This normalizer discards collateral summary, Skills,
+    Fluo, Projects, and passing-bullet changes before exact validation and the
+    pairwise judge.  A missing or repeated replacement remains a hard error.
+    """
+
+    initial_by_position = {
+        (item.company, item.index): item for item in initial.selected
+    }
+    challenger_by_position = {
+        (item.company, item.index): item for item in raw_challenger.selected
+    }
+    replacements: dict[tuple[str, int], str] = {}
+    errors: list[str] = []
+    for target in targeted_scope.get("must_replace", ()):
+        if not isinstance(target, dict):
+            errors.append("targeted retry contained a malformed replacement slot")
+            continue
+        company = str(target.get("company", ""))
+        index = target.get("index")
+        if not isinstance(index, int) or isinstance(index, bool):
+            errors.append(f"targeted retry has an invalid index for {company or 'unknown company'}")
+            continue
+        position = (company, index)
+        incumbent = initial_by_position.get(position)
+        challenger = challenger_by_position.get(position)
+        if incumbent is None or challenger is None:
+            errors.append(
+                f"targeted retry did not return a reviewed candidate for {company} bullet {index}"
+            )
+            continue
+        if challenger.reviewed.variant_id == incumbent.reviewed.variant_id:
+            errors.append(
+                f"targeted retry repeated the rejected incumbent for {company} bullet {index}"
+            )
+            continue
+        replacements[position] = challenger.reviewed.text
+
+    if errors:
+        return None, tuple(errors)
+
+    headers = company_headers_for_profile(override.profile)
+    lines: list[str] = []
+    for company, count in override.allocation_plan.company_counts:
+        lines.append(headers[company])
+        for index in range(1, count + 1):
+            position = (company, index)
+            incumbent = initial_by_position.get(position)
+            if incumbent is None:
+                errors.append(
+                    f"incumbent page is missing {company} bullet {index} during targeted assembly"
+                )
+                continue
+            text = replacements.get(position, incumbent.reviewed.text)
+            lines.append(f"• {text}")
+    if errors:
+        return None, tuple(errors)
+
+    normalized = dict(initial_sections)
+    normalized["experience_section"] = "\n".join(lines)
+    normalized["summary_section"] = initial_sections.get("summary_section", "")
+    normalized["skills_section"] = initial_sections.get("skills_section", "")
+    normalized["projects_section"] = initial_sections.get("projects_section", "")
+    normalized["selection_notes"] = canonicalize_v2_selection_notes(
+        normalized,
+        override,
+    )
+    return normalized, ()
+
+
 _V2_PAIRWISE_CRITICAL_KEYS = (
     "materiality",
     "causal_edge_integrity",
@@ -2621,10 +2780,16 @@ def _decide_v2_targeted_comparison(
             errors.append(
                 f"both variants fail a critical veto for {key[0]} bullet {key[1]}"
             )
-        elif not challenger_passes:
+        elif incumbent_passes and not challenger_passes:
             decisions[key] = "incumbent"
-        elif not incumbent_passes and not regresses:
-            decisions[key] = "challenger"
+        elif not incumbent_passes:
+            if regresses:
+                errors.append(
+                    "no all-critical non-regressive winner for "
+                    f"{key[0]} bullet {key[1]}"
+                )
+            else:
+                decisions[key] = "challenger"
         elif regresses:
             # A mixed tradeoff may still be worth human review later, but it
             # cannot displace the already-admitted incumbent automatically.
@@ -3889,10 +4054,17 @@ Hard guidance:
 
     # ── Pass 3: Scoring ──────────────────────────────────────────────────────
     score_data = {}
+    score_index_warnings: list[str] = []
     if run_score and sections["experience_section"]:
         score_data = run_scorer(sections["experience_section"], jd_text, score_model,
                                 strategy_block, role_preamble=role_preamble,
                                 projects_section=sections.get("projects_section", ""))
+        score_data, score_index_warnings = normalize_scorer_bullet_indices(
+            score_data,
+            sections["experience_section"],
+        )
+        for warning in score_index_warnings:
+            print(c(YELLOW, f"  [!] {warning}"))
         print_score(score_data)
 
     # V2 gets one bounded re-selection attempt when the immutable combination,
@@ -3905,6 +4077,7 @@ Hard guidance:
             sections["experience_section"],
             require_send=True,
         )
+        v2_score_warnings = list(dict.fromkeys(score_index_warnings + v2_score_warnings))
         v2_validation = validate_v2_sections(sections, v2_override, score_data)
         initial_validation_errors = list(v2_validation.errors)
         initial_scorer_errors = list(v2_score_errors)
@@ -3947,17 +4120,62 @@ Hard guidance:
                 retry_sections,
                 v2_override,
             )
-            retry_validation = validate_v2_sections(
+            raw_retry_validation = validate_v2_sections(
                 retry_sections,
                 v2_override,
                 score_data,
             )
-            retry_validation = _enforce_v2_targeted_retry_scope(
-                retry_validation,
-                targeted_scope,
-            )
+            if targeted_scope is not None:
+                normalized_retry, normalization_errors = (
+                    _normalize_v2_targeted_retry_sections(
+                        initial_sections=sections,
+                        initial=v2_validation,
+                        raw_challenger_sections=retry_sections,
+                        raw_challenger=raw_retry_validation,
+                        targeted_scope=targeted_scope,
+                        override=v2_override,
+                    )
+                )
+                if normalized_retry is None:
+                    retry_validation = V2SectionValidation(
+                        errors=normalization_errors,
+                        warnings=raw_retry_validation.warnings,
+                        selected=raw_retry_validation.selected,
+                        summary=raw_retry_validation.summary,
+                        fluo_variant=raw_retry_validation.fluo_variant,
+                        document=raw_retry_validation.document,
+                    )
+                else:
+                    retry_sections = normalized_retry
+                    retry_validation = validate_v2_sections(
+                        retry_sections,
+                        v2_override,
+                        score_data,
+                    )
+                    print(
+                        c(
+                            CYAN,
+                            "  [i] Reassembled targeted challenger from reopened "
+                            "slots; collateral changes were discarded.",
+                        )
+                    )
+            else:
+                retry_validation = raw_retry_validation
 
-            if targeted_scope is not None and not retry_validation.errors:
+            if targeted_scope is not None and retry_validation.errors:
+                # A targeted retry is allowed to change only the named weak
+                # slots.  If the challenger touches frozen content (or breaks
+                # another exact v2 invariant), fail closed immediately.  A
+                # whole-page re-score cannot make that candidate admissible
+                # and only adds cost plus scorer noise.
+                sections = retry_sections
+                v2_validation = retry_validation
+                v2_score_errors = []
+                v2_score_warnings = []
+                print(c(RED, "  [✗] Targeted retry violated frozen-slot constraints."))
+                for error in retry_validation.errors:
+                    print(c(RED, f"      {error}"))
+            elif targeted_scope is not None:
                 pairs = _v2_targeted_retry_pairs(
                     v2_validation,
                     retry_validation,
@@ -4023,11 +4241,16 @@ Hard guidance:
                         score_data,
                     )
                     v2_score_errors = []
-                    v2_score_warnings = [
-                        "initial absolute scorer was used only to locate weak slots; "
-                        "frozen content was not rescored, and final replacements were "
-                        "selected by critical-veto pairwise non-regression"
-                    ]
+                    v2_score_warnings = list(
+                        dict.fromkeys(
+                            score_index_warnings
+                            + [
+                                "initial absolute scorer was used only to locate weak slots; "
+                                "frozen content was not rescored, and final replacements were "
+                                "selected by critical-veto pairwise non-regression"
+                            ]
+                        )
+                    )
                     score_data = dict(score_data)
                     score_data["_release_basis"] = "targeted-pairwise-non-regression"
                     score_data["_targeted_comparison"] = comparison_result
@@ -4056,11 +4279,20 @@ Hard guidance:
                     role_preamble=role_preamble,
                     projects_section=retry_sections.get("projects_section", ""),
                 )
+                retry_score_data, retry_index_warnings = normalize_scorer_bullet_indices(
+                    retry_score_data,
+                    retry_sections["experience_section"],
+                )
+                for warning in retry_index_warnings:
+                    print(c(YELLOW, f"  [!] {warning}"))
                 print_score(retry_score_data)
                 retry_score_errors, retry_score_warnings = validate_scorer_release_evidence(
                     retry_score_data,
                     retry_sections["experience_section"],
                     require_send=True,
+                )
+                retry_score_warnings = list(
+                    dict.fromkeys(retry_index_warnings + retry_score_warnings)
                 )
                 retry_validation = validate_v2_sections(
                     retry_sections,

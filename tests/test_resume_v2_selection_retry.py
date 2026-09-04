@@ -148,6 +148,120 @@ def test_targeted_retry_enforcement_rejects_collateral_changes():
     assert "changed Fluo" in joined
 
 
+def test_targeted_retry_discards_collateral_before_pairwise_comparison(
+    monkeypatch,
+    tmp_path,
+):
+    monkeypatch.setenv("RESUME_GENERATOR_MODE", "v2")
+    monkeypatch.setenv("RESUME_V2_SUMMARY_SELECTOR", "off")
+    override = build_pass1_prompt_override(PM_STRATEGY, explicit_profile="product-general")
+    initial_raw = _raw_selection(override, VALID_SELECTION)
+
+    challenger_selection = dict(VALID_SELECTION)
+    challenger_selection["HEVO DATA"] = (
+        "H-BATCHSHIFT-canonical-trial-trigger",
+        "H-MONITORING-studyfetch-ai-incident-cards",
+    )
+    challenger_raw = _raw_selection(override, challenger_selection)
+    incumbent_summary = next(
+        item
+        for item in override.eligible_summaries
+        if item.candidate_id == "summary/product/general-scaled-evidence"
+    )
+    challenger_summary = next(
+        item
+        for item in override.eligible_summaries
+        if item.candidate_id != incumbent_summary.candidate_id
+    )
+    challenger_raw = challenger_raw.replace(
+        incumbent_summary.text,
+        challenger_summary.text,
+        1,
+    )
+
+    critical = {name: True for name in runner._V2_PAIRWISE_CRITICAL_KEYS}
+    incumbent_rank = {name: 3 for name in runner._V2_PAIRWISE_RANK_KEYS}
+    challenger_rank = {**incumbent_rank, "criterion_strength": 4}
+    comparison = {
+        "comparisons": [
+            {
+                "company": "HEVO DATA",
+                "index": 2,
+                "incumbent_variant_id": "H-MONITORING-canonical-ai-boundary",
+                "challenger_variant_id": "H-MONITORING-studyfetch-ai-incident-cards",
+                "incumbent_critical": critical,
+                "challenger_critical": critical,
+                "incumbent_rank": incumbent_rank,
+                "challenger_rank": challenger_rank,
+                "rationale": "The challenger maps more directly to the role.",
+            }
+        ],
+        "final_page_checks": {
+            name: True for name in runner._V2_PAIRWISE_PAGE_KEYS
+        },
+        "page_rationale": "The replacement improves fit without changing the page identity.",
+    }
+    responses = iter((initial_raw, challenger_raw, json.dumps(comparison)))
+    api_labels = []
+
+    def call_api(_prompt, _model, label, **_kwargs):
+        api_labels.append(label)
+        return next(responses)
+
+    initial_scores = _scorer(VALID_SELECTION)
+    initial_scores["holistic_score"] = 8.2
+    initial_scores["verdict"] = "REVISE"
+    initial_scores["bullets"][6]["score"] = 5.0
+    initial_scores["bullets"][6]["failure_mode"] = "WRONG_ARCHETYPE"
+    scorer_calls = []
+
+    def score_once(*_args, **_kwargs):
+        scorer_calls.append(1)
+        if len(scorer_calls) > 1:
+            raise AssertionError("collateral retry must not trigger whole-page rescore")
+        return initial_scores
+
+    monkeypatch.setattr(runner, "call_api", call_api)
+    monkeypatch.setattr(runner, "run_scorer", score_once)
+    monkeypatch.setattr(
+        runner,
+        "run_quality_checks",
+        lambda *_args, **_kwargs: [{"name": "fixture", "status": "PASS", "detail": "ok"}],
+    )
+    monkeypatch.setattr(
+        runner,
+        "lint_assembled_resume",
+        lambda *_args, **_kwargs: SimpleNamespace(issues=()),
+    )
+    jd = tmp_path / "jd.txt"
+    jd.write_text("Product manager role", encoding="utf-8")
+
+    ok = runner.run_single(
+        jd_path=jd,
+        model="test-model",
+        out_dir=tmp_path / "runs",
+        make_docx=False,
+        run_strategy=False,
+        run_rewrite=False,
+        run_score=True,
+        run_fix=False,
+        pre_strategy=(PM_STRATEGY, "strategy"),
+        run_trim=False,
+    )
+
+    assert ok is True
+    assert scorer_calls == [1]
+    assert api_labels == [
+        "Pass 1: Select",
+        "Pass 1b: Bounded re-select",
+        "Pass 3b: Targeted compare",
+    ]
+    saved = next((tmp_path / "runs").glob("*.txt")).read_text(encoding="utf-8")
+    assert incumbent_summary.text in saved
+    assert challenger_summary.text not in saved
+    assert variants_text(override, "H-MONITORING-studyfetch-ai-incident-cards") in saved
+
+
 def test_targeted_comparison_keeps_tie_incumbent_and_accepts_pareto_winner():
     override = build_pass1_prompt_override(PM_STRATEGY, explicit_profile="product-general")
     initial_sections = runner.extract_sections(_raw_selection(override, VALID_SELECTION))
@@ -314,6 +428,45 @@ def test_targeted_comparison_keeps_incumbent_on_material_tradeoff():
 
     assert decisions == {("INTUIT", 2): "incumbent"}
     assert errors == ["targeted retry produced no material improvement"]
+
+
+def test_targeted_comparison_blocks_when_only_critical_pass_regresses_materially():
+    pair = {
+        "company": "INTUIT",
+        "index": 2,
+        "incumbent_variant_id": "old",
+        "challenger_variant_id": "new",
+    }
+    incumbent_critical = {
+        name: name != "outcome_closure"
+        for name in runner._V2_PAIRWISE_CRITICAL_KEYS
+    }
+    challenger_critical = {
+        name: True for name in runner._V2_PAIRWISE_CRITICAL_KEYS
+    }
+    incumbent_rank = {name: 3 for name in runner._V2_PAIRWISE_RANK_KEYS}
+    challenger_rank = {**incumbent_rank, "criterion_strength": 2}
+    result = {
+        "comparisons": [
+            {
+                **pair,
+                "incumbent_critical": incumbent_critical,
+                "challenger_critical": challenger_critical,
+                "incumbent_rank": incumbent_rank,
+                "challenger_rank": challenger_rank,
+                "rationale": "The challenger closes the outcome but loses criterion strength.",
+            }
+        ],
+        "final_page_checks": {
+            name: True for name in runner._V2_PAIRWISE_PAGE_KEYS
+        },
+    }
+
+    decisions, errors = runner._decide_v2_targeted_comparison(result, [pair])
+
+    assert decisions == {}
+    assert any("no all-critical non-regressive winner" in error for error in errors)
+    assert any("one safe decision per pair" in error for error in errors)
 
 
 def test_integrity_retry_reports_observed_ids_without_forbidding_unparsed_content():

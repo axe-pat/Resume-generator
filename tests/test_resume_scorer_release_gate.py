@@ -86,3 +86,41 @@ def test_scorer_company_index_sequence_must_match_selected_output():
     )
 
     assert any("company/index keys" in error for error in errors)
+
+
+def test_page_global_scorer_indices_are_normalized_when_order_is_unambiguous():
+    experience = _experience((2, 2, 2, 2))
+    payload = _score_data(experience)
+    for position, item in enumerate(payload["bullets"], 1):
+        item["index"] = position
+
+    normalized, warnings = freeform_runner.normalize_scorer_bullet_indices(
+        payload,
+        experience,
+    )
+    errors, validation_warnings = freeform_runner.validate_scorer_release_evidence(
+        payload,
+        experience,
+        require_send=True,
+    )
+
+    assert [item["index"] for item in normalized["bullets"]] == [1, 2] * 4
+    assert warnings
+    assert errors == []
+    assert validation_warnings == warnings
+
+
+def test_send_holistic_score_cannot_hide_a_weak_bullet():
+    experience = _experience()
+    payload = _score_data(experience, holistic=8.8, verdict="SEND")
+    payload["bullets"][3]["score"] = 7.0
+    payload["bullets"][3]["failure_mode"] = "WEAK_MECHANISM"
+
+    errors, _ = freeform_runner.validate_scorer_release_evidence(
+        payload,
+        experience,
+        require_send=True,
+    )
+
+    assert any("below 8.0" in error for error in errors)
+    assert any("explicit bullet failure" in error for error in errors)

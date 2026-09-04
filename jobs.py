@@ -817,6 +817,52 @@ def _preflight_generation_targets(targets: list[dict]):
     return preflight_queue(inputs)
 
 
+def _partition_preflight_generation_targets(
+    runnable_candidates: list[dict],
+    *,
+    corpus_targets: list[dict] | None = None,
+):
+    """Audit the selected corpus before existing-artifact skip filtering.
+
+    `runnable_candidates` is the set that still needs generation. Queue callers
+    may pass the larger pre-skip selection as `corpus_targets` so stale or
+    contaminated inputs cannot disappear merely because an artifact already
+    exists. The function is read-only and returns blocked corpus rows separately
+    from the targets that may proceed to model calls.
+    """
+
+    corpus = corpus_targets if corpus_targets is not None else runnable_candidates
+    report = _preflight_generation_targets(corpus)
+    blocked_by_key: dict[str, list[str]] = {}
+    for record in report.blockers:
+        for key in record.job_keys:
+            blocked_by_key.setdefault(key, []).append(
+                f"{record.code}: {record.message}"
+            )
+
+    blocked_results: list[dict] = []
+    for target in corpus:
+        queue_input = _generation_target_input(target)
+        reasons = blocked_by_key.get(queue_input.key, []) if queue_input else []
+        if reasons:
+            blocked_results.append(
+                {
+                    **target,
+                    "success": False,
+                    "preflight_blocked": True,
+                    "error": "; ".join(reasons),
+                }
+            )
+
+    runnable: list[dict] = []
+    for target in runnable_candidates:
+        queue_input = _generation_target_input(target)
+        reasons = blocked_by_key.get(queue_input.key, []) if queue_input else []
+        if not reasons:
+            runnable.append(target)
+    return report, runnable, blocked_results
+
+
 def _lane_c_generation_request(
     job: dict,
     app_dir: Path,
@@ -1050,6 +1096,7 @@ def cmd_generate(args, promoted_jobs: list[dict] | None = None) -> list[dict]:
         provider=getattr(args, "provider", None),
         cursor_routing=getattr(args, "cursor_routing", None),
     )
+    preflight_corpus_targets: list[dict] | None = None
 
     # ── Determine targets ──────────────────────────────────────────────────
     if promoted_jobs is not None:
@@ -1101,6 +1148,10 @@ def cmd_generate(args, promoted_jobs: list[dict] | None = None) -> list[dict]:
                 targets = _load_queue_generate_targets(df, queue_path=queue_path, offset=offset, limit=limit)
             except ValueError as e:
                 sys.exit(f"[ERROR] {e}")
+            # Source integrity belongs to the selected queue slice, not only
+            # rows lacking artifacts. Preserve the pre-skip corpus so a stale
+            # or wrong JD cannot be hidden by an old generated resume.
+            preflight_corpus_targets = list(targets)
             force = getattr(args, "force", False)
             resume_only = default_resume_only or getattr(args, "resume_only", False)
             targets, skipped, partial = _filter_existing_generate_targets(
@@ -1168,44 +1219,34 @@ def cmd_generate(args, promoted_jobs: list[dict] | None = None) -> list[dict]:
         else:
             sys.exit("[ERROR] Specify --id, --company, --companies, --queue, --all-promoted, or --all-apps")
 
-    if not targets:
+    if not targets and preflight_corpus_targets is None:
         print(c(YELLOW, "  No promoted jobs to generate for."))
         return []
 
     # Validate every readable JD as one corpus before starting model calls. This
     # catches truncated inputs and one body accidentally attached to different
     # role titles. Blocked targets remain untouched in the tracker.
-    preflight_report = _preflight_generation_targets(targets)
+    preflight_report, targets, preflight_blocked_results = (
+        _partition_preflight_generation_targets(
+            targets,
+            corpus_targets=preflight_corpus_targets,
+        )
+    )
     preflight_seen_keys = {
         key for record in preflight_report.records for key in record.job_keys
     }
-    blocked_by_key: dict[str, list[str]] = {}
-    for record in preflight_report.blockers:
-        for key in record.job_keys:
-            blocked_by_key.setdefault(key, []).append(f"{record.code}: {record.message}")
     for record in preflight_report.warnings:
         companies = ", ".join(record.job_keys)
         print(c(YELLOW, f"  [preflight warn] {companies}: {record.code} — {record.message}"))
 
-    preflight_blocked_results: list[dict] = []
-    runnable_targets: list[dict] = []
-    for target in targets:
+    for target in preflight_blocked_results:
         queue_input = _generation_target_input(target)
-        reasons = blocked_by_key.get(queue_input.key, []) if queue_input else []
-        if not reasons:
-            runnable_targets.append(target)
-            continue
-        company = str(target.get("company") or queue_input.key)
-        print(c(RED, f"  [preflight block] {company}: {'; '.join(reasons)}"))
-        preflight_blocked_results.append(
-            {
-                **target,
-                "success": False,
-                "preflight_blocked": True,
-                "error": "; ".join(reasons),
-            }
+        company = str(
+            target.get("company")
+            or (queue_input.key if queue_input is not None else "unknown target")
         )
-    targets = runnable_targets
+        reasons = str(target.get("error") or "source-integrity preflight failed")
+        print(c(RED, f"  [preflight block] {company}: {reasons}"))
     if not targets:
         print(c(YELLOW, "  No generation targets passed source-integrity preflight."))
         return preflight_blocked_results
