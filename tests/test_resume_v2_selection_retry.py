@@ -125,6 +125,40 @@ def test_targeted_scorer_retry_scope_reopens_only_failed_slots():
     assert "G-PRICING-canonical-closed-loop" in scope["must_retain_variant_ids"]
     assert scope["must_retain_summary_id"] == "summary/product/general-scaled-evidence"
     assert scope["must_retain_fluo_variant_id"] == "FL-INSTITUTIONAL-amazon-inline-prearrival"
+    assert scope["repair_auxiliary_sections"] is False
+
+
+def test_targeted_scope_freezes_valid_experience_during_auxiliary_repair():
+    override = build_pass1_prompt_override(PM_STRATEGY, explicit_profile="product-general")
+    sections = runner.extract_sections(_raw_selection(override, VALID_SELECTION))
+    sections["selection_notes"] = runner.canonicalize_v2_selection_notes(
+        sections,
+        override,
+    )
+    scores = _scorer(VALID_SELECTION)
+    scores["holistic_score"] = 7.8
+    scores["verdict"] = "REVISE"
+    scores["bullets"][9]["score"] = 7.0
+    scores["bullets"][9]["failure_mode"] = "GENERIC_MECHANISM"
+    validation = runner.validate_v2_sections(sections, override, scores)
+    validation = V2SectionValidation(
+        errors=validation.errors + ("Skills repeats substantive tokens across rows",),
+        warnings=validation.warnings,
+        selected=validation.selected,
+        summary=validation.summary,
+        fluo_variant=validation.fluo_variant,
+        document=validation.document,
+    )
+
+    scope = runner._v2_targeted_scorer_retry_scope(validation, scores)
+
+    assert scope is not None
+    assert scope["repair_auxiliary_sections"] is True
+    assert [item["variant_id"] for item in scope["must_replace"]] == [
+        "O-SAFE-ACTION-flag-suggest-stop"
+    ]
+    assert "G-PRICING-canonical-closed-loop" in scope["must_retain_variant_ids"]
+    assert scope["must_retain_summary_id"] == "summary/product/general-scaled-evidence"
 
 
 def test_targeted_retry_enforcement_rejects_collateral_changes():
@@ -363,7 +397,7 @@ def test_targeted_comparison_keeps_tie_incumbent_and_accepts_pareto_winner():
 
     assert errors == []
     assert decisions == {("GOJEK", 3): "incumbent", ("OPTUM", 1): "challenger"}
-    assert "Led Gojek's fleet integration platform" in final_sections["experience_section"]
+    assert "Redesigned Gojek's fleet supply contract" in final_sections["experience_section"]
     assert "Prototyped an ML-based affordability engine" in final_sections["experience_section"]
 
 

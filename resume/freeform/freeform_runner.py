@@ -2346,7 +2346,35 @@ def _v2_targeted_scorer_retry_scope(
     admitted proof to remove.
     """
 
-    if validation.errors:
+    # Auxiliary-section defects must not reopen already passing experience
+    # evidence. A selector can repair Summary/Skills bookkeeping while the
+    # reviewed experience slate remains exact and position-complete. Only an
+    # invalid experience slate earns a whole-page re-selection.
+    allocation = (
+        validation.document.allocation_plan
+        if validation.document is not None
+        else None
+    )
+    expected_positions = {
+        (company, index)
+        for company, count in (
+            allocation.company_counts if allocation is not None else ()
+        )
+        for index in range(1, count + 1)
+    }
+    observed_positions = {
+        (item.company, item.index) for item in validation.selected
+    }
+    selected_ids = [item.reviewed.variant_id for item in validation.selected]
+    selected_families = [item.reviewed.story_family for item in validation.selected]
+    experience_is_freezable = (
+        bool(expected_positions)
+        and observed_positions == expected_positions
+        and len(selected_ids) == len(set(selected_ids))
+        and len(selected_families) == len(set(selected_families))
+        and sum(family == "I-INCIDENT" for family in selected_families) == 1
+    )
+    if validation.errors and not experience_is_freezable:
         return None
 
     by_position = {
@@ -2392,8 +2420,16 @@ def _v2_targeted_scorer_retry_scope(
     if not replace:
         return None
 
+    summary_has_error = any(
+        "summary" in error.casefold() for error in validation.errors
+    )
+    fluo_has_error = any(
+        "fluo" in error.casefold() for error in validation.errors
+    )
+
     return {
         "mode": "targeted",
+        "repair_auxiliary_sections": bool(validation.errors),
         "must_retain_variant_ids": [
             item.reviewed.variant_id
             for item in validation.selected
@@ -2401,11 +2437,13 @@ def _v2_targeted_scorer_retry_scope(
         ],
         "must_replace": replace,
         "must_retain_summary_id": (
-            validation.summary.candidate_id if validation.summary is not None else None
+            validation.summary.candidate_id
+            if validation.summary is not None and not summary_has_error
+            else None
         ),
         "must_retain_fluo_variant_id": (
             validation.fluo_variant.variant_id
-            if validation.fluo_variant is not None
+            if validation.fluo_variant is not None and not fluo_has_error
             else None
         ),
     }
@@ -2445,7 +2483,7 @@ def _enforce_v2_targeted_retry_scope(
     actual_summary = (
         validation.summary.candidate_id if validation.summary is not None else None
     )
-    if expected_summary != actual_summary:
+    if expected_summary is not None and expected_summary != actual_summary:
         errors.append(
             f"targeted retry changed summary: expected {expected_summary}, got {actual_summary}"
         )
@@ -2455,7 +2493,7 @@ def _enforce_v2_targeted_retry_scope(
         if validation.fluo_variant is not None
         else None
     )
-    if expected_fluo != actual_fluo:
+    if expected_fluo is not None and expected_fluo != actual_fluo:
         errors.append(
             f"targeted retry changed Fluo variant: expected {expected_fluo}, got {actual_fluo}"
         )
@@ -2542,11 +2580,14 @@ def _normalize_v2_targeted_retry_sections(
     if errors:
         return None, tuple(errors)
 
-    normalized = dict(initial_sections)
+    repair_auxiliary = bool(targeted_scope.get("repair_auxiliary_sections"))
+    normalized = dict(raw_challenger_sections if repair_auxiliary else initial_sections)
     normalized["experience_section"] = "\n".join(lines)
-    normalized["summary_section"] = initial_sections.get("summary_section", "")
-    normalized["skills_section"] = initial_sections.get("skills_section", "")
-    normalized["projects_section"] = initial_sections.get("projects_section", "")
+    if not repair_auxiliary or targeted_scope.get("must_retain_summary_id") is not None:
+        normalized["summary_section"] = initial_sections.get("summary_section", "")
+    if not repair_auxiliary:
+        normalized["skills_section"] = initial_sections.get("skills_section", "")
+        normalized["projects_section"] = initial_sections.get("projects_section", "")
     normalized["selection_notes"] = canonicalize_v2_selection_notes(
         normalized,
         override,
@@ -2822,6 +2863,7 @@ def _apply_v2_targeted_comparison_decisions(
     challenger: V2SectionValidation,
     decisions: dict[tuple[str, int], str],
     override: Pass1PromptOverride,
+    targeted_scope: dict[str, object] | None = None,
 ) -> dict:
     """Assemble the pairwise winner in each reopened slot from exact bank text."""
 
@@ -2846,8 +2888,15 @@ def _apply_v2_targeted_comparison_decisions(
 
     final_sections = dict(challenger_sections)
     final_sections["experience_section"] = "\n".join(lines)
-    final_sections["summary_section"] = initial_sections["summary_section"]
-    final_sections["skills_section"] = initial_sections["skills_section"]
+    repair_auxiliary = bool(
+        targeted_scope and targeted_scope.get("repair_auxiliary_sections")
+    )
+    if not repair_auxiliary or (
+        targeted_scope and targeted_scope.get("must_retain_summary_id") is not None
+    ):
+        final_sections["summary_section"] = initial_sections["summary_section"]
+    if not repair_auxiliary:
+        final_sections["skills_section"] = initial_sections["skills_section"]
     final_sections["selection_notes"] = canonicalize_v2_selection_notes(
         final_sections,
         override,
@@ -4154,6 +4203,10 @@ Hard guidance:
                         v2_override,
                         score_data,
                     )
+                    retry_validation = _enforce_v2_targeted_retry_scope(
+                        retry_validation,
+                        targeted_scope,
+                    )
                     print(
                         c(
                             CYAN,
@@ -4236,6 +4289,7 @@ Hard guidance:
                         challenger=retry_validation,
                         decisions=decisions,
                         override=v2_override,
+                        targeted_scope=targeted_scope,
                     )
                     v2_validation = validate_v2_sections(
                         sections,
