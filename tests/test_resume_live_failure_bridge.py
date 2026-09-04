@@ -121,11 +121,11 @@ def test_top_level_shadow_runs_and_persists_summary_selection_without_changing_p
 
     def api(prompt, _model, label):
         nonlocal comparison_calls
-        if "Summary compare" in label:
+        if "Summary tournament" in label:
             comparison_calls += 1
             return json.dumps(
                 {
-                    "verdict": "keep_incumbent",
+                    "selected_id": "summary/product/customer-usage-to-shipped",
                     "rationale": "The incumbent retains the broader funded evidence.",
                     "critical_regressions": [],
                 }
@@ -157,7 +157,7 @@ def test_top_level_shadow_runs_and_persists_summary_selection_without_changing_p
     )
 
     assert ok is True
-    assert comparison_calls >= 1
+    assert comparison_calls == 1
     assert len(pass1_prompts) == 1
     assert "<<< BEGIN RESUME V2 AUTHORITATIVE PASS-1 OVERRIDE >>>" not in pass1_prompts[0]
     audit_path = out_dir / "v2_audits" / "jd_summary_selection.json"

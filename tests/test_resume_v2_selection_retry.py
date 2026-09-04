@@ -96,6 +96,224 @@ def test_retry_prompt_preserves_bank_and_carries_machine_readable_feedback():
         "scorer-release",
     }
     assert payload["scorer_diagnostics"]["bullets"][0]["failure_mode"] == "JD_FIT"
+    assert payload["repair_scope"] is None
+
+
+def test_targeted_scorer_retry_scope_reopens_only_failed_slots():
+    override = build_pass1_prompt_override(PM_STRATEGY, explicit_profile="product-general")
+    sections = runner.extract_sections(_raw_selection(override, VALID_SELECTION))
+    sections["selection_notes"] = runner.canonicalize_v2_selection_notes(
+        sections,
+        override,
+    )
+    scores = _scorer(VALID_SELECTION)
+    scores["holistic_score"] = 8.0
+    scores["verdict"] = "REVISE"
+    scores["bullets"][4]["score"] = 7.0
+    scores["bullets"][4]["failure_mode"] = "READABILITY_FAILURE"
+    scores["bullets"][9]["score"] = 7.0
+    scores["bullets"][9]["failure_mode"] = "WEAK_MECHANISM"
+    validation = runner.validate_v2_sections(sections, override, scores)
+
+    scope = runner._v2_targeted_scorer_retry_scope(validation, scores)
+
+    assert scope is not None
+    assert [item["variant_id"] for item in scope["must_replace"]] == [
+        "G-SUPPLY-canonical-operating-model",
+        "O-SAFE-ACTION-flag-suggest-stop",
+    ]
+    assert "G-PRICING-canonical-closed-loop" in scope["must_retain_variant_ids"]
+    assert scope["must_retain_summary_id"] == "summary/product/general-scaled-evidence"
+    assert scope["must_retain_fluo_variant_id"] == "FL-INSTITUTIONAL-amazon-inline-prearrival"
+
+
+def test_targeted_retry_enforcement_rejects_collateral_changes():
+    initial = _validation(ids=("keep", "replace"), summary="summary-a", fluo="fluo-a")
+    scope = {
+        "must_retain_variant_ids": ["keep"],
+        "must_replace": [{"variant_id": "replace"}],
+        "must_retain_summary_id": "summary-a",
+        "must_retain_fluo_variant_id": "fluo-a",
+    }
+
+    collateral = runner._enforce_v2_targeted_retry_scope(
+        _validation(ids=("other", "replace"), summary="summary-b", fluo="fluo-b"),
+        scope,
+    )
+
+    joined = " | ".join(collateral.errors)
+    assert "discarded passing" in joined
+    assert "repeated variants assigned for replacement" in joined
+    assert "changed summary" in joined
+    assert "changed Fluo" in joined
+
+
+def test_targeted_comparison_keeps_tie_incumbent_and_accepts_pareto_winner():
+    override = build_pass1_prompt_override(PM_STRATEGY, explicit_profile="product-general")
+    initial_sections = runner.extract_sections(_raw_selection(override, VALID_SELECTION))
+    initial_sections["selection_notes"] = runner.canonicalize_v2_selection_notes(
+        initial_sections,
+        override,
+    )
+    initial = runner.validate_v2_sections(initial_sections, override, _scorer(VALID_SELECTION))
+
+    challenger_selection = dict(VALID_SELECTION)
+    challenger_selection["GOJEK"] = (
+        "G-PRICING-canonical-closed-loop",
+        "G-LATENCY-studyfetch-readable-tradeoff",
+        "G-SUPPLY-C2-contract-design",
+    )
+    challenger_selection["OPTUM"] = (
+        "O-AFFORDABILITY-prototype-clinical-approval",
+    )
+    challenger_sections = runner.extract_sections(
+        _raw_selection(override, challenger_selection)
+    )
+    challenger_sections["selection_notes"] = runner.canonicalize_v2_selection_notes(
+        challenger_sections,
+        override,
+    )
+    challenger = runner.validate_v2_sections(
+        challenger_sections,
+        override,
+        _scorer(challenger_selection),
+    )
+    scope = {
+        "must_replace": [
+            {
+                "company": "GOJEK",
+                "index": 3,
+                "variant_id": "G-SUPPLY-canonical-operating-model",
+                "score": 7.0,
+                "failure_mode": "READABILITY_FAILURE",
+                "note": "too many clauses",
+            },
+            {
+                "company": "OPTUM",
+                "index": 1,
+                "variant_id": "O-SAFE-ACTION-flag-suggest-stop",
+                "score": 7.0,
+                "failure_mode": "WEAK_MECHANISM",
+                "note": "thin mechanism",
+            },
+        ]
+    }
+    pairs = runner._v2_targeted_retry_pairs(initial, challenger, scope)
+
+    def critical():
+        return {name: True for name in runner._V2_PAIRWISE_CRITICAL_KEYS}
+
+    def ranks(*values):
+        return dict(zip(runner._V2_PAIRWISE_RANK_KEYS, values))
+
+    result = {
+        "comparisons": [
+            {
+                "company": "GOJEK",
+                "index": 3,
+                "incumbent_variant_id": "G-SUPPLY-canonical-operating-model",
+                "challenger_variant_id": "G-SUPPLY-C2-contract-design",
+                "incumbent_critical": critical(),
+                "challenger_critical": critical(),
+                "incumbent_rank": ranks(4, 4, 4, 4, 4),
+                "challenger_rank": ranks(4, 3, 4, 4, 4),
+                "rationale": "The challenger is shorter but loses operating-model value.",
+            },
+            {
+                "company": "OPTUM",
+                "index": 1,
+                "incumbent_variant_id": "O-SAFE-ACTION-flag-suggest-stop",
+                "challenger_variant_id": "O-AFFORDABILITY-prototype-clinical-approval",
+                "incumbent_critical": critical(),
+                "challenger_critical": critical(),
+                "incumbent_rank": ranks(3, 3, 3, 3, 3),
+                "challenger_rank": ranks(4, 3, 3, 3, 3),
+                "rationale": "The challenger proves the JD criterion more directly.",
+            },
+        ],
+        "final_page_checks": {
+            name: True for name in runner._V2_PAIRWISE_PAGE_KEYS
+        },
+        "page_rationale": "The mixed winner page improves one slot without regression.",
+    }
+
+    decisions, errors = runner._decide_v2_targeted_comparison(result, pairs)
+    final_sections = runner._apply_v2_targeted_comparison_decisions(
+        initial_sections=initial_sections,
+        challenger_sections=challenger_sections,
+        initial=initial,
+        challenger=challenger,
+        decisions=decisions,
+        override=override,
+    )
+
+    assert errors == []
+    assert decisions == {("GOJEK", 3): "incumbent", ("OPTUM", 1): "challenger"}
+    assert "Led Gojek's fleet integration platform" in final_sections["experience_section"]
+    assert "Prototyped an ML-based affordability engine" in final_sections["experience_section"]
+
+
+def test_targeted_comparison_fails_closed_on_page_regression():
+    pair = {
+        "company": "GOJEK",
+        "index": 1,
+        "incumbent_variant_id": "old",
+        "challenger_variant_id": "new",
+    }
+    critical = {name: True for name in runner._V2_PAIRWISE_CRITICAL_KEYS}
+    rank = {name: 3 for name in runner._V2_PAIRWISE_RANK_KEYS}
+    result = {
+        "comparisons": [
+            {
+                **pair,
+                "incumbent_critical": critical,
+                "challenger_critical": critical,
+                "incumbent_rank": rank,
+                "challenger_rank": {**rank, "criterion_strength": 4},
+                "rationale": "stronger",
+            }
+        ],
+        "final_page_checks": {
+            **{name: True for name in runner._V2_PAIRWISE_PAGE_KEYS},
+            "nonduplication": False,
+        },
+    }
+
+    _, errors = runner._decide_v2_targeted_comparison(result, [pair])
+
+    assert any("final page failed" in error for error in errors)
+
+
+def test_targeted_comparison_keeps_incumbent_on_material_tradeoff():
+    pair = {
+        "company": "INTUIT",
+        "index": 2,
+        "incumbent_variant_id": "old",
+        "challenger_variant_id": "new",
+    }
+    critical = {name: True for name in runner._V2_PAIRWISE_CRITICAL_KEYS}
+    incumbent_rank = {name: 3 for name in runner._V2_PAIRWISE_RANK_KEYS}
+    challenger_rank = {**incumbent_rank, "criterion_strength": 4, "outcome_quality": 2}
+    result = {
+        "comparisons": [
+            {
+                **pair,
+                "incumbent_critical": critical,
+                "challenger_critical": critical,
+                "incumbent_rank": incumbent_rank,
+                "challenger_rank": challenger_rank,
+                "rationale": "One criterion improves but outcome quality falls.",
+            }
+        ],
+        "final_page_checks": {
+            name: True for name in runner._V2_PAIRWISE_PAGE_KEYS
+        },
+    }
+
+    decisions, errors = runner._decide_v2_targeted_comparison(result, [pair])
+
+    assert decisions == {("INTUIT", 2): "incumbent"}
+    assert errors == ["targeted retry produced no material improvement"]
 
 
 def test_integrity_retry_reports_observed_ids_without_forbidding_unparsed_content():

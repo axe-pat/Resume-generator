@@ -144,6 +144,8 @@ from shared.generation_routing import (  # noqa: E402 - ROOT_DIR is inserted abo
 from shared.resume_artifacts import ResumePageUnderfillError  # noqa: E402
 from shared.resume_runtime import V2_PAGE_UNDERFILLED_EXIT_CODE  # noqa: E402
 from shared.llm_provider import (  # noqa: E402
+    CURSOR_TRANSIENT_EXIT_CODE,
+    LLMProviderError,
     VALID_CURSOR_ROUTING,
     VALID_PROVIDERS,
     apply_cli_overrides,
@@ -1961,6 +1963,12 @@ def main():
             # distinct-proof retry.  The detailed observed geometry has already
             # been printed and logged by the resume runner.
             raise SystemExit(V2_PAGE_UNDERFILLED_EXIT_CODE)
+        except LLMProviderError as exc:
+            # jobs.py may retry this exact run once. Successful prior Cursor
+            # calls are prompt-hash cached, so the retry resumes at the first
+            # incomplete provider stage without masking content/QC failures.
+            print(c(RED, f"  [provider interruption] {exc}"))
+            raise SystemExit(CURSOR_TRANSIENT_EXIT_CODE) from exc
         except GenerationRoutingError as exc:
             raise SystemExit(f"[ERROR] {exc}") from exc
     finally:

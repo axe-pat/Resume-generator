@@ -2153,6 +2153,7 @@ def _build_v2_selection_retry_prompt(
     previous_signature: dict[str, object],
     score_data: dict,
     forbid_previous_combination: bool = True,
+    targeted_scope: dict[str, object] | None = None,
 ) -> str:
     """Append one machine-readable retry contract to the original closed bank.
 
@@ -2211,6 +2212,7 @@ def _build_v2_selection_retry_prompt(
             previous_signature if forbid_previous_combination else None
         ),
         "scorer_diagnostics": scorer_diagnostics,
+        "repair_scope": targeted_scope,
     }
     combination_instruction = (
         "Do not repeat the forbidden selection combination. "
@@ -2221,11 +2223,24 @@ def _build_v2_selection_retry_prompt(
             "the output structure. "
         )
     )
+    targeted_instruction = ""
+    if targeted_scope is not None:
+        targeted_instruction = (
+            "This is a targeted repair, not a new slate. Keep every variant ID in "
+            "repair_scope.must_retain_variant_ids in the same company block and copy "
+            "its text unchanged. Change only the slots listed in "
+            "repair_scope.must_replace. Never select a must_replace variant again. "
+            "For each reopened slot, prefer a stronger reviewed sibling from the same "
+            "story family; use another story family only when no compliant sibling can "
+            "clear the blocker. Keep the exact summary and Fluo variants named in the "
+            "repair scope. "
+        )
     instructions = (
         "This is the only retry. Re-select from the exact immutable reviewed bank "
         "already present above. Address every blocker and output all five required "
         "sections exactly once. "
         + combination_instruction
+        + targeted_instruction
         + "Copy every bullet, summary and Fluo string verbatim; never rewrite, merge, "
         "shorten, expand or invent content. Preserve the resolved profile, company "
         "allocation, titles, Skills contract and protected I-INCIDENT requirement. "
@@ -2237,6 +2252,440 @@ def _build_v2_selection_retry_prompt(
         f"{json.dumps(payload, ensure_ascii=False, sort_keys=True)}\n"
         f"{_V2_RETRY_END}\n"
     )
+
+
+def _v2_targeted_scorer_retry_scope(
+    validation: V2SectionValidation,
+    score_data: dict,
+) -> dict[str, object] | None:
+    """Lock passing content and reopen only scorer-identified weak slots.
+
+    A scorer retry must never discard strong evidence merely because the page's
+    holistic verdict missed the release threshold. Explicit sub-8 scores or
+    named failure modes identify the repair surface. If the scorer supplies no
+    such slot, the retry remains combination-level rather than guessing which
+    admitted proof to remove.
+    """
+
+    if validation.errors:
+        return None
+
+    by_position = {
+        (item.company, item.index): item
+        for item in validation.selected
+    }
+    replace: list[dict[str, object]] = []
+    replace_ids: set[str] = set()
+    selected_companies = tuple(dict.fromkeys(item.company for item in validation.selected))
+    for diagnostic in score_data.get("bullets", ()):
+        if not isinstance(diagnostic, dict):
+            continue
+        company_text = str(diagnostic.get("company", "")).upper()
+        company = next((key for key in selected_companies if key in company_text), "")
+        index = diagnostic.get("index")
+        selected = by_position.get((company, index))
+        if selected is None:
+            continue
+        raw_score = diagnostic.get("score")
+        score = (
+            float(raw_score)
+            if isinstance(raw_score, (int, float)) and not isinstance(raw_score, bool)
+            else None
+        )
+        failure_mode = str(diagnostic.get("failure_mode") or "").strip()
+        explicit_failure = failure_mode.upper() not in {"", "NONE", "NULL"}
+        if not explicit_failure and (score is None or score >= PASS4_THRESHOLD):
+            continue
+        variant_id = selected.reviewed.variant_id
+        replace_ids.add(variant_id)
+        replace.append(
+            {
+                "company": selected.company,
+                "index": selected.index,
+                "variant_id": variant_id,
+                "story_family": selected.reviewed.story_family,
+                "score": score,
+                "failure_mode": failure_mode or None,
+                "note": str(diagnostic.get("note", "")).strip(),
+            }
+        )
+
+    if not replace:
+        return None
+
+    return {
+        "mode": "targeted",
+        "must_retain_variant_ids": [
+            item.reviewed.variant_id
+            for item in validation.selected
+            if item.reviewed.variant_id not in replace_ids
+        ],
+        "must_replace": replace,
+        "must_retain_summary_id": (
+            validation.summary.candidate_id if validation.summary is not None else None
+        ),
+        "must_retain_fluo_variant_id": (
+            validation.fluo_variant.variant_id
+            if validation.fluo_variant is not None
+            else None
+        ),
+    }
+
+
+def _enforce_v2_targeted_retry_scope(
+    validation: V2SectionValidation,
+    targeted_scope: dict[str, object] | None,
+) -> V2SectionValidation:
+    """Fail closed when a targeted retry changes content outside its repair slots."""
+
+    if targeted_scope is None:
+        return validation
+
+    selected_ids = {item.reviewed.variant_id for item in validation.selected}
+    retained_ids = set(targeted_scope.get("must_retain_variant_ids", ()))
+    replaced_ids = {
+        str(item.get("variant_id"))
+        for item in targeted_scope.get("must_replace", ())
+        if isinstance(item, dict)
+    }
+    errors: list[str] = []
+    missing_retained = sorted(retained_ids - selected_ids)
+    repeated_rejected = sorted(replaced_ids & selected_ids)
+    if missing_retained:
+        errors.append(
+            "targeted retry discarded passing reviewed variants: "
+            + ", ".join(missing_retained)
+        )
+    if repeated_rejected:
+        errors.append(
+            "targeted retry repeated variants assigned for replacement: "
+            + ", ".join(repeated_rejected)
+        )
+
+    expected_summary = targeted_scope.get("must_retain_summary_id")
+    actual_summary = (
+        validation.summary.candidate_id if validation.summary is not None else None
+    )
+    if expected_summary != actual_summary:
+        errors.append(
+            f"targeted retry changed summary: expected {expected_summary}, got {actual_summary}"
+        )
+    expected_fluo = targeted_scope.get("must_retain_fluo_variant_id")
+    actual_fluo = (
+        validation.fluo_variant.variant_id
+        if validation.fluo_variant is not None
+        else None
+    )
+    if expected_fluo != actual_fluo:
+        errors.append(
+            f"targeted retry changed Fluo variant: expected {expected_fluo}, got {actual_fluo}"
+        )
+
+    if not errors:
+        return validation
+    return V2SectionValidation(
+        errors=validation.errors + tuple(errors),
+        warnings=validation.warnings,
+        selected=validation.selected,
+        summary=validation.summary,
+        fluo_variant=validation.fluo_variant,
+        document=validation.document,
+    )
+
+
+_V2_PAIRWISE_CRITICAL_KEYS = (
+    "materiality",
+    "causal_edge_integrity",
+    "ownership",
+    "mechanism_fit",
+    "outcome_closure",
+    "outsider_legibility",
+)
+_V2_PAIRWISE_RANK_KEYS = (
+    "criterion_strength",
+    "marginal_page_value",
+    "stakes_nonreplicability",
+    "counterfactual_ownership",
+    "outcome_quality",
+)
+_V2_PAIRWISE_PAGE_KEYS = (
+    "jd_fit",
+    "identity_coherence",
+    "evidence_diversity",
+    "nonduplication",
+)
+
+
+def _v2_targeted_retry_pairs(
+    initial: V2SectionValidation,
+    challenger: V2SectionValidation,
+    targeted_scope: dict[str, object],
+) -> list[dict[str, object]]:
+    """Return exact incumbent/challenger pairs for reopened company slots."""
+
+    initial_by_position = {
+        (item.company, item.index): item for item in initial.selected
+    }
+    challenger_by_position = {
+        (item.company, item.index): item for item in challenger.selected
+    }
+    pairs: list[dict[str, object]] = []
+    for target in targeted_scope.get("must_replace", ()):
+        if not isinstance(target, dict):
+            continue
+        position = (str(target.get("company", "")), target.get("index"))
+        incumbent = initial_by_position.get(position)
+        replacement = challenger_by_position.get(position)
+        if incumbent is None or replacement is None:
+            continue
+        pairs.append(
+            {
+                "company": incumbent.company,
+                "index": incumbent.index,
+                "incumbent_variant_id": incumbent.reviewed.variant_id,
+                "incumbent_story_family": incumbent.reviewed.story_family,
+                "incumbent_text": incumbent.reviewed.text,
+                "incumbent_scorer_diagnostic": {
+                    "score": target.get("score"),
+                    "failure_mode": target.get("failure_mode"),
+                    "note": target.get("note"),
+                },
+                "challenger_variant_id": replacement.reviewed.variant_id,
+                "challenger_story_family": replacement.reviewed.story_family,
+                "challenger_text": replacement.reviewed.text,
+            }
+        )
+    return pairs
+
+
+def _build_v2_targeted_comparison_prompt(
+    *,
+    pairs: list[dict[str, object]],
+    initial_experience: str,
+    challenger_experience: str,
+    jd_text: str,
+    strategy_block: str,
+) -> str:
+    """Build one closed pairwise decision prompt without reopening prose."""
+
+    payload = {
+        "job_description": jd_text,
+        "positioning_strategy": strategy_block,
+        "initial_experience": initial_experience,
+        "challenger_experience": challenger_experience,
+        "reopened_pairs": pairs,
+    }
+    critical_schema = ", ".join(_V2_PAIRWISE_CRITICAL_KEYS)
+    rank_schema = ", ".join(_V2_PAIRWISE_RANK_KEYS)
+    page_schema = ", ".join(_V2_PAIRWISE_PAGE_KEYS)
+    return f"""RESUME V2 TARGETED NON-REGRESSION JUDGE
+
+Judge only the reopened pairs below. Every string comes from a human-reviewed,
+fact-approved bank. Do not rewrite text and do not rescore frozen bullets.
+
+For each incumbent and challenger, independently assess these critical vetoes as
+booleans: {critical_schema}. Then score these material dimensions from 0 to 4:
+{rank_schema}. A challenger may replace its incumbent only if it passes every
+critical veto and Pareto-improves at least one material dimension without lowering
+any. If the incumbent fails a critical veto, the challenger may win with equal
+material ranks, but still may not regress one. Ties stay with the incumbent.
+Any mixed tradeoff requires human review; style alone never displaces an incumbent.
+
+Finally assess the page produced by choosing the stronger member of each pair on
+these non-averaged checks: {page_schema}. Each must be true. Evaluate the actual JD,
+identity, value-signal mix, and cross-page duplication, not an absolute numeric score.
+
+Return JSON only with this exact shape:
+{{
+  "comparisons": [
+    {{
+      "company": "...",
+      "index": 1,
+      "incumbent_variant_id": "...",
+      "challenger_variant_id": "...",
+      "incumbent_critical": {{"{_V2_PAIRWISE_CRITICAL_KEYS[0]}": true}},
+      "challenger_critical": {{"{_V2_PAIRWISE_CRITICAL_KEYS[0]}": true}},
+      "incumbent_rank": {{"{_V2_PAIRWISE_RANK_KEYS[0]}": 0}},
+      "challenger_rank": {{"{_V2_PAIRWISE_RANK_KEYS[0]}": 0}},
+      "rationale": "one concise comparative reason"
+    }}
+  ],
+  "final_page_checks": {{"{_V2_PAIRWISE_PAGE_KEYS[0]}": true}},
+  "page_rationale": "one concise reason"
+}}
+Include every named critical, rank, and page-check key, not only the examples.
+
+INPUT_JSON
+{json.dumps(payload, ensure_ascii=False, sort_keys=True)}
+"""
+
+
+def _parse_v2_targeted_comparison(raw: str) -> dict[str, object]:
+    cleaned = re.sub(r"```(?:json)?\s*", "", raw).strip()
+    cleaned = re.sub(r"```\s*$", "", cleaned).strip()
+    match = re.search(r"\{.*\}", cleaned, re.S)
+    if not match:
+        return {"parse_error": "comparison response contained no JSON object", "raw": raw}
+    try:
+        parsed = json.loads(match.group(0))
+    except json.JSONDecodeError as exc:
+        return {"parse_error": str(exc), "raw": raw}
+    if not isinstance(parsed, dict):
+        return {"parse_error": "comparison response must be a JSON object", "raw": raw}
+    return parsed
+
+
+def _decide_v2_targeted_comparison(
+    result: dict[str, object],
+    pairs: list[dict[str, object]],
+) -> tuple[dict[tuple[str, int], str], list[str]]:
+    """Convert one model comparison into deterministic pairwise decisions."""
+
+    errors: list[str] = []
+    decisions: dict[tuple[str, int], str] = {}
+    if result.get("parse_error"):
+        return decisions, [f"targeted comparison JSON failed: {result['parse_error']}"]
+
+    observed = result.get("comparisons")
+    if not isinstance(observed, list) or len(observed) != len(pairs):
+        return decisions, [
+            "targeted comparison must evaluate every reopened pair exactly once"
+        ]
+
+    observed_by_key = {
+        (str(item.get("company", "")), item.get("index")): item
+        for item in observed
+        if isinstance(item, dict)
+    }
+    for pair in pairs:
+        key = (str(pair["company"]), int(pair["index"]))
+        item = observed_by_key.get(key)
+        if item is None:
+            errors.append(f"targeted comparison omitted {key[0]} bullet {key[1]}")
+            continue
+        for id_key in ("incumbent_variant_id", "challenger_variant_id"):
+            if item.get(id_key) != pair[id_key]:
+                errors.append(
+                    f"targeted comparison changed {key[0]} bullet {key[1]} {id_key}"
+                )
+
+        critical: dict[str, dict[str, bool]] = {}
+        for side in ("incumbent", "challenger"):
+            raw_critical = item.get(f"{side}_critical")
+            if not isinstance(raw_critical, dict) or any(
+                raw_critical.get(name) is not True and raw_critical.get(name) is not False
+                for name in _V2_PAIRWISE_CRITICAL_KEYS
+            ):
+                errors.append(
+                    f"targeted comparison has invalid {side} critical vetoes for "
+                    f"{key[0]} bullet {key[1]}"
+                )
+                critical[side] = {}
+            else:
+                critical[side] = {
+                    name: bool(raw_critical[name]) for name in _V2_PAIRWISE_CRITICAL_KEYS
+                }
+
+        ranks: dict[str, tuple[int, ...]] = {}
+        for side in ("incumbent", "challenger"):
+            raw_rank = item.get(f"{side}_rank")
+            if not isinstance(raw_rank, dict) or any(
+                not isinstance(raw_rank.get(name), int)
+                or isinstance(raw_rank.get(name), bool)
+                or not 0 <= raw_rank[name] <= 4
+                for name in _V2_PAIRWISE_RANK_KEYS
+            ):
+                errors.append(
+                    f"targeted comparison has invalid {side} material ranks for "
+                    f"{key[0]} bullet {key[1]}"
+                )
+                ranks[side] = ()
+            else:
+                ranks[side] = tuple(raw_rank[name] for name in _V2_PAIRWISE_RANK_KEYS)
+
+        if not critical.get("incumbent") or not critical.get("challenger"):
+            continue
+        if not ranks.get("incumbent") or not ranks.get("challenger"):
+            continue
+        incumbent_passes = all(critical["incumbent"].values())
+        challenger_passes = all(critical["challenger"].values())
+        improves = any(
+            challenger > incumbent
+            for challenger, incumbent in zip(ranks["challenger"], ranks["incumbent"])
+        )
+        regresses = any(
+            challenger < incumbent
+            for challenger, incumbent in zip(ranks["challenger"], ranks["incumbent"])
+        )
+        if not incumbent_passes and not challenger_passes:
+            errors.append(
+                f"both variants fail a critical veto for {key[0]} bullet {key[1]}"
+            )
+        elif not challenger_passes:
+            decisions[key] = "incumbent"
+        elif not incumbent_passes and not regresses:
+            decisions[key] = "challenger"
+        elif regresses:
+            # A mixed tradeoff may still be worth human review later, but it
+            # cannot displace the already-admitted incumbent automatically.
+            # Keeping the incumbent is the safe unattended shipping decision.
+            decisions[key] = "incumbent"
+        elif improves:
+            decisions[key] = "challenger"
+        else:
+            decisions[key] = "incumbent"
+
+    page_checks = result.get("final_page_checks")
+    if not isinstance(page_checks, dict) or any(
+        page_checks.get(name) is not True for name in _V2_PAIRWISE_PAGE_KEYS
+    ):
+        errors.append("targeted comparison final page failed a non-averaged check")
+    if decisions and not any(value == "challenger" for value in decisions.values()):
+        errors.append("targeted retry produced no material improvement")
+    if len(decisions) != len(pairs):
+        errors.append("targeted comparison did not produce one safe decision per pair")
+    return decisions, errors
+
+
+def _apply_v2_targeted_comparison_decisions(
+    *,
+    initial_sections: dict,
+    challenger_sections: dict,
+    initial: V2SectionValidation,
+    challenger: V2SectionValidation,
+    decisions: dict[tuple[str, int], str],
+    override: Pass1PromptOverride,
+) -> dict:
+    """Assemble the pairwise winner in each reopened slot from exact bank text."""
+
+    initial_by_position = {
+        (item.company, item.index): item.reviewed.text for item in initial.selected
+    }
+    challenger_by_position = {
+        (item.company, item.index): item.reviewed.text for item in challenger.selected
+    }
+    headers = company_headers_for_profile(override.profile)
+    lines: list[str] = []
+    for company, count in override.allocation_plan.company_counts:
+        lines.append(headers[company])
+        for index in range(1, count + 1):
+            position = (company, index)
+            source = (
+                initial_by_position
+                if decisions.get(position) == "incumbent"
+                else challenger_by_position
+            )
+            lines.append(f"• {source[position]}")
+
+    final_sections = dict(challenger_sections)
+    final_sections["experience_section"] = "\n".join(lines)
+    final_sections["summary_section"] = initial_sections["summary_section"]
+    final_sections["skills_section"] = initial_sections["skills_section"]
+    final_sections["selection_notes"] = canonicalize_v2_selection_notes(
+        final_sections,
+        override,
+    )
+    return final_sections
 
 
 def _v2_observed_raw_signature(
@@ -2994,6 +3443,8 @@ def run_single(
     v2_score_errors: list[str] = []
     v2_score_warnings: list[str] = []
     v2_retry_log = ""
+    v2_pairwise_log = ""
+    v2_pairwise_accepted = False
     v2_summary_selection_log = ""
     v2_retry_consumed = False
 
@@ -3200,7 +3651,7 @@ Hard guidance:
                     comparator=lambda comparison_prompt: call_api(
                         comparison_prompt,
                         model,
-                        "Pass 0b: Summary compare",
+                        "Pass 0b: Summary tournament",
                     ),
                 )
                 effective_mode = (
@@ -3459,12 +3910,18 @@ Hard guidance:
         initial_scorer_errors = list(v2_score_errors)
         if (initial_validation_errors or initial_scorer_errors) and not v2_retry_consumed:
             previous_signature = _v2_selection_signature(v2_validation)
+            targeted_scope = (
+                _v2_targeted_scorer_retry_scope(v2_validation, score_data)
+                if not initial_validation_errors
+                else None
+            )
             retry_prompt = _build_v2_selection_retry_prompt(
                 prompt,
                 validation_errors=initial_validation_errors,
                 scorer_errors=initial_scorer_errors,
                 previous_signature=previous_signature,
                 score_data=score_data,
+                targeted_scope=targeted_scope,
             )
             feedback_payload = retry_prompt.split("RETRY_FEEDBACK_JSON\n", 1)[1].split(
                 f"\n{_V2_RETRY_END}", 1
@@ -3490,35 +3947,135 @@ Hard guidance:
                 retry_sections,
                 v2_override,
             )
-            retry_score_data = run_scorer(
-                retry_sections["experience_section"],
-                jd_text,
-                score_model,
-                strategy_block,
-                role_preamble=role_preamble,
-                projects_section=retry_sections.get("projects_section", ""),
-            )
-            print_score(retry_score_data)
-            retry_score_errors, retry_score_warnings = validate_scorer_release_evidence(
-                retry_score_data,
-                retry_sections["experience_section"],
-                require_send=True,
-            )
             retry_validation = validate_v2_sections(
                 retry_sections,
                 v2_override,
-                retry_score_data,
+                score_data,
             )
-            retry_validation = _reject_forbidden_v2_retry_combination(
+            retry_validation = _enforce_v2_targeted_retry_scope(
                 retry_validation,
-                previous_signature,
+                targeted_scope,
             )
 
-            sections = retry_sections
-            score_data = retry_score_data
-            v2_validation = retry_validation
-            v2_score_errors = retry_score_errors
-            v2_score_warnings = retry_score_warnings
+            if targeted_scope is not None and not retry_validation.errors:
+                pairs = _v2_targeted_retry_pairs(
+                    v2_validation,
+                    retry_validation,
+                    targeted_scope,
+                )
+                expected_pair_count = len(targeted_scope.get("must_replace", ()))
+                comparison_errors: list[str] = []
+                comparison_result: dict[str, object] = {}
+                decisions: dict[tuple[str, int], str] = {}
+                if len(pairs) != expected_pair_count:
+                    comparison_errors.append(
+                        "targeted retry could not resolve every incumbent/challenger pair"
+                    )
+                else:
+                    comparison_prompt = _build_v2_targeted_comparison_prompt(
+                        pairs=pairs,
+                        initial_experience=sections["experience_section"],
+                        challenger_experience=retry_sections["experience_section"],
+                        jd_text=jd_text,
+                        strategy_block=strategy_block,
+                    )
+                    print()
+                    print(c(BOLD, "  Pass 3b — Targeted non-regression comparison"))
+                    comparison_raw = call_api(
+                        comparison_prompt,
+                        model,
+                        "Pass 3b: Targeted compare",
+                        max_tokens=4096,
+                    )
+                    comparison_result = _parse_v2_targeted_comparison(comparison_raw)
+                    decisions, comparison_errors = _decide_v2_targeted_comparison(
+                        comparison_result,
+                        pairs,
+                    )
+                v2_pairwise_log = (
+                    "V2 TARGETED NON-REGRESSION COMPARISON\n"
+                    + json.dumps(
+                        {
+                            "pairs": pairs,
+                            "result": comparison_result,
+                            "decisions": {
+                                f"{company}#{index}": decision
+                                for (company, index), decision in decisions.items()
+                            },
+                            "errors": comparison_errors,
+                        },
+                        ensure_ascii=False,
+                        sort_keys=True,
+                    )
+                )
+                if not comparison_errors:
+                    sections = _apply_v2_targeted_comparison_decisions(
+                        initial_sections=sections,
+                        challenger_sections=retry_sections,
+                        initial=v2_validation,
+                        challenger=retry_validation,
+                        decisions=decisions,
+                        override=v2_override,
+                    )
+                    v2_validation = validate_v2_sections(
+                        sections,
+                        v2_override,
+                        score_data,
+                    )
+                    v2_score_errors = []
+                    v2_score_warnings = [
+                        "initial absolute scorer was used only to locate weak slots; "
+                        "frozen content was not rescored, and final replacements were "
+                        "selected by critical-veto pairwise non-regression"
+                    ]
+                    score_data = dict(score_data)
+                    score_data["_release_basis"] = "targeted-pairwise-non-regression"
+                    score_data["_targeted_comparison"] = comparison_result
+                    v2_pairwise_accepted = not v2_validation.errors
+                    print(
+                        c(
+                            GREEN,
+                            "  ✓ Targeted replacement decisions cleared pairwise "
+                            "non-regression gates.",
+                        )
+                    )
+                else:
+                    sections = retry_sections
+                    v2_validation = retry_validation
+                    v2_score_errors = comparison_errors
+                    v2_score_warnings = []
+                    print(c(RED, "  [✗] Targeted pairwise comparison did not clear."))
+                    for error in comparison_errors:
+                        print(c(RED, f"      {error}"))
+            else:
+                retry_score_data = run_scorer(
+                    retry_sections["experience_section"],
+                    jd_text,
+                    score_model,
+                    strategy_block,
+                    role_preamble=role_preamble,
+                    projects_section=retry_sections.get("projects_section", ""),
+                )
+                print_score(retry_score_data)
+                retry_score_errors, retry_score_warnings = validate_scorer_release_evidence(
+                    retry_score_data,
+                    retry_sections["experience_section"],
+                    require_send=True,
+                )
+                retry_validation = validate_v2_sections(
+                    retry_sections,
+                    v2_override,
+                    retry_score_data,
+                )
+                retry_validation = _reject_forbidden_v2_retry_combination(
+                    retry_validation,
+                    previous_signature,
+                )
+                sections = retry_sections
+                score_data = retry_score_data
+                v2_validation = retry_validation
+                v2_score_errors = retry_score_errors
+                v2_score_warnings = retry_score_warnings
             if v2_validation.errors or v2_score_errors:
                 print(c(RED, "  [✗] V2 bounded re-selection did not clear every blocker."))
             else:
@@ -3540,7 +4097,9 @@ Hard guidance:
     # REGRESSION GUARD: if attempt 2 produces a lower holistic score than attempt 1,
     # we revert to attempt 1's output so the score never goes backward.
     fix_log = "\n\n".join(
-        item for item in (v2_summary_selection_log, v2_retry_log) if item
+        item
+        for item in (v2_summary_selection_log, v2_retry_log, v2_pairwise_log)
+        if item
     )
     MAX_FIX_ATTEMPTS = 1  # one targeted attempt; regression guard reverts if worse
     if (
@@ -3690,6 +4249,17 @@ Hard guidance:
     # V2 selection is a closed, reviewed catalog. Exact membership and all
     # profile contracts are enforced before any text or document is released.
     if v2_override is not None:
+        if v2_pairwise_accepted:
+            checks.append(
+                {
+                    "name": "V2 targeted non-regression",
+                    "status": "PASS",
+                    "detail": (
+                        "unchanged reviewed evidence stayed frozen; each reopened slot "
+                        "used its pairwise material winner with all critical vetoes clear"
+                    ),
+                }
+            )
         checks.extend(
             {
                 "name": "V2 scorer release evidence",
@@ -3867,7 +4437,11 @@ Hard guidance:
     if make_docx:
         print()
         print(c(BOLD, "  Generating .docx..."))
-        _resume_score = score_data.get("holistic_score") if score_data else None
+        _resume_score = (
+            None
+            if v2_pairwise_accepted
+            else score_data.get("holistic_score") if score_data else None
+        )
         if runtime_policy.mode is ResumeRuntimeMode.V2:
             if v2_override is None or v2_validation is None or v2_validation.document is None:
                 print(c(RED, "  [✗] V2 release failed: assembled document is unavailable."))

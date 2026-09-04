@@ -21,10 +21,10 @@ def _candidate(candidate_id: str) -> Candidate:
     return Candidate(candidate_id, f"Exact summary text for {candidate_id}.")
 
 
-def _response(verdict: str, *, regressions=()):
+def _response(selected_id: str, *, regressions=()):
     return json.dumps(
         {
-            "verdict": verdict,
+            "selected_id": selected_id,
             "rationale": "The selected candidate is materially stronger for this page.",
             "critical_regressions": list(regressions),
         }
@@ -38,7 +38,7 @@ def test_selector_returns_exact_bank_object_and_audits_challenger_win():
 
     def compare(prompt):
         prompts.append(prompt)
-        return _response("accept_challenger")
+        return _response("summary-b")
 
     result = select_reviewed_summary(
         (incumbent, challenger),
@@ -51,47 +51,54 @@ def test_selector_returns_exact_bank_object_and_audits_challenger_win():
     assert result.audit.selected_text == challenger.text
     assert result.audit.candidate_order == ("summary-a", "summary-b")
     assert result.audit.invalid_response_count == 0
-    assert result.audit.rounds[0].resolution == "comparator_accept_challenger"
+    assert result.audit.rounds[0].resolution == "selector_select_candidate"
     assert result.audit.rounds[0].raw_response
+    assert len(prompts) == 1
     assert "internal-status-must-not-reach-comparator" not in prompts[0]
     assert incumbent.text in prompts[0]
     assert challenger.text in prompts[0]
 
 
-def test_tie_and_explicit_keep_both_preserve_current_incumbent():
+def test_complete_slate_is_decided_in_one_call():
     first = _candidate("summary-a")
     second = _candidate("summary-b")
     third = _candidate("summary-c")
-    responses = iter((_response("accept_challenger"), _response("tie")))
+    prompts = []
+
+    def compare(prompt):
+        prompts.append(prompt)
+        return _response("summary-b")
 
     result = select_reviewed_summary(
         (first, second, third),
         strategy="role_family=pm",
         jd_text="A product role.",
-        comparator=lambda _prompt: next(responses),
+        comparator=compare,
     )
 
     assert result.selected is second
-    assert [row.incumbent_id for row in result.audit.rounds] == [
+    assert len(prompts) == 1
+    assert len(result.audit.rounds) == 1
+    assert result.audit.rounds[0].candidate_ids == (
         "summary-a",
         "summary-b",
-    ]
-    assert result.audit.rounds[1].selected_id == "summary-b"
-    assert result.audit.rounds[1].resolution == "tie_keep_incumbent"
+        "summary-c",
+    )
+    assert all(candidate.text in prompts[0] for candidate in (first, second, third))
 
 
 @pytest.mark.parametrize(
     "bad_response",
     (
         "```json\n{}\n```",
-        {"verdict": "tie", "rationale": "tied"},
+        {"selected_id": "summary-a", "rationale": "tied"},
         {
-            "verdict": "accept_challenger",
+            "selected_id": "summary-b",
             "rationale": "better",
             "critical_regressions": ["identity funding"],
         },
         {
-            "verdict": "accept_challenger",
+            "selected_id": "summary-b",
             "rationale": "better",
             "critical_regressions": [],
             "rewritten_summary": "invented",
@@ -159,14 +166,14 @@ def test_explicit_incumbent_changes_only_starting_point_not_input_order_audit():
         (first, second),
         strategy={},
         jd_text="A product role.",
-        comparator=lambda _prompt: _response("keep_incumbent"),
+        comparator=lambda _prompt: _response("summary-b"),
         incumbent_candidate_id="summary-b",
     )
 
     assert result.selected is second
     assert result.audit.initial_incumbent_id == "summary-b"
     assert result.audit.candidate_order == ("summary-a", "summary-b")
-    assert result.audit.rounds[0].challenger_id == "summary-a"
+    assert result.audit.rounds[0].candidate_ids == ("summary-a", "summary-b")
 
 
 @pytest.mark.parametrize(
@@ -192,5 +199,5 @@ def test_invalid_candidate_slates_fail_closed(candidates, error):
             candidates,
             strategy={},
             jd_text="A product role.",
-            comparator=lambda _prompt: _response("tie"),
+            comparator=lambda _prompt: _response("summary-a"),
         )

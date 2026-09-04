@@ -139,11 +139,14 @@ and its adjacent JSON calibration data for the observed geometry contract.
 Application generation can run through the incumbent Anthropic API or the local
 Cursor Agent CLI. Anthropic remains the default, so installing the adapter does
 not change existing runs. `--provider cursor --cursor-routing hybrid` sends basic
-analysis/evaluation stages (strategy, scoring, CL analysis/QC) to Cursor Auto and
-hard semantic stages (summary comparison, variant selection, voice/fix/expansion,
-and CL drafting) to non-Fast `cursor-grok-4.6-high`. Unknown future AI stages default to Grok
-rather than silently receiving the cheaper model. `auto` and `grok` can be forced
-for canaries with `--cursor-routing auto|grok`.
+analysis stages (strategy, resume scoring, and CL analysis/QC) to Cursor Auto and
+hard semantic or generative stages (one-call summary selection, variant selection,
+voice/fix/expansion, and CL drafting) to non-Fast `cursor-grok-4.6-high`.
+Rubric scoring stays on Auto because it is structured,
+substantially faster, and now resumes safely from the exact call cache. Unknown
+future AI stages default to Grok rather than
+silently receiving the cheaper model. `auto` and `grok` can be forced for
+canaries with `--cursor-routing auto|grok`.
 
 Cursor calls run in an empty temporary workspace with Ask mode and sandboxing.
 They receive prompts over stdin, cannot modify the repository, and never fall
@@ -152,6 +155,21 @@ back to Anthropic on failure. Non-sensitive per-call metadata is appended to
 the signed-in Cursor plan, so there is no per-call API charge while included plan
 usage remains. Keep Cursor on-demand spending disabled if a hard cash ceiling is
 required.
+
+Successful Cursor responses are cached by exact prompt, model, stage, and schema.
+A transient process retry therefore resumes at the first unfinished call. When a
+v2 score identifies weak slots, the one bounded retry freezes every passing
+variant, summary, and Fluo choice. It reopens only failed slots and uses a compact
+incumbent-versus-challenger comparison with critical vetoes and Pareto
+non-regression; unchanged bullets are never rescored on a noisy second pass.
+
+Every successful Cursor response is also cached locally by the exact prompt,
+model, stage label, token ceiling, and cache-schema version. A restarted run
+therefore resumes at the first previously unsuccessful call instead of consuming
+the completed calls again. Cached response bodies live under the git-ignored
+`logs/cursor_response_cache/` directory with owner-only permissions. Set
+`RESUME_CURSOR_CACHE_MODE=off` to bypass and disable writes, or `refresh` to
+ignore existing entries while replacing them with fresh successful responses.
 
 One-time setup:
 

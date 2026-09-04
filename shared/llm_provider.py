@@ -36,15 +36,23 @@ CURSOR_HARD_MODEL_ENV = "RESUME_CURSOR_HARD_MODEL"
 CURSOR_CLI_ENV = "RESUME_CURSOR_CLI"
 CURSOR_TIMEOUT_ENV = "RESUME_CURSOR_TIMEOUT_SECONDS"
 TELEMETRY_PATH_ENV = "RESUME_LLM_TELEMETRY_PATH"
+CURSOR_CACHE_DIR_ENV = "RESUME_CURSOR_CACHE_DIR"
+CURSOR_CACHE_MODE_ENV = "RESUME_CURSOR_CACHE_MODE"
 
 DEFAULT_PROVIDER = "anthropic"
 DEFAULT_CURSOR_ROUTING = "hybrid"
 DEFAULT_CURSOR_AUTO_MODEL = "auto"
 DEFAULT_CURSOR_HARD_MODEL = "cursor-grok-4.6-high"
 DEFAULT_CURSOR_TIMEOUT_SECONDS = 600
+DEFAULT_CURSOR_CACHE_MODE = "readwrite"
+CURSOR_CACHE_SCHEMA_VERSION = "2026-09-04.1"
+# EX_TEMPFAIL: lets jobs.py distinguish a resumable provider interruption from
+# content, validation, provenance, or render failures that must not be retried.
+CURSOR_TRANSIENT_EXIT_CODE = 75
 
 VALID_PROVIDERS = ("anthropic", "cursor")
 VALID_CURSOR_ROUTING = ("hybrid", "auto", "grok")
+VALID_CURSOR_CACHE_MODES = ("off", "readwrite", "refresh")
 
 # Explicitly cheap/basic model work.  Unknown labels default to the hard model:
 # quality should not silently fall merely because a new semantic pass was added.
@@ -96,6 +104,7 @@ class CallTelemetry:
     response_chars: int
     prompt_sha256: str
     attempt_count: int
+    cache_hit: bool = False
     provider_duration_ms: int | None = None
     session_id: str | None = None
     error_type: str | None = None
@@ -278,6 +287,134 @@ def _cursor_timeout(environment: Mapping[str, str]) -> int:
             f"{CURSOR_TIMEOUT_ENV} must be between 30 and 1800 seconds"
         )
     return timeout
+
+
+def _cursor_cache_mode(environment: Mapping[str, str]) -> str:
+    mode = _normalise(
+        environment.get(CURSOR_CACHE_MODE_ENV, DEFAULT_CURSOR_CACHE_MODE)
+    )
+    if mode not in VALID_CURSOR_CACHE_MODES:
+        raise LLMProviderError(
+            f"Invalid {CURSOR_CACHE_MODE_ENV}={mode!r}; "
+            f"expected one of {VALID_CURSOR_CACHE_MODES}"
+        )
+    return mode
+
+
+def _cursor_cache_dir(environment: Mapping[str, str]) -> Path:
+    configured = str(environment.get(CURSOR_CACHE_DIR_ENV, "")).strip()
+    if configured:
+        return Path(configured).expanduser()
+    # ``logs/`` is already ignored by git. Keeping the cache inside the repo
+    # makes it durable across process restarts without leaking it into commits.
+    return ROOT_DIR / "logs" / "cursor_response_cache"
+
+
+def _cursor_cache_key(
+    *,
+    prompt: str,
+    plan: CallPlan,
+    max_tokens: int,
+) -> tuple[str, str]:
+    prompt_sha256 = hashlib.sha256(prompt.encode("utf-8")).hexdigest()
+    identity = {
+        "schema_version": CURSOR_CACHE_SCHEMA_VERSION,
+        "provider": plan.provider,
+        "model": plan.model,
+        "routing_class": plan.routing_class,
+        "label": plan.label,
+        "max_tokens": int(max_tokens),
+        "prompt_sha256": prompt_sha256,
+    }
+    encoded = json.dumps(identity, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest(), prompt_sha256
+
+
+def _read_cursor_cache(
+    *,
+    prompt: str,
+    plan: CallPlan,
+    max_tokens: int,
+    environment: Mapping[str, str],
+) -> str | None:
+    if _cursor_cache_mode(environment) != "readwrite":
+        return None
+    cache_key, prompt_sha256 = _cursor_cache_key(
+        prompt=prompt,
+        plan=plan,
+        max_tokens=max_tokens,
+    )
+    path = _cursor_cache_dir(environment) / f"{cache_key}.json"
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError, TypeError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+    response = payload.get("response")
+    expected = {
+        "schema_version": CURSOR_CACHE_SCHEMA_VERSION,
+        "cache_key": cache_key,
+        "model": plan.model,
+        "label": plan.label,
+        "max_tokens": int(max_tokens),
+        "prompt_sha256": prompt_sha256,
+    }
+    if any(payload.get(key) != value for key, value in expected.items()):
+        return None
+    if not isinstance(response, str) or not response.strip():
+        return None
+    if payload.get("response_sha256") != hashlib.sha256(
+        response.encode("utf-8")
+    ).hexdigest():
+        return None
+    return response
+
+
+def _write_cursor_cache(
+    response: str,
+    *,
+    prompt: str,
+    plan: CallPlan,
+    max_tokens: int,
+    environment: Mapping[str, str],
+) -> None:
+    if _cursor_cache_mode(environment) == "off":
+        return
+    cache_key, prompt_sha256 = _cursor_cache_key(
+        prompt=prompt,
+        plan=plan,
+        max_tokens=max_tokens,
+    )
+    cache_dir = _cursor_cache_dir(environment)
+    path = cache_dir / f"{cache_key}.json"
+    payload = {
+        "schema_version": CURSOR_CACHE_SCHEMA_VERSION,
+        "cache_key": cache_key,
+        "created_at_utc": datetime.now(timezone.utc).isoformat(),
+        "provider": plan.provider,
+        "model": plan.model,
+        "routing_class": plan.routing_class,
+        "label": plan.label,
+        "max_tokens": int(max_tokens),
+        "prompt_sha256": prompt_sha256,
+        "response": response,
+        "response_sha256": hashlib.sha256(response.encode("utf-8")).hexdigest(),
+    }
+    try:
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        staged = cache_dir / (
+            f".{cache_key}.{os.getpid()}.{threading.get_ident()}.tmp"
+        )
+        staged.write_text(
+            json.dumps(payload, ensure_ascii=False, sort_keys=True),
+            encoding="utf-8",
+        )
+        os.chmod(staged, 0o600)
+        os.replace(staged, path)
+    except OSError:
+        # Caching is a recovery optimization, never a generation dependency.
+        return
 
 
 def _cursor_child_environment(environment: Mapping[str, str]) -> dict[str, str]:
@@ -547,14 +684,37 @@ def complete_text(
     attempts = 0
     provider_duration_ms = None
     session_id = None
+    cache_hit = False
     error: Exception | None = None
     try:
         if plan.provider == "cursor":
-            response, attempts, provider_duration_ms, session_id = _call_cursor(
-                prompt,
-                plan,
+            cached_response = _read_cursor_cache(
+                prompt=prompt,
+                plan=plan,
+                max_tokens=max_tokens,
                 environment=env,
             )
+            if cached_response is not None:
+                response = cached_response
+                cache_hit = True
+                with _PRINT_LOCK:
+                    print(
+                        f"  CACHE {label or 'LLM call'} reused exact Cursor response",
+                        flush=True,
+                    )
+            else:
+                response, attempts, provider_duration_ms, session_id = _call_cursor(
+                    prompt,
+                    plan,
+                    environment=env,
+                )
+                _write_cursor_cache(
+                    response,
+                    prompt=prompt,
+                    plan=plan,
+                    max_tokens=max_tokens,
+                    environment=env,
+                )
         else:
             response, attempts, provider_duration_ms, session_id = _call_anthropic(
                 prompt,
@@ -581,24 +741,29 @@ def complete_text(
                 response_chars=len(response),
                 prompt_sha256=hashlib.sha256(prompt.encode("utf-8")).hexdigest(),
                 attempt_count=attempts,
+                cache_hit=cache_hit,
                 provider_duration_ms=provider_duration_ms,
                 session_id=session_id,
                 error_type=type(error).__name__ if error else None,
             ),
             environment=env,
         )
-        if error is None:
+        if error is None and not cache_hit:
             done_label = label or "LLM call"
             with _PRINT_LOCK:
                 print(f"  OK {done_label} complete ({elapsed:.1f}s)", flush=True)
 
 
 __all__ = [
+    "CURSOR_CACHE_DIR_ENV",
+    "CURSOR_CACHE_MODE_ENV",
+    "CURSOR_TRANSIENT_EXIT_CODE",
     "CURSOR_AUTO_MODEL_ENV",
     "CURSOR_CLI_ENV",
     "CURSOR_HARD_MODEL_ENV",
     "CURSOR_ROUTING_ENV",
     "DEFAULT_CURSOR_AUTO_MODEL",
+    "DEFAULT_CURSOR_CACHE_MODE",
     "DEFAULT_CURSOR_HARD_MODEL",
     "DEFAULT_CURSOR_ROUTING",
     "DEFAULT_PROVIDER",
@@ -606,6 +771,7 @@ __all__ = [
     "PROVIDER_ENV",
     "TELEMETRY_PATH_ENV",
     "VALID_CURSOR_ROUTING",
+    "VALID_CURSOR_CACHE_MODES",
     "VALID_PROVIDERS",
     "apply_cli_overrides",
     "complete_text",

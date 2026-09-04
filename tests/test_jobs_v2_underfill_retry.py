@@ -6,6 +6,7 @@ from threading import Lock
 import pytest
 
 import jobs
+from shared.llm_provider import CURSOR_TRANSIENT_EXIT_CODE
 from shared.resume_runtime import (
     RUNTIME_MODE_ENV,
     V2_BULLET_BUDGET_ENV,
@@ -79,6 +80,98 @@ def test_second_underfill_is_returned_without_a_third_attempt(monkeypatch, tmp_p
     assert attempted is True
     assert result.returncode == V2_PAGE_UNDERFILLED_EXIT_CODE
     assert len(calls) == 2
+
+
+def test_cursor_provider_interruption_resumes_once_with_same_environment(
+    monkeypatch,
+    tmp_path,
+):
+    calls = []
+    results = iter((CURSOR_TRANSIENT_EXIT_CODE, 0))
+
+    def fake_run(cmd, **kwargs):
+        calls.append((list(cmd), kwargs))
+        return _completed(cmd, next(results))
+
+    monkeypatch.setattr(jobs.subprocess, "run", fake_run)
+    notices = []
+    base = {RUNTIME_MODE_ENV: "v2", "RESUME_LLM_PROVIDER": "cursor"}
+
+    result, underfill_attempted = jobs._run_professional_child_with_v2_fill_recovery(
+        ["python", "run_app.py", "Example", "--resume-only"],
+        app_dir=tmp_path,
+        timeout=100,
+        silent=True,
+        resume_only=True,
+        base_environment=base,
+        on_provider_retry=lambda: notices.append("provider-retry"),
+    )
+
+    assert result.returncode == 0
+    assert underfill_attempted is False
+    assert notices == ["provider-retry"]
+    assert len(calls) == 2
+    assert calls[0][0] == calls[1][0]
+    assert calls[0][1]["env"] == calls[1][1]["env"] == base
+    assert calls[0][1]["env"] is not calls[1][1]["env"]
+
+
+def test_cursor_provider_interruption_has_only_one_process_retry(
+    monkeypatch,
+    tmp_path,
+):
+    calls = []
+
+    def fake_run(cmd, **kwargs):
+        calls.append(kwargs)
+        return _completed(cmd, CURSOR_TRANSIENT_EXIT_CODE)
+
+    monkeypatch.setattr(jobs.subprocess, "run", fake_run)
+
+    result, underfill_attempted = jobs._run_professional_child_with_v2_fill_recovery(
+        ["python", "run_app.py", "Example", "--resume-only"],
+        app_dir=tmp_path,
+        timeout=100,
+        silent=True,
+        resume_only=True,
+        base_environment={RUNTIME_MODE_ENV: "v2"},
+    )
+
+    assert result.returncode == CURSOR_TRANSIENT_EXIT_CODE
+    assert underfill_attempted is False
+    assert len(calls) == 2
+
+
+def test_provider_resume_can_still_use_distinct_underfill_recovery(
+    monkeypatch,
+    tmp_path,
+):
+    (tmp_path / "strategy.json").write_text("{}", encoding="utf-8")
+    calls = []
+    results = iter((CURSOR_TRANSIENT_EXIT_CODE, V2_PAGE_UNDERFILLED_EXIT_CODE, 0))
+
+    def fake_run(cmd, **kwargs):
+        calls.append((list(cmd), kwargs))
+        return _completed(cmd, next(results))
+
+    monkeypatch.setattr(jobs.subprocess, "run", fake_run)
+
+    result, underfill_attempted = jobs._run_professional_child_with_v2_fill_recovery(
+        ["python", "run_app.py", "Example", "--resume-only"],
+        app_dir=tmp_path,
+        timeout=100,
+        silent=True,
+        resume_only=True,
+        base_environment={RUNTIME_MODE_ENV: "v2"},
+    )
+
+    assert result.returncode == 0
+    assert underfill_attempted is True
+    assert len(calls) == 3
+    assert V2_BULLET_BUDGET_ENV not in calls[0][1]["env"]
+    assert V2_BULLET_BUDGET_ENV not in calls[1][1]["env"]
+    assert calls[2][1]["env"][V2_BULLET_BUDGET_ENV] == "11"
+    assert "--no-strategy" in calls[2][0]
 
 
 @pytest.mark.parametrize(

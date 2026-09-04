@@ -91,6 +91,7 @@ from shared.generation_routing import (
 )
 from shared.job_eligibility import evaluate_manual_jd
 from shared.llm_provider import (
+    CURSOR_TRANSIENT_EXIT_CODE,
     PROVIDER_ENV,
     apply_cli_overrides,
     provider_summary,
@@ -114,13 +115,16 @@ def _run_professional_child_with_v2_fill_recovery(
     resume_only: bool,
     base_environment: Mapping[str, str],
     on_retry: Callable[[], None] | None = None,
+    on_provider_retry: Callable[[], None] | None = None,
 ) -> tuple[subprocess.CompletedProcess, bool]:
     """Run one professional child and, only for pure v2 underfill, add one proof.
 
-    The first child communicates the narrow condition with a dedicated exit
-    code. We do not scrape prose and never retry scorer, selection, overflow,
-    provenance, parity, or renderer failures. The second attempt receives its
-    own environment and the two attempts share one per-job timeout budget.
+    Dedicated exit codes distinguish two narrow recoveries. A transient Cursor
+    interruption may restart the same process once; exact successful calls are
+    prompt-hash cached. A pure v2 underfill may add one distinct proof. We do
+    not scrape prose and never retry content, parsing, scorer-verdict,
+    selection-verdict, overflow, provenance, parity, or renderer failures. All
+    attempts share one per-job timeout budget.
 
     Cover-letter runs are intentionally excluded: run_app may execute resume
     and CL concurrently, so a resume exit code alone cannot prove the CL did not
@@ -136,6 +140,25 @@ def _run_professional_child_with_v2_fill_recovery(
         timeout=timeout,
         env=first_env,
     )
+
+    # One whole-process retry is allowed only for the dedicated provider
+    # interruption signal. Exact successful Cursor calls are already cached,
+    # so this resumes from the first incomplete semantic stage instead of
+    # consuming the preceding calls again. Content, parsing, QC, provenance,
+    # page, and renderer failures keep their original non-retry behavior.
+    if result.returncode == CURSOR_TRANSIENT_EXIT_CODE:
+        remaining = timeout - (time.monotonic() - started)
+        if remaining <= 0:
+            raise subprocess.TimeoutExpired(cmd, timeout)
+        if on_provider_retry is not None:
+            on_provider_retry()
+        result = subprocess.run(
+            cmd,
+            cwd=str(ROOT_DIR),
+            capture_output=silent,
+            timeout=remaining,
+            env=dict(base_environment),
+        )
 
     requested_mode = first_env.get(
         RUNTIME_MODE_ENV, ResumeRuntimeMode.LEGACY.value
@@ -1440,6 +1463,11 @@ def cmd_generate(args, promoted_jobs: list[dict] | None = None) -> list[dict]:
                     YELLOW,
                     "  [i] V2 page remained underfilled after layout recovery; "
                     "retrying once with an admitted 11th distinct proof.",
+                )),
+                on_provider_retry=lambda: _p(c(
+                    YELLOW,
+                    "  [i] Cursor provider interrupted; resuming once from the "
+                    "first uncached call.",
                 )),
             )
             elapsed = int(time.time() - t_start)
