@@ -252,6 +252,26 @@ def test_real_review_bank_declares_release_permission_for_every_summary_and_supp
         )
 
 
+def test_user_approved_concise_product_summary_is_shipping_and_first_incumbent():
+    data = json.loads(DEFAULT_SUMMARY_BATCH_PATH.read_text(encoding="utf-8"))
+    product = data["summary_candidates"]
+    concise = next(
+        record
+        for record in product
+        if record["candidate_id"] == "summary/product/customer-usage-to-shipped"
+    )
+
+    assert product[0]["candidate_id"] == concise["candidate_id"]
+    assert concise["status"] == "approved_gold"
+    assert concise["selectability"] == "shipping"
+
+    override = build_pass1_prompt_override(
+        PM_STRATEGY,
+        explicit_profile="product-general",
+    )
+    assert override.eligible_summaries[0].candidate_id == concise["candidate_id"]
+
+
 def test_missing_summary_selectability_fails_closed(tmp_path):
     data = json.loads(DEFAULT_SUMMARY_BATCH_PATH.read_text(encoding="utf-8"))
     data["summary_candidates"][0].pop("selectability")

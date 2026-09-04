@@ -19,16 +19,17 @@ Whitespace alone never earns a sixth row. If the six-row render misses the geome
 gate, the generator removes only that optional row and rerenders the reviewed
 five-row incumbent. It does not rewrite content.
 
-## 2. New product-summary candidates — wording approval required
+## 2. Product-summary candidates
 
-**A. Concise customer-evidence identity — recommend approve**
+**A. Concise customer-evidence identity — approved and shipping**
 
 > Product manager and engineer with five years turning customer and usage signals into shipped AI, marketplace, and data products.
 
 Why: strongest non-repetitive default when the selected bullets already carry the
-specific scale proof.
+specific scale proof. The user approved this sentence during the StudyFetch review;
+it is now the conservative first incumbent for all three product profiles.
 
-**B. Research-to-decision identity — recommend approve**
+**B. Research-to-decision identity — wording approval still required**
 
 > Product manager and engineer with five years using interviews, behavioral data, and system diagnostics to separate symptoms from the decision that matters. Work has shaped pricing at Gojek, enterprise bets at Hevo, and billing priorities at Intuit.
 
@@ -82,5 +83,6 @@ page plan, not an ad hoc model choice.
 - A false positive that treated Roblox's “creator community” as volunteer-community
   relevance is now regression-tested and blocked.
 
-Reply with approvals or edits for A–D, the two compact Community alternatives, and
-the Fluo policy. No new wording will enter released resumes before that review.
+Reply with approval or edits for B–D, the two compact Community alternatives, and
+the Fluo policy. No remaining review-only wording will enter released resumes before
+that review.
