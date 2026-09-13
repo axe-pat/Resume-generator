@@ -134,6 +134,7 @@ class ReviewedBullet:
     fluo_story_family: str
     line_cost: int
     assembly_modes: tuple[str, ...]
+    eligible_profiles: tuple[str, ...]
 
 
 @dataclass(frozen=True)
@@ -448,6 +449,11 @@ def load_reviewed_prompt_bank(
                 fluo_story_family = str(record.get("fluo_story_family", "")).strip()
                 line_cost = int(record.get("line_cost", 0) or 0)
                 assembly_modes = tuple(str(item) for item in record.get("assembly_modes", ()))
+                eligible_profiles = tuple(
+                    str(item).strip()
+                    for item in record.get("eligible_profiles", ())
+                    if str(item).strip()
+                )
                 if not variant_id:
                     errors.append(f"{family_name}: recommendation is missing variant_id")
                     continue
@@ -488,6 +494,28 @@ def load_reviewed_prompt_bank(
                         f"{family_name}/{variant_id}: selectable Fluo variant requires "
                         "line_cost and controlled assembly_modes metadata"
                     )
+                if family_name.startswith("F-"):
+                    if not eligible_profiles:
+                        errors.append(
+                            f"{family_name}/{variant_id}: FlairX variant requires "
+                            "explicit eligible_profiles metadata"
+                        )
+                    elif len(eligible_profiles) != len(set(eligible_profiles)):
+                        errors.append(
+                            f"{family_name}/{variant_id}: FlairX eligible_profiles "
+                            "contains duplicates"
+                        )
+                    for profile_id in eligible_profiles:
+                        try:
+                            eligible_profile = get_profile(profile_id)
+                        except ValueError as exc:
+                            errors.append(f"{family_name}/{variant_id}: {exc}")
+                        else:
+                            if not eligible_profile.is_professional:
+                                errors.append(
+                                    f"{family_name}/{variant_id}: FlairX eligibility "
+                                    f"cannot target campus profile {profile_id}"
+                                )
                 selectable.append(
                     ReviewedBullet(
                         story_family=family_name,
@@ -500,6 +528,7 @@ def load_reviewed_prompt_bank(
                         fluo_story_family=fluo_story_family,
                         line_cost=line_cost,
                         assembly_modes=assembly_modes,
+                        eligible_profiles=eligible_profiles,
                     )
                 )
 
@@ -684,6 +713,17 @@ def load_reviewed_prompt_bank(
     for profile_id in professional_profiles:
         if not any(profile_id in summary.eligible_profiles for summary in summaries):
             errors.append(f"{profile_id}: no reviewed summary candidate is funded")
+        eligible_flairx_families = {
+            family_name
+            for family_name, variants in family_rows.items()
+            if family_name.startswith("F-")
+            and any(profile_id in variant.eligible_profiles for variant in variants)
+        }
+        if len(eligible_flairx_families) < 2:
+            errors.append(
+                f"{profile_id}: FlairX allocation requires at least two eligible "
+                f"story families, found {sorted(eligible_flairx_families)}"
+            )
 
     if errors:
         raise ValueError("invalid reviewed prompt bank: " + "; ".join(errors))
@@ -834,6 +874,7 @@ def _format_reviewed_bank(bank: ReviewedPromptBank) -> list[str]:
                 f"fluo_story_family={variant.fluo_story_family or 'n/a'}; "
                 f"line_cost={variant.line_cost or 'n/a'}; "
                 f"assembly_modes={','.join(variant.assembly_modes) or 'n/a'}; "
+                f"eligible_profiles={','.join(variant.eligible_profiles) or 'all'}; "
                 f"use_case={variant.use_case}"
             )
             lines.append(json.dumps(variant.text, ensure_ascii=False))
@@ -885,7 +926,15 @@ def _default_profile_bank(
     removed_ids: set[str] = set()
     for family, variants in full_bank.variants_by_family:
         if family in EXPERIENCE_FAMILIES:
-            eligible = variants
+            eligible = (
+                tuple(
+                    variant
+                    for variant in variants
+                    if profile.profile_id in variant.eligible_profiles
+                )
+                if family.startswith("F-")
+                else variants
+            )
         elif family == "FLUO" and profile.fluo.placement is not FluoPlacement.OMIT:
             eligible = tuple(
                 variant
@@ -1038,6 +1087,7 @@ def _build_tail_text(
         f"skills_rows={' | '.join(skills_plan.row_labels)}",
         f"skills_row_decision={skills_plan.decision.value}",
         f"selection_priorities={' | '.join(profile.selection_priorities)}",
+        f"flairx_story_priorities={' | '.join(profile.flairx_story_priorities)}",
         f"fluo_policy={fluo_metadata}",
         f"fluo_instruction={fluo_instruction}",
         "",
@@ -1053,6 +1103,18 @@ def _build_tail_text(
         "Select at most one variant from each STORY FAMILY across the entire page.",
         "Two differently worded variants from the same family are duplicate evidence,",
         "not two bullets, and will fail release validation.",
+        "",
+        "FLAIRX CURRENT-ROLE SELECTION — CRITICAL",
+        f"Select exactly {counts['FLAIRX AI']} FlairX bullets from distinct F- story families.",
+        "FlairX is the current U.S. Product Manager experience block and must not be",
+        "treated as optional supporting proof merely because the legacy NONPM route",
+        "anchors predate it. Its bullets may carry primary route identity when their",
+        "reviewed use case fits the JD.",
+        "Use the profile's flairx_story_priorities as a close-call tie-breaker after",
+        "JD fit and marginal value; it is not permission to select a weaker bullet.",
+        "A third FlairX bullet is permitted only by a validated rebalance or the",
+        "11-proof distinct-signal path, and must add a mechanism, decision type,",
+        "stakeholder, or outcome absent from the first two.",
         "",
     ]
     if allocation_plan.budget_decision is BulletBudgetDecision.ADD_DISTINCT_SIGNAL:
@@ -1186,6 +1248,12 @@ def validate_prompt_override(override: Pass1PromptOverride) -> list[str]:
         errors.append("title mode is missing from override")
     if f"fluo_policy={override.profile.fluo.placement.value};" not in tail:
         errors.append("Fluo policy is missing from override")
+    flairx_priority_text = " | ".join(override.profile.flairx_story_priorities)
+    if f"flairx_story_priorities={flairx_priority_text}" not in tail:
+        errors.append("FlairX story priorities are missing from override")
+    flairx_count = override.allocation_plan.counts_dict()["FLAIRX AI"]
+    if f"Select exactly {flairx_count} FlairX bullets" not in tail:
+        errors.append("exact FlairX current-role allocation is missing from override")
     if f"skills_rows={' | '.join(override.skills_plan.row_labels)}" not in tail:
         errors.append("resolved Skills row plan is missing from override")
 

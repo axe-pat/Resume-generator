@@ -1533,6 +1533,35 @@ def score_only_app(company: str, model: str, track: str = "auto") -> None:
     print()
 
 
+def _extract_saved_resume_sections(content: str) -> dict[str, str]:
+    """Extract the final paste-ready blocks from a saved full-run transcript."""
+
+    def _last(pattern: str) -> str:
+        matches = list(re.finditer(pattern, content, re.DOTALL | re.IGNORECASE | re.MULTILINE))
+        return matches[-1].group(1).strip() if matches else ""
+
+    return {
+        "summary_section": _last(
+            r"^SECTION 0[^\n]*\n(?:[─═\-=\u2500-\u257F]+\n)?\s*(.*?)"
+            r"(?=^SECTION [1-4]|^---\s*$|\Z)"
+        ),
+        "experience_section": _last(
+            r"^SECTION 3 — FULL EXPERIENCE SECTION[^\n]*\n"
+            r"(?:[─═\-=\u2500-\u257F]+\n)?\s*(.*?)"
+            r"(?=^SECTION 3B|^SECTION 3 \(PASS 1|^SECTION 4|\Z)"
+        ),
+        "projects_section": _last(
+            r"^SECTION 3B[^\n]*\n(?:[─═\-=\u2500-\u257F]+\n)?\s*"
+            r"(PROJECTS & CONSULTING.*?)(?=^SECTION 4|\Z)"
+        ),
+        "skills_section": _last(
+            r"^SECTION 4[^\n]*\n(?:[─═\-=\u2500-\u257F]+\n)?\s*"
+            r"((?:SKILLS & INTERESTS|SKILLS)\s*\n"
+            r"(?:\s*[●•-][^\n]*(?:\n|$))+)"
+        ).rstrip(),
+    }
+
+
 def docx_only_app(
     company: str,
     track: str = "auto",
@@ -1579,37 +1608,15 @@ def docx_only_app(
     txt_path = txt_files[0]
     content = txt_path.read_text(encoding="utf-8")
 
-    m_summary = re.search(
-        r"SECTION 0 — (?:PROFESSIONAL SUMMARY|PROFILE) \(paste-ready\)\n[-─]+\n(.*?)"
-        r"(?=\nSECTION 3|\Z)",
-        content, re.DOTALL | re.IGNORECASE,
-    )
-    summary_section = m_summary.group(1).strip() if m_summary else ""
-
-    m_exp = re.search(
-        r"SECTION 3 — FULL EXPERIENCE SECTION \(paste-ready[^)]*\)\n[-─]+\n(.*?)"
-        r"(?=\nSECTION 3B|\nSECTION 3 \(PASS 1|\nSECTION 4|\Z)",
-        content, re.DOTALL,
-    )
-    if not m_exp:
+    saved_sections = _extract_saved_resume_sections(content)
+    summary_section = saved_sections["summary_section"]
+    experience_section = saved_sections["experience_section"]
+    if not experience_section:
         sys.exit(f"[ERROR] Could not extract experience section from {txt_path.name}.")
-    experience_section = m_exp.group(1).strip()
-
-    m_projects = re.search(
-        r"SECTION 3B — PROJECTS & CONSULTING \(paste-ready\)\n[-─]+\n(PROJECTS & CONSULTING.*?)"
-        r"(?=\nSECTION 4|\Z)",
-        content, re.DOTALL | re.IGNORECASE,
-    )
-    projects_section = m_projects.group(1).strip() if m_projects else ""
-
-    m_skills = re.search(
-        r"SECTION 4 — SKILLS & INTERESTS \(paste-ready\)\n[-─]+\n((?:SKILLS|SKILLS & INTERESTS).*?)"
-        r"(?=\n(?:SECTION \d|QUALITY CHECKS|QC CHECKS|REWRITES LOG|PASS 4|[─═]{10})|\Z)",
-        content, re.DOTALL | re.IGNORECASE,
-    )
-    if not m_skills:
+    projects_section = saved_sections["projects_section"]
+    skills_section = saved_sections["skills_section"]
+    if not skills_section:
         sys.exit(f"[ERROR] Could not extract skills section from {txt_path.name}.")
-    skills_section = m_skills.group(1).strip()
 
     final_score = None
     stem_match = re.search(r"_r(\d+(?:\.\d+)?)$", txt_path.stem)

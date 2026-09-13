@@ -92,6 +92,7 @@ from shared.resume_fill import (
 from shared.resume_profiles import (
     BulletBudgetDecision,
     ExperienceAllocationPlan,
+    ProfileFamily,
     ResumeProfile,
     SkillsAssemblyPlan,
     skills_section_heading,
@@ -524,10 +525,19 @@ def extract_sections(response: str) -> dict:
     # Section 0 — Professional Summary.
     # Non-PM prompt now includes Section 1 and Section 2 after Section 0, so stop
     # summary capture before either later section as well as Section 3.
-    m = re.search(r"SECTION 0[^\n]*\n[─═\-=\u2500-\u257F]*\n?(.*?)(?=\nSECTION 1|\nSECTION 2|---|\nSECTION 3|\Z)",
-                  response, re.S | re.I)
-    if m:
-        result["summary_section"] = _sanitize_summary_section(m.group(1))
+    summary_matches = list(re.finditer(
+        r"SECTION 0[^\n]*\n[─═\-=\u2500-\u257F]*\n?(.*?)(?=\nSECTION 1|\nSECTION 2|---|\nSECTION 3|\Z)",
+        response,
+        re.S | re.I,
+    ))
+    if summary_matches:
+        # Models occasionally reason through a provisional SECTION 0 and then
+        # emit the actual paste-ready contract later.  Rendering the first
+        # occurrence can place selection analysis in the resume.  The final
+        # occurrence is authoritative, consistent with the output contract.
+        result["summary_section"] = _sanitize_summary_section(
+            summary_matches[-1].group(1)
+        )
 
     # Section 3 — from the active contract's first company header up to Projects/Skills.
     m = re.search(
@@ -547,9 +557,15 @@ def extract_sections(response: str) -> dict:
         result["projects_section"] = m.group(1).strip()
 
     # Section 4 — accurate heading is SKILLS unless an Interests row is present.
-    m = re.search(r"(?im)^((?:SKILLS|SKILLS & INTERESTS)\s*\n\s*[●•-].*)", response, re.S)
-    if m:
-        result["skills_section"] = m.group(1).strip()
+    # Match only the contiguous bullet rows.  A DOTALL tail would absorb saved
+    # QC reports and later duplicate sections when docx-only/score-only reparses
+    # a complete run transcript.
+    skills_matches = list(re.finditer(
+        r"(?im)^((?:SKILLS|SKILLS & INTERESTS)\s*\n(?:\s*[●•-][^\n]*(?:\n|$))+)",
+        response,
+    ))
+    if skills_matches:
+        result["skills_section"] = skills_matches[-1].group(1).strip()
 
     return result
 
@@ -1428,6 +1444,24 @@ def _configure_v2_contract(override: Pass1PromptOverride) -> None:
     headers = company_headers_for_profile(override.profile)
     COMPANY_HEADERS = [headers[company] for company in COMPANY_SLOTS]
     _COMPANY_KEYS = list(COMPANY_SLOTS)
+
+
+def _v2_nonpm_flairx_scorer_context(override: Pass1PromptOverride) -> str:
+    """Prevent legacy NONPM anchor guidance from discounting current FlairX proof."""
+
+    priorities = " / ".join(override.profile.flairx_story_priorities)
+    flairx_count = override.allocation_plan.counts_dict()["FLAIRX AI"]
+    return f"""\
+V2 CURRENT-ROLE OVERRIDE — THIS SUPERSEDES LEGACY NONPM ANCHOR LISTS:
+• FlairX is a required current U.S. experience block with exactly {flairx_count}
+  selected bullets, not optional PM-only support.
+• A route-native FlairX bullet may be one of the resume's strongest anchors. Do
+  not score the page down because older anchor lists mention only G/H/I/O stories.
+• For profile {override.profile_id}, use this reviewed family order only as a
+  close-call tie-breaker after JD fit and marginal value: {priorities}.
+• Judge the selected FlairX bullets on the same route identity, mechanism,
+  outcome, and non-duplication standards as every other company block.
+"""
 
 
 def _v2_allocation_request_from_environment(
@@ -3958,6 +3992,18 @@ Hard guidance:
                 prompt = adapted.prompt
                 v2_override = adapted.override
                 _configure_v2_contract(v2_override)
+                if v2_override.profile.family is ProfileFamily.PRODUCT:
+                    # A product-bound v2 correction (for example, a Product
+                    # Leadership Development Program) should use the ordinary
+                    # product scorer even when the legacy top-level router chose
+                    # the NONPM master before the authoritative override existed.
+                    role_preamble = ""
+                elif track == "nonpm":
+                    role_preamble = (
+                        _NONPM_SCORER_PREAMBLE
+                        + "\n\n"
+                        + _v2_nonpm_flairx_scorer_context(v2_override)
+                    )
                 # Reviewed bullet strings are immutable in v2. Selection may be
                 # scored, but no later model pass may rewrite or trim content.
                 run_rewrite = False

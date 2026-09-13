@@ -1,6 +1,7 @@
 import pytest
 
 from shared.resume_profiles import (
+    FLAIRX_STORY_FAMILIES,
     PROFILE_REGISTRY,
     PROFESSIONAL_COMPANY_ORDER,
     BulletBudgetDecision,
@@ -89,12 +90,14 @@ def test_professional_profiles_use_a_bounded_9_to_11_budget_with_a_ten_bullet_ce
     assert len(allocations) >= 3
 
 
-def test_product_profiles_start_flairx_at_two_and_gate_the_third_slot():
+def test_every_professional_profile_starts_flairx_at_two_and_gates_the_third_slot():
     for profile in PROFILE_REGISTRY.values():
-        if profile.family is not ProfileFamily.PRODUCT:
+        if not profile.is_professional:
             continue
         flairx = next(slot for slot in profile.experience_slots if slot.company == "FLAIRX AI")
         assert (flairx.minimum, flairx.target, flairx.maximum) == (2, 2, 3)
+        assert set(profile.flairx_story_priorities) == set(FLAIRX_STORY_FAMILIES)
+        assert len(profile.flairx_story_priorities) == len(FLAIRX_STORY_FAMILIES)
 
 
 def test_fluo_never_counts_as_experience_and_varies_by_profile_policy():
@@ -182,6 +185,88 @@ def test_standalone_product_strategy_research_does_not_get_pm_identity_from_titl
             "nonpm_subtype": "research-intelligence",
             "archetype": "strategy_pm",
             "top_signals": ["market sizing", "competitive intelligence", "executive synthesis"],
+        }
+    )
+    assert result.profile_id == "business-enterprise-leadership"
+
+
+def test_product_ldp_corrects_a_nonpm_step0_route_to_product_identity():
+    result = resolve_profile(
+        strategy={
+            "role_title": "Associate Product Analytics Leadership Development Program",
+            "role_family": "ops-execution",
+            "nonpm_subtype": "bizops-sando",
+            "archetype": "strategy_pm",
+            "top_signals": ["data analysis", "product recommendations"],
+        }
+    )
+    assert result.profile_id == "product-general"
+    assert result.needs_review is False
+    assert "product-function" in result.reason
+
+
+def test_build_heavy_ai_automation_routes_to_deployed_systems():
+    result = resolve_profile(
+        strategy={
+            "role_title": "AI & Data Analytics Intern",
+            "role_family": "ops-execution",
+            "nonpm_subtype": "ai-automation",
+            "archetype": "ai_pm",
+            "archetype_reasoning": (
+                "Design and prototype an AI-enabled internal tool with a maintainable "
+                "data model, confidence indicators, exception handling, and an "
+                "operationalized handoff."
+            ),
+        }
+    )
+    assert result.profile_id == "customer-technical-deployed-systems"
+    assert result.needs_review is False
+    assert "build-heavy AI automation" in result.reason
+
+
+def test_product_operations_uses_operations_profile_not_generic_ai_strategy():
+    result = resolve_profile(
+        strategy={
+            "role_title": "Graduate Program",
+            "role_family": "ops-execution",
+            "nonpm_subtype": "ai-automation",
+            "archetype": "generalist",
+            "archetype_reasoning": (
+                "A rotational product-ops program spanning automation, internal tools, "
+                "launches, and operating workflows."
+            ),
+        }
+    )
+    assert result.profile_id == "business-operations-leadership"
+    assert result.needs_review is False
+    assert "product-operations" in result.reason
+
+
+def test_forward_deployed_engineer_routes_to_deployed_systems_profile():
+    result = resolve_profile(
+        strategy={
+            "role_title": "Forward Deployed Engineer",
+            "role_family": "ops-execution",
+            "nonpm_subtype": "client-implementation",
+            "archetype": "technical_pm",
+            "top_signals": [
+                "write production code and build integrations",
+                "work directly with enterprise customers",
+            ],
+        }
+    )
+    assert result.profile_id == "customer-technical-deployed-systems"
+    assert result.needs_review is False
+
+
+def test_generic_ai_automation_without_build_or_product_ops_signals_stays_enterprise():
+    result = resolve_profile(
+        strategy={
+            "role_title": "Strategy Associate",
+            "role_family": "ops-execution",
+            "nonpm_subtype": "ai-automation",
+            "archetype": "generalist",
+            "top_signals": ["AI opportunity assessment", "executive recommendations"],
         }
     )
     assert result.profile_id == "business-enterprise-leadership"

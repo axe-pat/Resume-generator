@@ -69,7 +69,39 @@ def test_override_supersedes_legacy_shape_and_encodes_profile_contract_exactly()
         "INTUIT=2 | OPTUM=1"
     ) in tail
     assert "All five companies must appear exactly once" in tail
+    assert "flairx_story_priorities=" in tail
+    assert "Select exactly 2 FlairX bullets" in tail
+    assert "FlairX is the current U.S. Product Manager experience block" in tail
     assert validate_prompt_override(override) == []
+
+
+def test_nonpm_profiles_inherit_the_pm_flairx_two_to_three_contract():
+    expected_allocations = {
+        "business-enterprise-leadership": {
+            "FLAIRX AI": 2,
+            "GOJEK": 2,
+            "HEVO DATA": 2,
+            "INTUIT": 2,
+            "OPTUM": 2,
+        },
+        "business-operations-leadership": {
+            "FLAIRX AI": 2,
+            "GOJEK": 2,
+            "HEVO DATA": 3,
+            "INTUIT": 2,
+            "OPTUM": 1,
+        },
+    }
+    for profile_id, expected in expected_allocations.items():
+        override = build_pass1_prompt_override({}, explicit_profile=profile_id)
+        assert override.allocation_plan.counts_dict() == expected
+        flairx = next(
+            slot for slot in override.profile.experience_slots
+            if slot.company == "FLAIRX AI"
+        )
+        assert (flairx.minimum, flairx.target, flairx.maximum) == (2, 2, 3)
+        assert "A third FlairX bullet is permitted only" in override.tail
+        assert validate_prompt_override(override) == []
 
 
 def test_reviewed_bank_has_complete_family_coverage_and_excludes_suppressed_variants():
@@ -345,6 +377,72 @@ def test_prompt_bank_is_filtered_to_default_route_feasible_candidates():
         {}, explicit_profile="business-enterprise-leadership"
     )
     assert enterprise.bank.communities
+
+
+def test_flairx_variants_are_hard_filtered_by_profile_not_merely_ranked():
+    operations = build_pass1_prompt_override(
+        {}, explicit_profile="business-operations-leadership"
+    )
+    operations_ids = {
+        variant.variant_id
+        for variant in operations.bank.variants
+        if variant.story_family.startswith("F-")
+    }
+    assert "f-ops-ceo-routing-removal" in operations_ids
+    assert "pm/f-ceipal/technical-integration" not in operations_ids
+
+    deployed = build_pass1_prompt_override(
+        {}, explicit_profile="customer-technical-deployed-systems"
+    )
+    deployed_ids = {
+        variant.variant_id
+        for variant in deployed.bank.variants
+        if variant.story_family.startswith("F-")
+    }
+    assert "pm/f-ceipal/technical-integration" in deployed_ids
+    assert "f-ops-ceo-routing-removal" not in deployed_ids
+
+    for override in (operations, deployed):
+        assert all(
+            override.profile_id in variant.eligible_profiles
+            for variant in override.bank.variants
+            if variant.story_family.startswith("F-")
+        )
+
+
+def test_user_approved_flairx_nonpm_summaries_are_selectable_only_when_funded():
+    expected = {
+        "business-enterprise-leadership": {
+            "summary/nonpm/flairx-enterprise-choice",
+        },
+        "business-operations-leadership": {
+            "summary/nonpm/flairx-operating-leverage",
+        },
+        "customer-technical-client-value": {
+            "summary/nonpm/flairx-customer-integration",
+            "summary/nonpm/flairx-ai-workflow",
+        },
+        "customer-technical-deployed-systems": {
+            "summary/nonpm/flairx-customer-integration",
+            "summary/nonpm/flairx-ai-workflow",
+        },
+    }
+    all_flairx_summary_ids = set().union(*expected.values())
+
+    for profile_id, expected_ids in expected.items():
+        override = build_pass1_prompt_override({}, explicit_profile=profile_id)
+        exposed_ids = {
+            summary.candidate_id for summary in override.eligible_summaries
+        }
+        assert exposed_ids & all_flairx_summary_ids == expected_ids
+        assert override.eligible_summaries[0].candidate_id not in all_flairx_summary_ids
+        for summary in override.eligible_summaries:
+            if summary.candidate_id in expected_ids:
+                assert summary.selectability == "shipping"
+                assert all(
+                    override.bank.family_map().get(story_family)
+                    for story_family in summary.required_page_evidence
+                )
 
 
 def test_explicit_nine_and_eleven_bullet_plans_change_the_exact_output_contract():

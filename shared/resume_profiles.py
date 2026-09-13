@@ -27,6 +27,17 @@ PROFESSIONAL_COMPANY_ORDER = (
     "OPTUM",
 )
 
+# The same current-role story families serve every professional route.  Their
+# order is profile-owned below: it is a JD-relevance tie-breaker, not permission
+# to manufacture a route-specific rewrite.
+FLAIRX_STORY_FAMILIES = (
+    "F-ENTERPRISE",
+    "F-AVATAR",
+    "F-OPS",
+    "F-CEIPAL",
+    "F-SOURCING",
+)
+
 
 class ProfileFamily(str, Enum):
     PRODUCT = "product"
@@ -210,6 +221,7 @@ class ResumeProfile:
     skill_rows: tuple[str, ...]
     fluo: FluoPolicy
     selection_priorities: tuple[str, ...]
+    flairx_story_priorities: tuple[str, ...] = ()
     skill_policy: SkillAssemblyPolicy | None = None
 
     @property
@@ -331,6 +343,7 @@ def _professional_profile(
     skill_rows: Sequence[str],
     fluo: FluoPolicy,
     selection_priorities: Sequence[str],
+    flairx_story_priorities: Sequence[str],
     skill_policy: SkillAssemblyPolicy | None = None,
 ) -> ResumeProfile:
     if len(allocation) != len(PROFESSIONAL_COMPANY_ORDER):
@@ -340,7 +353,7 @@ def _professional_profile(
             company=company,
             minimum=(
                 2
-                if family is ProfileFamily.PRODUCT and company == "FLAIRX AI"
+                if company == "FLAIRX AI"
                 else max(1, target - 1)
             ),
             target=target,
@@ -365,6 +378,7 @@ def _professional_profile(
         skill_rows=normalized_skill_rows,
         fluo=fluo,
         selection_priorities=tuple(selection_priorities),
+        flairx_story_priorities=tuple(flairx_story_priorities),
         skill_policy=skill_policy or _default_professional_skill_policy(
             family=family,
             default_rows=normalized_skill_rows,
@@ -611,6 +625,9 @@ PROFILE_REGISTRY: dict[str, ResumeProfile] = {
             "technical-tradeoff",
             "cross-functional-leadership",
         ),
+        flairx_story_priorities=(
+            "F-ENTERPRISE", "F-AVATAR", "F-SOURCING", "F-CEIPAL", "F-OPS",
+        ),
     ),
     "product-ai-zero-to-one": _professional_profile(
         "product-ai-zero-to-one",
@@ -634,6 +651,9 @@ PROFILE_REGISTRY: dict[str, ResumeProfile] = {
             "customer-workflow",
             "unit-economics",
             "technical-tradeoff",
+        ),
+        flairx_story_priorities=(
+            "F-ENTERPRISE", "F-AVATAR", "F-SOURCING", "F-CEIPAL", "F-OPS",
         ),
     ),
     "product-data-platform": _professional_profile(
@@ -659,11 +679,14 @@ PROFILE_REGISTRY: dict[str, ResumeProfile] = {
             "adoption",
             "technical-tradeoff",
         ),
+        flairx_story_priorities=(
+            "F-AVATAR", "F-CEIPAL", "F-OPS", "F-ENTERPRISE", "F-SOURCING",
+        ),
     ),
     "business-enterprise-leadership": _professional_profile(
         "business-enterprise-leadership",
         ProfileFamily.BUSINESS_LEADERSHIP,
-        (1, 3, 2, 2, 2),
+        (2, 2, 2, 2, 2),
         identity_heading="STRATEGY & OPERATIONS",
         funded_summary_identities=_ENTERPRISE_SUMMARY_IDENTITIES,
         summary_mode=SummaryMode.REQUIRED,
@@ -683,11 +706,14 @@ PROFILE_REGISTRY: dict[str, ResumeProfile] = {
             "executive-communication",
             "cross-functional-influence",
         ),
+        flairx_story_priorities=(
+            "F-ENTERPRISE", "F-OPS", "F-AVATAR", "F-CEIPAL", "F-SOURCING",
+        ),
     ),
     "business-operations-leadership": _professional_profile(
         "business-operations-leadership",
         ProfileFamily.BUSINESS_LEADERSHIP,
-        (1, 3, 3, 2, 1),
+        (2, 2, 3, 2, 1),
         identity_heading="OPERATIONS & PROGRAM MANAGEMENT",
         funded_summary_identities=_OPERATIONS_SUMMARY_IDENTITIES,
         summary_mode=SummaryMode.REQUIRED,
@@ -706,6 +732,9 @@ PROFILE_REGISTRY: dict[str, ResumeProfile] = {
             "frontline-or-team-leadership",
             "cross-functional-execution",
             "continuous-improvement",
+        ),
+        flairx_story_priorities=(
+            "F-OPS", "F-CEIPAL", "F-ENTERPRISE", "F-AVATAR", "F-SOURCING",
         ),
     ),
     "business-commercial-gtm": _professional_profile(
@@ -731,6 +760,9 @@ PROFILE_REGISTRY: dict[str, ResumeProfile] = {
             "enterprise-adoption",
             "cross-functional-influence",
         ),
+        flairx_story_priorities=(
+            "F-ENTERPRISE", "F-SOURCING", "F-CEIPAL", "F-OPS", "F-AVATAR",
+        ),
     ),
     "customer-technical-client-value": _professional_profile(
         "customer-technical-client-value",
@@ -755,6 +787,9 @@ PROFILE_REGISTRY: dict[str, ResumeProfile] = {
             "technical-depth",
             "business-value",
         ),
+        flairx_story_priorities=(
+            "F-ENTERPRISE", "F-CEIPAL", "F-OPS", "F-AVATAR", "F-SOURCING",
+        ),
     ),
     "customer-technical-deployed-systems": _professional_profile(
         "customer-technical-deployed-systems",
@@ -778,6 +813,9 @@ PROFILE_REGISTRY: dict[str, ResumeProfile] = {
             "technical-depth",
             "customer-workflow",
             "reliability",
+        ),
+        flairx_story_priorities=(
+            "F-CEIPAL", "F-AVATAR", "F-ENTERPRISE", "F-OPS", "F-SOURCING",
         ),
     ),
     "campus-student-service": ResumeProfile(
@@ -997,9 +1035,7 @@ def validate_page_proof_plan(plan: PageProofPlan) -> list[str]:
         if count is None:
             errors.append(f"project-replacement is missing the {slot.company} career block")
             continue
-        continuity_floor = 2 if (
-            profile.family is ProfileFamily.PRODUCT and slot.company == "FLAIRX AI"
-        ) else 1
+        continuity_floor = 2 if slot.company == "FLAIRX AI" else 1
         if count < continuity_floor:
             errors.append(
                 f"project-replacement requires at least {continuity_floor} bullet(s) for "
@@ -1049,8 +1085,21 @@ def validate_profile_registry() -> list[str]:
             for slot in profile.experience_slots:
                 if not slot.minimum <= slot.target <= slot.maximum:
                     errors.append(f"{key}: invalid slot bounds for {slot.company}")
+                if slot.company == "FLAIRX AI" and (
+                    slot.minimum, slot.target, slot.maximum
+                ) != (2, 2, 3):
+                    errors.append(
+                        f"{key}: FlairX current-role allocation must be 2/2/3"
+                    )
                 if slot.company == "OPTUM" and slot.minimum < 1:
                     errors.append(f"{key}: Optum continuity floor must remain at least one")
+            if (
+                len(profile.flairx_story_priorities) != len(FLAIRX_STORY_FAMILIES)
+                or set(profile.flairx_story_priorities) != set(FLAIRX_STORY_FAMILIES)
+            ):
+                errors.append(
+                    f"{key}: FlairX priorities must rank every reviewed story family once"
+                )
             if profile.skill_policy is None:
                 errors.append(f"{key}: professional profile requires a Skills assembly policy")
             else:
@@ -1092,6 +1141,7 @@ def _strategy_text(strategy: Mapping[str, object]) -> str:
     for key in (
         "role_title",
         "archetype",
+        "archetype_reasoning",
         "role_family",
         "nonpm_subtype",
         "bullet_balance",
@@ -1272,6 +1322,37 @@ def resolve_profile(
     role_family = str(strategy.get("role_family") or "").strip().lower()
     archetype = str(strategy.get("archetype") or "").strip().lower()
     role_title = str(strategy.get("role_title") or "").strip().lower()
+
+    # Step 0 occasionally routes an explicitly product-bound rotational role
+    # through BizOps because analytics or recommendations dominate the JD. Keep
+    # the Product identity when the destination function is unmistakable; do
+    # not sweep standalone Product Strategy research or Product Operations into
+    # this correction.
+    explicit_product_function = bool(
+        re.search(r"\bproduct\s+(?:manager|management)\b", role_title)
+        or re.search(
+            r"(?:\bproduct\b.*\b(?:ldp|leadership development)\b|"
+            r"\b(?:ldp|leadership development)\b.*\bproduct\b)",
+            role_title,
+        )
+    ) and not bool(re.search(r"\bproduct[- ]operations?\b", role_title))
+    if explicit_product_function:
+        if archetype == "ai_pm":
+            profile_id = "product-ai-zero-to-one"
+        elif archetype in {"platform_pm", "enterprise_pm", "technical_pm"} and _contains(
+            combined,
+            (r"data platform", r"data infrastructure", r"analytics platform", r"database"),
+        ):
+            profile_id = "product-data-platform"
+        else:
+            profile_id = "product-general"
+        return ProfileResolution(
+            profile_id,
+            0.94,
+            "explicit product-function role corrects a non-PM Step 0 route",
+            False,
+        )
+
     # Some research-heavy product-strategy internships are easy for Step 0 to
     # misclassify as generic research/intelligence. Keep them on the product
     # profile only when the role is explicitly embedded in product decisions;
@@ -1316,8 +1397,12 @@ def resolve_profile(
         deployed = _contains(
             combined,
             (
+                r"forward deployed",
                 r"deployed systems?",
                 r"production deployment",
+                r"projects? to production",
+                r"production(?:-level)? (?:code|coding|integrations?)",
+                r"integration[- ]build|build(?:ing)? .{0,30} integrations?",
                 r"implementation ownership",
                 r"technical delivery",
             ),
@@ -1332,6 +1417,36 @@ def resolve_profile(
             "mapped Step 0 client-implementation subtype",
             False,
         )
+    if nonpm_subtype in {"ai-automation", "bizops-sando", "ops-pgm"} and _contains(
+        combined,
+        (r"\bproduct[- ]operations?\b", r"\bproduct[- ]ops\b"),
+    ):
+        return ProfileResolution(
+            "business-operations-leadership",
+            0.92,
+            "product-operations work maps to the operations assembly profile",
+            False,
+        )
+    if nonpm_subtype == "ai-automation":
+        deployed_ai_signals = (
+            r"\bprototype\b|proof of concept|\bpoc\b",
+            r"data model|data governance|source[- ]of[- ]truth",
+            r"matching logic|recommendation logic|confidence indicators?|exception handling",
+            r"technical delivery|production deployment|deployed systems?",
+            r"(?:build|building|design|designing)\b.{0,40}\b(?:ai[- ]enabled\s+)?(?:internal\s+)?tool\b",
+            r"handoff|operationaliz",
+        )
+        deployed_signal_count = sum(
+            bool(re.search(pattern, combined, re.I))
+            for pattern in deployed_ai_signals
+        )
+        if deployed_signal_count >= 3:
+            return ProfileResolution(
+                "customer-technical-deployed-systems",
+                0.91,
+                "build-heavy AI automation maps to the deployed-systems profile",
+                False,
+            )
     if nonpm_subtype == "commercial-gtm":
         return ProfileResolution(
             "business-commercial-gtm", 0.92, "mapped Step 0 commercial-GTM subtype", False

@@ -118,6 +118,29 @@ live rule assigns it to technical PgM, data-strategy, and platform-operations JD
 A client-deployment role must use `nonpm-client`; `customer-facing technologist`
 would not be a funded first clause for the operations profile.
 
+## Approved FlairX-era NONPM challengers
+
+These are alternatives to the corporate-led summaries above, not universal defaults.
+Each uses a descriptor that explains the relevant nature of FlairX without spending
+summary space on its location or asserting the unverified formal label `growth-stage`.
+The selector may use one only when the named FlairX family is also selected on-page.
+
+### Enterprise / strategy — requires `F-ENTERPRISE`, 276 characters
+
+> Strategy and operations professional with five years turning ambiguous operating evidence into consequential business choices. At a growing AI hiring platform, reframed an enterprise policy objection as a product gap and led the two-week launch that unblocked $1.2M in pilots.
+
+### Operations / program — requires `F-OPS`, 295 characters
+
+> Operations and program leader with five years building the mechanisms that turn cross-functional ambiguity into reliable execution. At a founder-led AI hiring startup, converted account context into shared workflows that let Product and GTM act without routing routine decisions through the CEO.
+
+### Customer integration — requires `F-CEIPAL`, 301 characters
+
+> Customer-facing technologist with five years turning ambiguous workflows into deployed data and AI systems. At an enterprise AI hiring platform, re-scoped a blocked ATS integration into a pull-first product that removed roughly 80% of duplicate recruiter entry and retained its highest-volume account.
+
+### AI workflow — requires `F-ENTERPRISE`, 273 characters
+
+> Technical solutions leader with five years translating workflow constraints into deployable data and AI systems. At an AI-native hiring platform, turned an enterprise hiring-policy objection into privacy-safe scheduling and transcript-grounded scoring shipped in two weeks.
+
 ## Campus candidates — review only
 
 These are not live prompt incumbents. Each requires the named page evidence; do not

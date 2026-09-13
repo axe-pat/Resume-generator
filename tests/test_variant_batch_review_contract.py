@@ -183,6 +183,7 @@ def test_recommended_slates_are_bounded_and_use_case_labeled():
 def test_every_recommendation_has_controlled_assembly_metadata():
     missing_or_invalid_archetypes: list[str] = []
     invalid_fluo_metadata: list[str] = []
+    invalid_flairx_profiles: list[str] = []
 
     for batch_name, batch in _causal_batches().items():
         for family_name, family in batch["families"].items():
@@ -190,6 +191,19 @@ def test_every_recommendation_has_controlled_assembly_metadata():
                 label = f"{batch_name}/{family_name}/{variant['variant_id']}"
                 if variant.get("archetype") not in ARCHETYPES:
                     missing_or_invalid_archetypes.append(label)
+                if family_name.startswith("F-"):
+                    profiles = variant.get("eligible_profiles")
+                    if (
+                        not isinstance(profiles, list)
+                        or not profiles
+                        or len(profiles) != len(set(profiles))
+                        or any(
+                            profile_id not in PROFILE_REGISTRY
+                            or not PROFILE_REGISTRY[profile_id].is_professional
+                            for profile_id in profiles
+                        )
+                    ):
+                        invalid_flairx_profiles.append(label)
                 if family_name != "FLUO":
                     continue
 
@@ -214,6 +228,11 @@ def test_every_recommendation_has_controlled_assembly_metadata():
         "Fluo recommendations require profile-funded story family, line cost, and "
         "assembly mode metadata: "
         + ", ".join(invalid_fluo_metadata)
+    )
+    assert not invalid_flairx_profiles, (
+        "FlairX recommendations require explicit valid professional-profile "
+        "eligibility metadata: "
+        + ", ".join(invalid_flairx_profiles)
     )
 
 

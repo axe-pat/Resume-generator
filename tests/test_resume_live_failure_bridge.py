@@ -462,6 +462,38 @@ def test_v2_underfill_recovery_requests_one_profile_bounded_distinct_proof(
     }
 
 
+@pytest.mark.parametrize(
+    "profile_id",
+    ("business-enterprise-leadership", "business-operations-leadership"),
+)
+def test_v2_nonpm_underfill_recovery_defaults_to_a_distinct_third_flairx(
+    monkeypatch,
+    profile_id,
+):
+    monkeypatch.setenv("RESUME_V2_BULLET_BUDGET", "11")
+    monkeypatch.delenv("RESUME_V2_ADD_COMPANY", raising=False)
+
+    plan = runner._v2_allocation_request_from_environment(get_profile(profile_id))
+
+    assert plan is not None
+    assert plan.budget_decision is BulletBudgetDecision.ADD_DISTINCT_SIGNAL
+    assert plan.total == 11
+    assert plan.counts_dict()["FLAIRX AI"] == 3
+
+
+def test_v2_nonpm_scorer_treats_flairx_as_current_route_anchor():
+    override = runner.build_pass1_prompt_override(
+        {}, explicit_profile="business-operations-leadership"
+    )
+
+    context = runner._v2_nonpm_flairx_scorer_context(override)
+
+    assert "SUPERSEDES LEGACY NONPM ANCHOR LISTS" in context
+    assert "exactly 2" in context
+    assert "F-OPS / F-CEIPAL / F-ENTERPRISE" in context
+    assert "may be one of the resume's strongest anchors" in context
+
+
 def test_v2_underfill_recovery_can_target_an_explicit_profile_slot(monkeypatch):
     monkeypatch.setenv("RESUME_V2_BULLET_BUDGET", "11")
     monkeypatch.setenv("RESUME_V2_ADD_COMPANY", "INTUIT")
