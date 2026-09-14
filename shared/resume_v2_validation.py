@@ -256,7 +256,30 @@ def validate_v2_sections(
     if incident_count != 1:
         errors.append(f"protected I-INCIDENT story must appear exactly once, got {incident_count}")
 
+    mandate = override.evidence_mandate
+    missing_mandate_families = sorted(
+        set(mandate.required_story_families) - selected_families
+    )
+    if missing_mandate_families:
+        errors.append(
+            f"evidence mandate {mandate.mandate_id} lacks required story families: "
+            f"{missing_mandate_families}"
+        )
+    for label, minimum, families in mandate.required_story_groups:
+        observed = sorted(selected_families.intersection(families))
+        if len(observed) < minimum:
+            errors.append(
+                f"evidence mandate {mandate.mandate_id} requires at least {minimum} "
+                f"{label} families from {list(families)}, got {observed}"
+            )
+
     notes = str(sections.get("selection_notes", ""))
+    mandate_note = _selection_note_value(notes, "Evidence mandate", errors)
+    if mandate_note is not None and mandate_note != mandate.mandate_id:
+        errors.append(
+            f"selection-note Evidence mandate must be {mandate.mandate_id}, "
+            f"got {mandate_note}"
+        )
     selected_note = _selection_note_value(notes, "Selected variants", errors)
     expected_note_ids = tuple(item.reviewed.variant_id for item in selected)
     if selected_note is not None:

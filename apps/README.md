@@ -125,6 +125,15 @@ for semantic stages, runs three applications concurrently, and publishes DOCX/PD
 files only after the v2 release gates pass. Existing generated applications are
 skipped unless `--force` is added.
 
+Before the first Cursor run on a machine, authenticate once and verify the
+session. The generator preflight fails before sending any job content when this
+session is absent.
+
+```bash
+~/.local/bin/agent login
+~/.local/bin/agent status
+```
+
 ```bash
 RESUME_GENERATOR_MODE=v2 \
 RESUME_V2_SUMMARY_SELECTOR=apply \
@@ -144,6 +153,17 @@ for the next twenty, or omit both flags for the entire current queue. Add
 `--exclude-companies IBM` (comma-separated names are supported) when needed.
 Per-application output is written to `logs/`; the batch exits nonzero if any job
 fails, while successful jobs remain available in their application folders.
+Without `--force`, this is the safe missing-only command: it leaves application
+folders that already contain a generated resume untouched and produces artifacts
+only for eligible queue entries that still need them.
+
+V2 keeps broad, stable page profiles but resolves a second, deterministic
+JD-evidence mandate inside them. This prevents materially different roles that
+share a heading from receiving the same generic proof slate. For example,
+corporate/market strategy and general-management leadership retain the reviewed
+`STRATEGY & OPERATIONS` identity when appropriate, while using disjoint summary
+slates and different required story-family portfolios. Mandate requirements are
+release blockers; the model cannot bypass them or invent replacement prose.
 
 **Parallelization:** when both resume and CL are enabled (`run_app.py` default, or `jobs.py generate --with-cl`), `run_app.py` runs them in parallel after the shared strategy step, saving ~1–1.5 min per application. Output is buffered per-thread and printed sequentially (resume first, then CL) so the terminal is never garbled.
 

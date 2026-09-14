@@ -2229,6 +2229,7 @@ def canonicalize_v2_selection_notes(
         (
             f"Profile: {override.profile_id}",
             f"Identity heading: {override.profile.identity_heading}",
+            f"Evidence mandate: {override.evidence_mandate.mandate_id}",
             f"Exact bullet total: {override.bullet_total}",
             f"Allocation: {allocation}",
             f"Selected variants: {', '.join(selected_ids)}",
@@ -3961,6 +3962,15 @@ Hard guidance:
                         comparison_prompt,
                         model,
                         "Pass 0b: Summary tournament",
+                    ),
+                    incumbent_candidate_id=(
+                        preview.evidence_mandate.preferred_summary_id
+                        if preview.evidence_mandate.preferred_summary_id
+                        in {
+                            candidate.candidate_id
+                            for candidate in preview.eligible_summaries
+                        }
+                        else None
                     ),
                 )
                 effective_mode = (

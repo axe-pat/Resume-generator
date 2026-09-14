@@ -134,6 +134,17 @@ never used as filler. See
 `docs/resume_generator_reviews/PAGE_FILL_ADAPTIVE_CONTRACT_REVIEW_2026-09-03.md`
 and its adjacent JSON calibration data for the observed geometry contract.
 
+### Resume role differentiation
+
+V2 separates stable page architecture from JD-specific evidence selection.
+Profiles continue to own headings, titles, company visibility, bullet budgets,
+Skills, and the closed reviewed wording bank. A deterministic evidence mandate
+inside the resolved profile owns the role-native summary slate and required
+story-family mix. This prevents broad profiles such as enterprise leadership
+from collapsing corporate strategy, general management, research, and BizOps
+roles onto the same generic resume. The selected mandate and its story-family
+requirements are persisted in selection notes and validated as release blockers.
+
 ### LLM provider routing
 
 Application generation can run through the incumbent Anthropic API or the local

@@ -107,6 +107,7 @@ def _sections(
             f"Selected variants: {', '.join(selected_ids)}",
             f"Summary: {summary.candidate_id}",
             f"Fluo decision: include with {fluo.variant_id}",
+            f"Evidence mandate: {override.evidence_mandate.mandate_id}",
         )
     )
     experience = "\n".join(experience_lines)
@@ -115,6 +116,57 @@ def _sections(
         (
             f"SECTION 0 — PROFESSIONAL SUMMARY\n{summary.text}",
             "SECTION 1 — TOP 3 JD SIGNALS\nProduct judgment\nCustomer evidence\nExecution",
+            f"SECTION 2 — SELECTION NOTES\n{notes}",
+            f"SECTION 3 — FULL EXPERIENCE SECTION\n{experience}",
+            f"SECTION 4 — SKILLS\n{skills}",
+        )
+    )
+    return {
+        "summary_section": summary.text,
+        "selection_notes": notes,
+        "experience_section": experience,
+        "projects_section": "",
+        "skills_section": skills,
+        "raw": raw,
+    }
+
+
+def _professional_sections(
+    override: Pass1PromptOverride,
+    selection: dict[str, tuple[str, ...]],
+    summary_id: str,
+) -> dict[str, str]:
+    variants = _variant_map(override)
+    summary = _summary_map(override)[summary_id]
+    headers = company_headers_for_profile(override.profile)
+    experience_lines: list[str] = []
+    selected_ids: list[str] = []
+    for company in PROFESSIONAL_COMPANY_ORDER:
+        experience_lines.append(headers[company])
+        for variant_id in selection[company]:
+            selected_ids.append(variant_id)
+            experience_lines.append(f"• {variants[variant_id].text}")
+
+    skill_values = skill_value_candidates_for_profile(override.profile, override.bank)
+    skills_lines = [skills_section_heading(override.profile.skill_rows)]
+    for label in override.profile.skill_rows:
+        skills_lines.append(f"● {label}: {skill_values[label][0]}")
+
+    notes = "\n".join(
+        (
+            f"Profile: {override.profile_id}",
+            f"Evidence mandate: {override.evidence_mandate.mandate_id}",
+            f"Selected variants: {', '.join(selected_ids)}",
+            f"Summary: {summary_id}",
+            "Fluo decision: omit",
+        )
+    )
+    experience = "\n".join(experience_lines)
+    skills = "\n".join(skills_lines)
+    raw = "\n\n".join(
+        (
+            f"SECTION 0 — PROFESSIONAL SUMMARY\n{summary.text}",
+            "SECTION 1 — TOP 3 JD SIGNALS\nSignal one\nSignal two\nSignal three",
             f"SECTION 2 — SELECTION NOTES\n{notes}",
             f"SECTION 3 — FULL EXPERIENCE SECTION\n{experience}",
             f"SECTION 4 — SKILLS\n{skills}",
@@ -165,6 +217,105 @@ def test_real_reviewed_selection_builds_a_valid_structured_page(product_override
     assert tuple(block.company for block in result.document.experience_blocks) == (
         PROFESSIONAL_COMPANY_ORDER
     )
+
+
+def test_market_and_general_management_mandates_release_different_proof_portfolios():
+    market = build_pass1_prompt_override(
+        {
+            "role_family": "strategy-consulting",
+            "nonpm_subtype": "strategy-consulting",
+            "role_title": "Manager, Corporate Strategy",
+            "top_signals": ["outside-in market opportunity", "growth strategy"],
+        }
+    )
+    general = build_pass1_prompt_override(
+        {
+            "role_family": "strategy-consulting",
+            "nonpm_subtype": "strategy-consulting",
+            "role_title": "MBA Leadership Development Program - General Management",
+            "top_signals": ["matrixed influence", "project ownership across rotations"],
+        }
+    )
+    market_selection = {
+        "FLAIRX AI": (
+            "F-ENTERPRISE-amazon-deal-impact",
+            "pm/f-sourcing/unit-economics",
+        ),
+        "GOJEK": (
+            "G-PRICING-canonical-closed-loop",
+            "G-SUPPLY-canonical-operating-model",
+            "G-LATENCY-studyfetch-readable-tradeoff",
+        ),
+        "HEVO DATA": (
+            "H-BATCHSHIFT-canonical-trial-trigger",
+            "H-MONITORING-canonical-ai-boundary",
+        ),
+        "INTUIT": (
+            "I-BILLING-canonical-renewal-integrity",
+            "I-INCIDENT-canonical-parallel-recovery",
+        ),
+        "OPTUM": ("O-PROVIDER-amazon-schema-integration",),
+    }
+    general_selection = {
+        "FLAIRX AI": (
+            "F-ENTERPRISE-amazon-deal-impact",
+            "f-ops-commercial-data-spine",
+        ),
+        "GOJEK": (
+            "G-SUPPLY-canonical-operating-model",
+            "G-PRICING-canonical-closed-loop",
+            "G-LATENCY-studyfetch-readable-tradeoff",
+        ),
+        "HEVO DATA": (
+            "H-BATCHSHIFT-canonical-trial-trigger",
+            "H-REGRESSION-amazon-shared-release",
+        ),
+        "INTUIT": (
+            "I-GOVERNANCE-canonical-risk-sequencing",
+            "I-INCIDENT-canonical-parallel-recovery",
+        ),
+        "OPTUM": ("O-SAFE-ACTION-flag-suggest-stop",),
+    }
+
+    market_result = validate_v2_sections(
+        _professional_sections(
+            market,
+            market_selection,
+            "summary/nonpm/research-signal-to-decision",
+        ),
+        market,
+        {},
+    )
+    general_result = validate_v2_sections(
+        _professional_sections(
+            general,
+            general_selection,
+            "summary/nonpm/flairx-enterprise-choice",
+        ),
+        general,
+        {},
+    )
+
+    assert market_result.passed, _messages(market_result)
+    assert general_result.passed, _messages(general_result)
+    assert market_result.summary != general_result.summary
+    market_ids = {item.reviewed.variant_id for item in market_result.selected}
+    general_ids = {item.reviewed.variant_id for item in general_result.selected}
+    assert len(market_ids & general_ids) <= 6
+
+    broken_market = dict(market_selection)
+    broken_market["OPTUM"] = ("O-SAFE-ACTION-flag-suggest-stop",)
+    broken_result = validate_v2_sections(
+        _professional_sections(
+            market,
+            broken_market,
+            "summary/nonpm/research-signal-to-decision",
+        ),
+        market,
+        {},
+    )
+    assert not broken_result.passed
+    assert "lacks required story families: ['O-PROVIDER']" in _messages(broken_result)
 
 
 def test_horizontal_formatting_divider_does_not_become_resume_content(product_override):

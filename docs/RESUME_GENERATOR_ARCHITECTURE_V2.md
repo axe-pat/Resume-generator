@@ -3,6 +3,24 @@
 Written 2026-08-28, after the Amazon PMT exercise produced a 9.2 manual resume against
 the stock generator's 8.4 on the same JD.
 
+## Current implementation note — 2026-09-14
+
+The shipping adapter now keeps role classification and page architecture separate
+from JD-level evidence selection. Existing profiles still own the resume heading,
+titles, five-company shape, bullet budget, Skills rows, and closed reviewed bank.
+An evidence mandate inside the selected profile now owns:
+
+- the eligible and preferred reviewed-summary slate;
+- required story families and bounded family groups;
+- route-native family priorities and explicit de-emphasis guidance; and
+- release validation that blocks a model response missing the mandated portfolio.
+
+This is not another employer or queue taxonomy. It consumes existing Step 0 fields
+and uses reusable mandate classes. The first guarded split distinguishes
+corporate/market strategy from general-management leadership, the exact failure
+that previously produced an identical summary and nine identical bullets across
+materially different jobs sharing the enterprise-leadership profile.
+
 ---
 
 ## Part 1 — What actually created the 0.8-point gap

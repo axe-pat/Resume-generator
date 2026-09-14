@@ -104,6 +104,60 @@ def test_nonpm_profiles_inherit_the_pm_flairx_two_to_three_contract():
         assert validate_prompt_override(override) == []
 
 
+def test_enterprise_profile_differentiates_market_strategy_from_general_management():
+    adobe_like = {
+        "role_family": "strategy-consulting",
+        "nonpm_subtype": "strategy-consulting",
+        "role_title": "Manager, Corporate Strategy",
+        "primary_framing_axis": "market-opportunity-diagnosis",
+        "top_signals": ["outside-in market opportunity", "growth strategy"],
+    }
+    vanguard_like = {
+        "role_family": "strategy-consulting",
+        "nonpm_subtype": "strategy-consulting",
+        "role_title": "MBA Leadership Development Program - General Management",
+        "primary_framing_axis": "strategic-analysis",
+        "top_signals": ["matrixed influence", "project ownership across rotations"],
+    }
+
+    market = build_pass1_prompt_override(adobe_like)
+    general_management = build_pass1_prompt_override(vanguard_like)
+
+    assert market.profile_id == general_management.profile_id == "business-enterprise-leadership"
+    assert market.profile.identity_heading == general_management.profile.identity_heading
+    assert market.evidence_mandate.mandate_id == "market-corporate-strategy"
+    assert general_management.evidence_mandate.mandate_id == "general-management-leadership"
+    assert market.allocation_plan.counts_dict() == {
+        "FLAIRX AI": 2,
+        "GOJEK": 3,
+        "HEVO DATA": 2,
+        "INTUIT": 2,
+        "OPTUM": 1,
+    }
+    assert general_management.allocation_plan.counts_dict() == {
+        "FLAIRX AI": 2,
+        "GOJEK": 3,
+        "HEVO DATA": 2,
+        "INTUIT": 2,
+        "OPTUM": 1,
+    }
+    assert market.evidence_mandate.preferred_summary_id != (
+        general_management.evidence_mandate.preferred_summary_id
+    )
+    assert {
+        summary.candidate_id for summary in market.eligible_summaries
+    }.isdisjoint(
+        {
+            summary.candidate_id
+            for summary in general_management.eligible_summaries
+        }
+    )
+    assert "required_story_families=G-PRICING" in market.tail
+    assert "required_story_families=F-OPS" in general_management.tail
+    assert validate_prompt_override(market) == []
+    assert validate_prompt_override(general_management) == []
+
+
 def test_reviewed_bank_exposes_canonical_defaults_as_quality_incumbents():
     bank = load_reviewed_prompt_bank()
     family_map = bank.family_map()

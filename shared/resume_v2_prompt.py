@@ -45,7 +45,7 @@ from shared.resume_runtime import (
 )
 
 
-ADAPTER_VERSION = "2026-09-03.2"
+ADAPTER_VERSION = "2026-09-13.1"
 REPO_ROOT = Path(__file__).resolve().parents[1]
 REVIEW_BATCH_DIR = REPO_ROOT / "docs" / "resume_generator_reviews" / "variant_batches"
 DEFAULT_CAUSAL_BATCH_PATHS = (
@@ -188,10 +188,31 @@ class ReviewedPromptBank:
 
 
 @dataclass(frozen=True)
+class EvidenceMandate:
+    """JD-level evidence mix inside an existing assembly profile.
+
+    Profiles continue to own page shape, titles, headings, Skills, and the
+    reviewed content bank.  A mandate only prevents materially different jobs
+    inside one broad profile from collapsing onto the same generic proof slate.
+    It never creates prose or introduces an employer-specific route.
+    """
+
+    mandate_id: str
+    preferred_summary_id: str | None = None
+    eligible_summary_ids: tuple[str, ...] = ()
+    required_story_families: tuple[str, ...] = ()
+    required_story_groups: tuple[tuple[str, int, tuple[str, ...]], ...] = ()
+    preferred_story_families: tuple[str, ...] = ()
+    de_emphasized_story_families: tuple[str, ...] = ()
+    allocation_counts: tuple[tuple[str, int], ...] = ()
+
+
+@dataclass(frozen=True)
 class Pass1PromptOverride:
     version: str
     resolution: ProfileResolution
     profile: ResumeProfile
+    evidence_mandate: EvidenceMandate
     allocation_plan: ExperienceAllocationPlan
     bank: ReviewedPromptBank
     eligible_summaries: tuple[ReviewedSummary, ...]
@@ -212,6 +233,144 @@ class Pass1PromptOverride:
 class AdaptedPass1Prompt:
     prompt: str
     override: Pass1PromptOverride
+
+
+def _strategy_search_text(strategy: Mapping[str, object]) -> str:
+    """Return stable Step-0 evidence for deterministic mandate resolution."""
+
+    fields = (
+        "role_title",
+        "role_family",
+        "nonpm_subtype",
+        "bullet_balance",
+        "primary_framing_axis",
+        "secondary_framing_axis",
+        "positioning_narrative",
+    )
+    parts = [str(strategy.get(field) or "") for field in fields]
+    for field in ("top_signals", "gaps"):
+        raw = strategy.get(field, ())
+        if isinstance(raw, (list, tuple, set)):
+            parts.extend(str(item) for item in raw)
+        elif raw:
+            parts.append(str(raw))
+    return " ".join(parts).casefold()
+
+
+def resolve_evidence_mandate(
+    strategy: Mapping[str, object],
+    profile: ResumeProfile,
+) -> EvidenceMandate:
+    """Resolve a reusable evidence portfolio within a broad profile.
+
+    The resolver deliberately uses existing Step-0 fields instead of company
+    names or queue positions.  Only the enterprise-leadership profile currently
+    needs this adapter: its previous single default caused corporate-strategy,
+    general-management, research, and BizOps resumes to converge on the same
+    summary and nine of the same ten bullets.
+    """
+
+    if profile.profile_id != "business-enterprise-leadership":
+        return EvidenceMandate("profile-default")
+
+    text = _strategy_search_text(strategy)
+    general_management = (
+        "general management" in text
+        or "leadership development" in text
+        or "rotational program" in text
+        or "rotation-ready" in text
+        or "across rotations" in text
+    )
+    market_strategy = any(
+        signal in text
+        for signal in (
+            "corporate strategy",
+            "market opportunity",
+            "outside-in",
+            "competitive intelligence",
+            "competitive analysis",
+            "portfolio strategy",
+            "growth strategy",
+            "market sizing",
+            "commercial diligence",
+        )
+    )
+
+    if general_management:
+        return EvidenceMandate(
+            mandate_id="general-management-leadership",
+            preferred_summary_id="summary/nonpm/flairx-enterprise-choice",
+            eligible_summary_ids=(
+                "summary/nonpm/flairx-enterprise-choice",
+                "summary/nonpm/default-evidence-anchors",
+                "summary/nonpm/bizops-operating-cadence",
+            ),
+            required_story_families=(
+                "F-OPS",
+                "G-SUPPLY",
+                "I-GOVERNANCE",
+                "I-INCIDENT",
+                "O-AFFORDABILITY",
+            ),
+            required_story_groups=(
+                (
+                    "scaled operating mechanisms",
+                    2,
+                    ("H-BATCHSHIFT", "H-REGRESSION", "H-SUPPORT-OPS"),
+                ),
+            ),
+            preferred_story_families=(
+                "F-ENTERPRISE",
+                "F-OPS",
+                "G-SUPPLY",
+                "H-REGRESSION",
+                "H-SUPPORT-OPS",
+                "I-GOVERNANCE",
+                "I-INCIDENT",
+                "O-AFFORDABILITY",
+            ),
+            de_emphasized_story_families=("G-LATENCY", "H-MONITORING"),
+        )
+
+    if market_strategy:
+        return EvidenceMandate(
+            mandate_id="market-corporate-strategy",
+            preferred_summary_id="summary/nonpm/research-signal-to-decision",
+            eligible_summary_ids=(
+                "summary/nonpm/research-signal-to-decision",
+                "summary/nonpm/strategy-evidence-to-decision",
+            ),
+            required_story_families=(
+                "G-PRICING",
+                "H-BATCHSHIFT",
+                "I-BILLING",
+                "I-INCIDENT",
+                "O-PROVIDER",
+            ),
+            required_story_groups=(
+                (
+                    "current strategy or diligence proof",
+                    1,
+                    ("F-SOURCING", "F-OPS"),
+                ),
+            ),
+            preferred_story_families=(
+                "F-SOURCING",
+                "F-OPS",
+                "G-PRICING",
+                "G-LATENCY",
+                "H-BATCHSHIFT",
+                "I-BILLING",
+                "O-PROVIDER",
+            ),
+            de_emphasized_story_families=(
+                "H-SUPPORT-OPS",
+                "H-REGRESSION",
+                "O-AFFORDABILITY",
+            ),
+        )
+
+    return EvidenceMandate("enterprise-leadership-default")
 
 
 # Skills remain selectable for JD relevance, but never free-written.  Values
@@ -1074,6 +1233,7 @@ def _summary_is_default_assembly_feasible(
 def _build_tail_text(
     *,
     profile: ResumeProfile,
+    evidence_mandate: EvidenceMandate,
     allocation_plan: ExperienceAllocationPlan,
     bank: ReviewedPromptBank,
     eligible_summaries: Sequence[ReviewedSummary],
@@ -1110,6 +1270,7 @@ def _build_tail_text(
         f"skills_row_decision={skills_plan.decision.value}",
         f"selection_priorities={' | '.join(profile.selection_priorities)}",
         f"flairx_story_priorities={' | '.join(profile.flairx_story_priorities)}",
+        f"evidence_mandate={evidence_mandate.mandate_id}",
         f"fluo_policy={fluo_metadata}",
         f"fluo_instruction={fluo_instruction}",
         "",
@@ -1133,6 +1294,40 @@ def _build_tail_text(
         "not selectable. Do not reconstruct one from earlier prompt context merely for",
         "surface-keyword fit; choose among distinct story families instead.",
         "",
+        "JD EVIDENCE MANDATE — CRITICAL",
+        f"mandate_id={evidence_mandate.mandate_id}",
+        "This mandate differentiates jobs inside the broad assembly profile. It does",
+        "not change titles, invent evidence, or override the reviewed wording bank.",
+    ]
+    if evidence_mandate.required_story_families:
+        lines.append(
+            "required_story_families="
+            + " | ".join(evidence_mandate.required_story_families)
+        )
+    for label, minimum, families in evidence_mandate.required_story_groups:
+        lines.append(
+            f"required_story_group={label}; minimum={minimum}; choices="
+            + " | ".join(families)
+        )
+    if evidence_mandate.preferred_story_families:
+        lines.append(
+            "preferred_story_families="
+            + " | ".join(evidence_mandate.preferred_story_families)
+        )
+    if evidence_mandate.de_emphasized_story_families:
+        lines.append(
+            "de_emphasized_story_families="
+            + " | ".join(evidence_mandate.de_emphasized_story_families)
+        )
+    lines.extend(
+        [
+        "Every required family and group minimum is a release condition. After those",
+        "conditions are funded, rank remaining slots by direct JD fit and marginal value.",
+        "Do not choose a generically impressive proof over a route-native proof merely",
+        "because the generic proof is common to other resumes. De-emphasized families",
+        "remain selectable only when needed for the exact allocation and clearly stronger",
+        "than every other admitted option for the remaining signal gap.",
+        "",
         "FLAIRX CURRENT-ROLE SELECTION — CRITICAL",
         f"Select exactly {counts['FLAIRX AI']} FlairX bullets from distinct F- story families.",
         "FlairX is the current U.S. Product Manager experience block and must not be",
@@ -1145,7 +1340,8 @@ def _build_tail_text(
         "11-proof distinct-signal path, and must add a mechanism, decision type,",
         "stakeholder, or outcome absent from the first two.",
         "",
-    ]
+        ]
+    )
     if allocation_plan.budget_decision is BulletBudgetDecision.ADD_DISTINCT_SIGNAL:
         added_company = next(
             company
@@ -1184,6 +1380,7 @@ def _build_tail_text(
             "SECTION 2 — SELECTION NOTES",
             f"Profile: {profile.profile_id}",
             f"Identity heading: {profile.identity_heading}",
+            f"Evidence mandate: {evidence_mandate.mandate_id}",
             f"Exact bullet total: {allocation_plan.total}",
             f"Allocation: {allocation_text}",
             f"Skills rows: {' | '.join(skills_plan.row_labels)}",
@@ -1280,6 +1477,40 @@ def validate_prompt_override(override: Pass1PromptOverride) -> list[str]:
     flairx_priority_text = " | ".join(override.profile.flairx_story_priorities)
     if f"flairx_story_priorities={flairx_priority_text}" not in tail:
         errors.append("FlairX story priorities are missing from override")
+    mandate = override.evidence_mandate
+    if f"evidence_mandate={mandate.mandate_id}" not in tail:
+        errors.append("resolved evidence mandate is missing from override")
+    if f"Evidence mandate: {mandate.mandate_id}" not in tail:
+        errors.append("evidence mandate is missing from output contract")
+    known_families = set(override.bank.family_map())
+    unknown_required = sorted(set(mandate.required_story_families) - known_families)
+    if unknown_required:
+        errors.append(
+            f"{mandate.mandate_id}: unknown required story families {unknown_required}"
+        )
+    for label, minimum, families in mandate.required_story_groups:
+        if minimum < 1 or minimum > len(families):
+            errors.append(
+                f"{mandate.mandate_id}: invalid minimum for story group {label!r}"
+            )
+        unknown_group = sorted(set(families) - known_families)
+        if unknown_group:
+            errors.append(
+                f"{mandate.mandate_id}: story group {label!r} has unknown families "
+                f"{unknown_group}"
+            )
+    if (
+        mandate.allocation_counts
+        and override.allocation_plan.budget_decision
+        in {
+            BulletBudgetDecision.DEFAULT,
+            BulletBudgetDecision.REBALANCE_DISTINCT_SIGNAL,
+        }
+        and tuple(override.allocation_plan.company_counts) != tuple(mandate.allocation_counts)
+    ):
+        errors.append(
+            f"{mandate.mandate_id}: mandate allocation does not match resolved plan"
+        )
     flairx_count = override.allocation_plan.counts_dict()["FLAIRX AI"]
     if f"Select exactly {flairx_count} FlairX bullets" not in tail:
         errors.append("exact FlairX current-role allocation is missing from override")
@@ -1334,7 +1565,16 @@ def build_pass1_prompt_override(
         context_tags=context_tags,
         explicit_profile=explicit_profile,
     )
-    plan = allocation_plan or default_allocation_plan(profile.profile_id)
+    evidence_mandate = resolve_evidence_mandate(strategy, profile)
+    plan = allocation_plan or (
+        ExperienceAllocationPlan(
+            profile_id=profile.profile_id,
+            company_counts=evidence_mandate.allocation_counts,
+            budget_decision=BulletBudgetDecision.REBALANCE_DISTINCT_SIGNAL,
+        )
+        if evidence_mandate.allocation_counts
+        else default_allocation_plan(profile.profile_id)
+    )
     if plan.profile_id != profile.profile_id:
         raise ValueError(
             f"allocation profile {plan.profile_id!r} does not match resolved profile "
@@ -1399,6 +1639,12 @@ def build_pass1_prompt_override(
         if profile.profile_id in summary.eligible_profiles
         and _summary_is_default_assembly_feasible(summary, plan, bank)
     )
+    if evidence_mandate.eligible_summary_ids:
+        eligible_ids = set(evidence_mandate.eligible_summary_ids)
+        eligible_summaries = tuple(
+            summary for summary in eligible_summaries
+            if summary.candidate_id in eligible_ids
+        )
     if summary_candidate_id is not None:
         eligible_summaries = tuple(
             summary
@@ -1415,6 +1661,7 @@ def build_pass1_prompt_override(
 
     tail = _build_tail_text(
         profile=profile,
+        evidence_mandate=evidence_mandate,
         allocation_plan=plan,
         bank=bank,
         eligible_summaries=eligible_summaries,
@@ -1424,6 +1671,7 @@ def build_pass1_prompt_override(
         version=ADAPTER_VERSION,
         resolution=resolution,
         profile=profile,
+        evidence_mandate=evidence_mandate,
         allocation_plan=plan,
         bank=bank,
         eligible_summaries=eligible_summaries,
