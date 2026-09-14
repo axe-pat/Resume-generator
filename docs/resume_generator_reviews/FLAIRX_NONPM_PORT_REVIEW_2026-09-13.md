@@ -56,28 +56,28 @@ selected on-page.
 
 ### A. Enterprise / strategy
 
-> Strategy and operations professional with five years turning ambiguous operating evidence into consequential business choices. At a growing AI hiring platform, reframed an enterprise policy objection as a product gap and led the two-week launch that unblocked $1.2M in pilots.
+> Strategy and operations professional with five years turning ambiguous operating evidence into consequential business choices. Reframed an enterprise hiring-policy objection as a product gap at a growing AI hiring platform, then led a two-week launch that unblocked $1.2M in pilots.
 
 Requires the selected `F-ENTERPRISE` proof. Best for corporate strategy, transformation,
 and general-management roles where the current U.S. role should prove judgment and delivery.
 
 ### B. Operations / program
 
-> Operations and program leader with five years building the mechanisms that turn cross-functional ambiguity into reliable execution. At a founder-led AI hiring startup, converted account context into shared workflows that let Product and GTM act without routing routine decisions through the CEO.
+> Operations and program leader with five years building the mechanisms that turn cross-functional ambiguity into reliable execution. Converted founder-held account context into shared Product and GTM workflows at an AI hiring startup, removing the CEO as the routing point for routine decisions.
 
 Requires the selected `F-OPS` organizational-leverage proof. Best for Product Ops, BizOps,
 program, and operating-model roles.
 
 ### C. Technical solutions — customer integration
 
-> Customer-facing technologist with five years turning ambiguous workflows into deployed data and AI systems. At an enterprise AI hiring platform, re-scoped a blocked ATS integration into a pull-first product that removed roughly 80% of duplicate recruiter entry and retained its highest-volume account.
+> Customer-facing technologist with five years turning ambiguous workflows into deployed data and AI systems. Re-scoped a blocked ATS integration into a pull-first product at an enterprise AI hiring platform, removing roughly 80% of duplicate recruiter entry and retaining its highest-volume account.
 
 Requires the selected `F-CEIPAL` account-retention proof. Best for forward-deployed,
 solutions, integration, and customer-engineering roles.
 
 ### D. Technical solutions — AI workflow
 
-> Technical solutions leader with five years translating workflow constraints into deployable data and AI systems. At an AI-native hiring platform, turned an enterprise hiring-policy objection into privacy-safe scheduling and transcript-grounded scoring shipped in two weeks.
+> Technical solutions leader with five years translating workflow constraints into deployable data and AI systems. Turned an enterprise hiring-policy objection into privacy-safe scheduling and transcript-grounded scoring at an AI-native hiring platform, shipping the workflow in two weeks.
 
 Requires the selected `F-ENTERPRISE` proof. Best for AI-tool, technical-delivery, and
 workflow-automation roles where the Ceipal integration is not the best anchor.
@@ -91,3 +91,21 @@ workflow-automation roles where the Ceipal integration is not the best anchor.
 
 Next: complete the gated same-budget third-FlairX comparison, run the broader regression
 suite, then regenerate the 11 resumes through one v2 batch command.
+
+## Post-smoke allocation correction
+
+The first live Adobe v2 smoke test exposed a general allocation regression: the
+enterprise-leadership center forced two Optum bullets even when the second, oldest-role
+proof was materially weaker than a third recent Gojek proof. Professional defaults now
+retain Optum once for five-year career continuity. Enterprise leadership uses
+`2 FlairX / 3 Gojek / 2 Hevo / 2 Intuit / 1 Optum`; customer-technical client value uses
+`2 FlairX / 2 Gojek / 3 Hevo / 2 Intuit / 1 Optum`. Canonical per-story framings are also
+marked as quality incumbents so a keyword-matched alternative cannot displace them by
+regressing mechanism, outsider clarity, stakes, ownership, or outcome closure.
+
+After a prompt-only preference still selected three weaker, keyword-shaped siblings in
+the Adobe smoke test, this was tightened deterministically: when a reviewed family has a
+`canonical_default_id`, only that exact variant is exposed to live v2 generation. The
+other reviewed framings remain in the inert batch files for future human reconsideration;
+the model still chooses among distinct story families, but it no longer re-litigates an
+already-settled wording decision on every JD.

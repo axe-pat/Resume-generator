@@ -135,6 +135,7 @@ class ReviewedBullet:
     line_cost: int
     assembly_modes: tuple[str, ...]
     eligible_profiles: tuple[str, ...]
+    canonical_default: bool = False
 
 
 @dataclass(frozen=True)
@@ -438,6 +439,17 @@ def load_reviewed_prompt_bank(
             if not isinstance(recommendations, list):
                 errors.append(f"{family_name}: recommended_variants must be a list")
                 recommendations = ()
+            canonical_default_id = str(family.get("canonical_default_id") or "").strip()
+            recommendation_ids = {
+                str(record.get("variant_id", "")).strip()
+                for record in recommendations
+                if isinstance(record, dict)
+            }
+            if canonical_default_id and canonical_default_id not in recommendation_ids:
+                errors.append(
+                    f"{family_name}: canonical_default_id {canonical_default_id!r} "
+                    "is not a recommended variant"
+                )
 
             selectable: list[ReviewedBullet] = []
             for record in recommendations:
@@ -468,6 +480,14 @@ def load_reviewed_prompt_bank(
                 if not use_case:
                     errors.append(f"{family_name}/{variant_id}: recommendation has no use case")
                 if status in NON_SELECTABLE_RECOMMENDATION_STATUSES:
+                    held_recommendation_ids.add(variant_id)
+                    continue
+                # A reviewed canonical choice is a shipping decision, not a
+                # suggestion to the per-JD selector.  Keep sibling framings in
+                # the review artifact for future human comparison, but do not
+                # expose them to unattended generation where surface keyword
+                # fit can displace the stronger causal rendering.
+                if canonical_default_id and variant_id != canonical_default_id:
                     held_recommendation_ids.add(variant_id)
                     continue
                 if family_name in EXPERIENCE_FAMILIES and archetype not in {
@@ -529,6 +549,7 @@ def load_reviewed_prompt_bank(
                         line_cost=line_cost,
                         assembly_modes=assembly_modes,
                         eligible_profiles=eligible_profiles,
+                        canonical_default=(variant_id == canonical_default_id),
                     )
                 )
 
@@ -870,6 +891,7 @@ def _format_reviewed_bank(bank: ReviewedPromptBank) -> list[str]:
         for variant in variants:
             lines.append(
                 f"[reviewed-variant:{variant.variant_id}] status={variant.status}; "
+                f"canonical_default={'yes' if variant.canonical_default else 'no'}; "
                 f"archetype={variant.archetype or 'n/a'}; "
                 f"fluo_story_family={variant.fluo_story_family or 'n/a'}; "
                 f"line_cost={variant.line_cost or 'n/a'}; "
@@ -1103,6 +1125,13 @@ def _build_tail_text(
         "Select at most one variant from each STORY FAMILY across the entire page.",
         "Two differently worded variants from the same family are duplicate evidence,",
         "not two bullets, and will fail release validation.",
+        "Every bullet inside one company block must begin with a distinct opening word.",
+        "Check the assembled company block before answering; a repeated opener is a",
+        "hard assembly failure even when both underlying variants are individually strong.",
+        "Where a reviewed family has an approved canonical default, only that exact",
+        "wording is exposed in the live bank. Archived sibling framings are intentionally",
+        "not selectable. Do not reconstruct one from earlier prompt context merely for",
+        "surface-keyword fit; choose among distinct story families instead.",
         "",
         "FLAIRX CURRENT-ROLE SELECTION — CRITICAL",
         f"Select exactly {counts['FLAIRX AI']} FlairX bullets from distinct F- story families.",

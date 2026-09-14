@@ -318,3 +318,21 @@ def test_batch_d_replacement_ids_resolve_to_explicit_candidates():
                 f"Batch D {incumbent['stable_id']} has unknown verdict "
                 f"{incumbent['verdict']!r}"
             )
+
+
+def test_batch_d_recorded_character_counts_match_candidate_text():
+    batch = _load_json(SUMMARY_SKILLS_BATCH_PATH)
+    candidates = (
+        batch["summary_candidates"]
+        + batch["community_candidates"]
+        + batch["support_row_candidates"]
+    )
+    mismatches = {
+        candidate["candidate_id"]: (
+            candidate.get("character_count"),
+            len(candidate["text"]),
+        )
+        for candidate in candidates
+        if candidate.get("character_count") != len(candidate["text"])
+    }
+    assert not mismatches, f"stale Batch D character counts: {mismatches}"

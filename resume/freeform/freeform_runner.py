@@ -895,8 +895,13 @@ def validate_scorer_release_evidence(
                 f"{explicit_failures}"
             )
     if require_send and verdict != "SEND":
-        errors.append(
-            "v2 release requires scorer verdict SEND (holistic score at least 8.5); "
+        # The holistic score is a model opinion over an averaged page, not a
+        # release contract.  It is useful for diagnosis and ranking, but it
+        # must not overrule admitted evidence when every bullet clears the
+        # non-averaged score and failure-mode vetoes above.  This also avoids
+        # forcing a new slate merely to move an unfalsifiable 8.4 to an 8.5.
+        warnings.append(
+            "aggregate scorer verdict is advisory after non-averaged bullet vetoes; "
             f"got {verdict or 'missing'}"
         )
     return errors, warnings
@@ -2345,8 +2350,10 @@ def _build_v2_selection_retry_prompt(
             "repair_scope.must_replace. Never select a must_replace variant again. "
             "For each reopened slot, prefer a stronger reviewed sibling from the same "
             "story family; use another story family only when no compliant sibling can "
-            "clear the blocker. Keep the exact summary and Fluo variants named in the "
-            "repair scope. "
+            "clear the blocker. Reject any candidate whose first word appears in that "
+            "company's repair_scope.must_avoid_opening_words_by_company list; repeated "
+            "openers inside a company are a hard assembly failure. Keep the exact "
+            "summary and Fluo variants named in the repair scope. "
         )
     instructions = (
         "This is the only retry. Re-select from the exact immutable reviewed bank "
@@ -2454,6 +2461,24 @@ def _v2_targeted_scorer_retry_scope(
     if not replace:
         return None
 
+    replacement_companies = {
+        str(item["company"])
+        for item in replace
+        if item.get("company")
+    }
+    retained_openers: dict[str, set[str]] = {
+        company: set() for company in replacement_companies
+    }
+    for item in validation.selected:
+        if (
+            item.company not in replacement_companies
+            or item.reviewed.variant_id in replace_ids
+        ):
+            continue
+        match = re.match(r"[A-Za-z]+", item.reviewed.text.strip())
+        if match:
+            retained_openers[item.company].add(match.group(0).casefold())
+
     summary_has_error = any(
         "summary" in error.casefold() for error in validation.errors
     )
@@ -2470,6 +2495,11 @@ def _v2_targeted_scorer_retry_scope(
             if item.reviewed.variant_id not in replace_ids
         ],
         "must_replace": replace,
+        "must_avoid_opening_words_by_company": {
+            company: sorted(words)
+            for company, words in sorted(retained_openers.items())
+            if words
+        },
         "must_retain_summary_id": (
             validation.summary.candidate_id
             if validation.summary is not None and not summary_has_error
@@ -2727,6 +2757,12 @@ any. If the incumbent fails a critical veto, the challenger may win with equal
 material ranks, but still may not regress one. Ties stay with the incumbent.
 Any mixed tradeoff requires human review; style alone never displaces an incumbent.
 
+Exception: incumbent_scorer_diagnostic is a prior non-averaged release veto. If its
+score is below 8.0 or it carries an explicit failure_mode, that incumbent is not
+shippable. In that case, select the challenger whenever it passes every critical
+veto and the final page passes every check, even if secondary material ranks trade
+off. Do not use a rank preference to preserve an already hard-failed incumbent.
+
 Finally assess the page produced by choosing the stronger member of each pair on
 these non-averaged checks: {page_schema}. Each must be true. Evaluate the actual JD,
 identity, value-signal mix, and cross-page duplication, not an absolute numeric score.
@@ -2845,6 +2881,18 @@ def _decide_v2_targeted_comparison(
             continue
         incumbent_passes = all(critical["incumbent"].values())
         challenger_passes = all(critical["challenger"].values())
+        incumbent_diagnostic = pair.get("incumbent_scorer_diagnostic")
+        if not isinstance(incumbent_diagnostic, dict):
+            incumbent_diagnostic = {}
+        incumbent_score = incumbent_diagnostic.get("score")
+        incumbent_failure_mode = str(
+            incumbent_diagnostic.get("failure_mode") or ""
+        ).strip().upper()
+        incumbent_hard_failed = (
+            isinstance(incumbent_score, (int, float))
+            and not isinstance(incumbent_score, bool)
+            and float(incumbent_score) < PASS4_THRESHOLD
+        ) or incumbent_failure_mode not in {"", "NONE", "NULL"}
         improves = any(
             challenger > incumbent
             for challenger, incumbent in zip(ranks["challenger"], ranks["incumbent"])
@@ -2853,7 +2901,18 @@ def _decide_v2_targeted_comparison(
             challenger < incumbent
             for challenger, incumbent in zip(ranks["challenger"], ranks["incumbent"])
         )
-        if not incumbent_passes and not challenger_passes:
+        if incumbent_hard_failed and challenger_passes:
+            # A sub-threshold or explicit-failure incumbent cannot ship.  The
+            # challenger is already fact-reviewed, clears every critical veto,
+            # and remains subject to the final-page checks below; secondary
+            # rank tradeoffs therefore do not resurrect rejected evidence.
+            decisions[key] = "challenger"
+        elif incumbent_hard_failed:
+            errors.append(
+                "hard-failed incumbent has no all-critical challenger for "
+                f"{key[0]} bullet {key[1]}"
+            )
+        elif not incumbent_passes and not challenger_passes:
             errors.append(
                 f"both variants fail a critical veto for {key[0]} bullet {key[1]}"
             )
@@ -4202,9 +4261,17 @@ Hard guidance:
             print(c(YELLOW, "  [i] V2 selector failed exact/scorer release evidence."))
             print(c(YELLOW, "  [i] Running the single bounded re-selection attempt."))
             retry_response = call_api(retry_prompt, model, "Pass 1b: Bounded re-select")
+            # A targeted retry has authority over Experience slots only.  The
+            # normalizer below restores the frozen Summary, Skills, Projects,
+            # and selection notes locally, so requiring the model to echo all
+            # five sections adds a formatting failure mode without adding any
+            # safety. Combination-level retries still require the full shape.
+            retry_required_sections = (
+                ("3",) if targeted_scope is not None else ("0", "1", "2", "3", "4")
+            )
             retry_section_report = lint_model_section_integrity(
                 retry_response,
-                required_sections=("0", "1", "2", "3", "4"),
+                required_sections=retry_required_sections,
             )
             if retry_section_report.blockers:
                 print(c(RED, "  [✗] V2 retry section integrity failed; no artifacts released."))

@@ -87,7 +87,11 @@ def test_professional_profiles_use_a_bounded_9_to_11_budget_with_a_ten_bullet_ce
         assert profile.slot_bounds()["OPTUM"][0] >= 1
         allocations.add(tuple(slot.target for slot in profile.experience_slots))
 
-    assert len(allocations) >= 3
+    # Company depth varies by the role's dominant proof source: recent Gojek
+    # strategy/commercial work or Hevo enterprise/platform work. Optum remains
+    # one continuity proof in every default professional profile.
+    assert len(allocations) >= 2
+    assert all(allocation[-1] == 1 for allocation in allocations)
 
 
 def test_every_professional_profile_starts_flairx_at_two_and_gates_the_third_slot():

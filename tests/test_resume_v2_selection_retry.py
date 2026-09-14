@@ -126,6 +126,9 @@ def test_targeted_scorer_retry_scope_reopens_only_failed_slots():
     assert scope["must_retain_summary_id"] == "summary/product/general-scaled-evidence"
     assert scope["must_retain_fluo_variant_id"] == "FL-INSTITUTIONAL-amazon-inline-prearrival"
     assert scope["repair_auxiliary_sections"] is False
+    assert scope["must_avoid_opening_words_by_company"] == {
+        "GOJEK": ["separated", "traded"]
+    }
 
 
 def test_targeted_scope_freezes_valid_experience_during_auxiliary_repair():
@@ -182,7 +185,7 @@ def test_targeted_retry_enforcement_rejects_collateral_changes():
     assert "changed Fluo" in joined
 
 
-def test_targeted_retry_discards_collateral_before_pairwise_comparison(
+def test_targeted_retry_restores_missing_frozen_sections_before_pairwise_comparison(
     monkeypatch,
     tmp_path,
 ):
@@ -194,7 +197,7 @@ def test_targeted_retry_discards_collateral_before_pairwise_comparison(
     challenger_selection = dict(VALID_SELECTION)
     challenger_selection["HEVO DATA"] = (
         "H-BATCHSHIFT-canonical-trial-trigger",
-        "H-MONITORING-studyfetch-ai-incident-cards",
+        "pm/h-query/product-discovery",
     )
     challenger_raw = _raw_selection(override, challenger_selection)
     incumbent_summary = next(
@@ -202,16 +205,10 @@ def test_targeted_retry_discards_collateral_before_pairwise_comparison(
         for item in override.eligible_summaries
         if item.candidate_id == "summary/product/general-scaled-evidence"
     )
-    challenger_summary = next(
-        item
-        for item in override.eligible_summaries
-        if item.candidate_id != incumbent_summary.candidate_id
-    )
-    challenger_raw = challenger_raw.replace(
-        incumbent_summary.text,
-        challenger_summary.text,
-        1,
-    )
+    challenger_raw = challenger_raw.split(
+        "SECTION 1 — TOP 3 JD SIGNALS", 1
+    )[1]
+    challenger_raw = "SECTION 1 — TOP 3 JD SIGNALS" + challenger_raw
 
     critical = {name: True for name in runner._V2_PAIRWISE_CRITICAL_KEYS}
     incumbent_rank = {name: 3 for name in runner._V2_PAIRWISE_RANK_KEYS}
@@ -222,7 +219,7 @@ def test_targeted_retry_discards_collateral_before_pairwise_comparison(
                 "company": "HEVO DATA",
                 "index": 2,
                 "incumbent_variant_id": "H-MONITORING-canonical-ai-boundary",
-                "challenger_variant_id": "H-MONITORING-studyfetch-ai-incident-cards",
+                "challenger_variant_id": "pm/h-query/product-discovery",
                 "incumbent_critical": critical,
                 "challenger_critical": critical,
                 "incumbent_rank": incumbent_rank,
@@ -292,8 +289,7 @@ def test_targeted_retry_discards_collateral_before_pairwise_comparison(
     ]
     saved = next((tmp_path / "runs").glob("*.txt")).read_text(encoding="utf-8")
     assert incumbent_summary.text in saved
-    assert challenger_summary.text not in saved
-    assert variants_text(override, "H-MONITORING-studyfetch-ai-incident-cards") in saved
+    assert variants_text(override, "pm/h-query/product-discovery") in saved
 
 
 def test_targeted_comparison_keeps_tie_incumbent_and_accepts_pareto_winner():
@@ -306,13 +302,12 @@ def test_targeted_comparison_keeps_tie_incumbent_and_accepts_pareto_winner():
     initial = runner.validate_v2_sections(initial_sections, override, _scorer(VALID_SELECTION))
 
     challenger_selection = dict(VALID_SELECTION)
-    challenger_selection["GOJEK"] = (
-        "G-PRICING-canonical-closed-loop",
-        "G-LATENCY-studyfetch-readable-tradeoff",
-        "G-SUPPLY-C2-contract-design",
+    challenger_selection["HEVO DATA"] = (
+        "H-BATCHSHIFT-canonical-trial-trigger",
+        "pm/h-query/product-discovery",
     )
     challenger_selection["OPTUM"] = (
-        "O-AFFORDABILITY-prototype-clinical-approval",
+        "O-PROVIDER-amazon-schema-integration",
     )
     challenger_sections = runner.extract_sections(
         _raw_selection(override, challenger_selection)
@@ -329,12 +324,12 @@ def test_targeted_comparison_keeps_tie_incumbent_and_accepts_pareto_winner():
     scope = {
         "must_replace": [
             {
-                "company": "GOJEK",
-                "index": 3,
-                "variant_id": "G-SUPPLY-canonical-operating-model",
-                "score": 7.0,
-                "failure_mode": "READABILITY_FAILURE",
-                "note": "too many clauses",
+                "company": "HEVO DATA",
+                "index": 2,
+                "variant_id": "H-MONITORING-canonical-ai-boundary",
+                "score": 8.0,
+                "failure_mode": "NONE",
+                "note": "admissible incumbent used to test a mixed tradeoff",
             },
             {
                 "company": "OPTUM",
@@ -357,10 +352,10 @@ def test_targeted_comparison_keeps_tie_incumbent_and_accepts_pareto_winner():
     result = {
         "comparisons": [
             {
-                "company": "GOJEK",
-                "index": 3,
-                "incumbent_variant_id": "G-SUPPLY-canonical-operating-model",
-                "challenger_variant_id": "G-SUPPLY-C2-contract-design",
+                "company": "HEVO DATA",
+                "index": 2,
+                "incumbent_variant_id": "H-MONITORING-canonical-ai-boundary",
+                "challenger_variant_id": "pm/h-query/product-discovery",
                 "incumbent_critical": critical(),
                 "challenger_critical": critical(),
                 "incumbent_rank": ranks(4, 4, 4, 4, 4),
@@ -371,7 +366,7 @@ def test_targeted_comparison_keeps_tie_incumbent_and_accepts_pareto_winner():
                 "company": "OPTUM",
                 "index": 1,
                 "incumbent_variant_id": "O-SAFE-ACTION-flag-suggest-stop",
-                "challenger_variant_id": "O-AFFORDABILITY-prototype-clinical-approval",
+                "challenger_variant_id": "O-PROVIDER-amazon-schema-integration",
                 "incumbent_critical": critical(),
                 "challenger_critical": critical(),
                 "incumbent_rank": ranks(3, 3, 3, 3, 3),
@@ -396,9 +391,47 @@ def test_targeted_comparison_keeps_tie_incumbent_and_accepts_pareto_winner():
     )
 
     assert errors == []
-    assert decisions == {("GOJEK", 3): "incumbent", ("OPTUM", 1): "challenger"}
-    assert "Redesigned Gojek's fleet supply contract" in final_sections["experience_section"]
-    assert "Prototyped an ML-based affordability engine" in final_sections["experience_section"]
+    assert decisions == {("HEVO DATA", 2): "incumbent", ("OPTUM", 1): "challenger"}
+    assert "turned alert storms into single incident cards" in final_sections["experience_section"]
+    assert "schema mismatch between legacy XML" in final_sections["experience_section"]
+
+
+def test_targeted_comparison_cannot_preserve_a_hard_failed_incumbent():
+    pair = {
+        "company": "HEVO DATA",
+        "index": 3,
+        "incumbent_variant_id": "weak",
+        "challenger_variant_id": "strong",
+        "incumbent_scorer_diagnostic": {
+            "score": 5.0,
+            "failure_mode": "WRONG_ARCHETYPE",
+            "note": "The opener obscures the actual action.",
+        },
+    }
+    critical = {name: True for name in runner._V2_PAIRWISE_CRITICAL_KEYS}
+    result = {
+        "comparisons": [
+            {
+                **{key: pair[key] for key in (
+                    "company", "index", "incumbent_variant_id", "challenger_variant_id"
+                )},
+                "incumbent_critical": critical,
+                "challenger_critical": critical,
+                "incumbent_rank": dict(zip(runner._V2_PAIRWISE_RANK_KEYS, (4, 2, 2, 4, 2))),
+                "challenger_rank": dict(zip(runner._V2_PAIRWISE_RANK_KEYS, (3, 4, 4, 3, 4))),
+                "rationale": "The challenger trades some criterion specificity for a complete action and outcome.",
+            }
+        ],
+        "final_page_checks": {
+            name: True for name in runner._V2_PAIRWISE_PAGE_KEYS
+        },
+        "page_rationale": "The admitted challenger clears every page veto.",
+    }
+
+    decisions, errors = runner._decide_v2_targeted_comparison(result, [pair])
+
+    assert errors == []
+    assert decisions == {("HEVO DATA", 3): "challenger"}
 
 
 def test_targeted_comparison_fails_closed_on_page_regression():

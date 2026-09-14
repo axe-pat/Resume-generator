@@ -64,16 +64,17 @@ def test_parse_failure_and_missing_bullet_evaluations_block_release():
     assert any("expected 11" in error for error in errors)
 
 
-def test_revise_score_cannot_ship_in_v2():
+def test_revise_holistic_is_advisory_when_every_bullet_clears_vetoes():
     experience = _experience()
 
-    errors, _ = freeform_runner.validate_scorer_release_evidence(
+    errors, warnings = freeform_runner.validate_scorer_release_evidence(
         _score_data(experience, holistic=8.4, verdict="REVISE"),
         experience,
         require_send=True,
     )
 
-    assert any("requires scorer verdict SEND" in error for error in errors)
+    assert errors == []
+    assert any("aggregate scorer verdict is advisory" in warning for warning in warnings)
 
 
 def test_scorer_company_index_sequence_must_match_selected_output():

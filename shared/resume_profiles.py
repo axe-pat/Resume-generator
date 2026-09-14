@@ -686,7 +686,11 @@ PROFILE_REGISTRY: dict[str, ResumeProfile] = {
     "business-enterprise-leadership": _professional_profile(
         "business-enterprise-leadership",
         ProfileFamily.BUSINESS_LEADERSHIP,
-        (2, 2, 2, 2, 2),
+        # Preserve Optum as career-continuity proof rather than forcing a
+        # second, older story onto every enterprise-leadership page.  The
+        # recovered slot belongs to Gojek, the strongest recent source of
+        # strategy, pricing, marketplace, and operating-model evidence.
+        (2, 3, 2, 2, 1),
         identity_heading="STRATEGY & OPERATIONS",
         funded_summary_identities=_ENTERPRISE_SUMMARY_IDENTITIES,
         summary_mode=SummaryMode.REQUIRED,
@@ -767,7 +771,10 @@ PROFILE_REGISTRY: dict[str, ResumeProfile] = {
     "customer-technical-client-value": _professional_profile(
         "customer-technical-client-value",
         ProfileFamily.CUSTOMER_TECHNICAL,
-        (2, 2, 2, 2, 2),
+        # Client-value pages keep one Optum integration proof and fund a third
+        # Hevo story, where the bank has deeper enterprise implementation,
+        # platform, and customer-adoption evidence.
+        (2, 2, 3, 2, 1),
         identity_heading="TECHNICAL SOLUTIONS",
         funded_summary_identities=_TECHNICAL_SUMMARY_IDENTITIES,
         summary_mode=SummaryMode.REQUIRED,

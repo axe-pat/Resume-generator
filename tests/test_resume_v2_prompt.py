@@ -79,10 +79,10 @@ def test_nonpm_profiles_inherit_the_pm_flairx_two_to_three_contract():
     expected_allocations = {
         "business-enterprise-leadership": {
             "FLAIRX AI": 2,
-            "GOJEK": 2,
+            "GOJEK": 3,
             "HEVO DATA": 2,
             "INTUIT": 2,
-            "OPTUM": 2,
+            "OPTUM": 1,
         },
         "business-operations-leadership": {
             "FLAIRX AI": 2,
@@ -102,6 +102,35 @@ def test_nonpm_profiles_inherit_the_pm_flairx_two_to_three_contract():
         assert (flairx.minimum, flairx.target, flairx.maximum) == (2, 2, 3)
         assert "A third FlairX bullet is permitted only" in override.tail
         assert validate_prompt_override(override) == []
+
+
+def test_reviewed_bank_exposes_canonical_defaults_as_quality_incumbents():
+    bank = load_reviewed_prompt_bank()
+    family_map = bank.family_map()
+
+    expected = {
+        "G-SUPPLY": "G-SUPPLY-canonical-operating-model",
+        "G-PRICING": "G-PRICING-canonical-closed-loop",
+        "G-LATENCY": "G-LATENCY-studyfetch-readable-tradeoff",
+        "H-BATCHSHIFT": "H-BATCHSHIFT-canonical-trial-trigger",
+        "H-MONITORING": "H-MONITORING-canonical-ai-boundary",
+        "I-BILLING": "I-BILLING-canonical-renewal-integrity",
+        "I-GOVERNANCE": "I-GOVERNANCE-canonical-risk-sequencing",
+        "I-INCIDENT": "I-INCIDENT-canonical-parallel-recovery",
+        "O-AFFORDABILITY": "O-SAFE-ACTION-flag-suggest-stop",
+        "O-PROVIDER": "O-PROVIDER-amazon-schema-integration",
+    }
+    for family, variant_id in expected.items():
+        selectable = family_map[family]
+        assert [item.variant_id for item in selectable] == [variant_id]
+        assert selectable[0].canonical_default is True
+
+    override = build_pass1_prompt_override(
+        {}, explicit_profile="business-enterprise-leadership"
+    )
+    assert "canonical_default=yes" in override.tail
+    assert "Archived sibling framings are intentionally" in override.tail
+    assert "must begin with a distinct opening word" in override.tail
 
 
 def test_reviewed_bank_has_complete_family_coverage_and_excludes_suppressed_variants():
@@ -439,6 +468,8 @@ def test_user_approved_flairx_nonpm_summaries_are_selectable_only_when_funded():
         for summary in override.eligible_summaries:
             if summary.candidate_id in expected_ids:
                 assert summary.selectability == "shipping"
+                evidence_sentence = summary.text.split(". ", 1)[1]
+                assert not evidence_sentence.startswith("At ")
                 assert all(
                     override.bank.family_map().get(story_family)
                     for story_family in summary.required_page_evidence

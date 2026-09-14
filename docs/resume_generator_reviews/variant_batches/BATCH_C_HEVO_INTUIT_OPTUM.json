@@ -168,6 +168,7 @@
       "approved_gold": ["I-INCIDENT-amazon-parallel-response"]
     },
     "O-AFFORDABILITY": {
+      "canonical_default_id": "O-SAFE-ACTION-flag-suggest-stop",
       "recommended_variants": [
         {
           "variant_id": "O-SAFE-ACTION-flag-suggest-stop",
@@ -213,6 +214,7 @@
       "approved_gold": []
     },
     "O-PROVIDER": {
+      "canonical_default_id": "O-PROVIDER-amazon-schema-integration",
       "recommended_variants": [
         {
           "variant_id": "O-INTEGRATION-FACTORY-reusable-core",

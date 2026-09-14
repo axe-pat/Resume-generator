@@ -33,6 +33,8 @@ reader reaches Experience.
 - Open with an identity funded by the assembly profile.
 - Use **identity + evidence anchors**, **identity + rare differentiator**, or
   **identity + repeated decision pattern**.
+- Once identity is established, lead the evidence sentence with the decision or work;
+  place company description afterward unless the setting is necessary to understand it.
 - Attach “five years” to the broad professional identity, not to a narrow domain
   evidenced by only one recent role.
 - Use only anchors selected elsewhere on the page; the summary cannot fund itself.
@@ -125,21 +127,21 @@ Each uses a descriptor that explains the relevant nature of FlairX without spend
 summary space on its location or asserting the unverified formal label `growth-stage`.
 The selector may use one only when the named FlairX family is also selected on-page.
 
-### Enterprise / strategy — requires `F-ENTERPRISE`, 276 characters
+### Enterprise / strategy — requires `F-ENTERPRISE`, 282 characters
 
-> Strategy and operations professional with five years turning ambiguous operating evidence into consequential business choices. At a growing AI hiring platform, reframed an enterprise policy objection as a product gap and led the two-week launch that unblocked $1.2M in pilots.
+> Strategy and operations professional with five years turning ambiguous operating evidence into consequential business choices. Reframed an enterprise hiring-policy objection as a product gap at a growing AI hiring platform, then led a two-week launch that unblocked $1.2M in pilots.
 
-### Operations / program — requires `F-OPS`, 295 characters
+### Operations / program — requires `F-OPS`, 294 characters
 
-> Operations and program leader with five years building the mechanisms that turn cross-functional ambiguity into reliable execution. At a founder-led AI hiring startup, converted account context into shared workflows that let Product and GTM act without routing routine decisions through the CEO.
+> Operations and program leader with five years building the mechanisms that turn cross-functional ambiguity into reliable execution. Converted founder-held account context into shared Product and GTM workflows at an AI hiring startup, removing the CEO as the routing point for routine decisions.
 
-### Customer integration — requires `F-CEIPAL`, 301 characters
+### Customer integration — requires `F-CEIPAL`, 298 characters
 
-> Customer-facing technologist with five years turning ambiguous workflows into deployed data and AI systems. At an enterprise AI hiring platform, re-scoped a blocked ATS integration into a pull-first product that removed roughly 80% of duplicate recruiter entry and retained its highest-volume account.
+> Customer-facing technologist with five years turning ambiguous workflows into deployed data and AI systems. Re-scoped a blocked ATS integration into a pull-first product at an enterprise AI hiring platform, removing roughly 80% of duplicate recruiter entry and retaining its highest-volume account.
 
-### AI workflow — requires `F-ENTERPRISE`, 273 characters
+### AI workflow — requires `F-ENTERPRISE`, 287 characters
 
-> Technical solutions leader with five years translating workflow constraints into deployable data and AI systems. At an AI-native hiring platform, turned an enterprise hiring-policy objection into privacy-safe scheduling and transcript-grounded scoring shipped in two weeks.
+> Technical solutions leader with five years translating workflow constraints into deployable data and AI systems. Turned an enterprise hiring-policy objection into privacy-safe scheduling and transcript-grounded scoring at an AI-native hiring platform, shipping the workflow in two weeks.
 
 ## Campus candidates — review only
 
