@@ -117,6 +117,34 @@ python run_app.py McKinsey --track nonpm --resume-only
 # Note: if --track is omitted, the runner auto-detects nonpm from role_family in strategy.json
 ```
 
+### Unattended v2 batch (routine production command)
+
+Run this from the repository root, then leave it alone. It routes each JD to the
+appropriate PM/NONPM profile, uses Cursor Auto for basic stages and Grok 4.6 High
+for semantic stages, runs three applications concurrently, and publishes DOCX/PDF
+files only after the v2 release gates pass. Existing generated applications are
+skipped unless `--force` is added.
+
+```bash
+RESUME_GENERATOR_MODE=v2 \
+RESUME_V2_SUMMARY_SELECTOR=apply \
+RESUME_V2_SKILLS_SELECTOR=apply \
+venv/bin/python jobs.py generate \
+  --queue \
+  --resume-only \
+  --provider cursor \
+  --cursor-routing hybrid \
+  --cursor-hard-model cursor-grok-4.6-high \
+  --no-smart-cost \
+  --parallel 3
+```
+
+Use `--limit 20` for the first twenty pending entries, `--offset 20 --limit 20`
+for the next twenty, or omit both flags for the entire current queue. Add
+`--exclude-companies IBM` (comma-separated names are supported) when needed.
+Per-application output is written to `logs/`; the batch exits nonzero if any job
+fails, while successful jobs remain available in their application folders.
+
 **Parallelization:** when both resume and CL are enabled (`run_app.py` default, or `jobs.py generate --with-cl`), `run_app.py` runs them in parallel after the shared strategy step, saving ~1–1.5 min per application. Output is buffered per-thread and printed sequentially (resume first, then CL) so the terminal is never garbled.
 
 **Auto-logging:** every `run_app.py` run writes a plain-text log to `logs/run_app_<Company>_YYYYMMDD_HHMMSS.txt` at the project root. ANSI colour codes are stripped so logs are readable without a terminal. The path is printed at the end of each run. Resume, CL, and shared strategy API calls now also log their elapsed time, which makes slow-run diagnosis much easier.
