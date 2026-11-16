@@ -566,6 +566,9 @@ combined command shares a 30-minute daily or 90-minute weekly wall-clock budget.
 Its planner uses `--current-hiring-only`: closed, Fall-2026 and older-than-30-day
 openings no longer add current-hiring credit; company/relationship fit remains.
 The preview explicitly reports collection gaps even when planning succeeds.
+Its learning briefs render sourced company facts, business models, fit hypotheses,
+people/skills to investigate and contribution ideas. The internal live inbox
+artifact is attached automatically, with per-thread sender and capture confidence.
 
 Run from this project directory with `venv/bin/python discovery/scripts/run_bounded_discovery.py --window 7d --run-id <unique-id>`
 for a 90-minute weekly ceiling, or `--window 24h` for a 30-minute daily ceiling.

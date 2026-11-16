@@ -981,6 +981,10 @@ Profile batches contain three people, completed batches survive later timeouts,
 and recent checks are reused for 20 hours. Inbox and profile budgets are separate.
 The combined runner shares one overall 30/90-minute budget with discovery and
 marks an output with collection failures as `preview_with_gaps`.
+Company learning uses the same selected companies as the outreach worklist and
+renders source/date, business model, fit, skills, recipient focus and contribution
+hypotheses from verified tracker context. The live inbox artifact is attached
+internally for conversation chronology; reading is not assigned to the user.
 
 Daily LinkedIn searches alternate graduate, Spring and MBA coverage immediately.
 Each query receives a time share and at most four admitted JDs (weekly: twelve).
