@@ -89,3 +89,10 @@ docs/interview_prep/
 docs/career_workbench/interview_prep/private/
 
 .cursor/
+
+# Local recruiting captures, previews and tracker recovery copies
+artifacts/
+tmp/
+discovery/.tracker_backups/
+discovery/*.bak
+discovery/*.bak.*

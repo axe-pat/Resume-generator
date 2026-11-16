@@ -24,6 +24,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from shared.job_eligibility import classify_discovery_job_offline  # noqa: E402
+import jobs  # noqa: E402
 
 
 def _clean(value: Any) -> Any:
@@ -136,6 +137,60 @@ def replay(path: Path = JOBS_XLSX) -> dict[str, Any]:
     return report
 
 
+def write_replay(path: Path, report: dict[str, Any]) -> dict[str, int]:
+    """Persist deterministic metadata and stop ineligible rows from queueing."""
+    frame = pd.read_excel(path, sheet_name="Jobs", dtype=str).fillna("")
+    by_excel_row = {int(row["excel_row"]): row for row in report["rows"]}
+    terminal = {"applied", "closed", "parked", "rejected", "skip", "skipped"}
+    counts = Counter()
+
+    for zero_index in range(len(frame)):
+        replay_row = by_excel_row[zero_index + 2]
+        classification = str(replay_row["classification"])
+        for column in (
+            "lane",
+            "deadline",
+            "deadline_source",
+            "everify_status",
+            "sponsorship_flag",
+            "classification",
+            "reject_reason",
+        ):
+            if column in frame.columns:
+                frame.at[zero_index, column] = replay_row.get(column, "")
+
+        current_status = str(frame.at[zero_index, "status"] or "").strip().lower()
+        if current_status in terminal:
+            continue
+        if classification == "reject" and current_status in {
+            "new",
+            "review",
+            "queued",
+            "promoted",
+            "generated",
+            "error",
+        }:
+            frame.at[zero_index, "status"] = "skipped"
+            counts["status_to_skipped"] += 1
+        elif classification == "unsure" and current_status in {
+            "new",
+            "queued",
+            "promoted",
+            "generated",
+            "error",
+        }:
+            frame.at[zero_index, "status"] = "review"
+            counts["status_to_review"] += 1
+
+    if path.resolve() == JOBS_XLSX.resolve():
+        with jobs.XlsxLock():
+            jobs.save_jobs(frame)
+    else:
+        frame.to_excel(path, sheet_name="Jobs", index=False)
+    counts["rows_written"] = len(frame)
+    return dict(counts)
+
+
 def _markdown(report: dict[str, Any]) -> str:
     split = report["classification_split"]
     lines = [
@@ -192,6 +247,11 @@ def main() -> int:
     parser.add_argument("--workbook", type=Path, default=JOBS_XLSX)
     parser.add_argument("--output-json", type=Path, default=None)
     parser.add_argument("--output-md", type=Path, default=None)
+    parser.add_argument(
+        "--write",
+        action="store_true",
+        help="Persist replay metadata and move rejected/unsure active rows out of the apply queue.",
+    )
     args = parser.parse_args()
 
     report = replay(args.workbook)
@@ -203,6 +263,8 @@ def main() -> int:
     output_json.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
     output_md.write_text(_markdown(report), encoding="utf-8")
 
+    write_summary = write_replay(args.workbook, report) if args.write else {}
+
     print(json.dumps({
         "row_count": report["row_count"],
         "classification_split": report["classification_split"],
@@ -211,6 +273,7 @@ def main() -> int:
         "unsure_count": len(report["unsure_review"]),
         "output_json": str(output_json),
         "output_md": str(output_md),
+        "write_summary": write_summary,
     }, indent=2))
     return 0
 

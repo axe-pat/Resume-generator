@@ -64,7 +64,7 @@ def test_jobspy_query_packs_preserve_lane_a_and_add_all_lane_b_families() -> Non
     }
 
 
-def test_scheduled_jobspy_lane_is_demoted_to_lane_a_without_deleting_lane_b() -> None:
+def test_scheduled_jobspy_is_full_time_first_with_one_spring_query() -> None:
     from discovery.auto import scraper
     from discovery.scripts import run_daily_engine
 
@@ -74,11 +74,14 @@ def test_scheduled_jobspy_lane_is_demoted_to_lane_a_without_deleting_lane_b() ->
     lane_b_indices = {
         index for index, query in enumerate(scraper.QUERIES) if query["lane"] == "B"
     }
-    assert set(run_daily_engine.DAILY_JOBSPY_QUERY_INDICES) == lane_a_indices
-    assert set(run_daily_engine.WEEKLY_JOBSPY_QUERY_INDICES) == lane_a_indices
-    assert lane_b_indices
-    assert lane_b_indices.isdisjoint(run_daily_engine.DAILY_JOBSPY_QUERY_INDICES)
-    assert lane_b_indices.isdisjoint(run_daily_engine.WEEKLY_JOBSPY_QUERY_INDICES)
+    daily = set(run_daily_engine.DAILY_JOBSPY_QUERY_INDICES)
+    weekly = set(run_daily_engine.WEEKLY_JOBSPY_QUERY_INDICES)
+    assert weekly == {24, 39, 41, 51}
+    assert weekly <= lane_b_indices
+    assert not weekly & lane_a_indices
+    assert daily & lane_a_indices == {0}
+    assert len(daily & lane_b_indices) == 12
+    assert scraper.QUERIES[0]["search_term"] == "Product Manager Intern Spring 2027"
     assert run_daily_engine.WEEKLY_JOBSPY_RESULTS == 60
 
 
@@ -166,7 +169,7 @@ def test_start_timing_rejects_2027_internships_and_bare_years() -> None:
         "Solutions Engineer", "Copyright 2027. This is a full-time role.", "B"
     )
     assert rejected
-    assert "no explicit new-grad" in reason
+    assert "no explicit 2027 eligibility" in reason
 
     rejected, reason = pre_filter_discovery_timing(
         "Solutions Engineer", "Immediate start; full-time.", "B"
@@ -366,7 +369,7 @@ role_type: Solutions"""
     result = scorer.score_job(
         {
             "company": "Example",
-            "role_title": "Technical Sales Engineer - Graduate Rotational Program",
+            "role_title": "Technical Sales Engineer - Graduate Rotational Program 2027",
             "lane": "B",
             "jd_text": (
                 "This is a full-time graduate rotational program for 2027 graduates. "
@@ -421,7 +424,7 @@ role_type: Solutions""",
     result = scorer.score_job(
         {
             "company": "AMD",
-            "role_title": "Technical Sales Engineer - Graduate Rotational Program",
+            "role_title": "Technical Sales Engineer - Graduate Rotational Program 2027",
             "lane": "B",
             "jd_text": (
                 "Entry-level graduate rotational program. Engage directly with customers to identify "
@@ -477,7 +480,7 @@ role_type: Solutions""",
     result = scorer.score_job(
         {
             "company": "AMD",
-            "role_title": "Technical Sales Engineer - Graduate Rotational Program",
+            "role_title": "Technical Sales Engineer - Graduate Rotational Program 2027",
             "lane": "B",
             "jd_text": (
                 "Entry-level graduate rotational program for driven graduates, with customer "
@@ -562,7 +565,7 @@ def test_lane_c_uses_pay_and_shift_gate_without_pm_scoring() -> None:
     assert kept["fit_score"] is None
     assert kept["category"] == "Income Now"
 
-    below_floor = score_job(
+    below_old_floor = score_job(
         {
             "company": "USC",
             "role_title": "Teaching Assistant",
@@ -576,8 +579,8 @@ def test_lane_c_uses_pay_and_shift_gate_without_pm_scoring() -> None:
         scorer_text="unused",
         verbose=False,
     )
-    assert below_floor["decision"] == "Reject"
-    assert "hourly floor" in below_floor["rejection_reason"]
+    assert below_old_floor["decision"] == "Proceed"
+    assert "stated hourly pay is $19-$25" in below_old_floor["fit_rationale"]
 
     shift = score_job(
         {
@@ -713,7 +716,7 @@ def test_september_2026_intern_start_is_lane_a_eligible() -> None:
     assert reason == ""
 
 
-def test_cohorted_program_with_june_july_start_is_lane_b_eligible() -> None:
+def test_cohorted_program_without_a_year_needs_timing_review() -> None:
     from shared.job_eligibility import pre_filter_discovery_timing
 
     rejected, reason = pre_filter_discovery_timing(
@@ -725,8 +728,8 @@ def test_cohorted_program_with_june_july_start_is_lane_b_eligible() -> None:
         "B",
     )
 
-    assert rejected is False
-    assert reason == ""
+    assert rejected is True
+    assert "timing unconfirmed" in reason
 
 
 def test_lane_c_keep_reaches_queue_without_fabricated_fit_score() -> None:
@@ -842,8 +845,23 @@ def test_generic_software_engineering_stays_out_but_technical_gtm_is_in() -> Non
     assert classify_title("Software Engineer, New Grad 2027")[0] is False
     assert classify_title("Associate Product Manager, 2027 Graduates")[0] is True
     assert classify_title("Associate Product Manager")[0] is True
-    assert classify_title("Forward Deployed Engineer")[0] is False
+    # A card without graduation wording still needs its JD checked.
+    assert classify_title("Forward Deployed Engineer")[0] is True
     assert classify_title("Senior Product Manager, AI Platform")[0] is False
+    assert classify_title("Product Management Intern", "Product Manager Intern")[0] is False
+    assert classify_title(
+        "Product Management Intern - Fall 2026",
+        "Product Manager Intern Fall 2026",
+    )[0] is False
+    assert classify_title(
+        "Product Management Intern - Spring 2027",
+        "Product Manager Intern Spring 2027",
+    ) == (True, "off_cycle_internship_title")
+    assert classify_title(
+        "2027 Product Management Summer Intern",
+        "Product Manager Intern Spring 2027",
+    ) == (False, "lane_a_2027_internship_title")
+    assert classify_title("2027 Product Management Summer Intern", "APM 2027")[0] is False
     for title in (
         "Associate Application Consultant 2027",
         "Delivery Consultant - Entry Level Sales Program 2027",
@@ -1051,10 +1069,84 @@ def test_product_management_graduate_is_actionable_and_broad_program_is_reviewed
     )
 
     assert product["lane"] == "B"
-    assert product["classification"] == "keep"
+    assert product["classification"] == "unsure"
+    assert "timing unconfirmed" in product["reject_reason"]
     assert broad["lane"] == "B"
     assert broad["classification"] == "unsure"
-    assert "JD review required" in broad["reject_reason"]
+    assert "timing unconfirmed" in broad["reject_reason"]
+
+
+def test_bare_new_grad_language_does_not_prove_may_2027_compatibility() -> None:
+    from shared.job_eligibility import (
+        classify_discovery_job_offline,
+        classify_start_timing,
+        evaluate_discovery_timing,
+    )
+
+    title = "Associate Product Manager - New Grad"
+    jd = "Full-time early-career role for recent graduates."
+
+    assert classify_start_timing(title, jd) == "new_grad_timing_unconfirmed"
+    disposition, reason = evaluate_discovery_timing(title, jd, "B")
+    assert disposition == "unsure"
+    assert "June-2027-or-later" in reason
+    classified = classify_discovery_job_offline(
+        {"company": "Example", "role_title": title, "jd_text": jd, "lane": "B"}
+    )
+    assert classified["classification"] == "unsure"
+
+
+def test_strict_entry_level_experience_range_rejects_five_year_candidate() -> None:
+    from shared.job_eligibility import classify_discovery_job_offline
+
+    classified = classify_discovery_job_offline(
+        {
+            "company": "JUSPAY",
+            "role_title": "Forward Deployed Product Manager",
+            "jd_text": (
+                "Strong new grads are encouraged. Bachelor's in Computer Science or Engineering. "
+                "0–2 years of experience in product management or software engineering."
+            ),
+            "lane": "B",
+        }
+    )
+
+    assert classified["classification"] == "reject"
+    assert "0–2 years" in classified["reject_reason"]
+    assert "candidate has 5" in classified["reject_reason"]
+
+    celonis = classify_discovery_job_offline(
+        {
+            "company": "Celonis",
+            "role_title": "Associate Value Engineer - Orbit Graduate Program",
+            "jd_text": (
+                "Cohort starts in June or July. Extensive internship experience or "
+                "1-3 years of full-time work experience."
+            ),
+            "lane": "B",
+        }
+    )
+    assert celonis["classification"] == "reject"
+    assert "1–3 years" in celonis["reject_reason"]
+
+
+def test_current_undergraduate_only_internship_rejects_mba_candidate() -> None:
+    from shared.job_eligibility import classify_discovery_job_offline
+
+    classified = classify_discovery_job_offline(
+        {
+            "company": "Bestow",
+            "role_title": "Business Operations and AI Intern",
+            "jd_text": (
+                "Fall 2026 internship. Currently pursuing an undergraduate degree; "
+                "interested in strategy and operations."
+            ),
+            "lane": "A",
+        }
+    )
+
+    assert classified["classification"] == "reject"
+    assert "current undergraduate" in classified["reject_reason"]
 
 
 def test_scraper_checkpoints_each_query_and_skips_timeout(tmp_path, monkeypatch) -> None:
@@ -1225,16 +1317,294 @@ def test_full_time_explicit_experience_caps_are_hard_rejects() -> None:
         assert "explicit experience cap" in reason
         assert "candidate has 5" in reason
 
+    rejected, reason = pre_filter_full_time_level(
+        "Associate Product Manager",
+        "Less than 6 months of relevant work experience with a Bachelor's or Master's degree.",
+    )
+    assert rejected
+    assert "<6 months" in reason
+    assert "candidate has 60" in reason
+
 
 def test_experience_cap_rule_stays_conservative_and_preserves_internships() -> None:
     from shared.job_eligibility import pre_filter_full_time_level
 
-    # A level range is not automatically a hard maximum unless the posting says so.
-    assert pre_filter_full_time_level(
+    # A stated full-time range is an eligibility range, not merely a preference.
+    rejected, reason = pre_filter_full_time_level(
         "Associate Value Engineer - Orbit Program",
         "Extensive internship experience or 1-3 years of full-time work experience.",
-    ) == (False, "")
+    )
+    assert rejected
+    assert "1–3 years" in reason
     assert pre_filter_full_time_level(
         "Product Manager Intern",
         "Applicants should have up to 1 year of related experience.",
     ) == (False, "")
+
+
+def test_lane_a_rejects_2027_date_ranges_and_for_the_summer_wording() -> None:
+    from shared.job_eligibility import evaluate_discovery_timing
+
+    assert evaluate_discovery_timing(
+        "Retail Media Product Manager Intern",
+        "Applicants must be available from May 24, 2027, through August 13, 2027.",
+        "A",
+    )[0] == "reject"
+    assert evaluate_discovery_timing(
+        "Business Operations, MBA Intern",
+        "As our MBA intern, you'll get a real piece of that work for the summer.",
+        "A",
+    )[0] == "reject"
+
+
+def test_candidate_background_gate_catches_bachelor_only_and_specific_degree_lists() -> None:
+    from shared.job_eligibility import (
+        pre_filter_candidate_education,
+        review_candidate_language,
+    )
+
+    rejected, reason = pre_filter_candidate_education(
+        "Leadership Development Program 2027",
+        "You should be a student completing a Bachelor’s degree, graduating between December 2026 and May 2027.",
+    )
+    assert rejected
+    assert "MBA student" in reason
+
+    rejected, reason = pre_filter_candidate_education(
+        "Operations Leadership Development Program Associate",
+        "Minimum Requirement: Bachelor’s Degree in Engineering (Chemical, Mechanical, Electrical & Industrial).",
+    )
+    assert rejected
+    assert "Computer Engineering" in reason
+
+    assert pre_filter_candidate_education(
+        "Graduate Rotational Program",
+        "Bachelor's degree in Chemical, Electrical, Computer Engineering, or a related field.",
+    ) == (False, "")
+
+    needs_review, reason = review_candidate_language(
+        "Product Manager Project Intern",
+        "Fluency in both English and Mandarin required.",
+    )
+    assert needs_review
+    assert "Mandarin" in reason
+
+
+def test_offline_replay_never_keeps_a_role_without_a_full_jd() -> None:
+    from shared.job_eligibility import classify_discovery_job_offline
+
+    classified = classify_discovery_job_offline(
+        {
+            "role_title": "Leadership Development Program (Starts June 2027)",
+            "jd_text": "",
+            "lane": "B",
+        }
+    )
+    assert classified["classification"] == "unsure"
+    assert "Full JD unavailable" in classified["reject_reason"]
+
+
+def test_real_world_spring_internship_and_permanent_work_wording() -> None:
+    from shared.job_eligibility import (
+        classify_discovery_job_offline,
+        classify_start_timing,
+        evaluate_discovery_timing,
+    )
+
+    spring = classify_discovery_job_offline(
+        {
+            "role_title": "Product Development Intern",
+            "jd_text": "This internship will run for the Winter - Spring 2027 semester, beginning in January 2027.",
+            "lane": "A",
+        }
+    )
+    assert classify_start_timing(
+        "Product Development Intern",
+        "This internship will run for the Winter - Spring 2027 semester, beginning in January 2027.",
+    ) == "spring_2027_internship"
+    assert evaluate_discovery_timing(
+        "Product Development Intern",
+        "This internship will run for the Winter - Spring 2027 semester, beginning in January 2027.",
+        "A",
+    ) == ("keep", "")
+    # Timing is supported; the ordinary role-surface gate can still reject a
+    # vague product-development title for lacking PM/strategy/ops evidence.
+    assert spring["classification"] == "reject"
+    assert "Timing reject" not in spring["reject_reason"]
+
+    authorization = classify_discovery_job_offline(
+        {
+            "role_title": "AI Business Analyst Intern",
+            "jd_text": "A minimum requirement is the ability to work legally in the United States on a permanent basis.",
+            "lane": "A",
+        }
+    )
+    assert authorization["classification"] == "reject"
+    assert "Immigration hard reject" in authorization["reject_reason"]
+
+
+def test_publishing_graduate_program_is_targeted_but_fpa_is_not() -> None:
+    from shared.job_eligibility import classify_discovery_job_offline
+
+    publishing = classify_discovery_job_offline(
+        {
+            "role_title": "Publishing Graduate Program",
+            "jd_text": "The program starts in July 2027 with rotations across product, growth strategy, and analytics.",
+            "lane": "B",
+        }
+    )
+    assert publishing["classification"] == "keep"
+
+    finance = classify_discovery_job_offline(
+        {
+            "role_title": "2027 Launch Graduate Program: FP&A Analyst",
+            "jd_text": "The full-time cohort begins in June 2027.",
+            "lane": "B",
+        }
+    )
+    assert finance["classification"] == "reject"
+    assert "finance role" in finance["reject_reason"]
+
+
+def test_post_may_graduation_window_and_comma_date_range_reject() -> None:
+    from shared.job_eligibility import classify_discovery_job_offline
+
+    porsche = classify_discovery_job_offline(
+        {
+            "role_title": "Strategy, Products and Services Intern",
+            "jd_text": "Assignment duration: March, 2027- September, 2027.",
+            "lane": "A",
+        }
+    )
+    assert porsche["classification"] == "reject"
+    assert "2027 internship" in porsche["reject_reason"]
+
+    converse = classify_discovery_job_offline(
+        {
+            "role_title": "Strategic Planning Graduate Internship",
+            "jd_text": "Enrolled in an MBA program with an expected graduation date of December 2027 or Spring 2028.",
+            "lane": "A",
+        }
+    )
+    assert converse["classification"] == "reject"
+    assert "post-May-2027 graduation date" in converse["reject_reason"]
+
+    opengov = classify_discovery_job_offline(
+        {
+            "role_title": "Product Intern",
+            "jd_text": "The 10-week internship will run from June 7, 2027 through August 13, 2027.",
+            "lane": "A",
+        }
+    )
+    assert opengov["classification"] == "reject"
+    assert "2027 internship" in opengov["reject_reason"]
+
+
+def test_unspecified_lane_a_term_is_review_not_applyable() -> None:
+    from shared.job_eligibility import classify_discovery_job_offline
+
+    result = classify_discovery_job_offline(
+        {
+            "role_title": "Product Manager Intern",
+            "jd_text": "This internship offers product ownership and customer discovery.",
+            "lane": "A",
+        }
+    )
+    assert result["classification"] == "unsure"
+    assert "Fall 2026 or Spring 2027 term" in result["reject_reason"]
+
+
+def test_undergraduate_graduation_us_person_and_doe_citizenship_reject() -> None:
+    from shared.job_eligibility import classify_discovery_job_offline
+
+    undergrad = classify_discovery_job_offline(
+        {
+            "role_title": "Leadership Development Program - July 2027",
+            "jd_text": "Graduating with an undergraduate degree between Dec 2026 and June 2027.",
+            "lane": "B",
+        }
+    )
+    assert undergrad["classification"] == "reject"
+    assert "MBA student" in undergrad["reject_reason"]
+
+    us_person = classify_discovery_job_offline(
+        {
+            "role_title": "Operations Management Development Program - July 2027",
+            "jd_text": "Start date is July 2027. Must be a US Person.",
+            "lane": "B",
+        }
+    )
+    assert us_person["classification"] == "reject"
+    assert "Immigration hard reject" in us_person["reject_reason"]
+
+    citizenship = classify_discovery_job_offline(
+        {
+            "role_title": "Associate Program Manager",
+            "jd_text": "The cohort starts in July 2027. United States Citizenship required for a DOE clearance.",
+            "lane": "B",
+        }
+    )
+    assert citizenship["classification"] == "reject"
+    assert "Immigration hard reject" in citizenship["reject_reason"]
+
+
+def test_2027_coop_date_and_internal_agentic_engineering_reject() -> None:
+    from shared.job_eligibility import classify_discovery_job_offline
+
+    coop = classify_discovery_job_offline(
+        {
+            "role_title": "Marketing & Ops Analytics Co-Op",
+            "jd_text": "This opportunity runs from January 2027 through June 2027.",
+            "lane": "A",
+        }
+    )
+    assert coop["classification"] == "reject"
+    assert "2027 internship" in coop["reject_reason"]
+
+    internal_ai = classify_discovery_job_offline(
+        {
+            "role_title": "Agentic Engineer (New Grad)",
+            "jd_text": "Build internal AI agents with experienced software engineers; start in July 2027.",
+            "lane": "B",
+        }
+    )
+    assert internal_ai["classification"] == "reject"
+    assert "software engineering" in internal_ai["reject_reason"]
+
+
+def test_fall_enrollment_text_does_not_override_a_2027_coop_term() -> None:
+    from shared.job_eligibility import classify_discovery_job_offline
+
+    result = classify_discovery_job_offline(
+        {
+            "role_title": "Marketing & Ops Analytics Co-Op",
+            "jd_text": (
+                "This opportunity runs from January 2027 through June 2027. "
+                "Applicants must be currently enrolled, active students in Fall 2026."
+            ),
+            "lane": "A",
+        }
+    )
+    assert result["classification"] == "reject"
+    assert "2027 internship" in result["reject_reason"]
+
+
+def test_doe_phrase_requires_us_citizenship() -> None:
+    from shared.job_eligibility import pre_filter_immigration
+
+    rejected, reason = pre_filter_immigration(
+        "A DOE Q-level security clearance, which requires U.S. citizenship."
+    )
+    assert rejected
+    assert "Immigration hard reject" in reason
+
+
+def test_linkedin_jd_quality_rejects_short_boilerplate_and_cutoff_text() -> None:
+    from discovery.auto.linkedin_live import _jd_quality_issue
+
+    assert _jd_quality_issue(
+        "At Example, our mission matters. We are an equal opportunity employer."
+    ) == "too_short"
+    assert _jd_quality_issue(
+        "What you'll do\n" + ("Own product research and customer discovery. " * 20) + "Help scope which new"
+    ) == "truncated"

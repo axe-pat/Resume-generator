@@ -82,4 +82,15 @@ if [[ -n "${OWNER_TOKEN}" ]]; then
 fi
 CHROME_ARGS+=("${TARGET_URL}")
 
-open -na "Google Chrome" --args "${CHROME_ARGS[@]}"
+CHROME_APP="${LINKEDIN_CHROME_APP:-/Applications/Google Chrome.app}"
+if [[ -d "$CHROME_APP" ]]; then
+  if ! open -na "$CHROME_APP" --args "${CHROME_ARGS[@]}"; then
+    # Launch Services can fail even when the installed binary is executable.
+    # Retain exactly the approved profile and ownership arguments.
+    mkdir -p "$ROOT/auto/logs"
+    nohup "$CHROME_APP/Contents/MacOS/Google Chrome" "${CHROME_ARGS[@]}" \
+      >"$ROOT/auto/logs/chrome-launch.log" 2>&1 </dev/null &
+  fi
+else
+  open -na "Google Chrome" --args "${CHROME_ARGS[@]}"
+fi

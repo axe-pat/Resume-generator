@@ -11,6 +11,17 @@ DAILY_SCRIPT = ROOT / "discovery" / "scripts" / "run_daily_engine.py"
 NIGHTLY_SCRIPT = ROOT / "discovery" / "scripts" / "run_nightly_pipeline.py"
 
 
+def test_timeout_does_not_score_card_only_capture(tmp_path, monkeypatch):
+    daily = _load_script(DAILY_SCRIPT, "daily_card_only_timeout_test")
+    raw = tmp_path / "raw.json"
+    raw.write_text(json.dumps({"count_only": True, "cards": [{"jd_text": ""}]}))
+    monkeypatch.setattr(daily, "latest_since", lambda *args: raw)
+    def unexpected_score(*args, **kwargs):
+        raise AssertionError("Card-only capture must wait for hydration")
+    monkeypatch.setattr(daily, "run", unexpected_score)
+    assert daily.score_partial_linkedin_raw(0) is None
+
+
 def _load_script(path: Path, name: str):
     spec = importlib.util.spec_from_file_location(name, path)
     assert spec and spec.loader

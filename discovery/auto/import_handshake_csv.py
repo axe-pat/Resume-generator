@@ -42,8 +42,10 @@ from scorer import DEFAULT_MODEL, score_batch  # noqa: E402
 from shared.discovery_sources import min_apply_queue_score_for_row  # noqa: E402
 from shared.job_eligibility import (  # noqa: E402
     LANE_A,
+    LANE_B,
     LANE_C,
     annotate_discovery_job,
+    classify_start_timing,
     normalize_discovery_lane,
 )
 
@@ -59,11 +61,9 @@ DEFAULT_SEARCH_URL = (
     "jobType=3&sort=posted_date_desc&per_page=25&page=1"
 )
 HANDSHAKE_QUERY_PACKS = {
+    "B": ("Associate Product Manager 2027", "Business Operations New Grad 2027", "MBA Program 2027"),
     "A": (
-        "fall internship",
-        "product manager intern",
-        "strategy operations intern",
-        "technical program manager intern",
+        "product manager intern Spring 2027",
     ),
     "C": (
         "on-campus",
@@ -119,11 +119,16 @@ def _is_generic_link_text(value: str) -> bool:
     return normalized in GENERIC_LINK_TEXT
 
 
-def _handshake_title_prefilter_reason(job: CsvJob) -> str:
+def _handshake_title_prefilter_reason(job: CsvJob, lane: str = LANE_A) -> str:
+    if lane == LANE_B:
+        from discovery.scripts.select_linkedin_2027_candidates import classify_title
+        return "" if classify_title(job.role_title)[0] else "lane_b_title_mismatch"
     text = f"{job.company}\n{job.role_title}"
     for label, pattern in HANDSHAKE_TITLE_PREFILTERS:
         if pattern.search(text):
             return label
+    if classify_start_timing(job.role_title, "") != "spring_2027_internship":
+        return "lane_a_not_explicit_spring_2027"
     return ""
 
 
@@ -773,7 +778,9 @@ def _handshake_run_payload(
 def _refresh_queue() -> None:
     from discovery.scripts.refresh_current_apply_queue import main as refresh_main
 
-    refresh_main()
+    result = refresh_main([])
+    if result != 0:
+        raise RuntimeError(f"Apply queue refresh exited with {result}")
 
 
 def run(args: argparse.Namespace) -> int:
@@ -832,7 +839,7 @@ def run(args: argparse.Namespace) -> int:
             skipped.append({"url": item.url, "company": item.company, "role_title": item.role_title, "reason": "duplicate_in_csv"})
             continue
         if not args.no_title_prefilter and lane != LANE_C:
-            prefilter_reason = _handshake_title_prefilter_reason(item)
+            prefilter_reason = _handshake_title_prefilter_reason(item, lane)
             if prefilter_reason:
                 skipped.append(
                     {
@@ -1009,9 +1016,9 @@ def main() -> int:
     parser.add_argument("--csv", default=str(DEFAULT_CSV), help="Handshake CSV export path.")
     parser.add_argument(
         "--lane",
-        choices=(LANE_A, LANE_C),
+        choices=(LANE_A, LANE_B, LANE_C),
         default=LANE_A,
-        help="Handshake discovery lane: A for Fall 2026 internships, C for income-now roles.",
+        help="Handshake discovery lane: A for explicit Spring 2027 internships, C for income-now roles.",
     )
     parser.add_argument(
         "--search-url",
@@ -1063,6 +1070,8 @@ def main() -> int:
     )
     parser.add_argument("--quiet", action="store_true", help="Reduce scorer output.")
     args = parser.parse_args()
+    if args.lane == LANE_B and args.default_search and not args.search_url:
+        parser.error("Graduate lane requires a full-time saved-search URL; the internship default cannot be reused.")
     if args.default_search and not args.search_url:
         args.search_url = DEFAULT_SEARCH_URL
     return run(args)

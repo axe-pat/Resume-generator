@@ -8,6 +8,7 @@ import json
 import os
 import shutil
 import sys
+import uuid
 from collections import defaultdict
 from contextlib import contextmanager
 from datetime import date, datetime
@@ -31,6 +32,7 @@ from discovery.scripts.build_linkedin_apply_queue import (
     _load_blocklist,
 )
 from shared.discovery_sources import APPLY_QUEUE_SOURCES, min_apply_queue_score_for_row, queue_company_label
+from shared.job_eligibility import classify_discovery_job_offline
 
 APPS_DIR = ROOT / "apps"
 RUNS_DIR = APPS_DIR / "runs"
@@ -127,6 +129,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
             "Build and validate a disposable queue preview without syncing applied "
             "PDFs, writing jobs.xlsx, swapping queue directories, or deleting app dirs."
         ),
+    )
+    parser.add_argument(
+        "--preserve-existing-files", action="store_true",
+        help="Archive the complete previous queue and retain every top-level application directory; no cleanup.",
     )
     parser.add_argument(
         "--no-tracker-write",
@@ -410,9 +416,15 @@ def _update_folder_paths_locked(
     return changed
 
 
-def _swap_queue(staging_dir: Path) -> None:
+def _swap_queue(staging_dir: Path, *, preserve_existing: bool = False) -> None:
     """Atomically replace the live queue, restoring it if promotion fails."""
-    backup_dir = APPLY_QUEUES_DIR / ".current_apply_queue_prev"
+    if preserve_existing:
+        backup_dir = ARCHIVE_DIR / 'queue_refresh_backups' / (
+            datetime.now().strftime('%Y%m%d-%H%M%S') + '-' + uuid.uuid4().hex[:8]
+        )
+        backup_dir.parent.mkdir(parents=True, exist_ok=True)
+    else:
+        backup_dir = APPLY_QUEUES_DIR / ".current_apply_queue_prev"
     moved_current = False
     if backup_dir.exists():
         shutil.rmtree(backup_dir)
@@ -578,16 +590,41 @@ def _refresh_queue_locked(
     }
 
     df = tracker_df.copy()
+    # Only active candidates can enter this derived queue. Avoid reprocessing
+    # thousands of terminal historical rows on every refresh.
+    df = df[df["status"].isin(["queued", "promoted", "generated"]) | _lane_c_ready_mask(df)].copy()
+    # Re-evaluate every carry-over row against today's deterministic rules.
+    # A stale queued/generated status must not preserve a role whose timing,
+    # education, experience, immigration, or role-family eligibility no longer
+    # passes. This is an in-memory admission gate; tracker updates are handled by
+    # the explicit eligibility replay workflow.
+    for row_index, source_row in df.iterrows():
+        classified = classify_discovery_job_offline(source_row.fillna("").to_dict())
+        for column in (
+            "lane",
+            "start_timing",
+            "classification",
+            "reject_reason",
+            "deadline",
+            "deadline_source",
+            "everify_status",
+            "sponsorship_flag",
+        ):
+            if column in df.columns:
+                df.at[row_index, column] = classified.get(column, "")
     df = df[df["source"].isin(APPLY_QUEUE_SOURCES)].copy()
     df["fit_score_num"] = pd.to_numeric(df["fit_score"], errors="coerce")
     lane_c_ready = _lane_c_ready_mask(df)
     df = df[df["status"].isin(["queued", "promoted", "generated"]) | lane_c_ready].copy()
     df = df[~df.apply(_is_inactive_queue_row, axis=1)]
+    # An explicit stored rejection needs scoring/review before restoration.
+    stored_reject = tracker_df.get("classification", pd.Series("", index=tracker_df.index)).astype(str).str.casefold().eq("reject")
+    df = df[~df.index.isin(tracker_df.index[stored_reject])].copy()
     # Status and deterministic classification can drift in legacy rows. A row
     # explicitly classified as reject must never be made applyable merely
     # because an older status still says queued/generated.
     classification = df.get("classification", pd.Series("", index=df.index))
-    df = df[~classification.astype(str).str.casefold().eq("reject")].copy()
+    df = df[classification.astype(str).str.casefold().eq("keep")].copy()
     df["source_min_score"] = df.apply(
         lambda row: min_apply_queue_score_for_row(str(row.get("source") or ""), str(row.get("notes") or ""), MIN_SCORE),
         axis=1,
@@ -838,10 +875,11 @@ def _refresh_queue_locked(
 
     removed_dirs: list[Path] = []
     if not args.dry_run:
-        _swap_queue(staging_dir)
-        removed_dirs = _cleanup_redundant_top_level_dirs(
-            ready_entries + manual_entries
-        )
+        if getattr(args, 'preserve_existing_files', False):
+            _swap_queue(staging_dir, preserve_existing=True)
+        else:
+            _swap_queue(staging_dir)
+            removed_dirs = _cleanup_redundant_top_level_dirs(ready_entries + manual_entries)
 
     print(f"Queue: {QUEUE_DIR}{' [dry-run preview]' if args.dry_run else ''}")
     print(f"Latest discovery run: {latest_run_name or 'none'}")
@@ -880,7 +918,12 @@ def _run_refresh(args: argparse.Namespace) -> int:
                 )
 
     if QUEUE_TMP_DIR.exists():
-        shutil.rmtree(QUEUE_TMP_DIR)
+        if getattr(args, 'preserve_existing_files', False):
+            saved = ARCHIVE_DIR / 'queue_refresh_backups' / ('staging-' + uuid.uuid4().hex)
+            saved.parent.mkdir(parents=True, exist_ok=True)
+            QUEUE_TMP_DIR.rename(saved)
+        else:
+            shutil.rmtree(QUEUE_TMP_DIR)
     QUEUE_TMP_DIR.parent.mkdir(parents=True, exist_ok=True)
     try:
         with jobs.XlsxLock(timeout=0):

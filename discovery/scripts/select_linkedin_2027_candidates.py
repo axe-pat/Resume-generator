@@ -27,9 +27,17 @@ from discovery.auto.linkedin_live import (  # noqa: E402
     _searches_from_payload,
     cards_to_jobs,
 )
+import jobs as jobs_tracker  # noqa: E402
+from shared.discovery_search_policy import (  # noqa: E402
+    OFF_CYCLE_INTERNSHIP_SEARCHES,
+    discovery_priority,
+    internship_title_rejection,
+)
+from shared.job_eligibility import classify_start_timing, classify_role_surface  # noqa: E402
 
 
-INTERNSHIP_RE = re.compile(r"\b(?:intern(?:ship)?|co-?op|coop)\b", re.I)
+INTERNSHIP_RE = re.compile(r"\b(?:intern(?:ship)?s?|co-?ops?|coops?)\b", re.I)
+LANE_A_SEARCH_TERMS = {term.casefold() for term in OFF_CYCLE_INTERNSHIP_SEARCHES}
 TARGET_FAMILIES: tuple[tuple[str, re.Pattern[str]], ...] = (
     (
         "product",
@@ -85,7 +93,8 @@ TARGET_FAMILIES: tuple[tuple[str, re.Pattern[str]], ...] = (
 
 EARLY_CAREER_RE = re.compile(
     r"\b(?:2027\s+graduates?|class\s+of\s+2027|new\s+grad(?:uate)?|college\s+grad(?:uate)?|"
-    r"university\s+grad(?:uate)?|early\s+career|entry[- ]level|graduate\s+2027)\b",
+    r"university\s+grad(?:uate)?|early\s+career|entry[- ]level|graduate\s+2027|"
+    r"mba\s+full[- ]time\s+hire|full[- ]time\s+mba\s+hire)\b",
     re.I,
 )
 LATE_CAREER_RE = re.compile(
@@ -108,6 +117,9 @@ EARLY_PROGRAM_RE = re.compile(
     r"development\s+program|career\s+development\s+program)\b",
     re.I,
 )
+MBA_FULL_TIME_HIRE_RE = re.compile(
+    r"\b(?:mba\s+full[- ]time\s+hire|full[- ]time\s+mba\s+hire)\b", re.I
+)
 OBVIOUS_NOISE: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("finance", re.compile(r"\b(?:finance|financial|accounting|accountant|audit|tax|investment|banking|private\s+equity|asset\s+management|wealth\s+management|trading|trader|quant(?:itative)?|treasury|credit\s+analyst)\b", re.I)),
     ("consulting", re.compile(r"\b(?:management|strategy|business)\s+consultant\b|\b(?:consulting\s+associate|associate\s+consultants?|consulting\s+analyst|associates?\s+and\s+consultants?)\b", re.I)),
@@ -124,25 +136,54 @@ OBVIOUS_NOISE: tuple[tuple[str, re.Pattern[str]], ...] = (
 )
 
 
-def classify_title(title: str) -> tuple[bool, str]:
+def classify_title(title: str, search_term: str = "") -> tuple[bool, str]:
     title = str(title or "").strip()
     if not title:
         return False, "missing_title"
+    if internship_title_rejection(title):
+        if str(search_term or "").strip().casefold() in LANE_A_SEARCH_TERMS and re.search(r"\b2027\b", title):
+            return False, "lane_a_2027_internship_title"
+        return False, "ineligible_internship_title:" + internship_title_rejection(title)
     if INTERNSHIP_RE.search(title):
+        # The off-cycle lane is intentionally strict: only titles that state an
+        # eligible term proceed to JD hydration. Semantic search otherwise
+        # floods this stage with generic and Summer 2027 internships.
+        if str(search_term or "").strip().casefold() in LANE_A_SEARCH_TERMS:
+            timing = classify_start_timing(title, "")
+            if timing in {"fall_2026_internship", "spring_2027_internship"}:
+                return True, "off_cycle_internship_title"
+            return False, "off_cycle_internship_timing_not_explicit"
         return False, "internship_outside_lane_b"
     target_family = ""
     for family, pattern in TARGET_FAMILIES:
         if pattern.search(title):
             target_family = family
             break
+    if not target_family:
+        disposition, _, canonical_family = classify_role_surface(title, "")
+        if disposition == "keep":
+            target_family = canonical_family
+    if (
+        not target_family
+        and MBA_FULL_TIME_HIRE_RE.search(title)
+        and re.search(r"(?:[-–—:]\s*)product\s*$", title, re.I)
+    ):
+        target_family = "product"
     for label, pattern in OBVIOUS_NOISE:
         if pattern.search(title):
-            if target_family == "technical_gtm" and label == "software_engineering":
+            if target_family in {"technical_gtm", "product"} and label == "software_engineering":
                 continue
             return False, f"obvious_noise:{label}"
     if target_family == "rotational_leadership" and EARLY_PROGRAM_RE.search(title):
         return True, f"target_family:{target_family}"
-    if LATE_CAREER_RE.search(title):
+    # MBA-specific full-time hiring titles are early-career signals for this
+    # candidate even when the title omits "new grad" or "2027". Preserve the
+    # role for JD hydration and downstream graduation/work-authorization checks.
+    if target_family and MBA_FULL_TIME_HIRE_RE.search(title):
+        return True, f"mba_full_time_target_family:{target_family}"
+    if LATE_CAREER_RE.search(title) and not re.search(
+        r"\bstrategic\s+(?:product|partnerships?)\s+lead\b", title, re.I
+    ):
         return False, "late_career_title"
     if target_family and EARLY_CAREER_RE.search(title):
         return True, f"target_family:{target_family}"
@@ -151,17 +192,50 @@ def classify_title(title: str) -> tuple[bool, str]:
     if target_family in {"program", "strategy_ops", "technical_gtm"} and ENTRY_ASSOCIATE_RE.search(title):
         return True, f"target_family:{target_family}"
     if target_family:
-        return False, f"target_family_without_early_career_signal:{target_family}"
+        # Missing graduation wording in a card is not evidence of ineligibility.
+        # Fetch the JD, then apply timing and experience rules to its requirements.
+        return True, f"target_family_jd_review:{target_family}"
     if EARLY_CAREER_RE.search(title):
         return True, "early_career_title_review"
     return False, "broad_search_noise_no_target_title_signal"
+
+
+def _url_key(value: str) -> str:
+    return re.sub(r"[?#].*$", "", str(value or "").strip()).rstrip("/").casefold()
+
+
+def _title_company_key(company: str, title: str) -> str:
+    return re.sub(r"\s+", " ", f"{company}|{title}".strip().casefold())
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Select plausible Lane B cards from broad LinkedIn raw artifacts.")
     parser.add_argument("raw_artifact", nargs="+", type=Path)
     parser.add_argument("--output-dir", type=Path, default=ROOT / "discovery" / "source_validation")
+    parser.add_argument("--exclude-artifact", action="append", type=Path, default=[])
+    parser.add_argument("--exclude-workbook", action="store_true")
     args = parser.parse_args()
+
+    excluded_urls: set[str] = set()
+    excluded_title_company: set[str] = set()
+    for excluded_path_arg in args.exclude_artifact:
+        excluded_path = excluded_path_arg.expanduser().resolve()
+        payload = json.loads(excluded_path.read_text(encoding="utf-8"))
+        for row in [*(payload.get("cards") or []), *(payload.get("jobs") or [])]:
+            excluded_urls.add(_url_key(row.get("url") or ""))
+            excluded_title_company.add(
+                _title_company_key(
+                    row.get("company") or "",
+                    row.get("title") or row.get("role_title") or "",
+                )
+            )
+    if args.exclude_workbook:
+        tracker = jobs_tracker.load_jobs()
+        for _, row in tracker.iterrows():
+            excluded_urls.add(_url_key(row.get("url") or ""))
+            excluded_title_company.add(
+                _title_company_key(row.get("company") or "", row.get("role_title") or "")
+            )
 
     cards: list[LinkedInJobCard] = []
     searches: list[tuple[str, str]] = []
@@ -181,23 +255,39 @@ def main() -> int:
             if not card.url or card.url in seen_urls:
                 continue
             seen_urls.add(card.url)
-            selected, reason = classify_title(card.title)
-            title_company_key = re.sub(
-                r"\s+",
-                " ",
-                f"{card.company}|{card.title}".strip().casefold(),
-            )
-            if selected and title_company_key in seen_selected_title_company:
+            selected, reason = classify_title(card.title, card.search_term)
+            title_company_key = _title_company_key(card.company, card.title)
+            url_key = _url_key(card.url)
+            if selected and (
+                url_key in excluded_urls or title_company_key in excluded_title_company
+            ):
+                selected = False
+                reason = "excluded_previous_artifact_or_workbook"
+            elif selected and title_company_key in seen_selected_title_company:
                 selected = False
                 reason = "duplicate_title_company"
             elif selected:
                 seen_selected_title_company.add(title_company_key)
             row = asdict(card)
-            row.update({"selected": selected, "selection_reason": reason})
+            review_state = (
+                "selected_for_jd_hydration"
+                if selected
+                else "unsure"
+                if reason.startswith("unsure_")
+                else "rejected"
+            )
+            row.update(
+                {
+                    "selected": selected,
+                    "review_state": review_state,
+                    "selection_reason": reason,
+                }
+            )
             audit_rows.append(row)
             if selected:
                 cards.append(card)
 
+    cards.sort(key=lambda card: discovery_priority(card.title))
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     args.output_dir.mkdir(parents=True, exist_ok=True)
     selected_path = args.output_dir / f"{stamp}-linkedin-2027-selected-raw.json"
@@ -217,13 +307,16 @@ def main() -> int:
         "jobs": cards_to_jobs(cards),
     }
     reason_counts = Counter(row["selection_reason"] for row in audit_rows)
+    state_counts = Counter(row["review_state"] for row in audit_rows)
     audit_payload = {
         "schema": "resume_generator.linkedin_2027_card_audit",
         "created_at": datetime.now().isoformat(timespec="seconds"),
         "source_raw_artifacts": source_paths,
         "observed_unique_cards": len(audit_rows),
         "selected_for_jd_hydration": len(cards),
-        "rejected_as_title_noise": len(audit_rows) - len(cards),
+        "unsure_needs_review": state_counts["unsure"],
+        "rejected_as_title_noise": state_counts["rejected"],
+        "review_state_counts": dict(state_counts),
         "reason_counts": dict(reason_counts.most_common()),
         "selected_raw_artifact": str(selected_path),
         "rows": audit_rows,
@@ -233,7 +326,8 @@ def main() -> int:
 
     print(f"Observed unique cards: {len(audit_rows)}")
     print(f"Selected for JD hydration: {len(cards)}")
-    print(f"Rejected as obvious title noise: {len(audit_rows) - len(cards)}")
+    print(f"Unsure and preserved for review: {state_counts['unsure']}")
+    print(f"Rejected as obvious title noise: {state_counts['rejected']}")
     print(f"Selected raw artifact: {selected_path}")
     print(f"Full card audit: {audit_path}")
     for row in audit_rows:

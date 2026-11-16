@@ -117,9 +117,9 @@ def extract_company_from_jd(jd_text: str) -> str | None:
 LANE_A_QUERIES = [
     {
         "id":          "pm_intern",
-        "search_term": "Product Manager Intern",
-        "covers":      ["PM Intern", "MBA PM Intern", "Technical PM Intern",
-                        "APM Intern", "Platform PM Intern"],
+        "search_term": "Product Manager Intern Spring 2027",
+        "covers":      ["Spring 2027 PM Intern", "Spring 2027 Technical PM Intern",
+                        "Spring 2027 APM Intern"],
         "role_type":   "PM",
         "lane":        "A",
     },
@@ -565,6 +565,7 @@ def _normalise_row(row: pd.Series, query: dict) -> dict:
         "summer_2027_internship",
         "other_2027_internship",
         "fall_2026_internship",
+        "spring_2027_internship",
         "internship_unspecified",
     }:
         job["lane"] = "A"
@@ -845,7 +846,9 @@ def deduplicate(jobs: list[dict],
 
         if uh in seen_url_hashes:
             continue
-        if th in seen_tc_hashes:
+        # Different posting URLs can be distinct cities/requisitions even when
+        # employer and title match. Preserve those openings in the raw capture.
+        if not job.get("url") and th in seen_tc_hashes:
             continue
 
         seen_url_hashes.add(uh)

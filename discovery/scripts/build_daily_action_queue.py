@@ -572,6 +572,8 @@ def _load_scored_application_sections(
             url = _clean(job.get("url"))
             gate, gate_reason = _score_write_gate(job)
             existing = _find_existing_job(job, job_indexes)
+            if existing and _norm(existing.status) not in {"queued", "generated", "promoted"}:
+                gate, gate_reason = "dropped", f"tracker_status_{_norm(existing.status)}"
             score = _parse_float(job.get("fit_score"))
             reasons = [
                 f"decision={_clean(job.get('decision')) or 'unknown'}",
@@ -698,6 +700,12 @@ def _write_markdown(path: Path, payload: dict[str, Any]) -> None:
     ]
     for key, value in payload["counts"].items():
         lines.append(f"- {key}: {value}")
+    coverage = payload.get("coverage")
+    if coverage:
+        lines.extend(["", "## Search coverage", "",
+                      f"Status: **{coverage['status']}**. "
+                      f"{coverage['unfinished']} captured listings still need processing.",
+                      f"[All captured listings and unresolved work]({coverage['artifact']})"])
 
     lines.extend(["", "## Source Mix", ""])
     for key, counts in payload.get("source_counts", {}).items():
@@ -1025,6 +1033,11 @@ def _write_html(path: Path, payload: dict[str, Any]) -> None:
   <header>
     <h1>{_esc(report_title)}</h1>
     <p class="generated">Generated {_esc(payload.get('generated_at'))}</p>
+    {('<p><strong>Search coverage: ' + _esc(payload['coverage']['status']) +
+      '</strong> · ' + _esc(payload['coverage']['unfinished']) +
+      ' captured listings still need processing. <a href="' +
+      _esc(payload['coverage']['artifact']) + '">Open coverage audit</a></p>')
+     if payload.get('coverage') else ''}
     <div class="stats">{count_cards}</div>
   </header>
   <nav>{nav}</nav>
@@ -1069,6 +1082,8 @@ def parse_args() -> argparse.Namespace:
         help="Label the report as a pre-score intake queue or a post-score final queue.",
     )
     parser.add_argument("--out-dir", type=Path, default=SOURCE_VALIDATION_DIR)
+    parser.add_argument("--coverage-audit", type=Path,
+                        help="Exact saved coverage audit to display alongside the shortlist.")
     return parser.parse_args()
 
 
@@ -1085,6 +1100,14 @@ def main() -> int:
     relationship_targets = _collect_relationship_targets(source_breadth, startup_report)
     current_queue = _load_current_apply_queue(args.current_apply_queue)
     job_indexes = _load_jobs_state()
+    # Derived queue folders can lag a tracker correction. Tracker state wins.
+    reconciled_queue = []
+    for item in current_queue:
+        current = _find_existing_job(item, job_indexes)
+        if current and current.status not in {"queued", "generated", "promoted"}:
+            continue
+        reconciled_queue.append(item)
+    current_queue = reconciled_queue
     review_cache_indexes = _load_review_cache_state()
     outreach_by_company = _outreach_state()
     blocklist = resume_jobs._load_blocklist()
@@ -1188,6 +1211,13 @@ def main() -> int:
         "suggested_commands": suggested_commands,
     }
 
+    if args.coverage_audit:
+        coverage = json.loads(args.coverage_audit.read_text())
+        payload["coverage"] = {
+            "artifact": str(args.coverage_audit.with_suffix(".md")),
+            "status": coverage["status"], "unfinished": coverage["unfinished"],
+            "counts": coverage["counts"],
+        }
     args.out_dir.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     json_path = args.out_dir / f"{stamp}-daily-action-queue.json"

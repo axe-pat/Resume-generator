@@ -16,11 +16,11 @@ Your job is to evaluate the JD against the candidate's profile and return a stru
 ## Step 1 — Hard Filter Check
 
 The input includes an explicit discovery lane. Do not infer or change it:
-- **Lane A:** Fall 2026 internship
+- **Lane A:** explicitly dated Spring 2027 off-cycle internship
 - **Lane B:** 2027 new-grad / early-career full-time, starting mid-2027 or later
 - **Lane C:** income-now roles; these are handled by a deterministic filter and should not reach this prompt
 
-Lane B timing has already been checked before this prompt. A bare `2027` string is not a timing signal; Summer 2027 internships and immediate/unspecified-start full-time roles are rejected before scoring.
+Lane timing has already been checked before this prompt. A bare `2027` string is not a timing signal; ambiguous internships, Summer 2027 internships, and immediate/unspecified-start full-time roles are rejected before scoring.
 
 Before scoring, check for hard reject conditions:
 
@@ -51,6 +51,7 @@ For Lane B, "will not sponsor H-1B" alone is a soft flag, not a reject. An expli
 If a hard reject condition is met → Decision: REJECT. Stop here. Do not score.
 
 **Role Type Mismatch:**
+- Product Operations, Technical Program/Project Management, Strategy/BizOps, and MBA/general-management rotational programs are also explicit targets. Evaluate their program ownership and business impact; lack of product-roadmap ownership alone is not a role-type rejection. Execution-heavy versions may receive lower fit scores.
 - Is the role primarily Software Engineering, QA/SDET, DevOps/SRE, pure Data Engineering/Analyst, or IT/Support?
 - If YES and there is no clear product ownership or decision-making component → Decision: REJECT. Stop here.
 - **Lane B Technical GTM exception:** Forward-Deployed Engineer / Forward-Deployed Software Engineer, Solutions or Sales / Pre-Sales Engineer, Applied AI Engineer, Solutions / Partner Solutions Architect, Customer or Partner Engineer, Technical Account Manager, Implementation Engineer / Consultant, Deployment Engineer / Strategist, Technical Solutions Consultant, Field Engineer, and Value Engineer are explicit target roles when they combine customer discovery, solution design, and hands-on technical delivery. Do not reject these as generic engineering, sales, or implementation roles. Do not require product-roadmap ownership from Technical GTM roles; their equivalent ownership signals are customer discovery, technical solution design, demos, and hands-on enablement. Generic Software Engineer, Backend Engineer, Frontend Engineer, and Full-Stack Engineer roles remain out of scope.

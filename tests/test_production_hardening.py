@@ -1567,6 +1567,8 @@ def test_nightly_holds_operator_mutation_lock_inside_pipeline_lock(
         "_initial_summary",
         lambda *a, **kw: {"created_at": kw["created_at"], "run_id": kw["run_id"]},
     )
+    monkeypatch.setattr(module, "_begin_linkedin_browser_lifecycle", lambda summary: ("test-token", None))
+    monkeypatch.setattr(module, "_finish_linkedin_browser_lifecycle", lambda *args: True)
     events: list[str] = []
 
     @contextmanager
@@ -1624,6 +1626,7 @@ def test_scheduler_is_unattended_by_default_and_records_timestamped_log(
     args = SimpleNamespace(
         scheduled_time="01:00",
         state_path=str(state_path),
+        discovery_state_path=str(tmp_path / "discovery-state.json"),
         pipeline_args="--generate",
         force=True,
         prompt=False,

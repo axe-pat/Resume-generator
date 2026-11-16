@@ -352,7 +352,9 @@ def load_jobs() -> pd.DataFrame:
     if not JOBS_XLSX.exists():
         sys.exit(f"[ERROR] jobs.xlsx not found at {JOBS_XLSX}")
     try:
-        df = pd.read_excel(JOBS_XLSX, sheet_name=JOBS_SHEET, dtype=str)
+        import io
+        data = JOBS_XLSX.read_bytes()
+        df = pd.read_excel(io.BytesIO(data), sheet_name=JOBS_SHEET, dtype=str)
     except ValueError:
         # Preferred sheet ("Jobs") not found — fall back to first available sheet.
         # This happens when the xlsx was never written by the pipeline (sheet still
@@ -373,7 +375,10 @@ def load_jobs() -> pd.DataFrame:
     for col in COLUMNS:
         if col not in df.columns:
             df[col] = ""
-    return df[COLUMNS].fillna("")
+    result = df[COLUMNS].fillna("")
+    from shared.tracker_storage import revision
+    result.attrs['tracker_revision'] = revision(data)
+    return result
 
 
 def _sort_df(df: pd.DataFrame) -> pd.DataFrame:
@@ -411,6 +416,12 @@ def save_jobs(df: pd.DataFrame, dry_run: bool = False) -> None:
         print(c(YELLOW, "  [dry-run] Would write to jobs.xlsx — skipped"))
         return
 
+    from shared.tracker_storage import save_atomically
+    save_atomically(JOBS_XLSX, df, lambda staged: _save_jobs_staged(df, staged))
+
+
+def _save_jobs_staged(df: pd.DataFrame, workbook_path: Path) -> None:
+
     import shutil as _shutil
     from openpyxl import load_workbook
     from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
@@ -419,21 +430,16 @@ def save_jobs(df: pd.DataFrame, dry_run: bool = False) -> None:
     # Always sort before writing
     df = _sort_df(df)
 
-    # Backup before overwriting — restores formatting if another agent corrupts the file
-    if JOBS_XLSX.exists():
-        _bak = JOBS_XLSX.with_suffix(".xlsx.bak")
-        _shutil.copy2(JOBS_XLSX, _bak)
-
-    if JOBS_XLSX.exists():
+    if workbook_path.exists():
         with pd.ExcelWriter(
-            JOBS_XLSX, engine="openpyxl", mode="a", if_sheet_exists="replace"
+            workbook_path, engine="openpyxl", mode="a", if_sheet_exists="replace"
         ) as writer:
             df.to_excel(writer, sheet_name=JOBS_SHEET, index=False)
     else:
-        with pd.ExcelWriter(JOBS_XLSX, engine="openpyxl") as writer:
+        with pd.ExcelWriter(workbook_path, engine="openpyxl") as writer:
             df.to_excel(writer, sheet_name=JOBS_SHEET, index=False)
 
-    wb = load_workbook(JOBS_XLSX)
+    wb = load_workbook(workbook_path)
 
     # ── Remove stale Sheet1 if it coexists with Jobs ───────────────────────────
     # When another agent (or pandas) writes without going through save_jobs, it
@@ -532,7 +538,7 @@ def save_jobs(df: pd.DataFrame, dry_run: bool = False) -> None:
 
         prev_rank = rank
 
-    wb.save(JOBS_XLSX)
+    wb.save(workbook_path)
 
 
 # ─────────────────────────────────────────────────────────────────────────────

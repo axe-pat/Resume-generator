@@ -65,7 +65,6 @@ A16Z_FALLBACK_SEARCH_TERMS = (
     "strategy operations",
     "program manager",
     "new grad",
-    "intern",
 )
 USER_AGENT = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
@@ -225,7 +224,6 @@ SOURCE_REGISTRY = [
         seed_urls=(
             "https://www.builtinla.com/jobs/product/entry-level",
             "https://www.builtinla.com/jobs/product",
-            "https://www.builtinla.com/jobs/internships",
         ),
     ),
     StartupApplySourceDefinition(
@@ -236,7 +234,6 @@ SOURCE_REGISTRY = [
         seed_urls=(
             "https://www.builtinsf.com/jobs/product/entry-level",
             "https://www.builtinsf.com/jobs/product",
-            "https://www.builtinsf.com/jobs/internships",
         ),
     ),
     StartupApplySourceDefinition(

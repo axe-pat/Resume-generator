@@ -1,11 +1,81 @@
 # Discovery Layer
 
-Populates `jobs.xlsx` with scored job listings from LinkedIn, Indeed, and Handshake.
-Discovery is explicitly lane-tagged: Fall 2026 internships (A), 2027 new-grad/full-time (B), and Handshake income-now work (C).
+## Bounded local execution (November 13 implementation)
+
+Use `venv/bin/python discovery/scripts/run_bounded_discovery.py --window 7d --run-id <id>`.
+The controller enforces a whole-run deadline, serializes concurrent runs, saves
+stage state, resumes successful stages, and reserves time to publish even after
+source failures. `--saved-only` publishes saved results without collecting or
+calling a scoring model. It reports partial coverage explicitly. Live end-to-end
+90-minute validation is still outstanding; existing recurring schedules are unchanged.
+
+`shared/discovery_search_policy.py` now supplies 14 graduate/full-time and six
+Spring weekly searches, interleaved to avoid starving either lane; daily uses six full-time and three Spring searches.
+The default bounded LinkedIn path now uses `run_linkedin_streamed.py`: collect
+one page, filter/deduplicate and exclude blocklisted companies, save the admitted
+batch, then fetch every admitted JD before moving to another page. Weekly/daily
+admission ceilings are 75/25; reaching a ceiling stops expansion and records
+budget-deferred cards explicitly. It does not truncate a separately collected
+hundreds-card JD queue. Weekly/daily LinkedIn budgets are 43/12 minutes.
+Interrupted batches resume their exact saved input and already recovered JDs.
+`--legacy-linkedin` retains the old split path for explicit comparisons only.
+12twenty is excluded by default; `--include-twelvetwenty` opts it in.
+`review_run_discovery.py` reviews exact stream and JobSpy artifacts from that run;
+publication uses its exact score artifact, avoiding accidental historical results.
+A source/model failure produces `finished_with_gaps`; `finished` means the bounded
+scope completed operationally, not exhaustive market coverage.
+
+The two-page live pilot captured 50 cards, admitted six candidates and saved all
+six descriptions in about 141 seconds, without paid scoring. Full weekly/daily
+validation after this change remains outstanding. Existing schedules are unchanged.
+The Anthropic account needs credits restored for future automated model scoring;
+credit failures now stop further API calls in that batch while local filters can
+continue. Models and configured transient retry counts are unchanged.
+
+`shared/discovery_review_journal.py` saves individual completed reviews before
+workbook/report writes and reuses unchanged JD/profile/rubric/model inputs. Errors
+and budget-exhausted reviews are not cached as decisions. The scorer supports an
+`on_result` callback; the LinkedIn post-extraction path uses this journal.
+`review_saved_discovery.py` selects a capped saved-JD batch for that review path.
+
+Handshake now accepts lane B graduate imports with their own full-time saved-search
+URL. The wrapper refuses to reuse the internship-only default for lane B/C.
+The default source remains the existing Spring internship search until a graduate
+saved-search URL is supplied. New native Handshake keyword/filter coverage needs
+live verification; the shared Spring search expansion is active in LinkedIn.
+
+Application reports reconcile stale derived-queue entries against current tracker
+status, preventing held/skipped/applied rows from returning solely because an old
+queue folder still exists. No application folders were removed by these changes.
+
+The current saved-run application list is in
+[`20261113-weekly-new-run-results.md`](source_validation/20261113-weekly-new-run-results.md),
+with 31 direct JD decisions in
+[`20261113-weekly-reviewed-decisions.json`](source_validation/20261113-weekly-reviewed-decisions.json).
+
+Populates `jobs.xlsx` with scored job listings from LinkedIn, USC Marshall
+12twenty, Indeed, and Handshake. Discovery is explicitly lane-tagged: Spring 2027
+internships (A), 2027 new-grad/full-time (B), and income-now work (C).
 
 For the combined application + relationship workflow, use
 [`docs/RECRUITING_ENGINE.md`](../docs/RECRUITING_ENGINE.md) as the higher-level
 operating guide. This file stays focused on discovery commands and mechanics.
+
+The [November 13 local-run architecture review and proposal](../docs/DISCOVERY_LOCAL_RUN_REDESIGN_2026-11-13.md)
+records the unfinished November 10 weekly run, measured timings, and a proposed
+30-minute daily / 90-minute weekly controller. It is a proposal, not an activated
+runner or evidence of unattended completion.
+
+The latest [historical review and proposed changes](source_validation/20261113-historical-review-and-proposal.md)
+uses March-November tracker/archive results, 244 scoring/import artifacts,
+33 reconciled timing records and exported query history. It supersedes the
+source-allocation recommendations in the earlier
+[November source-yield audit](source_validation/20261113-source-yield-and-search-plan.md).
+The canonical
+[`20261113-proposed-search-plan.json`](source_validation/20261113-proposed-search-plan.json)
+contains 14 full-time and six Spring 2027 weekly search templates. These are
+proposed settings, revised using the longer history; the active query lists and
+services have not been changed and await the user's requested go-ahead.
 
 ---
 
@@ -18,6 +88,7 @@ discovery/
 ├── auto/
 │   ├── pipeline.py             Orchestrator: scrape → score → sort → fully format xlsx
 │   ├── scraper.py              JobSpy wrapper — 60 Lane A/B query clusters
+│   ├── twelvetwenty_live.py     Signed-in USC portal → full JD → deterministic gates → score
 │   ├── scorer.py               Claude Haiku fit scorer (pre-filters + 0–10 rubric)
 │   ├── scorer_prompt.md        Scoring rubric and profile context
 │   ├── score_screenshots.py    LinkedIn screenshot PDF → vision extract → JD fetch → score
@@ -33,6 +104,35 @@ discovery/
 ---
 
 ## Running manually
+
+### Full-time first (October 2026)
+
+The LinkedIn wrapper now searches full-time/new-grad product, strategy/ops,
+program, rotational and solutions roles first, then one exact off-cycle search:
+Product Manager Intern Spring 2027.
+Both `24h` and `7d` use this order; the window controls posting recency.
+It captures cards first, removes existing workbook entries and unsuitable titles,
+then hydrates selected full-time candidates before eligible internship candidates.
+Broad Product Manager Intern and MBA Intern searches are intentionally disabled.
+Only internship titles that explicitly state Spring 2027 reach JD hydration;
+ambiguous, Fall 2026 and Summer 2027 internship searches are inactive.
+Full-time Summer 2027 starts remain eligible. Full JDs still pass the existing
+timing and fit gates before any workbook promotion. The title selector and exact
+artifacts remain available for replay without repeating a search.
+
+12twenty likewise puts full-time terms and detail fetches first and skips explicit
+out-of-window internship titles before opening detail pages. An unavailable
+portal search reports the landed URL/title to distinguish sign-in failures.
+
+Extraction without paid scoring:
+
+```bash
+venv/bin/python discovery/scripts/run_linkedin_targeted.py --window 7d --extract-only
+TWELVETWENTY_SCORE=0 ./discovery/scripts/run_twelvetwenty_discovery.sh 7d
+```
+
+This supersedes the older two-query LinkedIn examples below. It does not change
+the other sources' query profiles.
 
 ### Automated pipeline
 
@@ -79,6 +179,30 @@ network calls:
 ```bash
 venv/bin/python discovery/scripts/replay_discovery_eligibility.py
 ```
+
+### USC Marshall 12twenty
+
+12twenty is the second-priority application source, immediately after LinkedIn.
+The browser-backed pull searches all listing sections, applies the portal's open
+status plus posting-date window, opens every deduped candidate, and extracts the
+full JD, deadline, anticipated start, work authorization, salary, and student
+eligibility before filtering. This is important because its keyword search often
+matches unrelated body copy rather than the title.
+
+```bash
+# Daily and weekly production pulls (scores, writes, refreshes queue)
+./discovery/scripts/run_twelvetwenty_discovery.sh 24h
+./discovery/scripts/run_twelvetwenty_discovery.sh 7d
+
+# Thirty-day POC/audit with zero scoring spend and no workbook write
+TWELVETWENTY_SCORE=0 ./discovery/scripts/run_twelvetwenty_discovery.sh 30d
+```
+
+The signed-in Chrome profile on port `9222` must have an active Marshall
+12twenty session. Results use `source=twelvetwenty_jobs_v1`; the ordinary apply
+queue threshold applies. Each run writes an exact `twelvetwenty_import_*.json`
+artifact with raw cards, full details, deterministic survivors, rejects, and
+fetch failures.
 
 ### Startup apply pipeline
 
@@ -716,7 +840,7 @@ overrides those defaults with curated profiles.
 
 | id                   | search_term                          | role_type |
 |----------------------|--------------------------------------|-----------|
-| pm_intern            | Product Manager Intern               | PM        |
+| pm_intern            | Product Manager Intern Spring 2027   | PM        |
 | product_ops_intern   | Product Operations Intern            | Ops       |
 | growth_intern        | Growth Product Intern                | Ops       |
 | strategy_intern      | Strategy Intern MBA                  | Strategy  |
@@ -731,11 +855,9 @@ overrides those defaults with curated profiles.
 
 Default engine profiles:
 
-- 24h: `pm_intern`, `product_ops_intern`, `growth_intern`,
-  `strategy_intern`, `apm_intern`, `ai_pm_intern`,
-  `mba_ai_strategy_intern`, `mba_product_strategy_intern`, and
-  `ai_strategy_ops_intern`; 40 results/site.
-- 7d: the same focused query set; 60 results/site.
+- 24h: one exact Spring 2027 PM internship query plus twelve full-time/new-grad
+  product, strategy/ops, TPM, rotational and solutions queries; 40 results/site.
+- 7d: the same full-time-first query set; 60 results/site.
 - Broad validation sweep: opt in manually by passing all desired
   `--jobspy-query-index` values and a larger `--jobspy-results` cap.
 
@@ -787,3 +909,66 @@ Each log contains: summary counts, all High Priority and Medium Priority jobs wi
 ## Skip-scrape behavior note
 
 `--skip-scrape` targets rows where `status == "new"` AND `fit_score` is empty. The fit_score check uses `.fillna("")` because xlsx NaN values read back as float NaN, not empty string — a plain `== ""` check would return 0 rows.
+# Weekly coverage and recovery
+
+The apply queue is a shortlist. A successful source command or a short ready list
+does not establish that every captured opening was reviewed.
+
+Weekly discovery now reconciles every raw and partial batch, joins saved JDs by
+posting identity, reevaluates old machine classifications using current rules,
+and writes a coverage ledger beside the action report. Missing JDs, errors,
+blocked employers, uncertain eligibility, query failures, and capped searches
+remain visible. A partial run exits with status 2 and is marked incomplete.
+Finance and other explicit profile exclusions remain exclusions with reasons.
+
+Weekly LinkedIn and JobSpy use the full canonical full-time catalog plus the
+Spring internship lane. Eligible JobSpy candidates have no default score cap.
+Known target titles without graduation wording proceed to JD review.
+
+To reconcile saved data without network or model usage:
+
+    ./venv/bin/python discovery/scripts/audit_discovery_coverage.py --since YYYY-MM-DD
+
+To resume the saved-card backlog and score only eligible, unblocked survivors:
+
+    ./venv/bin/python discovery/scripts/recover_discovery_coverage.py --audit /absolute/path/to/discovery-coverage.json --score
+
+Recovery saves each 25-card batch and its exact hydrated artifact. Rerun the
+audit after interruption and resume from the new audit; completed JDs are reused.
+Weekly engine runs invoke this recovery automatically when LinkedIn is enabled.
+The final user summary must include actual ready roles, manual-review roles,
+unfinished counts, and source gaps. Never present only the queue count as an
+exhaustive discovery result.
+
+
+
+November 15 completion repair: saved-JD review accepts `--input`, `--since`,
+`--limit`, and `--minutes` (default 8). The scoring deadline now reaches every
+request; bounded scoring disables nested SDK retries while retaining the existing
+model and outer retry policy. A successful review command exits zero regardless
+of the number of new tracker rows. Post-score reports exclude skipped, applied,
+held, or closed tracker rows from selected applications. MBA leadership associate
+programs with product/strategy rotations and MBA internship programs with explicit
+strategy placements are recognized from their JDs.
+
+The [November 15 completed shortlist](source_validation/20261115-weekly-application-list.md) and [row-by-row decisions](source_validation/20261115-weekly-review-decisions.md) are the current human-readable outputs. The audit recognizes documented direct JD reviews and locally rechecks prefilter rejections. Completion commands return a nonzero status when errors or scoring timeouts remain.
+
+`discovery/scripts/review_backlog_semantics.py` reviews a frozen backlog JD packet with the existing Haiku model, short request limits, two workers and per-result checkpoints. It requires authorization to transfer the candidate profile/JDs. Outputs are evidence-based apply/hold/skip assessments; it does not write the tracker or relax canonical eligibility gates.
+
+Backlog triage and checked outcomes are saved in [backlog-recovery/report.md](source_validation/backlog-recovery/report.md). This is a priority pass, not certification that all historical captures have been reviewed.
+
+## Combined recruiting preview (November 15)
+
+`venv/bin/python discovery/scripts/run_recruiting_daily.py --run-id <id>` builds
+a review-only preview from saved jobs and the existing Outreach company queue.
+Use `--collect --window 24h` to run bounded discovery first; `--window 7d` selects
+the weekly window. The same run ID links stage logs and preview artifacts.
+`--warm-context <snapshot.json>` explicitly adds dated conversation evidence;
+a fresh inbox read is never implied. This command never enables message sends.
+
+The existing nightly orchestrator accepts opt-in `--bounded-discovery`, preserves
+source skip flags, and receives an exact action-queue/source-metrics manifest from
+the bounded controller. Its job import now selects `spring_ft_2027`. No recurring
+schedule or send setting was activated by this implementation. The complete
+integrated live sending path remains unvalidated; company facts and message
+quality gates must be checked before activation.

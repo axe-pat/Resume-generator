@@ -180,28 +180,34 @@ def load_jobs() -> pd.DataFrame:
     if not JOBS_XLSX.exists():
         return pd.DataFrame(columns=COLUMNS)
     try:
-        df = pd.read_excel(JOBS_XLSX, sheet_name=SHEET_NAME, dtype=str)
+        data = JOBS_XLSX.read_bytes()
+        df = pd.read_excel(io.BytesIO(data), sheet_name=SHEET_NAME, dtype=str)
         # Ensure all expected columns exist
         for col in COLUMNS:
             if col not in df.columns:
                 df[col] = None
-        return df[COLUMNS]
+        result = df[COLUMNS]
+        from shared.tracker_storage import revision
+        result.attrs['tracker_revision'] = revision(data)
+        return result
     except Exception as e:
-        print(f"  ⚠  Could not read jobs.xlsx: {e}")
-        return pd.DataFrame(columns=COLUMNS)
+        raise RuntimeError(f"Could not read jobs.xlsx; refusing to treat an unreadable tracker as empty: {e}") from e
 
 
 def save_jobs(df: pd.DataFrame, dry_run: bool = False) -> None:
+    if dry_run:
+        return
+    from shared.tracker_storage import save_atomically
+    save_atomically(JOBS_XLSX, df, lambda staged: _save_jobs_staged(df, staged))
+
+
+def _save_jobs_staged(df: pd.DataFrame, workbook_path: Path) -> None:
     """
     Sort, write, and fully format jobs.xlsx.
     Applies status colours, score traffic lights, section dividers, and
     blocklist strikethrough — same visual spec as jobs.py save_jobs().
     (Keep in sync with jobs.py save_jobs() if you change the style.)
     """
-    if dry_run:
-        print("  [dry-run] Would write to jobs.xlsx — skipped")
-        return
-
     from openpyxl import load_workbook
     from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
     from openpyxl.utils import get_column_letter
@@ -209,16 +215,16 @@ def save_jobs(df: pd.DataFrame, dry_run: bool = False) -> None:
     # Sort before writing so section dividers land in the right places
     df = _sort_df_p(df)
 
-    if JOBS_XLSX.exists():
+    if workbook_path.exists():
         with pd.ExcelWriter(
-            JOBS_XLSX, engine="openpyxl", mode="a", if_sheet_exists="replace"
+            workbook_path, engine="openpyxl", mode="a", if_sheet_exists="replace"
         ) as writer:
             df.to_excel(writer, sheet_name=SHEET_NAME, index=False)
     else:
-        with pd.ExcelWriter(JOBS_XLSX, engine="openpyxl") as writer:
+        with pd.ExcelWriter(workbook_path, engine="openpyxl") as writer:
             df.to_excel(writer, sheet_name=SHEET_NAME, index=False)
 
-    wb = load_workbook(JOBS_XLSX)
+    wb = load_workbook(workbook_path)
     ws = wb[SHEET_NAME]
 
     # ── Header row ────────────────────────────────────────────────────────────
@@ -291,7 +297,7 @@ def save_jobs(df: pd.DataFrame, dry_run: bool = False) -> None:
 
         prev_rank = rank
 
-    wb.save(JOBS_XLSX)
+    wb.save(workbook_path)
 
 
 def get_existing_hashes(df: pd.DataFrame) -> set[str]:

@@ -53,13 +53,15 @@ from shared.job_eligibility import (  # noqa: E402
     LANE_C,
     annotate_discovery_job,
     classify_role_surface,
+    evaluate_discovery_timing,
     evaluate_lane_c,
     normalize_discovery_lane,
+    pre_filter_candidate_education,
     pre_filter_discovery_scope,
-    pre_filter_discovery_timing,
     pre_filter_full_time_level,
     pre_filter_immigration,
     pre_filter_role_type,
+    review_candidate_language,
 )
 
 # ---------------------------------------------------------------------------
@@ -244,7 +246,7 @@ def _lane_c_result(
         "decision": "Proceed",
         "category": "Income Now",
         "fit_score": None,
-        "breakdown": "Lane C: pay floor + shift compatibility",
+        "breakdown": "Lane C: paid role + shift compatibility",
         "fit_rationale": f"[Proceed | Income Now] {reason}; {rate}.",
         "role_type": "Other",
         "classification": "keep",
@@ -294,6 +296,10 @@ def _jd_quality_issue(jd_text: str) -> str:
         return "linkedin_chrome"
     if chrome_hits >= 2 and len(raw) < 2200 and section_hits == 0:
         return "linkedin_chrome"
+    if len(raw) < 1800 and not re.search(r"[.!?)\]\"']$", raw) and not re.search(
+        r"qualifications|requirements|what you.ll bring|what you bring", raw, re.I
+    ):
+        return "truncated"
     return ""
 
 
@@ -312,7 +318,7 @@ def score_job(job: dict, client: anthropic.Anthropic | None,
     """
     company = _job_text(job, "company", "?")
     title   = _job_text(job, "role_title", "?")
-    annotate_discovery_job(job)
+    annotate_discovery_job(job, reclassify=True)
     lane = normalize_discovery_lane(job.get("lane"))
 
     with _print_lock:
@@ -344,8 +350,9 @@ def score_job(job: dict, client: anthropic.Anthropic | None,
         return job
 
     # ── Pre-filter: lane timing and scope (no API call) ─────────────────────
-    is_reject, reason = pre_filter_discovery_timing(title, jd_text, lane)
-    if is_reject:
+    timing_disposition, timing_reason = evaluate_discovery_timing(title, jd_text, lane)
+    if timing_disposition == "reject":
+        reason = timing_reason
         result = _rejected_result(reason)
         job.update(result)
         job["status"] = "skipped"
@@ -398,6 +405,39 @@ def score_job(job: dict, client: anthropic.Anthropic | None,
         job["status"] = "skipped"
         return job
 
+    # ── Pre-filter: candidate education status ────────────────────────────────
+    is_reject, reason = pre_filter_candidate_education(title, jd_text)
+    if is_reject:
+        result = _rejected_result(reason)
+        with _print_lock:
+            if verbose:
+                print(f"    ✗ Pre-filter reject: {reason}")
+        job.update(result)
+        job["status"] = "skipped"
+        return job
+
+    needs_language_review, language_reason = review_candidate_language(title, jd_text)
+    if needs_language_review:
+        result = _unsure_result(language_reason, _job_text(job, "role_type", "Other"))
+        job.update(result)
+        job["status"] = "review"
+        with _print_lock:
+            if verbose:
+                print(f"    ? Candidate language review: {language_reason}")
+        return job
+
+    # Early-career wording proves level, not a June-2027-compatible start.
+    # Keep these visible for manual verification, but do not spend an API call
+    # or admit them to the apply queue.
+    if timing_disposition == "unsure":
+        result = _unsure_result(timing_reason, _job_text(job, "role_type", "Other"))
+        job.update(result)
+        job["status"] = "review"
+        with _print_lock:
+            if verbose:
+                print(f"    ? Timing unconfirmed — review: {timing_reason}")
+        return job
+
     # ── Three-way discovery failure mode: keep / reject / unsure ─────────────
     disposition = str(job.get("discovery_disposition") or "keep").strip().lower()
     disposition_reason = str(job.get("discovery_reason") or "").strip()
@@ -439,6 +479,9 @@ def score_job(job: dict, client: anthropic.Anthropic | None,
                 print(f"    ⚠  Bad JD capture — {company} / {title}")
         job.update(result)
         return job
+    if jd_issue:
+        job.update(_error_result(f"Incomplete JD capture — {jd_issue}; retrieve the full description"))
+        return job
 
     # ── Claude call (with retry) ───────────────────────────────────────────────
     if client is None:
@@ -477,7 +520,7 @@ def score_job(job: dict, client: anthropic.Anthropic | None,
             # sponsorship. Deterministic hard-reject checks already ran above, so keep
             # such contradictions visible for review instead of silently discarding them.
             invalid_sponsorship_reject = (
-                lane == "B"
+                lane in {"A", "B"}
                 and str(result.get("decision") or "").strip().lower() == "reject"
                 and not pre_filter_immigration(jd_text)[0]
                 and (
@@ -494,7 +537,7 @@ def score_job(job: dict, client: anthropic.Anthropic | None,
                     prompt
                     + "\n\nCRITICAL CORRECTION: The JD does not explicitly exclude F-1, OPT, or CPT, "
                     "and the deterministic hard-immigration filter has passed it. Generic no-sponsorship "
-                    "or no-new-employment-authorization-sponsorship language is a soft flag for Lane B. "
+                    "or no-new-employment-authorization-sponsorship language alone does not explicitly exclude CPT or OPT. "
                     "You MUST score the role normally and may not reject it on immigration grounds."
                 )
                 correction_kwargs = dict(request_kwargs)
@@ -513,7 +556,7 @@ def score_job(job: dict, client: anthropic.Anthropic | None,
                 )
                 if corrected_still_invalid:
                     result = _unsure_result(
-                        "Lane B sponsorship review — JD has generic no-sponsorship language "
+                        f"Lane {lane} sponsorship review — JD has generic no-sponsorship language "
                         "but does not explicitly exclude F-1, OPT, or CPT",
                         _job_text(job, "role_type", "Other"),
                     )
@@ -585,7 +628,7 @@ def score_job(job: dict, client: anthropic.Anthropic | None,
             # generic no-sponsorship boilerplate into an F-1/OPT hard reject.
             # The deterministic immigration gate above is authoritative.
             post_correction_sponsorship_reject = (
-                lane == "B"
+                lane in {"A", "B"}
                 and str(result.get("decision") or "").strip().lower() == "reject"
                 and not pre_filter_immigration(jd_text)[0]
                 and (
@@ -598,7 +641,7 @@ def score_job(job: dict, client: anthropic.Anthropic | None,
             if post_correction_sponsorship_reject:
                 previous_raw = str(result.get("_raw_response") or raw)
                 result = _unsure_result(
-                    "Lane B sponsorship review — JD has generic no-sponsorship language "
+                    f"Lane {lane} sponsorship review — JD has generic no-sponsorship language "
                     "but does not explicitly exclude F-1, OPT, or CPT",
                     "Solutions" if surface_family == "Technical GTM" else _job_text(job, "role_type", "Other"),
                 )
@@ -626,6 +669,10 @@ def score_job(job: dict, client: anthropic.Anthropic | None,
         except Exception as e:
             last_error = str(e)
             err_str    = str(e)
+            if 'credit balance' in err_str.lower() and 'too low' in err_str.lower():
+                job.update(_error_result('Anthropic scoring unavailable: insufficient account credits'))
+                job['_scoring_fatal_error']='insufficient_credits'
+                return job
             is_rate_limit = "429" in err_str or "rate_limit" in err_str.lower()
             if is_rate_limit:
                 job["_scoring_rate_limit_events"] = int(
@@ -672,7 +719,8 @@ def score_batch(jobs: list[dict],
                 model: str = DEFAULT_MODEL,
                 verbose: bool = True,
                 max_workers: int = 2,
-                deadline_epoch: float | None = None) -> list[dict]:
+                deadline_epoch: float | None = None,
+                on_result=None) -> list[dict]:
     """
     Score a list of job dicts. Returns the same list with scoring fields filled in.
     Uses ThreadPoolExecutor for parallel API calls.
@@ -698,7 +746,7 @@ def score_batch(jobs: list[dict],
     )
     if client is None and has_api_scoring_jobs:
         api_key = _load_api_key()
-        client  = anthropic.Anthropic(api_key=api_key)
+        client  = anthropic.Anthropic(api_key=api_key, **({"max_retries": 0} if deadline_epoch is not None else {}))
 
     profile_text = _load_file(PROFILE, "profile.md")
     scorer_text  = _load_file(SCORER,  "scorer_prompt.md")
@@ -710,13 +758,16 @@ def score_batch(jobs: list[dict],
 
     # Pre-allocate output list to preserve input order
     scored: list[dict | None] = [None] * len(jobs)
+    from threading import Event
+    fatal_scoring=Event()
 
     def _score_one(idx_job: tuple[int, dict]) -> tuple[int, dict]:
         idx, job = idx_job
         result = score_job(
-            dict(job), client, profile_text, scorer_text,
+            dict(job), None if fatal_scoring.is_set() else client, profile_text, scorer_text,
             model=model, verbose=verbose, deadline_epoch=deadline_epoch,
         )
+        if result.get('_scoring_fatal_error'):fatal_scoring.set()
         return idx, result
 
     executor = ThreadPoolExecutor(max_workers=max_workers)
@@ -742,6 +793,8 @@ def score_batch(jobs: list[dict],
                 try:
                     idx, result = future.result()
                     scored[idx] = result
+                    if on_result is not None:
+                        on_result(dict(result))
                 except Exception as exc:
                     # Shouldn't happen — score_job catches its own errors,
                     # but guard against unexpected executor failures.

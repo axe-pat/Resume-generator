@@ -6,6 +6,7 @@ They are intentionally conservative and only catch obvious hard rejects.
 """
 
 from __future__ import annotations
+from functools import lru_cache
 
 import re
 from typing import Any
@@ -15,7 +16,6 @@ LANE_A = "A"
 LANE_B = "B"
 LANE_C = "C"
 DISCOVERY_LANES = (LANE_A, LANE_B, LANE_C)
-LANE_C_MIN_HOURLY_RATE = 20.0
 
 # ---------------------------------------------------------------------------
 # Hard pre-filter — catch obvious immigration rejects without an API call
@@ -25,6 +25,8 @@ HARD_REJECT_PATTERNS = [
     r"us\s+citizen(?:s)?\s+only",
     r"must\s+be\s+a\s+us\s+citizen",
     r"u\.s\.?\s+citizen(?:ship)?\s+(?:is\s+)?required",
+    r"united\s+states\s+citizenship\s+(?:is\s+)?required",
+    r"requires?\s+u\.?s\.?\s+citizenship",
     r"green\s+card\s+(?:required|holder)",
     r"permanent\s+resident(?:s)?\s+only",
     r"no\s+(?:cpt|opt)\s+(?:support|sponsorship|accepted)",
@@ -33,6 +35,17 @@ HARD_REJECT_PATTERNS = [
     r"including\s+(?:participation\s+in\s+)?(?:curricular\s+practical\s+training|cpt)",
     r"f-?1\s+visa\s+program[s]?\s+(?:are\s+)?not\s+(?:eligible|supported|accepted)",
     r"not\s+open\s+to\s+visa\s+sponsorship.*\bopt\b",
+    # A generic no-sponsorship statement can coexist with OPT eligibility,
+    # but an explicit *future* visa bar rules out the user's post-OPT path.
+    r"(?:not\s+require|without)\s+(?:current\s+or\s+future|now\s+or\s+in\s+the\s+future)\s+"
+    r"(?:work\s+)?(?:visa\s+)?sponsor(?:ship)?\b",
+    r"(?:unable\s+to\s+consider|not\s+consider)\s+applicants?\s+who\s+would\s+require\s+"
+    r"(?:current\s+or\s+future)\s+(?:work\s+)?(?:visa\s+)?sponsor(?:ship)?\b",
+    r"(?:cannot|unable\s+to|will\s+not)\s+(?:provide|offer|support)\s+future\s+"
+    r"(?:h-?1b\s+)?(?:visa\s+)?sponsor(?:ship)?\b",
+    r"(?:do(?:es)?\s+not|will\s+not|cannot|unable\s+to)\s+"
+    r"(?:provide|offer)\s+(?:work\s+)?(?:visa\s+)?sponsor(?:ship)?\b"
+    r"[^.\n]{0,80}\b(?:now\s+or\s+(?:in\s+the\s+)?future|current\s+or\s+future)\b",
     r"(?:will\s+not|do(?:es)?\s+not|cannot|can't|unable\s+to)"
     r"[^.\n]{0,140}(?:sponsor|provide\s+sponsorship|offer\s+employment)"
     r"[^\n]{0,180}\b(?:f-?1|cpt|(?:stem[- ]?)?opt)\b",
@@ -41,10 +54,12 @@ HARD_REJECT_PATTERNS = [
     r"[^.\n]{0,180}\b(?:f-?1|cpt|(?:stem[- ]?)?opt)\b",
     r"stem\s+opt.*not\s+(?:eligible|supported|accepted)",
     r"us\s+person.*22\s+c\.?f\.?r",
+    r"must\s+be\s+(?:an?\s+)?u\.?s\.?\s+persons?\b",
     r"itar.*us\s+(?:person|citizen)",
     r"permanent(?:ly)?\s+(?:authorized|authorised)\s+to\s+work",
     r"(?:authorized|authorised)\s+to\s+work\s+permanent(?:ly)?(?:\s+without\s+sponsorship)?",
     r"authorized\s+to\s+work.*on\s+a\s+(?:full[- ]time,?\s+)?permanent\s+basis",
+    r"ability\s+to\s+work\s+legally\s+in\s+the\s+united\s+states\s+on\s+a\s+permanent\s+basis",
     r"security\s+clearance\s+required",
     r"(?:ts|top\s+secret)(?:/sci)?\s+clearance",
     r"must\s+(?:hold|have|possess)\s+(?:an?\s+)?(?:active\s+)?(?:ts|secret|top\s+secret)\s+clearance",
@@ -72,6 +87,21 @@ EXPLICIT_EXPERIENCE_CAP = re.compile(
     r"experience\b",
     re.IGNORECASE,
 )
+EXPLICIT_EXPERIENCE_MONTH_CAP = re.compile(
+    r"\b(?P<qualifier>less\s+than|fewer\s+than|under|up\s+to|no\s+more\s+than|"
+    r"at\s+most|maximum(?:\s+of)?)\s+"
+    r"(?P<months>\d+|zero|one|two|three|four|five|six|seven|eight|nine|ten|"
+    r"eleven|twelve|eighteen|twenty[- ]four)\s+months?\s+"
+    r"(?:of\s+)?(?:professional\s+|full[- ]time\s+|relevant\s+|related\s+)?"
+    r"(?:work\s+)?experience\b",
+    re.IGNORECASE,
+)
+EXPLICIT_EXPERIENCE_RANGE = re.compile(
+    r"\b(?P<low>\d+)\s*(?:-|\u2013|\u2014|to)\s*(?P<high>\d+)\s+years?\s+"
+    r"(?:of\s+)?(?:(?:professional|full[- ]time|relevant|related|work)\s+){0,3}"
+    r"experience\b",
+    re.IGNORECASE,
+)
 CANDIDATE_PROFESSIONAL_EXPERIENCE_YEARS = 5
 _NUMBER_WORDS = {
     "zero": 0,
@@ -85,6 +115,11 @@ _NUMBER_WORDS = {
     "eight": 8,
     "nine": 9,
     "ten": 10,
+    "eleven": 11,
+    "twelve": 12,
+    "eighteen": 18,
+    "twenty-four": 24,
+    "twenty four": 24,
 }
 
 # ---------------------------------------------------------------------------
@@ -136,10 +171,12 @@ ROLE_TYPE_REJECT_COMPILED = [
 # Discovery-lane metadata and timing policy
 # ---------------------------------------------------------------------------
 
-_INTERNSHIP_ROLE_RE = re.compile(r"\b(?:intern(?:ship)?|co-?op|coop)\b", re.I)
+_INTERNSHIP_ROLE_RE = re.compile(
+    r"\b(?:intern(?:ship)?s?|co-?ops?|coops?|apprentice(?:ship)?s?)\b", re.I
+)
 _INTERNSHIP_OPENING_RE = re.compile(
     r"\b(?:this|the|our)\s+(?:paid\s+|full[- ]time\s+|part[- ]time\s+)?"
-    r"(?:intern(?:ship)?|co-?op)\b|"
+    r"(?:intern(?:ship)?|co-?op|apprentice(?:ship)?)\b|"
     r"\b(?:intern(?:ship)?|co-?op)\s+(?:position|role|program|opportunity)\b|"
     r"\b(?:position|role|opportunity)\s+(?:is\s+|as\s+)?(?:an?\s+)?"
     r"(?:intern(?:ship)?|co-?op)\b",
@@ -152,16 +189,45 @@ _FULL_TIME_ROLE_RE = re.compile(
 _SUMMER_2027_RE = re.compile(r"\b(?:summer\s+(?:of\s+)?2027|2027\s+summer)\b", re.I)
 _SUMMER_INTERNSHIP_RE = re.compile(
     r"\b(?:summer\s+(?:intern(?:ship)?s?|co-?ops?)|"
-    r"(?:intern(?:ship)?|co-?op)[^.\n]{0,45}\bsummer\b|"
-    r"summer\s+(?:start|program|term|session))\b",
+    r"(?:intern(?:ship)?|co-?op)[^.\n]{0,80}\bsummer\b|"
+    r"summer\s+(?:start|program|term|session)|for\s+the\s+summer)\b",
+    re.I,
+)
+_INTERNSHIP_2027_DATE_RANGE_RE = re.compile(
+    r"\b(?:available|availability|required|program|session|term|dates?|assignment\s+duration)"
+    r"[^.\n]{0,90}\b(?:january|february|march|april|may|june|july|august|"
+    r"september|october|november|december)(?:\s+\d{1,2}(?:st|nd|rd|th)?)?[,]?\s+2027\b",
+    re.I,
+)
+_INTERNSHIP_2027_PROGRAM_TIMING_RE = re.compile(
+    r"\b(?:this|the|our)\s+(?:\d+[- ]week\s+)?internship[^.\n]{0,100}"
+    r"(?:will\s+run|begins?|starts?|duration)[^.\n]{0,100}\b2027\b",
+    re.I,
+)
+_INTERNSHIP_2027_OPPORTUNITY_TIMING_RE = re.compile(
+    r"\b(?:this|the|our)\s+(?:opportunity|position|role|co-?op|internship)"
+    r"[^.\n]{0,60}\b(?:runs?|starts?|begins?)\s+(?:from\s+)?"
+    r"(?:january|february|march|april|may|june|july|august|september|october|november|december)"
+    r"[,]?\s+2027\b",
     re.I,
 )
 _FALL_2026_RE = re.compile(r"\b(?:(?:fall|autumn)\s+2026|2026\s+(?:fall|autumn))\b", re.I)
+_FALL_2026_PROGRAM_RE = re.compile(
+    r"\b(?:(?:fall|autumn)\s+2026[^.\n]{0,30}(?:intern(?:ship)?|co-?op|term|semester)|"
+    r"(?:intern(?:ship)?|co-?op|term|semester)[^.\n]{0,30}(?:fall|autumn)\s+2026)\b",
+    re.I,
+)
 _FALL_2026_START_RE = re.compile(
     r"\b(?:anticipated\s+)?start(?:ing)?(?:\s+date)?[^.\n]{0,45}"
     r"(?:september|october|november)\s+2026\b|"
     r"\b(?:september|october|november)\s+2026\b[^.\n]{0,45}"
     r"(?:start(?:ing)?|begin(?:s|ning)?|commenc(?:e|es|ing))\b",
+    re.I,
+)
+_SPRING_2027_RE = re.compile(r"\b(?:spring\s+2027|2027\s+spring)\b", re.I)
+_SPRING_2027_PROGRAM_RE = re.compile(
+    r"\b(?:spring\s+2027[^.\n]{0,30}(?:intern(?:ship)?|co-?op|term|semester)|"
+    r"(?:intern(?:ship)?|co-?op|term|semester)[^.\n]{0,30}spring\s+2027)\b",
     re.I,
 )
 _OTHER_2027_INTERNSHIP_RE = re.compile(
@@ -203,23 +269,75 @@ _TITLE_PRE_GRADUATION_COHORT_RE = re.compile(
     re.I,
 )
 _APPLICATION_ACTIVITY_RE = re.compile(
-    r"\b(?:application(?:s)?|interview(?:s|ing)?|review(?:ed|ing)?)\b",
+    r"\b(?:application(?:s)?|interview(?:s|ing)?|review(?:ed|ing)?|"
+    r"hir(?:e|es|ed|ing)|recruit(?:s|ed|ing)?)\b",
+    re.I,
+)
+_NON_ROLE_START_CONTEXT_RE = re.compile(
+    r"\b(?:benefits?|401\s*\(?k\)?|retirement|matching\s+contributions?|"
+    r"employer\s+match|health\s+(?:insurance|coverage|plan)|paid\s+leave|"
+    r"vacation|holidays?)\b",
     re.I,
 )
 _NEW_GRAD_ELIGIBILITY_RE = re.compile(
     r"\b(?:"
-    r"new\s+grad(?:uate)?s?|recent\s+grad(?:uate)?s?|"
-    r"(?:university|college)\s+grad(?:uate)?s?|"
-    r"campus\s+hire|university\s+hires?|entry[- ]level|early\s+career|class\s+of\s+2027|"
-    r"graduate\s+program|product\s+management\s+graduate|"
-    r"accelerated\s+career\s+development\s+program|"
-    r"2027\s+grad(?:uate)?s?|grad(?:uat(?:e|es|ing|ion))[^.\n]{0,120}2027|"
+    r"class\s+of\s+2027|2027\s+grad(?:uate)?s?|"
+    r"grad(?:uat(?:e|es|ing|ion))[^.\n]{0,120}2027|"
     r"2027[^.\n]{0,120}grad(?:uat(?:e|es|ing|ion))|"
     r"(?:associate|development\s+program|leadership\s+program|rotational\s+program|graduate\s+program)"
     r"[^.\n]{0,60}2027|2027[^.\n]{0,60}"
-    r"(?:associate|development\s+program|leadership\s+program|rotational\s+program|graduate\s+program)|"
-    r"mba[^.\n]{0,35}(?:leadership\s+development|rotational|graduate)\s+program"
+    r"(?:associate|development\s+program|leadership\s+program|rotational\s+program|graduate\s+program)"
     r")\b",
+    re.I,
+)
+_TITLE_2027_EARLY_CAREER_RE = re.compile(
+    r"\b(?:"
+    r"(?:new\s+grad(?:uate)?|graduate|entry[- ]level|early\s+career|associate|program)"
+    r"[^\n]{0,80}\b2027\b|"
+    r"\b2027\b[^\n]{0,80}"
+    r"(?:new\s+grad(?:uate)?|graduate|entry[- ]level|early\s+career|associate|program)"
+    r")\b",
+    re.I,
+)
+_EARLY_CAREER_TIMING_UNCONFIRMED_RE = re.compile(
+    r"\b(?:new\s+grad(?:uate)?s?|recent\s+grad(?:uate)?s?|"
+    r"(?:university|college)\s+grad(?:uate)?s?|campus\s+hire|university\s+hires?|"
+    r"entry[- ]level|early\s+career|graduate\s+program|product\s+management\s+graduate|"
+    r"product\s+pathway|project\s+management\s+pathway|"
+    r"accelerated\s+career\s+development\s+program|"
+    r"mba[^.\n]{0,35}(?:leadership\s+development|rotational|graduate)\s+program)\b",
+    re.I,
+)
+_UNDERGRAD_ONLY_RE = re.compile(
+    r"\b(?:currently\s+(?:pursuing|enrolled\s+in)|must\s+be\s+(?:a\s+)?current|"
+    r"open\s+(?:only\s+)?to|for)\s+(?:an?\s+)?(?:undergraduate|bachelor(?:['’]s|s)?(?:\s+degree)?)"
+    r"(?:\s+student)?s?\b|\bundergraduate\s+students?\s+only\b|"
+    r"\bstudents?\s+complet(?:ing|e)[^.\n]{0,45}\b(?:an?\s+)?bachelor(?:['’]s|s)?\s+degree\b|"
+    r"\bgraduating\s+with\s+an?\s+undergraduate\s+degree\b|"
+    r"\bcurrently\s+enrolled(?:\s+full[- ]time)?\s+and\s+pursuing\s+an?\s+bachelor(?:['’]s|s)?\s+degree\b",
+    re.I,
+)
+_GRADUATE_STUDENT_ALSO_ELIGIBLE_RE = re.compile(
+    r"\b(?:bachelor(?:['’]s|s)?|undergraduate)[^.\n]{0,80}"
+    r"(?:master(?:['’]s|s)?|mba|graduate\s+(?:student|degree)|ph\.?d)|"
+    r"(?:master(?:['’]s|s)?|mba|graduate\s+(?:student|degree)|ph\.?d)[^.\n]{0,80}"
+    r"(?:bachelor(?:['’]s|s)?|undergraduate)\b",
+    re.I,
+)
+_ENGINEERING_SPECIALTIES_ONLY_RE = re.compile(
+    r"\b(?:minimum\s+requirement\s*:\s*)?bachelor(?:['’]s|s)?\s+degree\s+in\s+"
+    r"engineering\s*\((?P<specialties>[^)]+)\)",
+    re.I,
+)
+_MANDARIN_REQUIRED_RE = re.compile(
+    r"\b(?:fluency|proficiency)\s+in\s+(?:both\s+)?(?:english\s+and\s+)?mandarin\s+required\b|"
+    r"\bmandarin\s+(?:fluency|proficiency)\s+(?:is\s+)?required\b",
+    re.I,
+)
+_POST_MAY_2027_GRADUATION_ONLY_RE = re.compile(
+    r"\b(?:expected|anticipated)\s+graduation\s+date(?:\s+of|\s+between|\s*:\s*)?\s*"
+    r"(?:july|august|september|october|november|december|summer|fall|autumn|winter)\s+2027\b|"
+    r"\b(?:expected|anticipated)\s+graduation\s+date(?:\s+of|\s+between|\s*:\s*)?[^.\n]{0,40}\b2028\b",
     re.I,
 )
 _SUMMER_COHORT_PROGRAM_RE = re.compile(
@@ -234,7 +352,7 @@ _IMMEDIATE_START_RE = re.compile(
 )
 _LANE_B_FINANCE_RE = re.compile(
     r"\b(?:finance|financial\s+analyst|investment\s+bank|private\s+equity|"
-    r"asset\s+management|wealth\s+management|corporate\s+banking|accounting\s+rotational)\b",
+    r"fp\s*&\s*a|asset\s+management|wealth\s+management|corporate\s+banking|accounting\s+rotational)\b",
     re.I,
 )
 _LANE_B_CONSULTING_RE = re.compile(
@@ -259,7 +377,8 @@ _TECHNICAL_GTM_TITLE_RE = re.compile(
 )
 _INDIVIDUAL_SOFTWARE_ENGINEER_RE = re.compile(
     r"\b(?:software\s+engineer|backend\s+engineer|front[- ]?end\s+engineer|"
-    r"full[- ]?stack\s+engineer|software\s+developer)\b",
+    r"full[- ]?stack\s+engineer|software\s+developer|"
+    r"(?:ai|ml|machine\s+learning|agentic)\s+engineer)\b",
     re.I,
 )
 
@@ -268,8 +387,9 @@ ROLE_FAMILY_TITLE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
         "Product",
         re.compile(
             r"\b(?:product\s+manager|associate\s+product\s+manager|apm|technical\s+product\s+manager|"
-            r"product\s+management\s+graduate|product\s+pathway|"
+            r"product\s+(?:line\s+)?management|product\s+pathway|"
             r"product\s+owner|(?:ai|ml|ai/ml|platform|infrastructure|data|developer\s+platform|growth)\s+product\s+manager|"
+            r"mba\s+full[- ]time\s+hire\s*[-–—:]\s*product|"
             r"product\s+analyst|product\s+strategist|strategic\s+product\s+lead|"
             r"product\s+solutions?\s*(?:&|and)\s*operations?|(?:content|creative)\s+product|"
             r"product\s+strategy(?:\s*(?:&|and)\s*operations)?)\b",
@@ -280,7 +400,7 @@ ROLE_FAMILY_TITLE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
         "Product Ops / Program",
         re.compile(
             r"\b(?:product\s+operations?\s+(?:manager|associate|intern|graduate)|technical\s+program\s+manager|"
-            r"business\s+program\s+manager|program\s+manager)\b",
+            r"business\s+program\s+manager|program\s+manager|technical\s+(?:project(?:/program)?|program)\s+management)\b",
             re.I,
         ),
     ),
@@ -307,9 +427,11 @@ ROLE_FAMILY_TITLE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
             r"product\s+management\s+leadership\s+program|business\s+leadership\s+program|"
             r"technology\s+leadership\s+program|pathways\s+operations\s+manager|"
             r"general\s+management\s+rotational\s+program|graduate\s+rotational\s+program|"
+            r"publishing\s+graduate\s+program|"
             r"(?:technical|operations|commercial|information\s+technology|it)\s+"
             r"(?:management\s+)?development\s+program|business\s+management\s+associate|"
-            r"leadership\s+fellow\s+program)\b",
+            r"leadership\s+fellow\s+program|rotational\s+(?:development\s+)?(?:program|associate|analyst)|"
+            r"global\s+management\s+trainee\s+program)\b",
             re.I,
         ),
     ),
@@ -514,6 +636,7 @@ def infer_discovery_lane(job: dict[str, Any], default: str = LANE_A) -> str:
         "summer_internship_unspecified_year",
         "other_2027_internship",
         "fall_2026_internship",
+        "spring_2027_internship",
         "internship_unspecified",
     }:
         return LANE_A
@@ -522,14 +645,20 @@ def infer_discovery_lane(job: dict[str, Any], default: str = LANE_A) -> str:
         "pre_graduation_full_time",
         "mid_2027_or_later_full_time",
         "new_grad_eligible",
+        "new_grad_timing_unconfirmed",
         "full_time_unspecified",
     }:
         return LANE_B
     return normalize_discovery_lane(default)
 
 
+@lru_cache(maxsize=16384)
 def classify_start_timing(role_title: str, jd_text: str) -> str:
     text = f"{role_title or ''}\n{jd_text or ''}"
+    text = re.sub(
+        r"\b(January|February|March|April|May|June|July|August|September|October|November|December)\s*,\s*(20\d{2})\b",
+        r"\1 \2", text, flags=re.I,
+    )
     # Job descriptions routinely list a prior internship as acceptable experience.
     # Treat the posting itself as an internship only when the title says so or the
     # opening explicitly describes this position/program as one.
@@ -538,22 +667,53 @@ def classify_start_timing(role_title: str, jd_text: str) -> str:
     is_internship = bool(
         _INTERNSHIP_ROLE_RE.search(role_title or "")
         or _INTERNSHIP_OPENING_RE.search(opening)
+        or re.search(
+            r"\bthis\s+(?:(?:role|position|opportunity|program)\s+)?is\s+"
+            r"(?:an?\s+)?(?:(?:mba|paid|full[- ]time|graduate)\s+)*internship\b",
+            jd_text or "", re.I,
+        )
+    )
+    # Candidate graduation-window sentences do not establish the posting's
+    # actual season. Exclude them from internship-date detection.
+    timing_copy = re.sub(
+        r"[^.\n]*\bgraduat\w*\b[^.\n]*",
+        "",
+        jd_text or "",
+        flags=re.I,
     )
     # The JD often lists May 2027 as the candidate's graduation date. Explicit
     # posting season wins over that eligibility text, so a Fall 2026 internship
     # is not accidentally reclassified as a 2027 internship.
-    if is_internship and (_FALL_2026_RE.search(text) or _FALL_2026_START_RE.search(text)):
+    if is_internship and (
+        _FALL_2026_RE.search(role_title or "")
+        or _FALL_2026_PROGRAM_RE.search(jd_text or "")
+        or _FALL_2026_START_RE.search(jd_text or "")
+    ):
         return "fall_2026_internship"
+    if is_internship and (
+        _SPRING_2027_RE.search(role_title or "")
+        or _SPRING_2027_PROGRAM_RE.search(jd_text or "")
+    ):
+        return "spring_2027_internship"
     if is_internship and _SUMMER_2027_RE.search(text):
         return "summer_2027_internship"
+    if is_internship and _INTERNSHIP_2027_DATE_RANGE_RE.search(timing_copy):
+        return "other_2027_internship"
+    if is_internship and _INTERNSHIP_2027_PROGRAM_TIMING_RE.search(jd_text or ""):
+        return "other_2027_internship"
+    if is_internship and _INTERNSHIP_2027_OPPORTUNITY_TIMING_RE.search(jd_text or ""):
+        return "other_2027_internship"
     if is_internship and _SUMMER_INTERNSHIP_RE.search(
         f"{role_title or ''}\n{timing_opening}"
     ):
         return "summer_internship_unspecified_year"
     if is_internship and re.search(r"\b2027\b", role_title or "", re.I):
         return "other_2027_internship"
+    # Graduation-window sentences often contain both "internship" and "2027"
+    # but do not establish the internship's season. Remove those sentences
+    # before looking for otherwise-explicit 2027 internship copy.
     if is_internship and _OTHER_2027_INTERNSHIP_RE.search(
-        f"{role_title or ''}\n{opening}"
+        f"{role_title or ''}\n{timing_copy}"
     ):
         return "other_2027_internship"
     if is_internship:
@@ -565,7 +725,29 @@ def classify_start_timing(role_title: str, jd_text: str) -> str:
         text[max(0, mid_start.start() - 80) : mid_start.end()]
     ):
         return "mid_2027_or_later_full_time"
-    pre_grad_start = _PRE_GRADUATION_START_RE.search(text)
+    pre_grad_start = None
+    for match in _PRE_GRADUATION_START_RE.finditer(text):
+        sentence_start = max(
+            text.rfind(".", 0, match.start()),
+            text.rfind("!", 0, match.start()),
+            text.rfind("?", 0, match.start()),
+            text.rfind("\n", 0, match.start()),
+        ) + 1
+        sentence_ends = [
+            position
+            for position in (
+                text.find(".", match.end()),
+                text.find("!", match.end()),
+                text.find("?", match.end()),
+                text.find("\n", match.end()),
+            )
+            if position >= 0
+        ]
+        sentence_end = min(sentence_ends) if sentence_ends else len(text)
+        context = text[sentence_start:sentence_end]
+        if not _NON_ROLE_START_CONTEXT_RE.search(context):
+            pre_grad_start = match
+            break
     if (
         pre_grad_start
         and not _APPLICATION_ACTIVITY_RE.search(
@@ -582,14 +764,76 @@ def classify_start_timing(role_title: str, jd_text: str) -> str:
         )
     ):
         return "pre_graduation_full_time"
-    if _NEW_GRAD_ELIGIBILITY_RE.search(text) or (
+    if _NEW_GRAD_ELIGIBILITY_RE.search(text) or _TITLE_2027_EARLY_CAREER_RE.search(
+        role_title or ""
+    ):
+        return "new_grad_eligible"
+    if _EARLY_CAREER_TIMING_UNCONFIRMED_RE.search(text) or (
         re.search(r"\bprogram\b", role_title or "", re.I)
         and _SUMMER_COHORT_PROGRAM_RE.search(jd_text or "")
     ):
-        return "new_grad_eligible"
+        return "new_grad_timing_unconfirmed"
     if _FULL_TIME_ROLE_RE.search(text):
         return "full_time_unspecified"
     return "unknown"
+
+
+def evaluate_discovery_timing(
+    role_title: str,
+    jd_text: str,
+    lane: str,
+) -> tuple[str, str]:
+    """Return keep/reject/unsure for start timing.
+
+    Bare early-career wording proves level, not May-2027 compatibility. Those
+    roles stay reviewable, but cannot enter scoring or the apply queue until a
+    2027 cohort, graduation window, or June-2027-or-later start is verified.
+    """
+    normalized_lane = normalize_discovery_lane(lane)
+    timing = classify_start_timing(role_title, jd_text)
+
+    if timing == "summer_2027_internship":
+        return "reject", "Timing reject — Summer 2027 internship begins after May 2027 graduation"
+    if timing == "summer_internship_unspecified_year":
+        return "reject", "Timing reject — Summer internship is outside the Fall 2026 internship lane"
+    if timing == "other_2027_internship":
+        return "reject", "Timing reject — 2027 internship is outside the supported Fall 2026/Spring 2027 off-cycle lane"
+
+    if normalized_lane == LANE_B:
+        if timing in {"fall_2026_internship", "spring_2027_internship", "internship_unspecified"}:
+            return "reject", "Lane B timing reject — internship result is not a 2027 full-time start"
+        if timing == "immediate_full_time":
+            return "reject", "Lane B timing reject — immediate-start full-time role"
+        if timing == "pre_graduation_full_time":
+            return "reject", "Lane B timing reject — full-time start is before June 2027 graduation availability"
+        if timing in {"mid_2027_or_later_full_time", "new_grad_eligible"}:
+            return "keep", ""
+        if timing == "new_grad_timing_unconfirmed":
+            return (
+                "unsure",
+                "Lane B timing unconfirmed — early-career level is explicit, but no 2027 cohort, "
+                "graduation window, or June-2027-or-later start is stated",
+            )
+        return "reject", "Lane B timing reject — no explicit 2027 eligibility or June-2027-or-later start"
+
+    if normalized_lane == LANE_A and timing in {
+        "immediate_full_time",
+        "pre_graduation_full_time",
+        "mid_2027_or_later_full_time",
+        "new_grad_eligible",
+        "new_grad_timing_unconfirmed",
+        "full_time_unspecified",
+        "unknown",
+    }:
+        return "reject", "Lane A timing reject — result is not a supported Fall 2026/Spring 2027 internship"
+
+    if normalized_lane == LANE_A and timing == "internship_unspecified":
+        return (
+            "unsure",
+            "Lane A timing unconfirmed — internship is active, but the JD does not prove a Fall 2026 or Spring 2027 term",
+        )
+
+    return "keep", ""
 
 
 def pre_filter_discovery_timing(
@@ -597,42 +841,13 @@ def pre_filter_discovery_timing(
     jd_text: str,
     lane: str,
 ) -> tuple[bool, str]:
-    """Apply start-date rules without treating a bare ``2027`` as eligibility."""
-    normalized_lane = normalize_discovery_lane(lane)
-    timing = classify_start_timing(role_title, jd_text)
+    """Backward-compatible boolean timing gate.
 
-    if timing == "summer_2027_internship":
-        return True, "Timing reject — Summer 2027 internship begins after May 2027 graduation"
-    if timing == "summer_internship_unspecified_year":
-        return True, "Timing reject — Summer internship is outside the Fall 2026 internship lane"
-    if timing == "other_2027_internship":
-        return True, "Timing reject — 2027 internship is outside the Fall 2026 internship lane"
-
-    if normalized_lane == LANE_B:
-        if timing in {"fall_2026_internship", "internship_unspecified"}:
-            return True, "Lane B timing reject — internship result is not a 2027 full-time start"
-        if timing == "immediate_full_time":
-            return True, "Lane B timing reject — immediate-start full-time role"
-        if timing == "pre_graduation_full_time":
-            return True, "Lane B timing reject — full-time start is before June 2027 graduation availability"
-        if timing in {"mid_2027_or_later_full_time", "new_grad_eligible"}:
-            return False, ""
-        return (
-            True,
-            "Lane B timing reject — no explicit new-grad eligibility or mid-2027-or-later start",
-        )
-
-    if normalized_lane == LANE_A and timing in {
-        "immediate_full_time",
-        "pre_graduation_full_time",
-        "mid_2027_or_later_full_time",
-        "new_grad_eligible",
-        "full_time_unspecified",
-        "unknown",
-    }:
-        return True, "Lane A timing reject — result is not a Fall 2026 internship"
-
-    return False, ""
+    ``unsure`` is not applyable, so legacy callers that only understand a
+    boolean receive it as a stop with the review reason preserved.
+    """
+    disposition, reason = evaluate_discovery_timing(role_title, jd_text, lane)
+    return disposition != "keep", reason
 
 
 def pre_filter_discovery_scope(role_title: str, lane: str) -> tuple[bool, str]:
@@ -652,6 +867,7 @@ def pre_filter_discovery_scope(role_title: str, lane: str) -> tuple[bool, str]:
     return False, ""
 
 
+@lru_cache(maxsize=16384)
 def classify_role_surface(role_title: str, jd_text: str) -> tuple[str, str, str]:
     """Return (keep/reject/unsure, reason, family) using title hints + body signals."""
     title = role_title or ""
@@ -659,9 +875,39 @@ def classify_role_surface(role_title: str, jd_text: str) -> tuple[str, str, str]
         if pattern.search(title):
             return "keep", f"Known role family: {family}", family
 
+    if re.search(r"\btechnology\s+analyst\s+program\b", title, re.I) and re.search(
+        r"\b(?:product\s+(?:delivery|development)|business\s+operations|digital\s+transformation)\b", jd_text or "", re.I
+    ):
+        return "keep", "Technology program with explicit product or business delivery", "Product Ops / Program"
+    if re.search(r"\bconsumer\s+insights\b", title, re.I) and re.search(
+        r"\bproduct\s+(?:development|strategy|design)\b", jd_text or "", re.I
+    ):
+        return "keep", "Consumer research explicitly supports product development", "Product"
+    if re.search(r"\bprogram\s+associate\b", title, re.I) and re.search(r"\brotations?\b", jd_text or "", re.I) and re.search(
+        r"\bleadership\b", jd_text or "", re.I
+    ):
+        return "keep", "Named program with verified rotations and leadership development", "Rotational / Leadership"
+    if re.search(r"\boffice\s+of\s+the\s+coo\b", title, re.I):
+        return "keep", "Chief operating office program", "Strategy / BizOps"
+    if (re.search(r"\bleadership\s+associate\b", title, re.I)
+            and re.search(r"\bmba\b", jd_text or "", re.I)
+            and re.search(r"\brotations?\b", jd_text or "", re.I)
+            and re.search(r"\b(?:product\s+management|strategy)\b", jd_text or "", re.I)):
+        return "keep", "MBA leadership associate program with product/strategy rotations", "Rotational / Leadership"
+    if (re.search(r"\bmba\b", title, re.I)
+            and re.search(r"\binternship\s+program\b", title, re.I)
+            and re.search(r"\b(?:digital\s+strategy|strategy\s*(?:&|and)\s*operations)\b", jd_text or "", re.I)):
+        return "keep", "MBA internship program with explicit strategy placements", "Strategy / BizOps"
+
     for label, pattern in ROLE_TITLE_REVIEW_PATTERNS:
         if pattern.search(title):
             return "unsure", f"Ambiguous {label}; JD review required", ""
+
+    # Named programs often omit their family in the job title. Require an
+    # explicit description of an MBA rotation, rather than generic teamwork.
+    if re.search(r"\b(?:mba[^.\n]{0,45}rotational\s+development\s+program|"
+                 r"rotational\s+development\s+program[^.\n]{0,80}mba)\b", jd_text or "", re.I):
+        return "keep", "JD explicitly describes an MBA rotational development program", "Rotational / Leadership"
 
     body_hits = [label for label, pattern in ROLE_BODY_SIGNAL_PATTERNS if pattern.search(jd_text or "")]
     if body_hits:
@@ -772,13 +1018,6 @@ def evaluate_lane_c(
     low, high = extract_hourly_rate(combined_pay)
     if low is None:
         return False, "Lane C reject — hourly pay rate is not stated", None, None
-    if low < LANE_C_MIN_HOURLY_RATE:
-        return (
-            False,
-            f"Lane C reject — hourly floor is ${LANE_C_MIN_HOURLY_RATE:.0f}; stated minimum is ${low:g}",
-            low,
-            high,
-        )
     shift = _customer_shift_signal(role_title, jd_text)
     if shift:
         return (
@@ -814,7 +1053,9 @@ def strip_discovery_note_metadata(notes: str) -> str:
     return re.sub(r"[ \t]{2,}", " ", cleaned).strip()
 
 
-def annotate_discovery_job(job: dict[str, Any], default_lane: str = LANE_A) -> dict[str, Any]:
+def annotate_discovery_job(
+    job: dict[str, Any], default_lane: str = LANE_A, *, reclassify: bool = False
+) -> dict[str, Any]:
     """Attach explicit lane/timing/deadline/OPT metadata to a discovery row."""
     lane = infer_discovery_lane(job, default=default_lane)
     title = str(job.get("role_title") or job.get("title") or "")
@@ -855,7 +1096,7 @@ def annotate_discovery_job(job: dict[str, Any], default_lane: str = LANE_A) -> d
     existing_disposition = str(
         job.get("classification") or job.get("discovery_disposition") or ""
     ).strip().lower()
-    if existing_disposition in {"keep", "reject", "unsure"}:
+    if not reclassify and existing_disposition in {"keep", "reject", "unsure"}:
         disposition = existing_disposition
         disposition_reason = str(job.get("discovery_reason") or "").strip()
         role_family = str(job.get("role_family") or "").strip()
@@ -909,6 +1150,18 @@ def pre_filter_immigration(jd_text: str) -> tuple[bool, str]:
     for pattern in COMPILED_HARD_REJECT_PATTERNS:
         match = pattern.search(jd_text)
         if match:
+            matched_text = match.group(0)
+            # Some stored JDs carry a human verification note after generic
+            # no-H-1B language. The note explicitly says F-1 OPT was *not*
+            # excluded; do not let its own "F-1 OPT" words turn the soft flag
+            # into a hard reject.
+            if re.search(
+                r"retained\s+as\s+an?\s+opt/h-?1b\s+soft\s+flag|"
+                r"does\s+not\s+separately\s+exclude\s+f-?1\s+opt",
+                matched_text,
+                re.I,
+            ):
+                continue
             return True, f"Immigration hard reject — matched: '{match.group(0)}'"
     return False, ""
 
@@ -984,6 +1237,28 @@ def infer_role_title_from_jd(jd_text: str) -> str:
 def pre_filter_full_time_level(role_title: str, jd_text: str) -> tuple[bool, str]:
     jd_body = jd_text or ""
     if not INTERNSHIP_TITLE_SIGNAL.search(role_title or ""):
+        month_cap_match = EXPLICIT_EXPERIENCE_MONTH_CAP.search(jd_body)
+        if month_cap_match:
+            raw_months = month_cap_match.group("months").lower()
+            stated_months = (
+                int(raw_months) if raw_months.isdigit() else _NUMBER_WORDS[raw_months]
+            )
+            candidate_months = CANDIDATE_PROFESSIONAL_EXPERIENCE_YEARS * 12
+            qualifier = re.sub(r"\s+", " ", month_cap_match.group("qualifier").lower())
+            is_exclusive = qualifier in {"less than", "fewer than", "under"}
+            exceeds_cap = (
+                candidate_months >= stated_months
+                if is_exclusive
+                else candidate_months > stated_months
+            )
+            if exceeds_cap:
+                comparator = "<" if is_exclusive else "≤"
+                return (
+                    True,
+                    "Full-time hire has an explicit experience cap "
+                    f"({comparator}{stated_months} months; candidate has "
+                    f"{candidate_months}) — ineligible",
+                )
         cap_match = EXPLICIT_EXPERIENCE_CAP.search(jd_body)
         if cap_match:
             raw_years = cap_match.group("years").lower()
@@ -1003,6 +1278,17 @@ def pre_filter_full_time_level(role_title: str, jd_text: str) -> tuple[bool, str
                     f"({comparator}{stated_years} years; candidate has "
                     f"{CANDIDATE_PROFESSIONAL_EXPERIENCE_YEARS}) — ineligible",
                 )
+        range_match = EXPLICIT_EXPERIENCE_RANGE.search(jd_body)
+        if range_match:
+            low = int(range_match.group("low"))
+            high = int(range_match.group("high"))
+            if low <= high < CANDIDATE_PROFESSIONAL_EXPERIENCE_YEARS:
+                return (
+                    True,
+                    "Full-time hire states an entry-level experience range "
+                    f"({low}\u2013{high} years; candidate has "
+                    f"{CANDIDATE_PROFESSIONAL_EXPERIENCE_YEARS}) \u2014 ineligible",
+                )
     if (
         not INTERN_SIGNAL.search(role_title or "")
         and not INTERN_SIGNAL.search(jd_body[:600])
@@ -1012,9 +1298,57 @@ def pre_filter_full_time_level(role_title: str, jd_text: str) -> tuple[bool, str
     return False, ""
 
 
+def pre_filter_candidate_education(role_title: str, jd_text: str) -> tuple[bool, str]:
+    """Reject only explicit current-undergraduate-only eligibility.
+
+    A completed technical bachelor's degree remains valid evidence for roles
+    requiring a BS/BE. This check is about present enrollment status, not the
+    name of the candidate's current graduate degree.
+    """
+    text = f"{role_title or ''}\n{jd_text or ''}"
+    if _POST_MAY_2027_GRADUATION_ONLY_RE.search(text):
+        return (
+            True,
+            "Graduation eligibility reject — posting requires a post-May-2027 graduation date; "
+            "candidate graduates in May 2027",
+        )
+    undergrad = _UNDERGRAD_ONLY_RE.search(text)
+    if undergrad and not _GRADUATE_STUDENT_ALSO_ELIGIBLE_RE.search(text):
+        return (
+            True,
+            "Education eligibility reject \u2014 posting is limited to current undergraduate "
+            "students; candidate is an MBA student",
+        )
+    specialties = _ENGINEERING_SPECIALTIES_ONLY_RE.search(text)
+    if specialties:
+        listed = specialties.group("specialties")
+        has_candidate_degree = bool(
+            re.search(r"\b(?:computer|software|computing|computer\s+science)\b", listed, re.I)
+        )
+        allows_related = bool(re.search(r"\brelated\b", text[specialties.start() : specialties.end() + 80], re.I))
+        if not has_candidate_degree and not allows_related:
+            return (
+                True,
+                "Education eligibility reject — required engineering specialties do not include "
+                "Computer Engineering or a related-field option",
+            )
+    return False, ""
+
+
+def review_candidate_language(role_title: str, jd_text: str) -> tuple[bool, str]:
+    """Flag explicit language requirements not established in the candidate profile."""
+    text = f"{role_title or ''}\n{jd_text or ''}"
+    if _MANDARIN_REQUIRED_RE.search(text):
+        return (
+            True,
+            "Candidate language review — fluent Mandarin is required but is not established in the canonical profile",
+        )
+    return False, ""
+
+
 def classify_discovery_job_offline(job: dict[str, Any], default_lane: str = LANE_A) -> dict[str, Any]:
     """Replay every deterministic discovery rule without making a model or network call."""
-    classified = annotate_discovery_job(dict(job), default_lane=default_lane)
+    classified = annotate_discovery_job(dict(job), default_lane=default_lane, reclassify=True)
     lane = normalize_discovery_lane(classified.get("lane"), default=default_lane)
     title = str(classified.get("role_title") or classified.get("title") or "")
     jd_text = str(classified.get("jd_text") or classified.get("description") or "")
@@ -1030,18 +1364,43 @@ def classify_discovery_job_offline(job: dict[str, Any], default_lane: str = LANE
         classified["reject_reason"] = "" if eligible else reason
         return classified
 
+    if not jd_text.strip():
+        classified["classification"] = "unsure"
+        classified["reject_reason"] = (
+            "Full JD unavailable — eligibility, experience, and work-authorization requirements "
+            "cannot be confirmed"
+        )
+        return classified
+
+    timing_disposition, timing_reason = evaluate_discovery_timing(title, jd_text, lane)
+    if timing_disposition == "reject":
+        classified["classification"] = "reject"
+        classified["reject_reason"] = timing_reason
+        return classified
+
     checks = (
-        pre_filter_discovery_timing(title, jd_text, lane),
         pre_filter_discovery_scope(title, lane),
         pre_filter_role_type(title),
         pre_filter_immigration(jd_text),
         pre_filter_full_time_level(title, jd_text),
+        pre_filter_candidate_education(title, jd_text),
     )
     for is_reject, reason in checks:
         if is_reject:
             classified["classification"] = "reject"
             classified["reject_reason"] = reason
             return classified
+
+    needs_language_review, language_reason = review_candidate_language(title, jd_text)
+    if needs_language_review:
+        classified["classification"] = "unsure"
+        classified["reject_reason"] = language_reason
+        return classified
+
+    if timing_disposition == "unsure":
+        classified["classification"] = "unsure"
+        classified["reject_reason"] = timing_reason
+        return classified
 
     disposition = str(classified.get("discovery_disposition") or "keep").strip().lower()
     if disposition not in {"keep", "reject", "unsure"}:

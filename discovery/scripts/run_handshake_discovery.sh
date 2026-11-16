@@ -10,21 +10,26 @@ PYTHON_BIN="${PYTHON_BIN:-venv/bin/python}"
 HANDSHAKE_SEARCH_URL="${HANDSHAKE_SEARCH_URL:-}"
 HANDSHAKE_LANE="${HANDSHAKE_LANE:-A}"
 
-if [[ "$HANDSHAKE_LANE" != "A" && "$HANDSHAKE_LANE" != "C" ]]; then
-  echo "HANDSHAKE_LANE must be A or C (got: ${HANDSHAKE_LANE})" >&2
+if [[ "$HANDSHAKE_LANE" != "A" && "$HANDSHAKE_LANE" != "B" && "$HANDSHAKE_LANE" != "C" ]]; then
+  echo "HANDSHAKE_LANE must be A, B or C (got: ${HANDSHAKE_LANE})" >&2
+  exit 2
+fi
+
+if [[ "$HANDSHAKE_LANE" != "A" && -z "$HANDSHAKE_SEARCH_URL" ]]; then
+  echo "Graduate/income lanes require their own HANDSHAKE_SEARCH_URL; refusing the internship default." >&2
   exit 2
 fi
 
 case "$WINDOW" in
   24h|past-24h)
     MAX_PAGES="${HANDSHAKE_MAX_PAGES:-1}"
-    MAX_RESULTS="${HANDSHAKE_MAX_RESULTS:-25}"
+    MAX_RESULTS="${HANDSHAKE_MAX_RESULTS:-10}"
     STOP_AFTER_EXISTING="${HANDSHAKE_STOP_AFTER_EXISTING:-8}"
     ;;
   7d|week|weekly)
-    MAX_PAGES="${HANDSHAKE_MAX_PAGES:-3}"
-    MAX_RESULTS="${HANDSHAKE_MAX_RESULTS:-75}"
-    STOP_AFTER_EXISTING="${HANDSHAKE_STOP_AFTER_EXISTING:-18}"
+    MAX_PAGES="${HANDSHAKE_MAX_PAGES:-1}"
+    MAX_RESULTS="${HANDSHAKE_MAX_RESULTS:-20}"
+    STOP_AFTER_EXISTING="${HANDSHAKE_STOP_AFTER_EXISTING:-8}"
     ;;
   *)
     cat >&2 <<'USAGE'
@@ -67,8 +72,8 @@ CMD=(
 
 if [[ -n "$HANDSHAKE_SEARCH_URL" ]]; then
   CMD+=(--search-url "$HANDSHAKE_SEARCH_URL")
-elif [[ "$HANDSHAKE_LANE" == "C" ]]; then
-  echo "Lane C requires HANDSHAKE_SEARCH_URL for a saved on-campus/part-time search." >&2
+elif [[ "$HANDSHAKE_LANE" == "C" || "$HANDSHAKE_LANE" == "B" ]]; then
+  echo "Lane B/C requires HANDSHAKE_SEARCH_URL with the correct native job-type filter." >&2
   exit 2
 else
   CMD+=(--default-search)

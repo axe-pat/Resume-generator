@@ -21,9 +21,10 @@ if str(ROOT) not in sys.path:
 from shared.job_eligibility import (  # noqa: E402
     LANE_B,
     classify_role_surface,
+    evaluate_discovery_timing,
     normalize_discovery_lane,
+    pre_filter_candidate_education,
     pre_filter_discovery_scope,
-    pre_filter_discovery_timing,
     pre_filter_full_time_level,
     pre_filter_immigration,
     pre_filter_role_type,
@@ -196,9 +197,11 @@ def linkedin_job_key(job: dict[str, Any]) -> str:
     match = re.search(r"/jobs/view/(\d+)", url)
     if match:
         return f"li:{match.group(1)}"
+    if url:
+        return "url:" + re.sub(r"[?#].*$", "", url).lower().rstrip("/")
     company = normalize(job.get("company"))
     title = normalize(job.get("role_title") or job.get("title"))
-    return f"ct:{company}|{title}"
+    return f"ct:{company}|{title}|{normalize(job.get('location'))}"
 
 
 def normalize(value: Any) -> str:
@@ -239,8 +242,8 @@ def classify_job(job: dict[str, Any], source_bucket: str) -> ClassifiedJob:
     if RECRUITER_COMPANY_RE.search(company):
         return _classified("skip_noise", source_bucket, job, ["Recruiter/aggregator posting"])
 
-    timing_reject, timing_reason = pre_filter_discovery_timing(title, jd_text, lane)
-    if timing_reject:
+    timing_disposition, timing_reason = evaluate_discovery_timing(title, jd_text, lane)
+    if timing_disposition == "reject":
         return _classified("skip_noise", source_bucket, job, [timing_reason])
 
     scope_reject, scope_reason = pre_filter_discovery_scope(title, lane)
@@ -256,6 +259,13 @@ def classify_job(job: dict[str, Any], source_bucket: str) -> ClassifiedJob:
         return _classified("skip_noise", source_bucket, job, [immigration_reason])
 
     full_time_reject, full_time_reason = pre_filter_full_time_level(title, jd_text)
+    education_reject, education_reason = pre_filter_candidate_education(title, jd_text)
+    if full_time_reject:
+        return _classified("skip_noise", source_bucket, job, [full_time_reason])
+    if education_reject:
+        return _classified("skip_noise", source_bucket, job, [education_reason])
+    if timing_disposition == "unsure":
+        return _classified("unsure", source_bucket, job, [timing_reason])
     title_early_signal = bool(EARLY_SIGNAL_RE.search(title))
     body_early_signal = bool(EARLY_SIGNAL_RE.search(jd_head))
     early_signal = title_early_signal or body_early_signal
@@ -300,9 +310,6 @@ def classify_job(job: dict[str, Any], source_bucket: str) -> ClassifiedJob:
 
     if SENIORITY_REJECT_RE.search(title) and not early_signal:
         return _classified("skip_noise", source_bucket, job, ["Senior/full-time level signal without early-career signal"])
-
-    if full_time_reject and not early_signal:
-        return _classified("skip_noise", source_bucket, job, [full_time_reason])
 
     if signals:
         reasons.extend(f"Target signal: {signal}" for signal in signals)

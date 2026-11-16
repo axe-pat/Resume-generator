@@ -1,5 +1,5 @@
 # Candidate Profile — Akshat Pathak
-*Last updated: August 2026 | Used by: fit scorer, cover letter generator, application note generator*
+*Last updated: October 2026 | Used by: fit scorer, cover letter generator, application note generator*
 
 ---
 
@@ -13,7 +13,7 @@ At FlairX AI, he translated enterprise recruiting workflows into product decisio
 
 His core strength lies at the intersection of technical architecture, product thinking, and strategy: translating complex backend systems, AI opportunity analyses, and data platforms into user-centric business outcomes.
 
-**Current targets:** Fall 2026 product/strategy internships are the immediate goal; in parallel, target Product Manager, Technical Product Manager, and adjacent roles that explicitly start after MBA graduation in mid-2027. F-1 visa; confirm role-specific work authorization requirements during application review.
+**Current targets:** Full-time Product Manager, Technical Product Manager, strategy/operations, rotational, and technical GTM roles that explicitly accept 2027 graduates or start after MBA graduation in mid-2027 are the primary goal. A small secondary lane covers explicitly dated Spring 2027 product/strategy internships that are compatible with school. Fall 2026 is closed and Summer 2027 internships are ineligible. F-1 visa; confirm role-specific work authorization requirements during application review.
 
 ### Private outreach context (do not add to public resume/profile)
 
@@ -26,7 +26,7 @@ His core strength lies at the intersection of technical architecture, product th
 
 Target priority is lane-specific. A Lane B Primary role has the same scoring priority as a Lane A Primary role; Lane B is not a fallback tier.
 
-### Lane A — Fall 2026 Internship
+### Lane A — Spring 2027 Off-Cycle Internship
 
 #### Primary Targets (High Priority)
 - Product Manager Intern

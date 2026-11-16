@@ -90,7 +90,7 @@ def _configure_isolated_repo(module, tmp_path: Path, monkeypatch) -> dict[str, P
                 "date_found": "2026-07-11",
                 "date_posted": "2026-07-11",
                 "company": "Acme",
-                "role_title": "Product Manager Intern",
+                "role_title": "Product Manager Intern - Spring 2027",
                 "role_type": "PM",
                 "location": "Los Angeles, CA",
                 "url": "https://example.com/jobs/1",

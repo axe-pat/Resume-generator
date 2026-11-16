@@ -132,7 +132,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--jobspy-raw", type=Path, default=None)
     parser.add_argument("--include-review", action="store_true", help="Also score app_review candidates, not just app_score_now.")
     parser.add_argument("--include-overlap", action="store_true", help="Also score JobSpy/Playwright overlap candidates from the breadth report.")
-    parser.add_argument("--limit", type=int, default=10, help="Maximum filtered candidates to score.")
+    parser.add_argument("--limit", type=int, default=0, help="Maximum filtered candidates to score; 0 processes all eligible candidates.")
     parser.add_argument("--dry-run", action="store_true", help="Score and report without writing jobs.xlsx.")
     parser.add_argument("--model", default=DEFAULT_MODEL)
     parser.add_argument("--max-workers", type=int, default=2)
@@ -198,13 +198,15 @@ def main() -> int:
         print("No JobSpy candidates survived the scoring-lane preflight.")
         return 0
 
+    hours = int(_load_json(jobspy_raw_path).get("hours_old") or 24)
+    window = "past_week" if hours == 168 else f"{hours}h"
     _run_post_extract_pipeline(
-        run_label="jobspy_filtered_24h",
-        searches=[("JobSpy filtered app_score_now", "24h")],
+        run_label=f"jobspy_filtered_{window}",
+        searches=[("JobSpy filtered app_score_now", window)],
         search_runs=[
             {
                 "search_term": "JobSpy filtered app_score_now",
-                "time_filter": "24h",
+                "time_filter": window,
                 "extracted_count": len(selected),
                 "route_used": "source-breadth-filtered",
             }

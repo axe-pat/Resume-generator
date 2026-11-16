@@ -38,8 +38,10 @@ Two deadlines have already passed while discovery was pointed only at internship
 
 ## Three lanes, different rules
 
-### Lane A — Fall 2026 internship *(current, works)*
-Immediate goal. CPT-eligible. This is what the pipeline does today; don't break it.
+### Lane A — Spring 2027 off-cycle internship
+Small secondary lane for explicitly dated, schedule-compatible CPT roles. Fall
+2026 is closed, and broad internship searches are disabled because they are now
+dominated by Summer 2027.
 
 ### Lane B — 2027 grad / early-career full-time *(new, urgent)*
 Roles starting **mid-2027 or later**, when he graduates and has OPT.
@@ -109,7 +111,8 @@ A `2027` string match is not enough. **Summer 2027 internships must be rejected*
 - start mid-2027 or later, full-time → **Lane B, keep**
 - summer 2027 internship → **reject, not eligible**
 - immediate start full-time → reject unless explicitly new-grad
-- fall 2026 internship → Lane A
+- fall 2026 internship → historical only; do not search
+- spring 2027 internship → Lane A only when the term is explicit
 
 Getting this wrong inflates the volume measurement with roles he cannot take, which then corrupts the prioritisation decision that follows.
 

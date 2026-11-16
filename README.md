@@ -1,6 +1,6 @@
 # ResumeGenerator v1
 
-Fully automated job application pipeline. Discovers jobs, scores them, generates tailored resumes and cover letters, and tracks everything in a single spreadsheet.
+Local recruiting workflow for discovering jobs, reviewing fit, generating application materials and tracking outcomes. The bounded discovery entrypoint below is under live verification; existing schedules are unchanged.
 
 ---
 
@@ -544,3 +544,62 @@ Three pre-filters run before any Claude API call, saving tokens on obvious rejec
 Scoring runs at 2 parallel workers to stay under the 50K tokens/minute org limit (~1,800 tokens/job). On rate-limit hits (429), the scorer backs off exponentially: 60s → 120s → 240s → 480s, then retries (up to 5 attempts).
 
 Do not run multiple pipeline instances simultaneously.
+# Bounded discovery entrypoint (November 13)
+
+Run from this project directory with `venv/bin/python discovery/scripts/run_bounded_discovery.py --window 7d --run-id <unique-id>`
+for a 90-minute weekly ceiling, or `--window 24h` for a 30-minute daily ceiling.
+Use the same ID with `--resume` to skip successful unchanged stages and retain
+individual review results. `--saved-only` publishes available saved inputs without
+source/model calls. Results and stage logs are in `discovery/auto/checkpoints/<id>/`.
+Exit 2 with `finished_with_gaps` means publication succeeded with incomplete coverage;
+it does not claim all JDs were reviewed. Exit 75 means another bounded run holds the lock.
+This is an explicit CLI entrypoint; recurring schedules have not been replaced.
+The complete live 90-minute run has not yet been verified after this change.
+
+
+
+November 15 completion repair: saved-JD review accepts `--input`, `--since`,
+`--limit`, and `--minutes` (default 8). The scoring deadline now reaches every
+request; bounded scoring disables nested SDK retries while retaining the existing
+model and outer retry policy. A successful review command exits zero regardless
+of the number of new tracker rows. Post-score reports exclude skipped, applied,
+held, or closed tracker rows from selected applications. MBA leadership associate
+programs with product/strategy rotations and MBA internship programs with explicit
+strategy placements are recognized from their JDs.
+
+The November 15 [completed saved-results shortlist](discovery/source_validation/20261115-weekly-application-list.md) records three newly queued roles and explicit holds/access gaps. The coverage audit also rechecks deterministic rejections locally and recognizes documented direct JD reviews, avoiding paid-review queues for already reviewed decisions. Completion exits nonzero if scoring still contains errors or budget-exhausted rows.
+
+`discovery/scripts/review_backlog_semantics.py` reviews a frozen backlog JD packet with the existing Haiku model, short request limits, two workers and per-result checkpoints. It requires authorization to transfer the candidate profile/JDs. Outputs are evidence-based apply/hold/skip assessments; it does not write the tracker or relax canonical eligibility gates.
+
+## November 15 discovery closeout and batch-flow repair
+
+The [current run closeout](discovery/source_validation/backlog-recovery/closeout.md)
+accounts for all 844 baseline pending records, including seven retrieval gaps.
+It distinguishes current-search timing deferrals from unattempted collection.
+
+The bounded entrypoint now collects and completes JDs one admitted page at a time.
+`run_linkedin_streamed.py` checkpoints each query/batch; `review_run_discovery.py`
+uses only exact artifacts from the same run. `--legacy-linkedin` retains the prior
+path for explicit comparison. 12twenty requires `--include-twelvetwenty`.
+A small live pilot completed 50 cards / six admitted candidates / six saved JDs
+in 141 seconds. 115 relevant checks pass. This does not validate a full new weekly
+run; automatic scoring is currently blocked by insufficient Anthropic credits.
+Existing recurring schedules have not been changed.
+
+## Combined recruiting preview (November 15)
+
+`venv/bin/python discovery/scripts/run_recruiting_daily.py --run-id <id>` builds
+a review-only preview from saved jobs and the existing Outreach company queue.
+Use `--collect --window 24h` to run bounded discovery first; `--window 7d` selects
+the weekly window. The same run ID links stage logs and preview artifacts.
+`--warm-context <snapshot.json>` explicitly adds dated conversation evidence;
+a fresh inbox read is never implied. This command never enables message sends.
+
+The existing nightly orchestrator accepts opt-in `--bounded-discovery`, preserves
+source skip flags, and receives an exact action-queue/source-metrics manifest from
+the bounded controller. Its job import now selects `spring_ft_2027`. No recurring
+schedule or send setting was activated by this implementation. The complete
+integrated live sending path remains unvalidated; company facts and message
+quality gates must be checked before activation.
+
+Git maintenance: runtime previews, temporary captures and tracker recovery copies stay local. Scheduler contract tests isolate their state and browser lifecycle.

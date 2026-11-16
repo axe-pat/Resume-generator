@@ -17,7 +17,7 @@ Use these names when referencing the flow:
 
 ```text
 Source Engine
-  LinkedIn Playwright / JobSpy / startup apply feeds / startup org discovery
+  LinkedIn Playwright / USC 12twenty / Handshake / JobSpy / startup sources
         |
         v
 Action Queue
@@ -51,6 +51,26 @@ The wrapper runs queue hygiene, extracts raw LinkedIn results first, scores from
 the saved raw artifact, writes accepted rows to `jobs.xlsx`, then refreshes the
 current apply queue. If scoring breaks, replay scoring from the raw file instead
 of reopening LinkedIn.
+
+### USC Marshall 12twenty
+
+Second-priority application lane, immediately after LinkedIn and before
+Handshake or any aggregator. It is curated for USC/Marshall candidates and the
+detail page exposes deadline, start date, work authorization, and student-group
+eligibility in addition to the JD.
+
+```bash
+./discovery/scripts/run_twelvetwenty_discovery.sh 24h
+./discovery/scripts/run_twelvetwenty_discovery.sh 7d
+```
+
+The extractor uses the signed-in Chrome/CDP profile, searches both role-family
+terms and the 2027/new-grad safety net, and fetches full detail pages before any
+scoring call. The 24h window maps to the portal's `Today` filter and the weekly
+window maps to `Last 7 days`; a manual POC can use `30d`. Rows are tagged
+`twelvetwenty_jobs_v1`, use the normal queue score floor, and emit a run-scoped
+artifact so login failures and stale network listings cannot be reported as
+zero jobs.
 
 ### Handshake Saved Search
 
@@ -219,6 +239,7 @@ venv/bin/python discovery/scripts/run_daily_engine.py \
 Useful controls:
 
 ```bash
+--skip-twelvetwenty
 --skip-handshake
 --jobspy-results 40
 --jobspy-query-index 0 --jobspy-query-index 8
@@ -230,7 +251,8 @@ Useful controls:
 --send-min-score 20
 ```
 
-Handshake runs by default as part of the daily application sources. Real sends
+Source order is LinkedIn, USC 12twenty, Handshake, JobSpy, then startup sources.
+12twenty and Handshake run by default as application sources. Real sends
 are deliberately explicit. Generation can run in parallel with Outreach artifact
 preparation, but workbook writes and LinkedIn sends stay serialized.
 

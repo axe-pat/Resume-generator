@@ -20,7 +20,7 @@ def _load(path: Path, name: str):
     return module
 
 
-def test_daily_jobspy_has_explicit_product_and_growth_strategy_queries() -> None:
+def test_daily_jobspy_has_explicit_full_time_adjacent_queries() -> None:
     scraper = _load(ROOT / "discovery" / "auto" / "scraper.py", "adjacent_scraper")
     daily = _load(
         ROOT / "discovery" / "scripts" / "run_daily_engine.py",
@@ -28,25 +28,25 @@ def test_daily_jobspy_has_explicit_product_and_growth_strategy_queries() -> None
     )
     by_id = {item["id"]: (index, item) for index, item in enumerate(scraper.QUERIES)}
 
-    product_index, product = by_id["mba_product_strategy_intern"]
-    growth_index, growth = by_id["growth_strategy_intern"]
+    strategy_index, strategy = by_id["strategy_ops_new_grad"]
+    bizops_index, bizops = by_id["bizops_analyst_new_grad"]
 
-    assert product["search_term"] == "Product Strategy Intern"
-    assert growth["search_term"] == "Growth Strategy Intern"
-    assert product_index in daily.DAILY_JOBSPY_QUERY_INDICES
-    assert growth_index in daily.DAILY_JOBSPY_QUERY_INDICES
-    assert product_index in daily.WEEKLY_JOBSPY_QUERY_INDICES
-    assert growth_index in daily.WEEKLY_JOBSPY_QUERY_INDICES
+    assert strategy["search_term"] == "Strategy Operations New Grad"
+    assert bizops["search_term"] == "Business Operations Analyst New Grad"
+    assert strategy_index in daily.DAILY_JOBSPY_QUERY_INDICES
+    assert bizops_index in daily.DAILY_JOBSPY_QUERY_INDICES
+    weekly_ids = {scraper.QUERIES[i]['id'] for i in daily.WEEKLY_JOBSPY_QUERY_INDICES}
+    assert {'gtm_strategy_ops_new_grad', 'product_strategy_ops_new_grad'} <= weekly_ids
 
 
 @pytest.mark.parametrize(
     "title",
     [
-        "Product Strategist Intern",
-        "Growth Strategy Intern",
-        "Growth Operations Intern",
-        "Startup Operations & Growth Intern",
-        "Category User Growth Project Intern",
+        "Product Strategist Intern - Spring 2027",
+        "Growth Strategy Intern - Spring 2027",
+        "Growth Operations Intern - Spring 2027",
+        "Startup Operations & Growth Intern - Spring 2027",
+        "Category User Growth Project Intern - Spring 2027",
     ],
 )
 def test_source_breadth_surfaces_conservative_adjacent_intern_titles(title: str) -> None:
@@ -60,7 +60,7 @@ def test_source_breadth_surfaces_conservative_adjacent_intern_titles(title: str)
             "company": "Focused Startup",
             "role_title": title,
             "url": "https://jobs.example/adjacent-role",
-            "jd_text": "Cross-functional product and business metrics work.",
+            "jd_text": "This Spring 2027 internship includes cross-functional product and business metrics work.",
             "source": "linkedin",
         },
         "jobspy_only",
@@ -72,10 +72,10 @@ def test_source_breadth_surfaces_conservative_adjacent_intern_titles(title: str)
 @pytest.mark.parametrize(
     "title",
     [
-        "Business Growth Intern",
+        "Business Growth Intern - Spring 2027",
         "Startup Growth Fellow",
         "Growth Marketing Intern",
-        "Sales Growth Strategy Intern",
+        "Sales Growth Strategy Intern - Spring 2027",
         "Marketing Product Manager - Digital Growth",
     ],
 )
@@ -90,7 +90,7 @@ def test_source_breadth_rejects_generic_growth_sales_and_marketing(title: str) -
             "company": "Noisy Company",
             "role_title": title,
             "url": "https://jobs.example/noisy-role",
-            "jd_text": "General commercial execution.",
+            "jd_text": "This Spring 2027 internship is general commercial execution.",
             "source": "linkedin",
         },
         "jobspy_only",

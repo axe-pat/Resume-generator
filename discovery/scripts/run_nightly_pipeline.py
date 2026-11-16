@@ -306,6 +306,12 @@ def _operator_mutation_lock(path: Path):
 
 
 def _daily_engine_cmd(args: argparse.Namespace, *, run_id: str = "") -> list[object]:
+    if getattr(args,'bounded_discovery',False):
+        cmd=[PYTHON,'discovery/scripts/run_bounded_discovery.py','--window',args.window,'--run-id',run_id]
+        for name in ['linkedin','handshake','jobspy']:
+            if getattr(args,'skip_'+name,False):cmd.append('--skip-'+name)
+        if getattr(args,'skip_startup_apply',False):cmd.append('--skip-startup-apply')
+        return cmd
     cmd: list[object] = [
         PYTHON,
         "discovery/scripts/run_daily_engine.py",
@@ -766,6 +772,8 @@ def _run_outreach_maintenance(
             "--jobs-xlsx",
             "../ResumeGenerator v1/discovery/jobs.xlsx",
             "--account-universe",
+            "--resume-season-focus",
+            "spring_ft_2027",
         ),
         cwd=OUTREACH_ROOT,
     )
@@ -987,6 +995,7 @@ def _run_outreach_maintenance(
             "--execute",
             "--live-linkedin",
             "--refresh-linkedin",
+            "--no-send-linkedin-followups",
             "--max-total-actions",
             _track_2_total_actions(args),
             "--max-companies",
@@ -1357,6 +1366,7 @@ def parse_args() -> argparse.Namespace:
         description="Nightly discovery + cost-gated generation wrapper."
     )
     parser.add_argument("--window", choices=("24h", "7d"), default="24h")
+    parser.add_argument('--bounded-discovery',action='store_true',help='Use the batch/JD discovery controller inside this combined runner.')
     parser.add_argument(
         "--skip-daily-engine",
         action="store_true",

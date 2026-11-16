@@ -28,17 +28,17 @@ def _load_script(path: Path, name: str):
     return module
 
 
-def test_daily_jobspy_includes_bizops_and_program_ops_queries() -> None:
+def test_daily_jobspy_includes_full_time_bizops_and_tpm_queries() -> None:
     module = _load_daily_engine()
 
-    assert 4 in module.DAILY_JOBSPY_QUERY_INDICES  # Business Operations Intern
-    assert 5 in module.DAILY_JOBSPY_QUERY_INDICES  # Program Manager Intern
+    assert 20 in module.DAILY_JOBSPY_QUERY_INDICES  # Business Operations Analyst New Grad
+    assert 22 in module.DAILY_JOBSPY_QUERY_INDICES  # Technical Program Manager New Grad
 
 
 def test_weekly_jobspy_keeps_adjacent_role_queries() -> None:
     module = _load_daily_engine()
 
-    assert {3, 4, 5, 9, 10, 11}.issubset(module.WEEKLY_JOBSPY_QUERY_INDICES)
+    assert set(module.WEEKLY_JOBSPY_QUERY_INDICES) == {39, 41, 51, 24}
 
 
 def test_nightly_enables_a_bounded_email_draft_lane() -> None:

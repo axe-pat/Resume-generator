@@ -58,6 +58,7 @@ sys.path.insert(0, str(_HERE))
 
 from pipeline import COLUMNS, JOBS_XLSX, LOGS_DIR, SHEET_NAME, load_jobs, save_jobs  # noqa: E402
 from scorer import DEFAULT_MODEL, score_batch  # noqa: E402
+from shared.discovery_search_policy import LINKEDIN_SEARCH_TERMS  # noqa: E402
 
 
 DEFAULT_DEBUG_PORT = 9222
@@ -91,12 +92,7 @@ JD_SECTION_MARKERS = (
     "what you need to succeed",
     "job description",
 )
-DEFAULT_SEARCHES = [
-    ("Product Manager Intern", "r86400"),
-    ("Product Manager Intern", "r604800"),
-    ("MBA Intern", "r86400"),
-    ("MBA Intern", "r604800"),
-]
+DEFAULT_SEARCHES = [(term, "r86400") for term in LINKEDIN_SEARCH_TERMS]
 
 TIME_LABELS = {
     "r86400": "past_24h",
@@ -492,14 +488,17 @@ def _write_review_cache(rows: list[dict]) -> None:
             normalized["cache_key"] = key
             merged[key] = normalized
 
-    wb = load_workbook(JOBS_XLSX)
-    if REVIEW_CACHE_SHEET_NAME in wb.sheetnames:
-        del wb[REVIEW_CACHE_SHEET_NAME]
-    ws = wb.create_sheet(REVIEW_CACHE_SHEET_NAME)
-    ws.append(REVIEW_CACHE_COLUMNS)
-    for row in merged.values():
-        ws.append([row.get(col, "") for col in REVIEW_CACHE_COLUMNS])
-    wb.save(JOBS_XLSX)
+    from shared.tracker_storage import save_atomically
+    def write_staged(path):
+        wb = load_workbook(path)
+        if REVIEW_CACHE_SHEET_NAME in wb.sheetnames:
+            del wb[REVIEW_CACHE_SHEET_NAME]
+        ws = wb.create_sheet(REVIEW_CACHE_SHEET_NAME)
+        ws.append(REVIEW_CACHE_COLUMNS)
+        for row in merged.values():
+            ws.append([row.get(col, "") for col in REVIEW_CACHE_COLUMNS])
+        wb.save(path)
+    save_atomically(JOBS_XLSX, load_jobs(), write_staged)
 
 
 def _terminal_cache_rows(scored_jobs: list[dict]) -> list[dict]:
@@ -533,6 +532,7 @@ def _terminal_cache_rows(scored_jobs: list[dict]) -> list[dict]:
 
 
 def _split_existing_jobs(jobs: list[dict], df_existing: pd.DataFrame) -> tuple[list[dict], list[dict]]:
+    from shared.discovery_identity import canonical_listing_url
     existing_by_url: dict[str, tuple[int, pd.Series]] = {}
     existing_by_tc: dict[str, tuple[int, pd.Series]] = {}
     for idx, row in df_existing.iterrows():
@@ -543,13 +543,16 @@ def _split_existing_jobs(jobs: list[dict], df_existing: pd.DataFrame) -> tuple[l
         )
         if url_key and url_key not in existing_by_url:
             existing_by_url[url_key] = (int(idx), row)
+        canonical_url = canonical_listing_url(str(row.get("url") or ""))
+        if canonical_url:
+            existing_by_url[canonical_url] = (int(idx), row)
         if tc_key and tc_key not in existing_by_tc:
             existing_by_tc[tc_key] = (int(idx), row)
 
     unseen: list[dict] = []
     existing_hits: list[dict] = []
     for job in jobs:
-        match = existing_by_url.get(str(job.get("url_hash") or "")) or existing_by_tc.get(
+        match = existing_by_url.get(canonical_listing_url(str(job.get("url") or ""))) or existing_by_url.get(str(job.get("url_hash") or "")) or existing_by_tc.get(
             str(job.get("tc_hash") or "")
         )
         if not match:
@@ -600,7 +603,7 @@ def _cached_decision_is_stale(job: dict, cached: dict[str, str]) -> bool:
     )
 
     rationale = str(cached.get("fit_rationale") or "").lower()
-    current = annotate_discovery_job(dict(job))
+    current = annotate_discovery_job(dict(job), reclassify=True)
     lane = normalize_discovery_lane(current.get("lane"))
     title = str(current.get("role_title") or "")
     jd_text = str(current.get("jd_text") or "")
@@ -623,7 +626,9 @@ def _cached_decision_is_stale(job: dict, cached: dict[str, str]) -> bool:
         return True
 
     surface_decision, _, surface_family = classify_role_surface(title, jd_text)
-    if "unknown title with jd signals" in rationale and surface_decision == "keep":
+    if any(marker in rationale for marker in (
+        "unknown title with jd signals", "no known role family in title",
+    )) and surface_decision == "keep":
         return True
     if surface_family == "Technical GTM" and (
         "outside" in rationale
@@ -1015,12 +1020,19 @@ def _jd_quality_issue(text: str) -> str:
         return "linkedin_chrome"
     if chrome_hits >= 2 and len(normalized) < 2200 and section_hits == 0:
         return "linkedin_chrome"
+    if len(normalized) < 1000 and section_hits == 0:
+        return "too_short"
+    if len(normalized) < 1800 and not re.search(r"[.!?)\]\"']$", normalized) and not re.search(
+        r"qualifications|requirements|what you.ll bring|what you bring", normalized, re.I
+    ):
+        return "truncated"
     return ""
 
 
 def _expand_job_description(page: Page) -> None:
     expanders = [
         page.get_by_role("button", name=re.compile("show more", re.I)),
+        page.get_by_role("button", name=re.compile(r"^(?:see\s+more|[.…]*\s*more)$", re.I)),
         page.locator(".show-more-less-html__button"),
         page.locator("button[aria-label*='show more' i]"),
     ]
@@ -1031,7 +1043,13 @@ def _expand_job_description(page: Page) -> None:
             continue
         for idx in range(count):
             try:
-                locator.nth(idx).click(timeout=1000)
+                button = locator.nth(idx)
+                label = f"{button.inner_text(timeout=500)} {button.get_attribute('aria-label') or ''}"
+                if re.search(r"\b(?:show|see)\s+less\b|^[.…]*\s*less\b", label, re.I):
+                    continue
+                if button.get_attribute("aria-expanded") == "true":
+                    continue
+                button.click(timeout=1000)
                 page.wait_for_timeout(400)
             except PlaywrightError:
                 continue
@@ -1835,8 +1853,16 @@ def _open_job_details(page: Page, job_url: str, detail_page: Page | None = None)
     try:
         last_insight_text = ""
         last_company = ""
-        for attempt in range(1, 4):
-            detail_page.goto(job_url, wait_until="domcontentloaded", timeout=8000)
+        last_issue = ""
+        last_bad_text = None
+        for attempt in range(1, 3):
+            # A stable preview does not improve by repeatedly navigating to the
+            # same listing. Retry expansion in place; reload once only for an
+            # empty page or LinkedIn shell.
+            if attempt == 1 or last_issue in {"empty", "linkedin_chrome"}:
+                detail_page.goto(job_url, wait_until="domcontentloaded", timeout=8000)
+            if re.search(r"linkedin\.com/(?:login|authwall|checkpoint)", detail_page.url, re.I):
+                raise RuntimeError("LinkedIn session requires attention; stopping saved-JD recovery.")
             detail_page.wait_for_timeout(700 + (attempt * 300))
             _wait_for_job_description(detail_page, timeout_ms=2500 + (attempt * 1000))
             _expand_job_description(detail_page)
@@ -1855,12 +1881,12 @@ def _open_job_details(page: Page, job_url: str, detail_page: Page | None = None)
                   };
 
                   let jdText = pickText([
-                    '.jobs-search__job-details--wrapper',
-                    '.jobs-box__html-content',
                     '#job-details',
-                    '.jobs-description',
                     '.jobs-description-content__text',
                     '.show-more-less-html__markup',
+                    '.jobs-box__html-content',
+                    '.jobs-description',
+                    '.jobs-search__job-details--wrapper',
                   ]);
 
                   let insightText = pickText([
@@ -1895,13 +1921,18 @@ def _open_job_details(page: Page, job_url: str, detail_page: Page | None = None)
             issue = _jd_quality_issue(jd_text)
             if not issue:
                 return jd_text, insight_text, last_company
+            if last_bad_text == jd_text:
+                break
+            last_bad_text = jd_text
+            last_issue = issue
 
             if issue == "linkedin_chrome":
                 detail_page.wait_for_timeout(800 * attempt)
                 continue
 
         return "", last_insight_text, last_company
-    except PlaywrightError:
+    except PlaywrightError as exc:
+        print(f"[jd-fetch] {job_url}: {type(exc).__name__}: {str(exc)[:240]}", flush=True)
         return "", "", ""
     finally:
         if owns_page:
@@ -2026,6 +2057,9 @@ def scrape_search(
     detail_page: Page | None = None,
     progress_callback: Callable[[dict], None] | None = None,
 ) -> SearchRunResult:
+    if search_term.strip() == "2027":
+        limit_per_search = min(limit_per_search or 25, 25)
+        pages = min(pages or 1, 1)
     def _run_single_url(url: str) -> tuple[list[LinkedInJobCard], int | None]:
         cards: list[LinkedInJobCard] = []
         seen_urls: set[str] = set()
@@ -2393,7 +2427,9 @@ def cards_to_jobs(cards: Iterable[LinkedInJobCard]) -> list[dict]:
 
 
 def append_new_jobs(df_existing: pd.DataFrame, jobs: list[dict]) -> tuple[pd.DataFrame, list[dict]]:
+    from shared.discovery_identity import canonical_listing_url
     df_existing = df_existing.copy()
+    canonical_existing = {canonical_listing_url(str(url)) for url in df_existing.get("url", []) if url}
     for column in COLUMNS:
         if column in df_existing.columns:
             df_existing[column] = df_existing[column].astype(object)
@@ -2430,11 +2466,16 @@ def append_new_jobs(df_existing: pd.DataFrame, jobs: list[dict]) -> tuple[pd.Dat
             updated["__write_action"] = "updated_existing"
             written.append(updated)
             continue
+        canonical_url = canonical_listing_url(str(job.get("url") or ""))
+        if canonical_url and canonical_url in canonical_existing:
+            continue
         if job["url_hash"] in existing_url_hashes or job["url_hash"] in seen_new_urls:
             continue
         if job["tc_hash"] in existing_tc_hashes or job["tc_hash"] in seen_new_tcs:
             continue
         fresh.append(job)
+        if canonical_url:
+            canonical_existing.add(canonical_url)
         seen_new_urls.add(job["url_hash"])
         seen_new_tcs.add(job["tc_hash"])
 
@@ -2457,7 +2498,9 @@ def append_new_jobs(df_existing: pd.DataFrame, jobs: list[dict]) -> tuple[pd.Dat
     df_new = pd.DataFrame(rows_for_df, columns=COLUMNS)
     if df_existing.empty:
         return df_new, written
-    return pd.concat([df_existing[COLUMNS], df_new], ignore_index=True), written
+    combined = pd.concat([df_existing[COLUMNS], df_new], ignore_index=True)
+    combined.attrs.update(df_existing.attrs)
+    return combined, written
 
 
 def filter_jobs_for_write(jobs: list[dict]) -> tuple[list[dict], list[dict]]:
@@ -2471,11 +2514,24 @@ def filter_jobs_for_write(jobs: list[dict]) -> tuple[list[dict], list[dict]]:
     """
     accepted: list[dict] = []
     dropped: list[dict] = []
+    import jobs as tracker
+    from shared.job_eligibility import pre_filter_immigration
+    blocklist = tracker._load_blocklist()
     for job in jobs:
         has_jd = bool((job.get("jd_text") or "").strip())
         decision = str(job.get("decision") or "").strip().lower()
         company = str(job.get("company") or "").strip()
         missing_company = not company or company.lower() == "unknown"
+        if tracker._is_blocklisted(company, blocklist):
+            job["__report_gate"] = "blocklisted"
+            dropped.append(job)
+            continue
+        immigration_reject, immigration_reason = pre_filter_immigration(str(job.get("jd_text") or ""))
+        if immigration_reject:
+            job["__report_gate"] = "immigration-hard-reject"
+            job["__report_gate_reason"] = immigration_reason
+            dropped.append(job)
+            continue
         if not has_jd or decision not in {"proceed"}:
             dropped.append(job)
             continue
@@ -2498,7 +2554,7 @@ def _refresh_apply_queue_best_effort(*, quiet: bool) -> None:
     try:
         from discovery.scripts.refresh_current_apply_queue import main as refresh_queue_main
 
-        refresh_queue_main([])
+        refresh_queue_main(["--preserve-existing-files"])
     except (Exception, SystemExit) as exc:
         if not quiet:
             print(f"[warn] Could not refresh apply queue (jobs still in jobs.xlsx): {exc}")
@@ -2517,18 +2573,38 @@ def _run_post_extract_pipeline(
     max_workers: int,
     source_raw_artifacts: list[str] | None = None,
     artifact_prefix: str = "linkedin_live",
+    refresh_queue: bool = True,
+    deadline_epoch: float | None = None,
 ) -> int:
     df_existing = load_jobs()
     jobs_unseen, existing_hits = _split_existing_jobs(jobs, df_existing)
     review_cache = _load_review_cache()
     jobs_to_score, cache_hits = _split_cached_review_jobs(jobs_unseen, review_cache)
+    import jobs as tracker
+    blocklist = tracker._load_blocklist()
+    blocked = [job for job in jobs_to_score
+               if tracker._is_blocklisted(str(job.get("company") or ""), blocklist)]
+    jobs_to_score = [job for job in jobs_to_score
+                     if not tracker._is_blocklisted(str(job.get("company") or ""), blocklist)]
+    blocked_reviews = [{**job, "decision": "Unsure", "status": "review",
+                        "fit_rationale": "Company is on the user's blocklist",
+                        "__report_gate": "blocklisted"} for job in blocked]
 
     if not quiet:
         print(f"Skipped as existing rows before scoring: {len(existing_hits)}")
         print(f"Skipped from review cache before scoring: {len(cache_hits)}")
 
-    scored_new = score_batch(jobs_to_score, model=model, verbose=not quiet, max_workers=max_workers) if jobs_to_score else []
-    reviewed_jobs = [*scored_new, *cache_hits]
+    from shared.discovery_review_journal import review_batch
+    scored_new = review_batch(jobs_to_score, score_fn=score_batch, model=model, verbose=not quiet, max_workers=max_workers, deadline_epoch=deadline_epoch) if jobs_to_score else []
+    cache_hits.extend(row for row in scored_new if row.get('review_journal_cache_hit'))
+    scored_new = [row for row in scored_new if not row.get('review_journal_cache_hit')]
+    # Preserve paid reviews before workbook/report operations can fail.
+    if scored_new:
+        _write_run_artifact(f"{artifact_prefix}_scoring_checkpoint", {
+            "status": "reviewed_pending_write", "dry_run": dry_run,
+            "source_raw_artifacts": source_raw_artifacts or [], "jobs": scored_new,
+        })
+    reviewed_jobs = [*scored_new, *cache_hits, *blocked_reviews]
     all_reviewed_jobs = [
         *reviewed_jobs,
         *[{**job, "__report_gate": "existing"} for job in existing_hits],
@@ -2612,7 +2688,7 @@ def _run_post_extract_pipeline(
         )
         if not quiet:
             print(f"Run bundle: {run_bundle}")
-        if fresh:
+        if fresh and refresh_queue:
             _refresh_apply_queue_best_effort(quiet=quiet)
 
     return len(fresh)
@@ -2631,23 +2707,35 @@ def _searches_from_payload(payload: dict) -> list[tuple[str, str]]:
 def _cards_from_payload(payload: dict) -> list[LinkedInJobCard]:
     cards: list[LinkedInJobCard] = []
     for item in payload.get("cards", []):
-        try:
-            cards.append(LinkedInJobCard(**item))
-        except TypeError:
+        title = str(item.get("title") or item.get("role_title") or "").strip()
+        url = str(item.get("url") or "").strip()
+        if not title or not url:
             continue
+        # Audit/recovery cards carry provenance and may use job-shaped fields.
+        # Extra metadata must never cause a valid captured opening to disappear.
+        cards.append(LinkedInJobCard(
+            search_term=str(item.get("search_term") or item.get("jobspy_search_term") or ""),
+            time_filter=str(item.get("time_filter") or ""),
+            title=title, company=str(item.get("company") or ""),
+            location=str(item.get("location") or ""), url=url,
+            listed_at=str(item.get("listed_at") or ""),
+            insight=str(item.get("insight") or ""),
+            jd_text=str(item.get("jd_text") or ""),
+        ))
     return cards
 
 
 def _dedupe_jobs_for_replay(jobs: Iterable[dict]) -> list[dict]:
+    from shared.discovery_identity import canonical_listing_url
     deduped: list[dict] = []
     seen_urls: set[str] = set()
     seen_tcs: set[str] = set()
     for job in jobs:
-        url_key = str(job.get("url_hash") or "").strip()
+        url_key = canonical_listing_url(str(job.get("url") or "")) or str(job.get("url_hash") or "").strip()
         tc_key = str(job.get("tc_hash") or "").strip()
         if url_key and url_key in seen_urls:
             continue
-        if tc_key and tc_key in seen_tcs:
+        if not url_key and tc_key and tc_key in seen_tcs:
             continue
         if url_key:
             seen_urls.add(url_key)
@@ -2663,6 +2751,8 @@ def score_from_raw_artifacts(
     model: str,
     quiet: bool,
     max_workers: int = 2,
+    refresh_queue: bool = True,
+    deadline_epoch: float | None = None,
 ) -> int:
     payloads: list[tuple[Path, dict]] = []
     for raw_path in raw_artifact_paths:
@@ -2687,7 +2777,20 @@ def score_from_raw_artifacts(
             replay_jobs.extend(cards_to_jobs(cards))
             extracted_count += int(payload.get("count") or len(cards))
         elif isinstance(jobs, list) and jobs:
-            replay_jobs.extend(dict(job) for job in jobs)
+            for raw_job in jobs:
+                job = dict(raw_job)
+                job["url"] = str(job.get("url") or "")
+                job["url_hash"] = job.get("url_hash") or url_hash(job["url"])
+                job["role_title"] = job.get("role_title") or job.get("title") or ""
+                job["tc_hash"] = job.get("tc_hash") or title_company_hash(job["role_title"], str(job.get("company") or ""))
+                job.setdefault("source", SOURCE_TAG)
+                from shared.discovery_sources import APPLY_QUEUE_SOURCES
+                if job.get("source") not in APPLY_QUEUE_SOURCES:
+                    original_source = str(job.get("source") or "")
+                    job["source"] = ("jobspy_filtered_v1" if job.get("jobspy_query_id") or job.get("jobspy_search_term") else SOURCE_TAG)
+                    job["notes"] = (str(job.get("notes") or "") + f" original_source={original_source}").strip()
+                job.setdefault("date_found", datetime.now().date().isoformat())
+                replay_jobs.append(job)
             extracted_count += int(payload.get("count") or len(jobs))
 
     replay_jobs = _dedupe_jobs_for_replay(replay_jobs)
@@ -2714,6 +2817,8 @@ def score_from_raw_artifacts(
         quiet=quiet,
         max_workers=max_workers,
         source_raw_artifacts=[str(path) for path, _ in payloads],
+        refresh_queue=refresh_queue,
+        deadline_epoch=deadline_epoch,
     )
 
 
@@ -2746,6 +2851,19 @@ def hydrate_from_raw_artifacts(
         raise SystemExit("No LinkedIn cards found in the provided raw artifact(s).")
 
     hydrate_limit = len(cards) if max_jobs in (None, 0) else min(max_jobs, len(cards))
+    hydration_error = ""
+    checkpoint_path = PROJECT_ROOT / "discovery" / "auto" / "logs" / (
+        "linkedin_live_raw_hydration_inflight_" + datetime.now().strftime("%Y-%m-%d_%H%M%S") + ".json"
+    )
+    def save_hydration_progress(progress: dict) -> None:
+        snapshot = {
+            "status": "running", "count": len(cards), "progress": progress,
+            "source_raw_artifacts": [str(path) for path, _ in payloads],
+            "cards": [asdict(card) for card in cards],
+        }
+        temporary = checkpoint_path.with_suffix(".json.tmp")
+        temporary.write_text(json.dumps(snapshot, indent=2))
+        temporary.replace(checkpoint_path)
     if not quiet:
         print(
             f"Loaded {len(cards)} unique LinkedIn cards from {len(payloads)} artifact(s); "
@@ -2775,6 +2893,14 @@ def hydrate_from_raw_artifacts(
                 cards=cards,
                 quiet=quiet,
                 max_jobs=hydrate_limit,
+                progress_callback=save_hydration_progress,
+            )
+        except Exception as exc:
+            hydration_error = str(exc)
+            repair_summary = JdRepairSummary(
+                candidates=len(cards), attempted=hydrate_limit,
+                repaired=sum(bool(card.jd_text.strip()) for card in cards),
+                remaining_failed=sum(not bool(card.jd_text.strip()) for card in cards),
             )
         finally:
             _close_page_safely(detail_page)
@@ -2788,6 +2914,9 @@ def hydrate_from_raw_artifacts(
         "linkedin_live_raw_hydrated",
         {
             "count": len(cards),
+            "status": "partial" if hydration_error or any(not card.jd_text.strip() for card in cards) else "completed",
+            "hydration_error": hydration_error,
+            "pending_urls": [card.url for card in cards if not card.jd_text.strip()],
             "searches": [
                 {"search_term": search_term, "time_filter": time_filter}
                 for search_term, time_filter in searches
@@ -2847,6 +2976,8 @@ def run_live_discovery(
         "current_search_extracted": 0,
         "total_extracted": 0,
         "ui_observed_count": None,
+        "requested_page_limit": pages,
+        "requested_job_limit": limit_per_search,
         "searches_completed": 0,
         "inflight_raw_path": str(raw_inflight_path),
     }
@@ -2860,6 +2991,7 @@ def run_live_discovery(
             "run_label": run_label,
             "run_stamp": run_stamp,
             "count": len(combined_cards),
+            "count_only": count_only,
             "searches": [{"search_term": s, "time_filter": t} for s, t in searches],
             "search_runs": search_run_summaries,
             "progress": progress_state,
@@ -3020,6 +3152,8 @@ def run_live_discovery(
                             "extracted_count": result.extracted_count,
                             "route_used": result.route_used,
                             "fallback_used": result.fallback_used,
+                            "requested_page_limit": pages,
+                            "requested_job_limit": limit_per_search,
                             "count_mismatch": (
                                 result.ui_observed_count is not None
                                 and result.ui_observed_count != result.extracted_count
@@ -3100,6 +3234,7 @@ def run_live_discovery(
         "linkedin_live_raw",
         {
             "count": len(scraped_cards),
+            "count_only": count_only,
             "searches": [{"search_term": s, "time_filter": t} for s, t in searches],
             "search_runs": search_run_summaries,
             "jd_repair_summary": asdict(repair_summary),
@@ -3183,6 +3318,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--dry-run", action="store_true", help="Score jobs but skip writing jobs.xlsx")
     parser.add_argument("--model", type=str, default=DEFAULT_MODEL, help=f"Scoring model (default: {DEFAULT_MODEL})")
     parser.add_argument("--extract-only", action="store_true", help="Only extract/count jobs. Skip JD scoring and jobs.xlsx writes.")
+    parser.add_argument("--no-queue-refresh", action="store_true", help="Score and save tracker results without replacing the apply queue or changing application folders.")
     parser.add_argument(
         "--count-only",
         action="store_true",
@@ -3253,12 +3389,14 @@ if __name__ == "__main__":
         _ensure_chrome_cdp(args.debug_port, launch_chrome=args.launch_chrome, quiet=args.quiet)
         if not _cdp_port_listening("127.0.0.1", args.debug_port):
             raise SystemExit(f"Nothing is listening on 127.0.0.1:{args.debug_port}.")
-        hydrate_from_raw_artifacts(
+        hydrated_artifact = hydrate_from_raw_artifacts(
             raw_artifact_paths=args.hydrate_from_raw,
             debug_port=args.debug_port,
             quiet=args.quiet,
             max_jobs=None if args.max_hydrate in (None, 0) else args.max_hydrate,
         )
+        if json.loads(hydrated_artifact.read_text()).get("status") == "partial":
+            raise SystemExit(2)
     elif args.score_from_raw:
         score_from_raw_artifacts(
             raw_artifact_paths=args.score_from_raw,
@@ -3266,6 +3404,7 @@ if __name__ == "__main__":
             model=args.model,
             quiet=args.quiet,
             max_workers=args.max_workers,
+            refresh_queue=not args.no_queue_refresh,
         )
     else:
         if args.count_only and not args.extract_only:

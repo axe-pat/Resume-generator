@@ -14,6 +14,8 @@ from pathlib import Path
 from typing import Any, Iterable, NamedTuple
 
 ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 LOGS_DIR = ROOT / "discovery" / "auto" / "logs"
 SOURCE_VALIDATION_DIR = ROOT / "discovery" / "source_validation"
 OUTREACH_ROOT = ROOT.parent / "Outreach"
@@ -27,11 +29,29 @@ RELATIONSHIP_SOURCES = (
     "builtin_la_companies",
     "builtin_sf_companies",
 )
-# JobSpy remains available for ad-hoc Lane B breadth tests, but its active daily
-# and weekly write path is deliberately demoted to the 13 Lane A queries. Lane B
-# discovery is owned by the higher-yield LinkedIn browser path.
-DAILY_JOBSPY_QUERY_INDICES = tuple(range(13))
-WEEKLY_JOBSPY_QUERY_INDICES = tuple(range(13))
+# Active JobSpy is full-time first: five core product queries, four adjacent
+# strategy/ops/TPM queries, three rotational/technical-GTM queries, and one
+# exact Spring 2027 PM internship query. The broader query catalog remains
+# available through explicit --jobspy-query-index overrides.
+FULL_TIME_FIRST_JOBSPY_QUERY_INDICES = (
+    0,   # Product Manager Intern Spring 2027
+    13,  # New Grad Product Manager
+    14,  # APM 2027
+    15,  # Associate Product Manager New Grad
+    16,  # Product Manager University Graduate
+    17,  # Technical Product Manager New Grad
+    18,  # Product Operations New Grad
+    19,  # Strategy Operations New Grad
+    20,  # Business Operations Analyst New Grad
+    22,  # Technical Program Manager New Grad
+    24,  # MBA Leadership Development Program
+    25,  # Rotational Program
+    28,  # Solutions Engineer
+)
+DAILY_JOBSPY_QUERY_INDICES = FULL_TIME_FIRST_JOBSPY_QUERY_INDICES
+# Weekly discovery covers every canonical Lane B query family, plus the single
+# eligible Spring 2027 internship query. Daily runs keep the smaller, faster pack.
+WEEKLY_JOBSPY_QUERY_INDICES = (39, 41, 51, 24)
 WEEKLY_JOBSPY_RESULTS = 60
 
 class ArtifactCommandResult(NamedTuple):
@@ -380,6 +400,23 @@ def _handshake_metrics(path: Path | None) -> dict:
     }
 
 
+def _twelvetwenty_metrics(path: Path | None) -> dict:
+    payload = _load_json(path)
+    counts = payload.get("counts") or {}
+    return {
+        "artifact": str(path) if path else "",
+        "artifact_status": payload.get("status"),
+        "raw_count": counts.get("search_cards"),
+        "full_jd_count": counts.get("fetch_ok"),
+        "deduped_candidates": counts.get("new_after_dedupe"),
+        "deterministic_survivors": counts.get("deterministic_survivors"),
+        "freshly_scored_count": counts.get("scored"),
+        "accepted_for_write": counts.get("accepted"),
+        "skipped_duplicates": counts.get("skipped_duplicates"),
+        "error_count": counts.get("error_count", counts.get("fetch_failed", 0)),
+    }
+
+
 def _jobspy_metrics_from_artifacts(
     raw_path: Path | None, breadth_path: Path | None, scored_path: Path | None
 ) -> dict:
@@ -583,6 +620,7 @@ def write_source_run_metrics(
     action_queue_path: Path | None,
 ) -> Path:
     linkedin = _score_artifact_metrics(artifacts.get("linkedin_scored"))
+    twelvetwenty = _twelvetwenty_metrics(artifacts.get("twelvetwenty_log"))
     handshake = _handshake_metrics(artifacts.get("handshake_log"))
     jobspy = _jobspy_metrics_from_artifacts(
         artifacts.get("jobspy_raw"),
@@ -601,6 +639,12 @@ def write_source_run_metrics(
     sources = {
         "linkedin": _source_row(
             stage=stage_metrics.get("linkedin", {}), metrics=linkedin
+        ),
+        "twelvetwenty": _source_row(
+            stage=stage_metrics.get("twelvetwenty", {}),
+            metrics=twelvetwenty,
+            raw_key="raw_count",
+            selected_key="deduped_candidates",
         ),
         "handshake": _source_row(
             stage=stage_metrics.get("handshake", {}),
@@ -749,6 +793,8 @@ def build_action_queue(args: argparse.Namespace) -> Path:
             "post_score",
             "--relationship-today",
             args.relationship_today,
+            *(["--coverage-audit", args.coverage_audit]
+              if getattr(args, "coverage_audit", None) else []),
         ]
     )
     return latest("*daily-action-queue.json", SOURCE_VALIDATION_DIR)
@@ -1426,6 +1472,13 @@ def score_partial_linkedin_raw(artifact_since: float) -> Path | None:
     partial_raw = latest_since("linkedin_live_raw_inflight_*.json", LOGS_DIR, artifact_since)
     if not partial_raw:
         return None
+    payload = json.loads(partial_raw.read_text(encoding="utf-8"))
+    if payload.get("count_only") or not any(
+        str(row.get("jd_text") or "").strip()
+        for row in [*payload.get("cards", []), *payload.get("jobs", [])]
+    ):
+        print(f"[warn] Preserving card-only LinkedIn capture for hydration; not scoring: {partial_raw}", file=sys.stderr)
+        return None
     print(f"[warn] Scoring partial LinkedIn raw artifact after timeout: {partial_raw}", file=sys.stderr)
     result = run(
         [PYTHON, "discovery/auto/linkedin_live.py", "--score-from-raw", partial_raw],
@@ -1443,6 +1496,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--window", choices=("24h", "7d"), default="24h")
     parser.add_argument("--skip-linkedin", action="store_true")
+    parser.add_argument("--skip-twelvetwenty", action="store_true")
     parser.add_argument("--skip-handshake", action="store_true")
     parser.add_argument("--skip-jobspy", action="store_true")
     parser.add_argument("--skip-startup-apply", action="store_true")
@@ -1460,7 +1514,8 @@ def parse_args() -> argparse.Namespace:
         default=[],
         help="JobSpy query index to run; repeatable. Defaults: 24h uses PM/Product Ops/Growth/Strategy/APM/AI-PM; 7d adds focused MBA/AI strategy queries.",
     )
-    parser.add_argument("--jobspy-score-limit", type=int, default=10)
+    parser.add_argument("--jobspy-score-limit", type=int, default=0,
+                        help="Maximum eligible JobSpy candidates to score; 0 processes all.")
     parser.add_argument(
         "--linkedin-discovery-timeout",
         type=int,
@@ -1471,7 +1526,7 @@ def parse_args() -> argparse.Namespace:
         "--jobspy-fetch-timeout",
         type=int,
         default=0,
-        help="Seconds before skipping the JobSpy breadth scrape. Default: 600 for 24h, 1800 for 7d.",
+        help="Seconds before interrupting JobSpy breadth. Default: 600 for 24h, 6000 for 7d.",
     )
     parser.add_argument("--startup-limit-companies", type=int, default=20)
     parser.add_argument("--startup-limit-jobs", type=int, default=50)
@@ -1546,7 +1601,9 @@ def _effective_jobspy_results(args: argparse.Namespace) -> int | None:
 def _effective_jobspy_fetch_timeout(args: argparse.Namespace) -> int:
     if args.jobspy_fetch_timeout and args.jobspy_fetch_timeout > 0:
         return args.jobspy_fetch_timeout
-    return 600 if args.window == "24h" else 1800
+    # The weekly sweep has 48 queries; the former 30-minute parent cap
+    # routinely interrupted it before the scraper's own 90-minute cap.
+    return 600 if args.window == "24h" else 6000
 
 
 def _start_stage(stage_metrics: dict[str, dict], name: str) -> float:
@@ -1594,6 +1651,75 @@ def _write_empty_jobspy_raw(hours_old: int, reason: str) -> Path:
     return path
 
 
+def _salvage_jobspy_checkpoint(
+    checkpoint_dir: Path, *, hours_old: int, results: int | None,
+    query_indices: list[int], reason: str,
+) -> Path | None:
+    """Publish completed per-query batches after an interrupted fetch process."""
+    manifest_path = checkpoint_dir / "manifest.json"
+    if not manifest_path.is_file():
+        return None
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if (manifest.get("schema") != "resume_generator.discovery_query_checkpoint"
+            or manifest.get("hours_old") != hours_old
+            or manifest.get("requested_query_indices") != query_indices):
+        return None
+
+    from discovery.auto.scraper import deduplicate
+
+    completed: list[int] = []
+    all_jobs: list[dict] = []
+    for record in manifest.get("queries", []):
+        if not isinstance(record, dict) or record.get("status") != "completed":
+            continue
+        index = record.get("query_index")
+        relative = record.get("checkpoint_file")
+        if not isinstance(index, int) or index not in query_indices or not isinstance(relative, str):
+            continue
+        checkpoint_path = (checkpoint_dir / relative).resolve()
+        if not checkpoint_path.is_relative_to(checkpoint_dir.resolve()):
+            continue
+        try:
+            checkpoint = json.loads(checkpoint_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        batch = checkpoint.get("jobs")
+        if (checkpoint.get("status") != "completed"
+                or checkpoint.get("query_index") != index
+                or not isinstance(batch, list)
+                or not all(isinstance(job, dict) for job in batch)):
+            continue
+        completed.append(index)
+        all_jobs.extend(batch)
+    if not completed:
+        return None
+    jobs = deduplicate(all_jobs, existing_hashes=set())
+    remaining = [index for index in query_indices if index not in completed]
+    payload = {
+        "generated_at": datetime.now().isoformat(timespec="seconds"),
+        "source": "jobspy_breadth_v1",
+        "hours_old": hours_old,
+        "results_override": results,
+        "query_indices": query_indices,
+        "count": len(jobs),
+        "jobs": jobs,
+        "status": "partial",
+        "query_health": {
+            "status": "partial", "checkpoint_dir": str(checkpoint_dir),
+            "completed_query_indices": completed,
+            "remaining_query_indices": remaining,
+            "interruption_reason": reason,
+        },
+    }
+    LOGS_DIR.mkdir(parents=True, exist_ok=True)
+    path = LOGS_DIR / f"jobspy_breadth_raw_{hours_old}h_{datetime.now().strftime('%Y-%m-%d_%H%M%S')}.json"
+    path.write_text(json.dumps(payload, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+    return path
+
+
 def _build_source_breadth(jobspy_raw: Path, *, since_ts: float) -> Path | None:
     try:
         playwright_raw = latest("linkedin_live_raw_*.json", LOGS_DIR)
@@ -1603,7 +1729,7 @@ def _build_source_breadth(jobspy_raw: Path, *, since_ts: float) -> Path | None:
             file=sys.stderr,
         )
         return None
-    run(
+    result = run(
         [
             PYTHON,
             "discovery/scripts/validate_source_breadth.py",
@@ -1611,8 +1737,10 @@ def _build_source_breadth(jobspy_raw: Path, *, since_ts: float) -> Path | None:
             playwright_raw,
             "--jobspy-raw",
             jobspy_raw,
-        ]
+        ], check=False,
     )
+    if result.returncode != 0:
+        return None
     return latest_since(
         "*source-breadth-filtered.json", SOURCE_VALIDATION_DIR, since_ts
     )
@@ -1638,6 +1766,11 @@ def startup_apply_run_artifact_path(run_id: str) -> Path:
 def handshake_run_artifact_path(run_id: str) -> Path:
     nonce = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
     return LOGS_DIR / f"handshake_import_{_manifest_run_id(run_id)}_{nonce}.json"
+
+
+def twelvetwenty_run_artifact_path(run_id: str) -> Path:
+    nonce = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
+    return LOGS_DIR / f"twelvetwenty_import_{_manifest_run_id(run_id)}_{nonce}.json"
 
 
 def startup_source_report_path(run_id: str) -> Path:
@@ -1731,6 +1864,50 @@ def _validate_startup_apply_run_artifact(path: Path) -> dict[str, object]:
         raise ValueError(
             "Startup run artifact status does not match its scoring error counts"
         )
+    return payload
+
+
+def _validate_twelvetwenty_run_artifact(path: Path) -> dict[str, object]:
+    if not path.is_file():
+        raise ValueError(f"Exact 12twenty run artifact is missing: {path}")
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"Exact 12twenty run artifact is invalid: {path}") from exc
+    if not isinstance(payload, dict):
+        raise ValueError("12twenty run artifact root must be an object")
+    if payload.get("schema") != "resume_generator.twelvetwenty_import_run":
+        raise ValueError(f"Unexpected 12twenty run artifact schema: {payload.get('schema')!r}")
+    if payload.get("version") != 1:
+        raise ValueError(f"Unsupported 12twenty run artifact version: {payload.get('version')!r}")
+    counts = payload.get("counts")
+    required_lists = ("cards", "details", "classified", "survivors", "accepted", "rejected", "skipped", "fetch_failed")
+    if not isinstance(counts, dict) or any(not isinstance(payload.get(key), list) for key in required_lists):
+        raise ValueError("12twenty run artifact is missing counts or row lists")
+    try:
+        values = {key: int(counts.get(key, 0)) for key in (
+            "search_cards", "fetch_ok", "fetch_failed", "new_after_dedupe",
+            "deterministic_survivors", "scored", "accepted", "rejected",
+            "skipped_duplicates", "error_count",
+        )}
+    except (TypeError, ValueError) as exc:
+        raise ValueError("12twenty run artifact contains invalid counts") from exc
+    if min(values.values()) < 0:
+        raise ValueError("12twenty run artifact contains negative counts")
+    if values["search_cards"] != len(payload["cards"]):
+        raise ValueError("12twenty card count does not match its row list")
+    if values["fetch_ok"] != len(payload["details"]):
+        raise ValueError("12twenty detail count does not match its row list")
+    if values["fetch_failed"] != len(payload["fetch_failed"]):
+        raise ValueError("12twenty fetch-failure count does not match its row list")
+    if values["new_after_dedupe"] != len(payload["classified"]):
+        raise ValueError("12twenty classified count does not match its row list")
+    if values["deterministic_survivors"] != len(payload["survivors"]):
+        raise ValueError("12twenty survivor count does not match its row list")
+    if values["skipped_duplicates"] != len(payload["skipped"]):
+        raise ValueError("12twenty duplicate count does not match its row list")
+    if values["error_count"] != values["fetch_failed"]:
+        raise ValueError("12twenty error and fetch-failure counts disagree")
     return payload
 
 
@@ -2009,6 +2186,10 @@ def _typed_manifest_pointers(manifest: dict[str, object]) -> dict[str, object]:
         artifacts.get("handshake_log"),
         base_dir=ROOT,
     )
+    twelvetwenty_run_artifact = _readable_artifact_path(
+        artifacts.get("twelvetwenty_log"),
+        base_dir=ROOT,
+    )
     relationship_run = (
         artifacts.get("relationship_discovery")
         if isinstance(artifacts.get("relationship_discovery"), dict)
@@ -2039,6 +2220,7 @@ def _typed_manifest_pointers(manifest: dict[str, object]) -> dict[str, object]:
         "startup_apply_run_artifact": startup_apply_run_artifact,
         "startup_source_report_artifact": startup_source_report_artifact,
         "handshake_run_artifact": handshake_run_artifact,
+        "twelvetwenty_run_artifact": twelvetwenty_run_artifact,
         "relationship_discovery_artifacts": relationship_discovery_artifacts,
         "source_metrics": str(manifest.get("source_metrics") or ""),
         "action_queue": str(manifest.get("action_queue") or ""),
@@ -2199,6 +2381,7 @@ def _source_families_for_manifest(manifest: dict[str, object]) -> dict[str, obje
         app_queue_status = str(action_queue_stage.get("status") or "skipped")
     return {
         "linkedin": source_row("linkedin"),
+        "twelvetwenty": source_row("twelvetwenty"),
         "handshake": source_row("handshake"),
         "jobspy": source_row("jobspy"),
         "startup_sources": {
@@ -2289,19 +2472,24 @@ def _run_daily_engine(args: argparse.Namespace, run_manifest: dict[str, object])
     run_manifest["applied_pdf_sync"] = applied_pdf_status_report()
 
     needs_linkedin = (not args.skip_linkedin) or bool(args.prepare_outreach)
+    linkedin_ready = True
     if needs_linkedin and not args.skip_linkedin_preflight:
-        if not ensure_linkedin_chrome_session("initial preflight failure"):
-            raise SystemExit("LinkedIn Chrome preflight failed after one guarded reset.")
+        linkedin_ready = ensure_linkedin_chrome_session("initial preflight failure")
 
     if not args.skip_linkedin:
         stage_started = _start_stage(stage_metrics, "linkedin")
-        artifact_since = time.time()
-        result = run_capture(
-            ["./discovery/scripts/run_linkedin_discovery.sh", args.window],
-            check=False,
-            timeout=args.linkedin_discovery_timeout,
-        )
-        if result.returncode == 0:
+        if not linkedin_ready:
+            _finish_stage(stage_metrics, "linkedin", stage_started, status="failed", returncode=2)
+            artifacts["linkedin_scored"] = None
+            print("[warn] LinkedIn browser preflight failed; continuing with other sources.", file=sys.stderr)
+        else:
+            artifact_since = time.time()
+            result = run_capture(
+                ["./discovery/scripts/run_linkedin_discovery.sh", args.window],
+                check=False,
+                timeout=args.linkedin_discovery_timeout,
+            )
+        if linkedin_ready and result.returncode == 0:
             scored_artifact = latest_since(
                 "linkedin_live_scored_*.json", LOGS_DIR, artifact_since
             )
@@ -2313,13 +2501,64 @@ def _run_daily_engine(args: argparse.Namespace, run_manifest: dict[str, object])
                 status=_linkedin_scoring_stage_status(scored_artifact),
                 returncode=result.returncode,
             )
-        else:
+        elif linkedin_ready:
             status = "timed_out" if result.returncode == 124 else "failed"
             _finish_stage(stage_metrics, "linkedin", stage_started, status=status, returncode=result.returncode)
             artifacts["linkedin_scored"] = score_partial_linkedin_raw(artifact_since)
             artifacts["linkedin_chrome_reset_after_failure"] = reset_linkedin_chrome_session(status)
     else:
         _skip_stage(stage_metrics, "linkedin")
+
+    # 12twenty is intentionally second: USC-curated listings have materially
+    # higher signal than the broad aggregators, and full portal JDs expose exact
+    # timing/eligibility fields before any scoring spend.
+    if not args.skip_twelvetwenty:
+        stage_started = _start_stage(stage_metrics, "twelvetwenty")
+        twelvetwenty_artifact = twelvetwenty_run_artifact_path(args.run_id)
+        artifacts["twelvetwenty_log"] = twelvetwenty_artifact
+        twelvetwenty_result = run(
+            [
+                "./discovery/scripts/run_twelvetwenty_discovery.sh",
+                args.window,
+                twelvetwenty_artifact,
+            ],
+            check=False,
+        )
+        if twelvetwenty_result.returncode != 0:
+            _finish_stage(
+                stage_metrics,
+                "twelvetwenty",
+                stage_started,
+                status="failed",
+                returncode=twelvetwenty_result.returncode,
+            )
+            print(
+                f"[warn] 12twenty discovery exited with {twelvetwenty_result.returncode}; "
+                f"continuing with the remaining sources. Exact artifact: {twelvetwenty_artifact}",
+                file=sys.stderr,
+            )
+        else:
+            try:
+                twelvetwenty_payload = _validate_twelvetwenty_run_artifact(twelvetwenty_artifact)
+            except ValueError as exc:
+                _finish_stage(
+                    stage_metrics,
+                    "twelvetwenty",
+                    stage_started,
+                    status="failed",
+                    returncode=2,
+                )
+                print(f"[warn] {exc}; continuing with remaining sources.", file=sys.stderr)
+            else:
+                twelvetwenty_status = str(twelvetwenty_payload.get("status") or "failed")
+                _finish_stage(
+                    stage_metrics,
+                    "twelvetwenty",
+                    stage_started,
+                    status="ran" if twelvetwenty_status == "completed" else twelvetwenty_status,
+                )
+    else:
+        _skip_stage(stage_metrics, "twelvetwenty")
 
     if not args.skip_handshake:
         stage_started = _start_stage(stage_metrics, "handshake")
@@ -2333,18 +2572,6 @@ def _run_daily_engine(args: argparse.Namespace, run_manifest: dict[str, object])
             ],
             check=False,
         )
-        if handshake_result.returncode != 0:
-            _finish_stage(
-                stage_metrics,
-                "handshake",
-                stage_started,
-                status="failed",
-                returncode=handshake_result.returncode,
-            )
-            raise SystemExit(
-                f"Handshake discovery exited with {handshake_result.returncode}; "
-                f"exact artifact: {handshake_artifact}"
-            )
         try:
             handshake_payload = _validate_handshake_run_artifact(handshake_artifact)
         except ValueError as exc:
@@ -2353,16 +2580,16 @@ def _run_daily_engine(args: argparse.Namespace, run_manifest: dict[str, object])
                 "handshake",
                 stage_started,
                 status="failed",
-                returncode=2,
+                returncode=handshake_result.returncode or 2,
             )
-            raise SystemExit(str(exc)) from exc
-        handshake_status = str(handshake_payload.get("status") or "failed")
-        _finish_stage(
-            stage_metrics,
-            "handshake",
-            stage_started,
-            status="ran" if handshake_status == "completed" else handshake_status,
-        )
+            print(f"[warn] {exc}; continuing with other sources.", file=sys.stderr)
+        else:
+            handshake_status = str(handshake_payload.get("status") or "failed")
+            _finish_stage(
+                stage_metrics, "handshake", stage_started,
+                status="ran" if handshake_status == "completed" else handshake_status,
+                returncode=handshake_result.returncode,
+            )
     else:
         _skip_stage(stage_metrics, "handshake")
 
@@ -2375,46 +2602,65 @@ def _run_daily_engine(args: argparse.Namespace, run_manifest: dict[str, object])
         artifacts["jobspy_query_indices"] = jobspy_query_indices or "all"
         artifacts["jobspy_results"] = jobspy_results or "scraper_default"
         artifacts["jobspy_fetch_timeout"] = jobspy_timeout
+        checkpoint_dir = (
+            ROOT / "discovery" / "auto" / "checkpoints"
+            / f"run_{_manifest_run_id(args.run_id)}_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}_jobspy"
+        )
+        artifacts["jobspy_checkpoint_dir"] = checkpoint_dir
         fetch_cmd: list[object] = [
             PYTHON,
             "discovery/scripts/fetch_jobspy_breadth.py",
             "--hours-old",
             hours_old,
+            "--checkpoint-dir",
+            checkpoint_dir,
         ]
         if jobspy_results:
             fetch_cmd.extend(["--results", jobspy_results])
         for query_index in jobspy_query_indices:
             fetch_cmd.extend(["--query-index", query_index])
         jobspy_fetch = run_capture(fetch_cmd, check=False, timeout=jobspy_timeout)
+        jobspy_raw: Path | None = None
         if jobspy_fetch.returncode != 0:
             print(
-                f"[warn] Skipping JobSpy validation/scoring because fetch exited with {jobspy_fetch.returncode}.",
+                f"[warn] JobSpy fetch exited with {jobspy_fetch.returncode}; recovering completed query checkpoints.",
                 file=sys.stderr,
             )
-            fallback_raw = _write_empty_jobspy_raw(
-                hours_old,
-                "timeout" if jobspy_fetch.returncode == 124 else "fetch_failed",
-            )
-            artifacts["jobspy_raw"] = fallback_raw
-            artifacts["source_breadth"] = _build_source_breadth(
-                fallback_raw, since_ts=artifact_since
-            )
-            _finish_stage(
-                stage_metrics,
-                "jobspy",
-                stage_started,
-                status="timed_out" if jobspy_fetch.returncode == 124 else "failed",
-                returncode=jobspy_fetch.returncode,
+            jobspy_raw = _salvage_jobspy_checkpoint(
+                checkpoint_dir, hours_old=hours_old,
+                results=int(jobspy_results) if jobspy_results else None,
+                query_indices=jobspy_query_indices,
+                reason="timeout" if jobspy_fetch.returncode == 124 else "fetch_failed",
             )
         else:
-            jobspy_raw = latest(f"jobspy_breadth_raw_{hours_old}h_*.json", LOGS_DIR)
-            artifacts["jobspy_raw"] = jobspy_raw
-            source_breadth = _build_source_breadth(jobspy_raw, since_ts=artifact_since)
-            if source_breadth is None:
-                _finish_stage(stage_metrics, "jobspy", stage_started, status="failed")
-                raise SystemExit("Could not build source breadth after JobSpy fetch.")
-            artifacts["source_breadth"] = source_breadth
-            run(
+            raw_markers = [
+                line.split(": ", 1)[1].strip()
+                for line in (jobspy_fetch.stdout or "").splitlines()
+                if line.startswith("Wrote JobSpy raw artifact: ")
+            ]
+            if len(raw_markers) == 1 and Path(raw_markers[0]).is_file():
+                jobspy_raw = Path(raw_markers[0])
+            else:
+                print("[warn] JobSpy returned no exact raw artifact; recovering checkpoints.", file=sys.stderr)
+                jobspy_raw = _salvage_jobspy_checkpoint(
+                    checkpoint_dir, hours_old=hours_old,
+                    results=int(jobspy_results) if jobspy_results else None,
+                    query_indices=jobspy_query_indices, reason="missing_raw_artifact",
+                )
+        if jobspy_raw is None:
+            jobspy_raw = _write_empty_jobspy_raw(
+                hours_old, "timeout" if jobspy_fetch.returncode == 124 else "fetch_failed"
+            )
+        artifacts["jobspy_raw"] = jobspy_raw
+        try:
+            jobspy_payload = json.loads(jobspy_raw.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            jobspy_payload = {"jobs": [], "status": "failed"}
+        source_breadth = _build_source_breadth(jobspy_raw, since_ts=artifact_since)
+        artifacts["source_breadth"] = source_breadth
+        score_result = None
+        if source_breadth is not None and jobspy_payload.get("jobs"):
+            score_result = run(
                 [
                     PYTHON,
                     "discovery/scripts/run_jobspy_scoring_lane.py",
@@ -2424,12 +2670,21 @@ def _run_daily_engine(args: argparse.Namespace, run_manifest: dict[str, object])
                     jobspy_raw,
                     "--limit",
                     args.jobspy_score_limit,
-                ]
+                ], check=False,
             )
             artifacts["jobspy_scored"] = latest_since(
                 "jobspy_filtered_scored_*.json", LOGS_DIR, artifact_since
             )
-            _finish_stage(stage_metrics, "jobspy", stage_started)
+        if jobspy_fetch.returncode != 0 or jobspy_payload.get("status") != "completed":
+            jobspy_status = "partial" if jobspy_payload.get("jobs") else "failed"
+        elif source_breadth is None or (score_result is not None and score_result.returncode != 0):
+            jobspy_status = "partial"
+        else:
+            jobspy_status = "ran"
+        _finish_stage(
+            stage_metrics, "jobspy", stage_started, status=jobspy_status,
+            returncode=jobspy_fetch.returncode,
+        )
     else:
         _skip_stage(stage_metrics, "jobspy")
         artifact_since = time.time()
@@ -2456,18 +2711,6 @@ def _run_daily_engine(args: argparse.Namespace, run_manifest: dict[str, object])
             ],
             check=False,
         )
-        if startup_result.returncode != 0:
-            _finish_stage(
-                stage_metrics,
-                "startup_apply",
-                stage_started,
-                status="failed",
-                returncode=startup_result.returncode,
-            )
-            raise SystemExit(
-                f"Startup apply exited with {startup_result.returncode}; exact artifact: "
-                f"{startup_apply_artifact}"
-            )
         try:
             startup_apply_payload = _validate_startup_apply_run_artifact(
                 startup_apply_artifact
@@ -2478,28 +2721,26 @@ def _run_daily_engine(args: argparse.Namespace, run_manifest: dict[str, object])
                 "startup_apply",
                 stage_started,
                 status="failed",
-                returncode=2,
+                returncode=startup_result.returncode or 2,
             )
-            raise SystemExit(str(exc)) from exc
-        startup_outputs = startup_apply_payload.get("outputs")
-        run_log = str(
-            startup_outputs.get("run_log")
-            if isinstance(startup_outputs, dict)
-            else ""
-        )
-        if run_log and Path(run_log).is_file():
-            artifacts["startup_apply_log"] = Path(run_log)
-        startup_apply_status = str(
-            startup_apply_payload.get("status") or "failed"
-        )
-        _finish_stage(
-            stage_metrics,
-            "startup_apply",
-            stage_started,
-            status=(
-                "ran" if startup_apply_status == "completed" else startup_apply_status
-            ),
-        )
+            print(f"[warn] {exc}; continuing with other sources.", file=sys.stderr)
+        else:
+            startup_outputs = startup_apply_payload.get("outputs")
+            run_log = str(
+                startup_outputs.get("run_log")
+                if isinstance(startup_outputs, dict)
+                else ""
+            )
+            if run_log and Path(run_log).is_file():
+                artifacts["startup_apply_log"] = Path(run_log)
+            startup_apply_status = str(
+                startup_apply_payload.get("status") or "failed"
+            )
+            _finish_stage(
+                stage_metrics, "startup_apply", stage_started,
+                status="ran" if startup_apply_status == "completed" else startup_apply_status,
+                returncode=startup_result.returncode,
+            )
     else:
         _skip_stage(stage_metrics, "startup_apply")
 
@@ -2584,19 +2825,15 @@ def _run_daily_engine(args: argparse.Namespace, run_manifest: dict[str, object])
         "--limit-jobs",
         args.startup_limit_jobs,
     ]
-    if args.skip_startup_apply:
+    startup_artifact_ready = (
+        not args.skip_startup_apply
+        and isinstance(artifacts.get("startup_apply_run"), Path)
+        and artifacts["startup_apply_run"].is_file()
+    )
+    if not startup_artifact_ready:
         startup_report_cmd.append("--no-startup-apply")
     else:
         startup_apply_artifact = artifacts.get("startup_apply_run")
-        if not isinstance(startup_apply_artifact, Path):
-            _finish_stage(
-                stage_metrics,
-                "startup_source_report",
-                stage_started,
-                status="failed",
-                returncode=2,
-            )
-            raise SystemExit("Startup source report has no exact startup run pointer.")
         startup_report_cmd.extend(
             ["--startup-run-artifact", startup_apply_artifact]
         )
@@ -2634,13 +2871,29 @@ def _run_daily_engine(args: argparse.Namespace, run_manifest: dict[str, object])
             status="failed",
             returncode=report_result.returncode or 2,
         )
-        raise SystemExit(
-            "Startup source report failed closed for exact startup run artifact "
-            f"{artifacts.get('startup_apply_run')}."
-        )
-    _finish_stage(stage_metrics, "startup_source_report", stage_started)
+        print("[warn] Startup source report failed; publishing action queue from available sources.", file=sys.stderr)
+    else:
+        _finish_stage(stage_metrics, "startup_source_report", stage_started)
 
     stage_started = _start_stage(stage_metrics, "action_queue")
+    from discovery.scripts.audit_discovery_coverage import build_audit
+    from datetime import timedelta
+    since = (datetime.now() - timedelta(days=7 if args.window == "7d" else 1)).date().isoformat()
+    coverage_path = build_audit(since)
+    if args.window == "7d" and not args.skip_linkedin:
+        # Drain saved cards as well as today's new capture. A browser failure
+        # preserves the checkpoint and leaves coverage explicitly incomplete.
+        from discovery.scripts.recover_discovery_coverage import recover
+        recovery_started = _start_stage(stage_metrics, "saved_capture_recovery")
+        coverage_path = recover(coverage_path, score=True)
+        _finish_stage(
+            stage_metrics, "saved_capture_recovery", recovery_started,
+            status="ran" if json.loads(coverage_path.read_text())["status"] == "reconciled" else "partial",
+        )
+    args.coverage_audit = str(coverage_path)
+    artifacts["coverage_audit"] = coverage_path
+    run_manifest["coverage_status"] = json.loads(coverage_path.read_text())["status"]
+    print(f"Coverage audit: {coverage_path}")
     action_queue_path = build_action_queue(args)
     run_manifest["action_queue"] = str(action_queue_path)
     _finish_stage(stage_metrics, "action_queue", stage_started)
@@ -2823,7 +3076,14 @@ def main() -> int:
     returncode = 1
     try:
         returncode = _run_daily_engine(args, run_manifest)
-        run_manifest["status"] = "completed" if returncode == 0 else "failed"
+        unfinished = run_manifest.get("coverage_status") == "incomplete" or any(
+            isinstance(stage, dict) and stage.get("status") in
+            {"failed", "partial", "partial_failed", "timed_out", "failed_interrupted"}
+            for stage in (run_manifest.get("stage_metrics") or {}).values()
+        )
+        if returncode == 0 and unfinished:
+            returncode = 2
+        run_manifest["status"] = "incomplete" if unfinished else ("completed" if returncode == 0 else "failed")
     except BaseException as exc:
         returncode = _exception_returncode(exc)
         run_manifest["status"] = "failed"

@@ -14,8 +14,13 @@ JOBSPY_APPLY_SOURCES = {
     "jobspy_filtered_v1",
 }
 
+TWELVETWENTY_APPLY_SOURCES = {
+    "twelvetwenty_jobs_v1",
+}
+
 APPLY_QUEUE_SOURCES = {
     "linkedin_live_jobs_v1",
+    *TWELVETWENTY_APPLY_SOURCES,
     *HANDSHAKE_APPLY_SOURCES,
     *JOBSPY_APPLY_SOURCES,
     *STARTUP_APPLY_SOURCES,

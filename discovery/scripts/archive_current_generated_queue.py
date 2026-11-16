@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import argparse
 import json
 import shutil
 import sys
@@ -38,6 +39,16 @@ def _archive_target(role_dir: Path, archived_on: str) -> Path:
     return ARCHIVE_ROOT / archived_on / rel
 
 
+def _has_generated_artifact(entry: dict) -> bool:
+    raw = str(entry.get("folder_path") or "").strip()
+    if not raw:
+        return False
+    role_dir = Path(raw).expanduser()
+    if not role_dir.is_dir():
+        return False
+    return any(role_dir.glob("resume_*.pdf")) or any(role_dir.glob("resume_*.docx"))
+
+
 def _prune_empty_ancestors(start_dir: Path) -> None:
     current = start_dir.parent.resolve()
     stop_dirs = {APPS_DIR.resolve(), QUEUE_DIR.resolve()}
@@ -51,12 +62,36 @@ def _prune_empty_ancestors(start_dir: Path) -> None:
             current = parent
 
 
+def _parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Archive generated current-queue artifacts without losing them."
+    )
+    parser.add_argument(
+        "--id",
+        default="",
+        help="Optional comma-separated tracker ids. Omit to archive every generated entry.",
+    )
+    return parser.parse_args()
+
+
 def main() -> int:
+    args = _parse_args()
+    selected_ids = {value.strip() for value in args.id.split(",") if value.strip()}
     entries = [
         entry
         for entry in _load_ready_entries()
-        if str(entry.get("status") or "").strip().lower() == "generated"
-        and str(entry.get("folder_path") or "").strip()
+        if str(entry.get("folder_path") or "").strip()
+        and (
+            (
+                not selected_ids
+                and str(entry.get("status") or "").strip().lower() == "generated"
+            )
+            or (
+                selected_ids
+                and str(entry.get("id") or "").strip() in selected_ids
+                and _has_generated_artifact(entry)
+            )
+        )
     ]
     if not entries:
         print("No generated current-queue entries to archive.")

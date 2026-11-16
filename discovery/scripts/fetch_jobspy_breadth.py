@@ -22,6 +22,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--hours-old", type=int, default=24)
     parser.add_argument("--results", type=int, default=None, help="Override JobSpy results per query/site.")
     parser.add_argument("--query-index", action="append", type=int, default=[], help="Optional scraper query index; repeatable.")
+    parser.add_argument("--checkpoint-dir", type=Path, help="Exact checkpoint directory for this run.")
     parser.add_argument("--quiet", action="store_true")
     return parser.parse_args()
 
@@ -29,12 +30,15 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     query_indices = args.query_index or None
+    report: dict = {}
     jobs = scrape(
         hours_old=args.hours_old,
         query_indices=query_indices,
         existing_hashes=set(),
         results_override=args.results,
         verbose=not args.quiet,
+        checkpoint_dir=getattr(args, "checkpoint_dir", None),
+        run_report=report,
     )
     LOGS_DIR.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
@@ -47,6 +51,8 @@ def main() -> int:
         "query_indices": query_indices or "all",
         "count": len(jobs),
         "jobs": jobs,
+        "status": report.get("status", "unknown"),
+        "query_health": report,
     }
     path.write_text(json.dumps(payload, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
     print(f"Wrote JobSpy raw artifact: {path}")

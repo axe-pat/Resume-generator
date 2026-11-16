@@ -15,17 +15,11 @@ fi
 
 case "$MODE" in
   24h|past-24h)
-    SEARCH_ARGS=(
-      --search "Product Manager Intern" --time r86400
-      --search "MBA Intern" --time r86400
-    )
+    WINDOW="24h"
     RUN_LABEL="past-24h"
     ;;
   7d|7day|7-day|week|weekly|past-week)
-    SEARCH_ARGS=(
-      --search "Product Manager Intern" --time r604800
-      --search "MBA Intern" --time r604800
-    )
+    WINDOW="7d"
     RUN_LABEL="past-week"
     ;;
   *)
@@ -59,12 +53,11 @@ echo "==> Pre-run queue hygiene"
 "$PYTHON_BIN" discovery/scripts/refresh_forgotten_queue.py
 
 echo
-echo "==> LinkedIn extract-only run ($RUN_LABEL)"
-"$PYTHON_BIN" discovery/auto/linkedin_live.py \
-  --launch-chrome \
+echo "==> LinkedIn full-time-first capture, filter, and JD hydration ($RUN_LABEL)"
+"$PYTHON_BIN" -u discovery/scripts/run_linkedin_targeted.py \
+  --window "$WINDOW" \
   --extract-only \
-  --allow-jobs-search-fallback \
-  "${SEARCH_ARGS[@]}" | tee "$EXTRACT_LOG"
+  | tee "$EXTRACT_LOG"
 
 RAW_ARTIFACT="$(
 "$PYTHON_BIN" - "$EXTRACT_LOG" "$RUN_STARTED_EPOCH" <<'PY'
@@ -83,14 +76,7 @@ if raw and Path(raw).exists():
     print(raw)
     raise SystemExit
 
-logs_dir = Path("discovery/auto/logs")
-candidates = [
-    path for path in logs_dir.glob("linkedin_live_raw_*.json")
-    if path.is_file() and int(path.stat().st_mtime) >= started_epoch
-]
-if candidates:
-    candidates.sort(key=lambda p: p.stat().st_mtime, reverse=True)
-    print(str(candidates[0]))
+raise SystemExit("Missing exact filtered/hydrated raw artifact; refusing unfiltered fallback")
 PY
 )"
 
