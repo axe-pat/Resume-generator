@@ -42,7 +42,7 @@ sys.path.insert(0, str(_REPO_ROOT))
 import jobs  # noqa: E402
 from shared.job_eligibility import pre_filter_role_type  # noqa: E402
 
-from scorer import _load_api_key, score_batch  # noqa: E402
+from scorer import score_batch  # noqa: E402
 
 try:
     import anthropic
@@ -1800,11 +1800,8 @@ def run(
                     candidate["status"] = "review"
                     scored_jobs.append(candidate)
             else:
-                api_key = _load_api_key()
-                client = anthropic.Anthropic(api_key=api_key)
                 scored_jobs = score_batch(
                     candidate_dicts,
-                    client=client,
                     model=model,
                     verbose=verbose,
                 )

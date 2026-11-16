@@ -974,6 +974,10 @@ integrated live sending path remains unvalidated; company facts and message
 quality gates must be checked before activation.
 # Discovery scoring provider
 
+The startup collection lane also delegates scoring-client creation to the shared
+discovery scorer, so it follows Cursor selection rather than constructing a paid
+Anthropic client directly.
+
 Combined daily previews now attempt inbox/connection reconciliation before
 planning, even without fresh job collection. No draft or send commands are used.
 The default scan has a shared three-minute budget and reads at most 300 inbox
