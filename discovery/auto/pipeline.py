@@ -643,8 +643,8 @@ def run(hours_old: int = 24,
     # Lazy imports — keeps startup fast and errors localised
     sys.path.insert(0, str(_HERE))
     from scraper import scrape
-    from scorer  import score_batch, _load_api_key
-    import anthropic
+    from scorer import score_batch
+    from discovery.auto.scoring_provider import create_scoring_client, active_provider
 
     if verbose:
         print(f"\n{'═'*60}")
@@ -686,8 +686,7 @@ def run(hours_old: int = 24,
             print("  No new jobs to process in the standard lane.")
     else:
         # ── Step 3: Score ─────────────────────────────────────────────────────
-        api_key = _load_api_key()
-        client  = anthropic.Anthropic(api_key=api_key)
+        client = create_scoring_client(deadline_epoch=run_deadline_epoch - 15)
 
         if verbose:
             # Cost estimate before committing — assumes ~1,800 input + 80 output tokens/job
@@ -701,8 +700,11 @@ def run(hours_old: int = 24,
             else:
                 cost_per = 0.00500   # safe fallback for unknown model
             est_cost = n * cost_per
-            print(f"\n  Scoring {n} jobs with {model}")
-            print(f"  Estimated API cost: ~${est_cost:.2f}  ({n} × ${cost_per:.5f}/job)")
+            if active_provider() == 'cursor':
+                print(f"\n  Scoring {n} jobs with Cursor Auto (Cursor plan usage; no API fallback)")
+            else:
+                print(f"\n  Scoring {n} jobs with {model}")
+                print(f"  Estimated API cost: ~${est_cost:.2f}  ({n} × ${cost_per:.5f}/job)")
 
         scored_jobs = score_batch(
             new_jobs,

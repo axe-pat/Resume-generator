@@ -147,6 +147,16 @@ requirements are persisted in selection notes and validated as release blockers.
 
 ### LLM provider routing
 
+Discovery job-fit scoring now defaults to **Cursor Auto**, reusing the existing
+Cursor adapter, isolated text-only execution, exact-response cache and telemetry.
+This applies to LinkedIn saved-JD review, the standard discovery pipeline and
+`review_backlog_semantics.py`. There is no automatic paid API fallback. Authenticate
+the installed CLI with `~/.local/bin/agent login` before running discovery.
+`DISCOVERY_LLM_PROVIDER=anthropic` explicitly restores Haiku discovery scoring;
+the legacy model constant and resume/cover-letter provider defaults are unchanged.
+Cursor plan allowances still apply; included access is not a guarantee of unlimited
+usage. No account billing settings are changed by this code.
+
 Application generation can run through the incumbent Anthropic API or the local
 Cursor Agent CLI. Anthropic remains the default, so installing the adapter does
 not change existing runs. `--provider cursor --cursor-routing hybrid` sends basic

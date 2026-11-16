@@ -1,8 +1,8 @@
 """
-scorer.py — Claude Fit Scorer
+scorer.py — Job Fit Scorer
 -------------------------------
 Takes a list of job dicts (from scraper.py) and scores each one against
-Akshat's profile using Claude.
+Akshat's profile using the configured discovery provider (Cursor Auto by default).
 
 For each job it returns:
   fit_score      float  0.0–10.0  (normalised from 25-pt rubric)
@@ -63,6 +63,8 @@ from shared.job_eligibility import (  # noqa: E402
     pre_filter_role_type,
     review_candidate_language,
 )
+from discovery.auto.scoring_provider import create_scoring_client, active_provider
+from shared.llm_provider import LLMProviderError
 
 # ---------------------------------------------------------------------------
 # Model config
@@ -669,6 +671,10 @@ def score_job(job: dict, client: anthropic.Anthropic | None,
         except Exception as e:
             last_error = str(e)
             err_str    = str(e)
+            if isinstance(e, LLMProviderError):
+                job.update(_error_result("Cursor scoring unavailable: " + err_str[:180]))
+                job['_scoring_fatal_error'] = 'cursor_unavailable'
+                return job
             if 'credit balance' in err_str.lower() and 'too low' in err_str.lower():
                 job.update(_error_result('Anthropic scoring unavailable: insufficient account credits'))
                 job['_scoring_fatal_error']='insufficient_credits'
@@ -727,8 +733,8 @@ def score_batch(jobs: list[dict],
 
     Args:
         jobs:        List of job dicts from scraper.py
-        client:      Anthropic client (created from env if not provided)
-        model:       Claude model string
+        client:      Text-message scoring client (created from discovery settings)
+        model:       Anthropic model string, used only for explicit Anthropic runs
         verbose:     Print per-job progress
         max_workers: Parallel API workers. Default 2 — keeps burst traffic below the
                      50K tokens/minute org rate limit (~1800 tokens/job → max ~27 jobs/min).
@@ -745,15 +751,15 @@ def score_batch(jobs: list[dict],
         normalize_discovery_lane(job.get("lane")) != LANE_C for job in jobs
     )
     if client is None and has_api_scoring_jobs:
-        api_key = _load_api_key()
-        client  = anthropic.Anthropic(api_key=api_key, **({"max_retries": 0} if deadline_epoch is not None else {}))
+        client = create_scoring_client(deadline_epoch=deadline_epoch)
 
     profile_text = _load_file(PROFILE, "profile.md")
     scorer_text  = _load_file(SCORER,  "scorer_prompt.md")
 
     if verbose:
         print(f"\n{'='*60}")
-        print(f"Scorer — {len(jobs)} jobs | model: {model} | workers: {max_workers}")
+        routing = 'Cursor Auto' if active_provider() == 'cursor' else model
+        print(f"Scorer — {len(jobs)} jobs | model: {routing} | workers: {max_workers}")
         print(f"{'='*60}")
 
     # Pre-allocate output list to preserve input order
@@ -960,7 +966,6 @@ if __name__ == "__main__":
         parser.print_help()
         sys.exit(0)
 
-    api_key = _load_api_key()
-    client  = anthropic.Anthropic(api_key=api_key)
+    client = create_scoring_client()
 
     score_batch(jobs, client=client, model=args.model, verbose=True)

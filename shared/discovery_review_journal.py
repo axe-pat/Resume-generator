@@ -9,12 +9,14 @@ ROOT = Path(__file__).resolve().parents[1]
 JOURNAL = ROOT / "discovery/auto/checkpoints/review-results.jsonl"
 
 def review_batch(jobs, *, score_fn, journal=JOURNAL, **kwargs):
+    from discovery.auto.scoring_provider import scoring_identity
+    provider = scoring_identity()
     policy = b""
     for path in [ROOT / "profile/profile.md", ROOT / "shared/job_eligibility.py", ROOT / "discovery/auto/scorer_prompt.md"]:
         policy += path.read_bytes()
     def key(row):
         body = {k: row.get(k) for k in ("url", "company", "role_title", "jd_text", "lane")}
-        return hashlib.sha256(policy + json.dumps([kwargs.get("model"), body], sort_keys=True).encode()).hexdigest()
+        return hashlib.sha256(policy + json.dumps([provider, kwargs.get("model"), body], sort_keys=True).encode()).hexdigest()
     cache = {}
     if journal.exists():
         for line in journal.read_text().splitlines():

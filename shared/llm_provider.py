@@ -35,6 +35,7 @@ CURSOR_AUTO_MODEL_ENV = "RESUME_CURSOR_AUTO_MODEL"
 CURSOR_HARD_MODEL_ENV = "RESUME_CURSOR_HARD_MODEL"
 CURSOR_CLI_ENV = "RESUME_CURSOR_CLI"
 CURSOR_TIMEOUT_ENV = "RESUME_CURSOR_TIMEOUT_SECONDS"
+CURSOR_DEADLINE_ENV = "RESUME_CURSOR_DEADLINE_EPOCH"
 TELEMETRY_PATH_ENV = "RESUME_LLM_TELEMETRY_PATH"
 CURSOR_CACHE_DIR_ENV = "RESUME_CURSOR_CACHE_DIR"
 CURSOR_CACHE_MODE_ENV = "RESUME_CURSOR_CACHE_MODE"
@@ -57,6 +58,7 @@ VALID_CURSOR_CACHE_MODES = ("off", "readwrite", "refresh")
 # Explicitly cheap/basic model work.  Unknown labels default to the hard model:
 # quality should not silently fall merely because a new semantic pass was added.
 _CURSOR_AUTO_LABEL_PREFIXES = (
+    "Discovery: Score",
     "Pass 0: Strategy",
     "Pass 3: Score",
     "Step 1",
@@ -585,6 +587,10 @@ def _call_cursor(
 
     last_error: Exception | None = None
     for attempt in range(1, 3):
+        deadline = environment.get(CURSOR_DEADLINE_ENV)
+        remaining = None if not deadline else float(deadline) - time.time()
+        if remaining is not None and remaining <= 0:
+            raise LLMProviderError("Cursor scoring deadline reached")
         try:
             with tempfile.TemporaryDirectory(prefix="resume-cursor-") as temp_dir:
                 completed = subprocess.run(
@@ -594,7 +600,7 @@ def _call_cursor(
                     capture_output=True,
                     cwd=temp_dir,
                     env=child_env,
-                    timeout=timeout,
+                    timeout=timeout if remaining is None else min(timeout, remaining),
                     check=False,
                 )
             if completed.returncode != 0:
@@ -607,6 +613,8 @@ def _call_cursor(
         except (LLMProviderError, subprocess.TimeoutExpired) as exc:
             last_error = exc
             if attempt == 2:
+                break
+            if deadline and float(deadline) - time.time() <= 2:
                 break
             time.sleep(2)
     raise LLMProviderError(f"Cursor call failed after 2 attempts: {last_error}")

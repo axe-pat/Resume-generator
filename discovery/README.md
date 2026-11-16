@@ -972,3 +972,24 @@ the bounded controller. Its job import now selects `spring_ft_2027`. No recurrin
 schedule or send setting was activated by this implementation. The complete
 integrated live sending path remains unvalidated; company facts and message
 quality gates must be checked before activation.
+# Discovery scoring provider
+
+Job-fit scoring defaults to Cursor Auto through `auto/scoring_provider.py`, which
+reuses `shared/llm_provider.py` rather than maintaining a second Cursor integration.
+This includes the LinkedIn saved-JD path, standard pipeline and semantic backlog
+review. Resume generation keeps its existing provider defaults.
+
+Sign in once with `~/.local/bin/agent login`, then use the existing discovery
+commands. No Anthropic API key is needed for Cursor scoring, and Cursor failures
+never fall back to a paid API. `DISCOVERY_LLM_PROVIDER=anthropic` is an explicit
+opt-in to the existing Haiku path. Do not enable Cursor on-demand billing merely
+to get past a quota error; account allowances remain separate from this code.
+
+Cursor subprocess attempts share a per-request deadline (60 seconds for job-fit
+scoring, 40 for semantic backlog review) and respect the remaining run deadline.
+Provider failures are checkpointed as errors, trigger the scoring circuit breaker
+and leave unfinished jobs available for retry. Review-journal keys include the
+provider/model so a provider switch cannot silently reuse another provider's score.
+`tests/test_discovery_scoring_provider.py` checks routing, no paid fallback,
+deadline handling and provider-specific review reuse. A live Cursor scoring run
+still requires working CLI authentication and has not yet been validated.
