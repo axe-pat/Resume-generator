@@ -1,5 +1,5 @@
 """One review-only daily entrypoint over bounded discovery and existing Outreach planning."""
-import argparse,csv,json,re,subprocess,sys
+import argparse,csv,json,re,subprocess,sys,time
 from datetime import datetime
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[2]
@@ -10,6 +10,27 @@ from discovery.scripts.run_bounded_discovery import atomic_json,execute,PYTHON
 
 def read_csv(name):
     with (OUTREACH/'workspace'/name).open(newline='')as f:return list(csv.DictReader(f))
+
+def refresh_relationships(directory):
+    """Read and reconcile before selection; never draft or send messages."""
+    deadline = time.time() + 180
+    commands = {
+        'inbox': ['reconcile-linkedin-messages', '--live', '--apply', '--deep', '--include-seen', '--limit', '300'],
+        'connections': ['reconcile-linkedin', '--live', '--apply', '--max-age-days', '365', '--limit', '50'],
+    }
+    results = {}
+    for name, flags in commands.items():
+        code = execute([OUTREACH/'.venv/bin/python', OUTREACH/'main.py', *flags],
+            deadline=deadline, log_path=directory/f'{name}-sync.log', cwd=OUTREACH)
+        log = directory/f'{name}-sync.log'
+        empty_queue = name == 'connections' and log.exists() and 'No LinkedIn contacts matched the reconcile queue filters.' in log.read_text()
+        results[name] = {'returncode': code, 'status': 'no_pending_checks' if empty_queue else 'checked' if code == 0 else 'unavailable', 'log': str(log)}
+    result = {'checked_at': datetime.now().astimezone().isoformat(),
+        'status': 'checked' if all(r['status'] != 'unavailable' for r in results.values()) else 'incomplete',
+        'coverage': 'Bounded scan: up to 300 inbox threads and 50 pending connection profiles; not a complete account-history audit.',
+        'results': results}
+    atomic_json(directory/'relationship-sync.json', result)
+    return result
 
 def build_preview(plan, directory, run_id, discovery_state=None,posted=None,warm_context=None):
     organizations={r['organization_id']:r for r in read_csv('organizations.csv')}
@@ -31,12 +52,11 @@ def build_preview(plan, directory, run_id, discovery_state=None,posted=None,warm
     refresh=warm_context
     output={'run_id':run_id,'mode':'review_only','campaign':'spring_ft_2027','discovery':discovery_state or {'status':'saved_inputs_only'},'posted_opportunities':posted or{},'outreach_plan':plan,'company_learning':briefs,'studyfetch_contacts':warm,'live_thread_refresh_artifact':str(refresh)if refresh and refresh.exists()else'','history_completeness':'Review the explicitly supplied snapshot and date; live refresh is not implied','outbound_enabled':False}
     atomic_json(directory/'preview.json',output)
-    lines=['# Combined recruiting preview','',f'Run: {run_id}. Campaign: Spring 2027 + 2027 full-time. Review only; no messages sent.','','## StudyFetch warm restart','', 'Read current conversations before sending; these are historical contact records.']
-    if refresh and refresh.exists():lines+=['',f'Conversation evidence supplied: {refresh}. Review its capture date and messages before drafting; no fresh read is implied by this preview.','']
+    lines=['# Combined recruiting preview','',f'Run: {run_id}. Campaign: Spring 2027 + 2027 full-time. Review only; no messages sent.','','## StudyFetch warm restart','']
     for r in warm:lines.append(f"- {r['full_name']} — {r['title']} — tracker status: {r['status']}")
     lines+=['','## Posted-opportunity outreach queue','', 'These are existing tracker opportunities, not newly discovered roles in this preview. Eligibility and school/start compatibility still need final application review.']
     for r in (posted or{}).get('results',[]):lines.append(f"- [{r['company']} — {r['role_title']}]({r['source_url']}) — tracker status: {r['status']}")
-    lines+=['','## Companies selected by the existing outreach queue','']
+    lines+=['','## Company worklist','', 'These companies were selected for the actions below. Contact research and company research are preparation tasks; an outreach wave still needs current context and recipient review.','']
     for r in briefs:
         lines += [f"### {r['company']}",f"Website: {r['website'] or 'not recorded'}",f"Planned action: {r['planned_action'].get('campaign_action','see plan')}",f"What they do (saved context): {r['context']}",f"Why this company: {r['why_fit']}",f"Relevant evidence: {' / '.join(r['proof'])or'Needs evidence selection'}",f"Learning question: {r['learning_prompt']}",'Historical context; current company/thread verification pending.','']
     (directory/'preview.md').write_text('\n'.join(lines)+'\n')
@@ -48,6 +68,7 @@ def main():
     p.add_argument('--run-id',default=datetime.now().strftime('%Y%m%d-%H%M%S'))
     p.add_argument('--window',choices=['24h','7d'],default='24h')
     p.add_argument('--collect',action='store_true',help='Run bounded discovery first; default previews saved state only.')
+    p.add_argument('--offline-preview',action='store_true',help='Explicit saved-state preview without live inbox/connection reconciliation.')
     p.add_argument('--warm-context',type=Path,help='Explicit dated conversation snapshot to include for review.')
     a=p.parse_args()
     if not re.fullmatch(r'[A-Za-z0-9_-]+',a.run_id):p.error('Invalid run ID')
@@ -55,6 +76,7 @@ def main():
     ACTIVE_DIRECTORY=directory
     atomic_json(directory/'combined-state.json',{'run_id':a.run_id,'status':'running_preview','outbound_enabled':False})
     stages={};state=None
+    sync = {'status': 'offline'} if a.offline_preview else refresh_relationships(directory)
     if a.collect:
         result=subprocess.run([str(PYTHON),'discovery/scripts/run_bounded_discovery.py','--window',a.window,'--run-id',a.run_id],cwd=ROOT)
         stages['discovery_returncode']=result.returncode
@@ -74,9 +96,10 @@ def main():
         qp=Path(queue_paths[-1]);qp=qp if qp.is_absolute()else OUTREACH/qp
         if qp.exists():posted=json.loads(qp.read_text())
     preview=build_preview(json.loads(plan_path.read_text()),directory,a.run_id,state,posted,a.warm_context)
-    atomic_json(directory/'combined-state.json',{'run_id':a.run_id,'status':'preview_ready','stages':stages,'outreach_plan':str(plan_path),'preview':str(directory/'preview.md'),'outbound_enabled':False})
+    ready = sync['status'] == 'checked'
+    atomic_json(directory/'combined-state.json',{'run_id':a.run_id,'status':'preview_ready' if ready else 'offline_preview_ready' if a.offline_preview else 'preview_needs_live_sync','relationship_sync':sync,'stages':stages,'outreach_plan':str(plan_path),'preview':str(directory/'preview.md'),'outbound_enabled':False})
     print(f"Preview: {directory/'preview.md'}")
-    return 0 if all(v==0 for v in stages.values())else 2
+    return 0 if all(v==0 for v in stages.values()) and (ready or a.offline_preview) else 2
 def entrypoint():
     try:return main()
     except Exception as exc:

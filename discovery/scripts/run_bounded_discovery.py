@@ -22,13 +22,13 @@ def atomic_json(path, value):
     temp.write_text(json.dumps(value, indent=2, default=str) + '\n')
     temp.replace(path)
 
-def execute(command, *, deadline, log_path):
+def execute(command, *, deadline, log_path, cwd=None):
     """Kill the whole child group on expiry, including browser/scorer children."""
     remaining = deadline - time.time()
     if remaining <= 0:
         return 124
     with log_path.open('a') as output:
-        proc = subprocess.Popen([str(x) for x in command], cwd=ROOT,
+        proc = subprocess.Popen([str(x) for x in command], cwd=cwd or ROOT,
                                 stdout=output, stderr=subprocess.STDOUT, start_new_session=True)
         try:
             while proc.poll() is None:

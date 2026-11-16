@@ -602,8 +602,16 @@ Existing recurring schedules have not been changed.
 a review-only preview from saved jobs and the existing Outreach company queue.
 Use `--collect --window 24h` to run bounded discovery first; `--window 7d` selects
 the weekly window. The same run ID links stage logs and preview artifacts.
-`--warm-context <snapshot.json>` explicitly adds dated conversation evidence;
-a fresh inbox read is never implied. This command never enables message sends.
+`--warm-context <snapshot.json>` explicitly adds dated historical conversation
+evidence alongside the default live check. This command never enables message sends.
+
+The combined daily command now reconciles live LinkedIn messages and pending
+connection statuses before company selection, with a shared three-minute budget.
+Reading is an internal prerequisite rather than a user task in the preview.
+Coverage limits and failures stay in `relationship-sync.json`; a failed sync
+produces `preview_needs_live_sync`, not a claim of current conversation state.
+`--offline-preview` explicitly uses saved state without a live check. This does
+not activate a recurring schedule or continuous inbox watcher.
 
 The existing nightly orchestrator accepts opt-in `--bounded-discovery`, preserves
 source skip flags, and receives an exact action-queue/source-metrics manifest from

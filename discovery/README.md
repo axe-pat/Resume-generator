@@ -974,6 +974,14 @@ integrated live sending path remains unvalidated; company facts and message
 quality gates must be checked before activation.
 # Discovery scoring provider
 
+Combined daily previews now attempt inbox/connection reconciliation before
+planning, even without fresh job collection. No draft or send commands are used.
+The default scan has a shared three-minute budget and reads at most 300 inbox
+threads and 50 pending connection profiles. Its coverage/status is recorded in
+`relationship-sync.json`; partial failures prevent `preview_ready`. Use
+`--offline-preview` only for an explicitly saved-state preview. Company worklists
+distinguish mapping/research tasks from proposed outreach waves.
+
 Job-fit scoring defaults to Cursor Auto through `auto/scoring_provider.py`, which
 reuses `shared/llm_provider.py` rather than maintaining a second Cursor integration.
 This includes the LinkedIn saved-JD path, standard pipeline and semantic backlog
