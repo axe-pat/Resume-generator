@@ -556,6 +556,17 @@ Scoring runs at 2 parallel workers to stay under the 50K tokens/minute org limit
 Do not run multiple pipeline instances simultaneously.
 # Bounded discovery entrypoint (November 13)
 
+November 16 daily completion: daily searches reach graduate, Spring and MBA lanes
+in their first three slots, with per-query time shares and four-JD admission caps.
+Generic undated roles remain in the card audit for later review. Before collection,
+the combined runner verifies actual browser attachment; recovery uses the existing
+profile/ownership guard. Inbox reconciliation and rotating three-profile checks
+have separate budgets, and each completed profile batch is saved. The complete
+combined command shares a 30-minute daily or 90-minute weekly wall-clock budget.
+Its planner uses `--current-hiring-only`: closed, Fall-2026 and older-than-30-day
+openings no longer add current-hiring credit; company/relationship fit remains.
+The preview explicitly reports collection gaps even when planning succeeds.
+
 Run from this project directory with `venv/bin/python discovery/scripts/run_bounded_discovery.py --window 7d --run-id <unique-id>`
 for a 90-minute weekly ceiling, or `--window 24h` for a 30-minute daily ceiling.
 Use the same ID with `--resume` to skip successful unchanged stages and retain

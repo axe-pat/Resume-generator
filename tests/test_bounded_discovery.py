@@ -60,7 +60,10 @@ def test_policy_budget_and_spring_coverage():
     weekly=linkedin_search_terms('7d');daily=linkedin_search_terms('24h')
     assert len(weekly)==20 and len(daily)==9
     assert sum('Spring 2027' in t for t in weekly)==6
-    assert '2027' in weekly
+    assert '2027' not in weekly and 'MBA Strategy Operations 2027' in weekly
+    assert 'Graduate 2027' in daily[0]
+    assert 'Spring 2027' in daily[1]
+    assert 'MBA' in daily[2]
 
 def test_handshake_graduate_filter_does_not_require_internship_title():
     from discovery.auto.import_handshake_csv import CsvJob, _handshake_title_prefilter_reason

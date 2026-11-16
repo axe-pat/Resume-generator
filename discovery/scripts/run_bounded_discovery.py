@@ -22,13 +22,13 @@ def atomic_json(path, value):
     temp.write_text(json.dumps(value, indent=2, default=str) + '\n')
     temp.replace(path)
 
-def execute(command, *, deadline, log_path, cwd=None):
+def execute(command, *, deadline, log_path, cwd=None, env=None):
     """Kill the whole child group on expiry, including browser/scorer children."""
     remaining = deadline - time.time()
     if remaining <= 0:
         return 124
     with log_path.open('a') as output:
-        proc = subprocess.Popen([str(x) for x in command], cwd=cwd or ROOT,
+        proc = subprocess.Popen([str(x) for x in command], cwd=cwd or ROOT, env=env,
                                 stdout=output, stderr=subprocess.STDOUT, start_new_session=True)
         try:
             while proc.poll() is None:
@@ -53,7 +53,7 @@ def supervise(stages, *, directory, minutes, resume=False):
     policy_changed = state.get('policy_signature') not in {None, signature}
     state['policy_signature'] = signature
     finish = state.get('deadline_epoch', time.time()+minutes*60) if resume else time.time()+minutes*60
-    reserve = min(300, minutes*60*.15)
+    reserve = min(60, minutes*60*.15)
     state.update(status='running', deadline_epoch=finish)
     state.pop('completed_at',None)
     atomic_json(path, state)
@@ -97,21 +97,23 @@ def main():
     p.add_argument('--window', choices=['24h','7d'], default='24h')
     p.add_argument('--run-id', default=datetime.now().strftime('%Y%m%d-%H%M%S'))
     p.add_argument('--resume', action='store_true')
+    p.add_argument('--minutes', type=float, help='Parent-supplied remaining discovery budget.')
     p.add_argument('--saved-only', action='store_true', help='Publish saved inputs without new source calls.')
     p.add_argument('--include-twelvetwenty',action='store_true',help='Opt in to the repeatedly blocked campus portal.')
     p.add_argument('--legacy-linkedin',action='store_true',help='Use the prior split capture/hydration path for comparison.')
     for source in ['linkedin','handshake','jobspy','startup-apply']:
         p.add_argument('--skip-'+source,action='store_true')
     args = p.parse_args()
+    if args.minutes is not None and args.minutes <= 0:p.error('minutes must be positive')
     if not args.run_id or any(c not in 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-' for c in args.run_id):
         p.error('run-id must contain letters, digits, hyphens or underscores')
     weekly = args.window == '7d'
     run_directory=ROOT/'discovery/auto/checkpoints'/args.run_id
     stages = [] if args.saved_only else [
-        ('linkedin', [PYTHON,'discovery/scripts/run_linkedin_streamed.py','--window',args.window,'--run-dir',run_directory/'linkedin','--minutes','43'if weekly else'12','--max-new-jds','75'if weekly else'25','--resume'], 2585 if weekly else 725),
+        ('linkedin', [PYTHON,'discovery/scripts/run_linkedin_streamed.py','--window',args.window,'--run-dir',run_directory/'linkedin','--minutes','43'if weekly else'10','--max-new-jds','75'if weekly else'25','--resume'], 2585 if weekly else 605),
         ('handshake', ['./discovery/scripts/run_handshake_discovery.sh',args.window],360 if weekly else 120),
-        ('jobspy', [PYTHON,'discovery/scripts/fetch_jobspy_breadth.py','--hours-old','168' if weekly else '24','--results','30','--query-index','39','--query-index','41','--query-index','51'],300),
-        ('startup', [PYTHON,'discovery/auto/startup_apply_pipeline.py','--limit-companies','10','--limit-jobs','15'],180),
+        ('jobspy', [PYTHON,'discovery/scripts/fetch_jobspy_breadth.py','--hours-old','168' if weekly else '24','--results','30','--query-index','39','--query-index','41','--query-index','51','--checkpoint-dir',run_directory/'jobspy-checkpoints'],300 if weekly else 180),
+        ('startup', [PYTHON,'discovery/auto/startup_apply_pipeline.py','--limit-companies','10','--limit-jobs','15'],180 if weekly else 60),
     ]
     if not args.saved_only:
         if args.include_twelvetwenty:
@@ -133,7 +135,7 @@ def main():
             print('Another bounded discovery run is already active.')
             return 75
         state = supervise(stages, directory=ROOT/'discovery/auto/checkpoints'/args.run_id,
-                          minutes=90 if weekly else 30, resume=args.resume)
+                          minutes=args.minutes or (90 if weekly else 30), resume=args.resume)
     print(json.dumps(state, indent=2))
     # Compatibility contract consumed by the existing combined nightly runner.
     publication=run_directory/'publish.log'

@@ -6,6 +6,16 @@ def test_admission_deduplicates_and_never_overfills_jd_capacity():
     kept,deferred=stream.admit(cards,set(),1)
     assert len(kept)==1 and len(deferred)==1
 
+def test_failed_search_does_not_starve_other_lanes(tmp_path,monkeypatch):
+    calls=[]
+    def stage(command,*args):
+        calls.append(command)
+        return 124,None
+    monkeypatch.setattr(stream,'stage',stage)
+    result=stream.run(['Graduate 2027','Spring 2027','MBA 2027'],tmp_path,5,25,window='24h')
+    assert len(calls)==3
+    assert set(result['queries'])=={'Graduate 2027','Spring 2027','MBA 2027'}
+
 def test_interrupted_batch_resumes_jds_without_recollecting(tmp_path,monkeypatch):
     raw=tmp_path/'raw.json';selected=tmp_path/'selected.json';partial=tmp_path/'partial.json';full=tmp_path/'full.json'
     cards=[{'title':'Product Manager 2027','company':'Example','url':f'https://www.linkedin.com/jobs/view/{i}/','jd_text':''}for i in [1,2]]

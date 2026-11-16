@@ -204,6 +204,13 @@ def _url_key(value: str) -> str:
     return re.sub(r"[?#].*$", "", str(value or "").strip()).rstrip("/").casefold()
 
 
+def has_cohort_signal(title: str, insight: str = "") -> bool:
+    """Require card evidence, not the search query's year, before daily JD spend."""
+    return bool(re.search(
+        r"\b(?:2027|mba|graduates?|new[ -]grad(?:uate)?|university|rotational|"
+        r"entry[ -]level|early[ -]career|pathways)\b", f"{title} {insight}", re.I))
+
+
 def _title_company_key(company: str, title: str) -> str:
     return re.sub(r"\s+", " ", f"{company}|{title}".strip().casefold())
 
@@ -214,6 +221,8 @@ def main() -> int:
     parser.add_argument("--output-dir", type=Path, default=ROOT / "discovery" / "source_validation")
     parser.add_argument("--exclude-artifact", action="append", type=Path, default=[])
     parser.add_argument("--exclude-workbook", action="store_true")
+    parser.add_argument("--require-cohort-signal", action="store_true",
+                        help="Park undated generic roles in the audit before spending on JDs.")
     args = parser.parse_args()
 
     excluded_urls: set[str] = set()
@@ -256,6 +265,8 @@ def main() -> int:
                 continue
             seen_urls.add(card.url)
             selected, reason = classify_title(card.title, card.search_term)
+            if selected and args.require_cohort_signal and not has_cohort_signal(card.title, card.insight):
+                selected, reason = False, "unsure_missing_cohort_signal_deferred"
             title_company_key = _title_company_key(card.company, card.title)
             url_key = _url_key(card.url)
             if selected and (

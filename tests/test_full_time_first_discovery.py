@@ -19,6 +19,16 @@ from shared.job_eligibility import classify_start_timing
 from discovery.scripts.select_linkedin_2027_candidates import classify_title
 
 
+def test_daily_jd_spend_requires_card_evidence_and_preserves_cohort_titles():
+    from discovery.scripts.select_linkedin_2027_candidates import has_cohort_signal
+    assert not has_cohort_signal('Product Manager')
+    assert not has_cohort_signal('Leadership Development Program')
+    assert has_cohort_signal('Product Manager Graduate 2027')
+    assert has_cohort_signal('MBA Product Manager')
+    assert has_cohort_signal('Product Manager','Start June 2027')
+    assert has_cohort_signal('Product Manager Intern - Spring 2027')
+
+
 @pytest.mark.parametrize("title", [
     "Activision 2027 Summer Internships - MBA",
     "Product Manager Intern (Summer 2027)",

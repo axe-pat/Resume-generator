@@ -7,30 +7,10 @@ OUTREACH=ROOT.parent/'Outreach'
 ACTIVE_DIRECTORY=None
 sys.path.insert(0,str(ROOT))
 from discovery.scripts.run_bounded_discovery import atomic_json,execute,PYTHON
+from discovery.scripts.recruiting_relationships import refresh_relationships,browser_preflight
 
 def read_csv(name):
     with (OUTREACH/'workspace'/name).open(newline='')as f:return list(csv.DictReader(f))
-
-def refresh_relationships(directory):
-    """Read and reconcile before selection; never draft or send messages."""
-    deadline = time.time() + 180
-    commands = {
-        'inbox': ['reconcile-linkedin-messages', '--live', '--apply', '--deep', '--include-seen', '--limit', '300'],
-        'connections': ['reconcile-linkedin', '--live', '--apply', '--max-age-days', '365', '--limit', '50'],
-    }
-    results = {}
-    for name, flags in commands.items():
-        code = execute([OUTREACH/'.venv/bin/python', OUTREACH/'main.py', *flags],
-            deadline=deadline, log_path=directory/f'{name}-sync.log', cwd=OUTREACH)
-        log = directory/f'{name}-sync.log'
-        empty_queue = name == 'connections' and log.exists() and 'No LinkedIn contacts matched the reconcile queue filters.' in log.read_text()
-        results[name] = {'returncode': code, 'status': 'no_pending_checks' if empty_queue else 'checked' if code == 0 else 'unavailable', 'log': str(log)}
-    result = {'checked_at': datetime.now().astimezone().isoformat(),
-        'status': 'checked' if all(r['status'] != 'unavailable' for r in results.values()) else 'incomplete',
-        'coverage': 'Bounded scan: up to 300 inbox threads and 50 pending connection profiles; not a complete account-history audit.',
-        'results': results}
-    atomic_json(directory/'relationship-sync.json', result)
-    return result
 
 def build_preview(plan, directory, run_id, discovery_state=None,posted=None,warm_context=None):
     organizations={r['organization_id']:r for r in read_csv('organizations.csv')}
@@ -74,16 +54,20 @@ def main():
     if not re.fullmatch(r'[A-Za-z0-9_-]+',a.run_id):p.error('Invalid run ID')
     directory=ROOT/'discovery/auto/checkpoints'/a.run_id;directory.mkdir(parents=True,exist_ok=True)
     ACTIVE_DIRECTORY=directory
+    deadline = time.time() + (90 if a.window == '7d' else 30)*60
     atomic_json(directory/'combined-state.json',{'run_id':a.run_id,'status':'running_preview','outbound_enabled':False})
     stages={};state=None
-    sync = {'status': 'offline'} if a.offline_preview else refresh_relationships(directory)
+    browser = {'status':'offline'} if a.offline_preview else browser_preflight(directory,a.run_id)
+    sync = {'status':'offline'} if a.offline_preview else refresh_relationships(directory) if browser['status']=='checked' else {'status':'incomplete','reason':'Browser preflight failed'}
+    atomic_json(directory/'combined-state.json',{'run_id':a.run_id,'status':'running_discovery' if a.collect else 'building_preview','relationship_sync':sync,'browser':browser,'outbound_enabled':False})
     if a.collect:
-        result=subprocess.run([str(PYTHON),'discovery/scripts/run_bounded_discovery.py','--window',a.window,'--run-id',a.run_id],cwd=ROOT)
-        stages['discovery_returncode']=result.returncode
+        command=[str(PYTHON),'discovery/scripts/run_bounded_discovery.py','--window',a.window,'--run-id',a.run_id,'--minutes',str(max(.1,(deadline-time.time()-45)/60))]
+        if browser['status']!='checked':command+=['--skip-linkedin','--skip-handshake']
+        stages['discovery_returncode']=execute(command,deadline=deadline-40,log_path=directory/'discovery.log')
         source=directory/'state.json'
         if source.exists():state=json.loads(source.read_text())
     # Read-only planner: no --execute, --live-linkedin or send flags.
-    result=subprocess.run([str(OUTREACH/'.venv/bin/python'),'main.py','build-track-2-daily-plan','--workspace','workspace','--max-companies','10','--max-email-research','0','--max-email-drafts','0'],cwd=OUTREACH,text=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
+    result=subprocess.run([str(OUTREACH/'.venv/bin/python'),'main.py','build-track-2-daily-plan','--workspace','workspace','--max-companies','10','--max-email-research','0','--max-email-drafts','0','--current-hiring-only'],cwd=OUTREACH,text=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,timeout=30)
     (directory/'outreach-plan.log').write_text(result.stdout);stages['outreach_plan_returncode']=result.returncode
     paths=re.findall(r'Artifact: (.+\.json)',result.stdout)
     if not paths:
@@ -96,8 +80,8 @@ def main():
         qp=Path(queue_paths[-1]);qp=qp if qp.is_absolute()else OUTREACH/qp
         if qp.exists():posted=json.loads(qp.read_text())
     preview=build_preview(json.loads(plan_path.read_text()),directory,a.run_id,state,posted,a.warm_context)
-    ready = sync['status'] == 'checked'
-    atomic_json(directory/'combined-state.json',{'run_id':a.run_id,'status':'preview_ready' if ready else 'offline_preview_ready' if a.offline_preview else 'preview_needs_live_sync','relationship_sync':sync,'stages':stages,'outreach_plan':str(plan_path),'preview':str(directory/'preview.md'),'outbound_enabled':False})
+    ready = sync['status'] == 'checked' and all(v==0 for v in stages.values())
+    atomic_json(directory/'combined-state.json',{'run_id':a.run_id,'status':'preview_ready' if ready else 'offline_preview_ready' if a.offline_preview else 'preview_with_gaps','relationship_sync':sync,'browser':browser,'stages':stages,'outreach_plan':str(plan_path),'preview':str(directory/'preview.md'),'outbound_enabled':False})
     print(f"Preview: {directory/'preview.md'}")
     return 0 if all(v==0 for v in stages.values()) and (ready or a.offline_preview) else 2
 def entrypoint():

@@ -974,6 +974,23 @@ integrated live sending path remains unvalidated; company facts and message
 quality gates must be checked before activation.
 # Discovery scoring provider
 
+November 16 execution repair: `recruiting_relationships.py` owns browser preflight,
+internal inbox reconciliation and durable rotating profile checks. Healthy Chrome
+is retained; recovery goes through the existing ownership-checking launcher.
+Profile batches contain three people, completed batches survive later timeouts,
+and recent checks are reused for 20 hours. Inbox and profile budgets are separate.
+The combined runner shares one overall 30/90-minute budget with discovery and
+marks an output with collection failures as `preview_with_gaps`.
+
+Daily LinkedIn searches alternate graduate, Spring and MBA coverage immediately.
+Each query receives a time share and at most four admitted JDs (weekly: twelve).
+The selector's `--require-cohort-signal` parks generic roles without card-level
+cohort evidence in its audit rather than spending JD retrieval time on them.
+Raw JobSpy batches now use the exact run's checkpoint directory. The combined
+planner excludes historical openings from hiring credit without excluding the
+companies from relationship building. Tests cover lane fairness, cohort evidence,
+batch recovery, browser preflight and honest incomplete-run status.
+
 The startup collection lane also delegates scoring-client creation to the shared
 discovery scorer, so it follows Cursor selection rather than constructing a paid
 Anthropic client directly.

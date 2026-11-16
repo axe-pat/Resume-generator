@@ -4,13 +4,13 @@ from shared.job_eligibility import classify_start_timing
 from datetime import date
 
 FULL_TIME_SEARCHES = (
-    "Product Manager 2027", "Associate Product Manager 2027",
+    "Product Manager Graduate 2027", "Associate Product Manager 2027",
     "Rotational Product Manager 2027", "MBA Full Time Hire",
-    "MBA Leadership Development Program 2027", "MBA Program 2027",
+    "MBA Leadership Development Program 2027", "MBA Product Manager 2027",
     "Business Leadership Program MBA", "Product Strategy Operations New Grad",
     "Business Operations New Grad 2027", "GTM Strategy Operations New Grad",
     "Technical Program Manager New Grad 2027", "Solutions Engineer New Grad 2027",
-    "Solutions Architect Graduate 2027", "2027",
+    "Solutions Architect Graduate 2027", "MBA Strategy Operations 2027",
 )
 # Keep internships as a deliberately small off-cycle lane. Broad internship
 # searches are dominated by Summer 2027 results at this point in the cycle.
@@ -34,12 +34,14 @@ def linkedin_search_terms(window: str) -> tuple[str, ...]:
             if index//2 < len(OFF_CYCLE_INTERNSHIP_SEARCHES):
                 interleaved.append(OFF_CYCLE_INTERNSHIP_SEARCHES[index//2])
         return tuple(interleaved)
-    fixed = (FULL_TIME_SEARCHES[0], FULL_TIME_SEARCHES[4])
+    fixed = (FULL_TIME_SEARCHES[0], FULL_TIME_SEARCHES[5])
     pool = tuple(t for t in FULL_TIME_SEARCHES if t not in fixed)
     offset = date.today().toordinal()
     graduate = fixed + tuple(pool[(offset*4+i) % len(pool)] for i in range(4))
     spring = tuple(OFF_CYCLE_INTERNSHIP_SEARCHES[(offset*3+i) % 6] for i in range(3))
-    return graduate + spring
+    # Reach graduate, Spring and MBA searches within the first three slots.
+    return (graduate[0], spring[0], graduate[1], graduate[2], spring[1],
+            graduate[3], graduate[4], spring[2], graduate[5])
 
 
 def internship_title_rejection(title: str) -> str:
